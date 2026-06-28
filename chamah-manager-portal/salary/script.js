@@ -7,11 +7,8 @@ const emptyComponents = document.querySelector("#empty-components");
 const estimatedGrossOutput = document.querySelector("#estimated-gross");
 const effectiveHourlyOutput = document.querySelector("#effective-hourly");
 const totalAdditionsOutput = document.querySelector("#total-additions");
-const grossSummaryOutput = document.querySelector("#gross-summary");
-const deductionsSummaryOutput = document.querySelector("#deductions-summary");
-const netSummaryOutput = document.querySelector("#net-summary");
+const netRangeSummaryOutput = document.querySelector("#net-range-summary");
 const printButton = document.querySelector("#print-estimate");
-const NET_DEDUCTION_RATE = 0.18;
 
 const currencyFormatter = new Intl.NumberFormat("he-IL", {
   style: "currency",
@@ -75,14 +72,12 @@ function renderComponents(rows) {
 }
 
 function updateSummary(totalAdditions, grossTotal, effectiveHourly) {
-  const deductions = grossTotal * NET_DEDUCTION_RATE;
-  const net = Math.max(grossTotal - deductions, 0);
+  const netMinimum = grossTotal * 0.84;
+  const netMaximum = grossTotal * 0.89;
   estimatedGrossOutput.textContent = money(grossTotal);
   effectiveHourlyOutput.textContent = money(effectiveHourly);
   totalAdditionsOutput.textContent = money(totalAdditions);
-  grossSummaryOutput.textContent = money(grossTotal);
-  deductionsSummaryOutput.textContent = money(deductions);
-  netSummaryOutput.textContent = money(net);
+  netRangeSummaryOutput.textContent = money(netMinimum) + " - " + money(netMaximum);
 }
 
 function resetResults() {

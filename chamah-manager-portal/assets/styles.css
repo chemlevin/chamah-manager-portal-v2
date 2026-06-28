@@ -413,3 +413,68 @@ button:hover { transform: translateY(-1px); }
     margin-bottom: 0;
   }
 }
+
+
+/* Gross net range upgrade */
+.salary-hero-result {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid rgba(68, 118, 108, 0.22);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(229, 240, 236, 0.82), rgba(255, 255, 255, 0.95));
+}
+
+.net-range-card {
+  gap: 10px;
+  border-color: rgba(201, 134, 90, 0.28);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.net-range-main {
+  display: grid;
+  gap: 6px;
+}
+
+.net-range-main span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.net-range-main strong {
+  color: var(--brand-dark);
+  font-size: clamp(1.55rem, 4vw, 2.2rem);
+  line-height: 1.1;
+}
+
+.net-range-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  font-weight: 700;
+}
+
+.hourly-card {
+  margin-top: 0;
+}
+
+@media (max-width: 768px) {
+  .salary-hero-result,
+  .net-range-card,
+  .hourly-card {
+    width: 100%;
+  }
+
+  .salary-hero-result {
+    padding: 16px;
+  }
+
+  .net-range-main strong {
+    font-size: clamp(1.45rem, 8vw, 2rem);
+  }
+
+  .hourly-card {
+    padding: 12px;
+  }
+}

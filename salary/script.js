@@ -7,7 +7,6 @@ const emptyComponents = document.querySelector("#empty-components");
 const estimatedGrossOutput = document.querySelector("#estimated-gross");
 const effectiveHourlyOutput = document.querySelector("#effective-hourly");
 const totalAdditionsOutput = document.querySelector("#total-additions");
-const grossSummaryOutput = document.querySelector("#gross-summary");
 const netRangeSummaryOutput = document.querySelector("#net-range-summary");
 const printButton = document.querySelector("#print-estimate");
 
