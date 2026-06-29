@@ -1,1 +1,205 @@
-<!doctype html><html lang="he" dir="rtl"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>דשבורד - פורטל מנהלות חמ״ה</title><link rel="stylesheet" href="../assets/styles.css" /></head><body><main class="portal-shell"><header class="topbar"><a class="brand" href="../dashboard/"><small>מעונות חמ״ה</small><strong>פורטל מנהלות</strong></a><a class="nav-link" href="../dashboard/">חזרה לדשבורד</a></header><section class="hero"><p class="eyebrow">דשבורד</p><h1>ניהול מעון במקום אחד</h1><p class="subtitle">מסך כניסה לפורטל מנהלות. כרגע מחשבון השכר פעיל, ושאר המודולים מוכנים להרחבה בהמשך.</p></section><section class="card-grid"><a class="module-card active" href="../salary/"><div><h2>מחשבון שכר</h2><p>הערכת שכר ותוספות לעובדת חדשה או קיימת.</p></div><span class="status">פעיל</span></a><a class="module-card disabled" href="#"><div><h2>ספקים ותשלומים</h2><p>ניהול עתידי של ספקים, חשבוניות ותשלומים.</p></div><span class="status">בקרוב</span></a><a class="module-card disabled" href="#"><div><h2>עובדים</h2><p>ניהול פרטי עובדות, תפקידים ומסמכים.</p></div><span class="status">בקרוב</span></a><a class="module-card disabled" href="#"><div><h2>משימות</h2><p>מעקב משימות יומי למנהלת המעון.</p></div><span class="status">בקרוב</span></a><a class="module-card disabled" href="#"><div><h2>תחזוקה</h2><p>קריאות תחזוקה ומעקב טיפול.</p></div><span class="status">בקרוב</span></a></section></main></body></html>
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>דשבורד ניהולי - פורטל מנהלות חמ״ה</title>
+    <link rel="stylesheet" href="../assets/styles.css" />
+  </head>
+  <body>
+    <main class="portal-shell executive-dashboard">
+      <header class="topbar dashboard-topbar">
+        <a class="brand" href="../dashboard/">
+          <small>מעונות חמ״ה</small>
+          <strong>פורטל מנהלות</strong>
+        </a>
+        <nav class="dashboard-nav" aria-label="ניווט ראשי">
+          <a class="nav-link active" href="../dashboard/">דשבורד</a>
+          <a class="nav-link" href="../salary/">מחשבון שכר</a>
+        </nav>
+      </header>
+
+      <section class="dashboard-hero" aria-labelledby="dashboard-title">
+        <div>
+          <p class="eyebrow">דשבורד הנהלה</p>
+          <h1 id="dashboard-title">תמונת מצב ארגונית</h1>
+          <p class="subtitle">נתוני דמה לשלב האפיון: שכר, שעות, הוצאות, איכות נתונים ותובנות ניהוליות במקום אחד.</p>
+        </div>
+        <div class="dashboard-period" aria-label="תקופה נבחרת">
+          <span>חודש נבחר</span>
+          <strong id="selected-month-label">כל החודשים</strong>
+        </div>
+      </section>
+
+      <section class="filter-bar" aria-label="מסננים כלליים">
+        <label>
+          <span>חודש</span>
+          <select id="month-filter"></select>
+        </label>
+        <label>
+          <span>מחלקה / מעון</span>
+          <select id="department-filter"></select>
+        </label>
+        <label>
+          <span>הגדרה</span>
+          <select id="category-filter"></select>
+        </label>
+      </section>
+
+      <section class="kpi-grid" id="kpi-grid" aria-label="מדדים מרכזיים"></section>
+
+      <section class="dashboard-section financial-section" aria-labelledby="financial-title">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">כספים</p>
+            <h2 id="financial-title">הוצאות וניהול תקציבי</h2>
+          </div>
+          <span id="expense-count-label" class="section-chip"></span>
+        </div>
+        <div class="dashboard-panels">
+          <article class="dashboard-panel chart-panel">
+            <div class="panel-heading">
+              <h3>הוצאות לפי מחלקה</h3>
+              <span>₪</span>
+            </div>
+            <div class="bar-chart" id="department-expense-chart"></div>
+          </article>
+          <article class="dashboard-panel chart-panel">
+            <div class="panel-heading">
+              <h3>הוצאות לפי הגדרה</h3>
+              <span>₪</span>
+            </div>
+            <div class="bar-chart" id="category-expense-chart"></div>
+          </article>
+          <article class="dashboard-panel top-list-panel">
+            <div class="panel-heading">
+              <h3>5 ההוצאות הגבוהות</h3>
+              <span>דירוג</span>
+            </div>
+            <div class="rank-list" id="top-expenses"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="dashboard-section payroll-section" aria-labelledby="payroll-title">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">שכר</p>
+            <h2 id="payroll-title">עלות עובדים ושעות עבודה</h2>
+          </div>
+          <span id="payroll-count-label" class="section-chip"></span>
+        </div>
+        <div class="dashboard-panels">
+          <article class="dashboard-panel chart-panel">
+            <div class="panel-heading">
+              <h3>שכר לפי מעון</h3>
+              <span>₪</span>
+            </div>
+            <div class="bar-chart" id="payroll-daycare-chart"></div>
+          </article>
+          <article class="dashboard-panel chart-panel">
+            <div class="panel-heading">
+              <h3>שכר לפי כיתה</h3>
+              <span>₪</span>
+            </div>
+            <div class="bar-chart" id="payroll-class-chart"></div>
+          </article>
+          <article class="dashboard-panel insight-panel">
+            <div class="panel-heading">
+              <h3>תובנות הנהלה</h3>
+              <span>חי</span>
+            </div>
+            <div class="insight-list" id="insight-list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="dashboard-section" aria-labelledby="quality-title">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">איכות נתונים</p>
+            <h2 id="quality-title">שורות שדורשות תשומת לב</h2>
+          </div>
+        </div>
+        <div class="warning-grid" id="warning-grid"></div>
+      </section>
+
+      <section class="dashboard-section tables-section" aria-labelledby="tables-title">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow">טבלאות</p>
+            <h2 id="tables-title">פירוט נתונים</h2>
+          </div>
+        </div>
+
+        <div class="table-tools">
+          <label>
+            <span>חיפוש</span>
+            <input id="table-search" type="search" placeholder="חיפוש לפי עובד, פירוט, מעון או הגדרה" />
+          </label>
+          <label>
+            <span>מיון הוצאות</span>
+            <select id="expense-sort">
+              <option value="amount-desc">סכום גבוה לנמוך</option>
+              <option value="amount-asc">סכום נמוך לגבוה</option>
+              <option value="month-desc">חודש אחרון</option>
+            </select>
+          </label>
+          <label>
+            <span>מיון שכר</span>
+            <select id="payroll-sort">
+              <option value="cost-desc">עלות גבוהה לנמוך</option>
+              <option value="cost-asc">עלות נמוכה לגבוה</option>
+              <option value="hours-desc">שעות גבוה לנמוך</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="data-table-grid">
+          <article class="dashboard-panel data-table-panel">
+            <div class="panel-heading">
+              <h3>תנועות כספיות</h3>
+              <span id="financial-table-count"></span>
+            </div>
+            <div class="dashboard-table-wrap">
+              <table class="dashboard-table">
+                <thead>
+                  <tr>
+                    <th>סכום</th>
+                    <th>הגדרה</th>
+                    <th>עבור מחלקה</th>
+                    <th>עבור חודש</th>
+                    <th>פירוט</th>
+                  </tr>
+                </thead>
+                <tbody id="financial-table-body"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="dashboard-panel data-table-panel">
+            <div class="panel-heading">
+              <h3>שכר עובדים</h3>
+              <span id="payroll-table-count"></span>
+            </div>
+            <div class="dashboard-table-wrap">
+              <table class="dashboard-table">
+                <thead>
+                  <tr>
+                    <th>עובד</th>
+                    <th>מעון</th>
+                    <th>כיתה</th>
+                    <th>שעות</th>
+                    <th>עלות</th>
+                  </tr>
+                </thead>
+                <tbody id="payroll-table-body"></tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+    <script src="script.js"></script>
+  </body>
+</html>
