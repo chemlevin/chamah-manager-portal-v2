@@ -947,3 +947,417 @@ button:hover { transform: translateY(-1px); }
     min-width: 680px;
   }
 }
+
+
+/* CEO dashboard redesign */
+.ceo-dashboard {
+  gap: 14px;
+}
+
+.ceo-dashboard .compact-hero {
+  min-height: auto;
+  align-items: center;
+  padding: 18px 24px;
+}
+
+.ceo-dashboard .compact-hero h1 {
+  font-size: clamp(1.65rem, 3vw, 2.45rem);
+}
+
+.ceo-dashboard .compact-hero .subtitle {
+  max-width: 680px;
+  margin-top: 8px;
+  font-size: 0.98rem;
+  line-height: 1.55;
+}
+
+.ceo-dashboard .compact-hero::before {
+  width: 82px;
+  height: 82px;
+  opacity: 0.72;
+}
+
+.compact-title-row {
+  margin-top: 2px;
+}
+
+.compact-title-row h2 {
+  font-size: clamp(1.25rem, 2vw, 1.72rem);
+}
+
+.ceo-kpi-grid {
+  grid-template-columns: repeat(4, minmax(0, 1.35fr)) repeat(3, minmax(0, 0.9fr));
+}
+
+.ceo-kpi-grid .kpi-card {
+  min-height: 132px;
+}
+
+.kpi-card.primary-kpi {
+  padding: 20px;
+  border-color: rgba(68, 118, 108, 0.26);
+  background: linear-gradient(180deg, rgba(229, 240, 236, 0.86), rgba(255, 255, 255, 0.95));
+}
+
+.kpi-card.primary-kpi strong {
+  color: var(--brand-dark);
+  font-size: clamp(1.9rem, 3vw, 2.7rem);
+}
+
+.kpi-card.secondary-kpi {
+  min-height: 118px;
+  box-shadow: 0 14px 34px rgba(47, 65, 61, 0.09);
+}
+
+.kpi-card.secondary-kpi strong {
+  font-size: clamp(1.35rem, 2vw, 1.75rem);
+}
+
+.daycare-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.daycare-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(223, 229, 225, 0.92);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.93);
+  box-shadow: var(--shadow);
+}
+
+.daycare-card.attention-card {
+  border-color: rgba(201, 134, 90, 0.38);
+  background: linear-gradient(180deg, rgba(248, 236, 228, 0.72), rgba(255, 255, 255, 0.94));
+}
+
+.daycare-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.daycare-card h3 {
+  margin: 0;
+  font-size: 1.18rem;
+}
+
+.daycare-card-head span {
+  display: inline-flex;
+  margin-top: 7px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  color: var(--brand-dark);
+  background: var(--brand-soft);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.attention-card .daycare-card-head span {
+  color: #6d5546;
+  background: var(--accent-soft);
+}
+
+.daycare-card-head > strong {
+  color: var(--brand-dark);
+  font-size: 1.45rem;
+  white-space: nowrap;
+}
+
+.daycare-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.daycare-metrics div {
+  min-height: 74px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.daycare-metrics span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.daycare-metrics strong {
+  display: block;
+  margin-top: 7px;
+  color: var(--ink);
+  font-size: 1.1rem;
+}
+
+.cost-share {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #eef2ef;
+}
+
+.cost-share span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--brand), var(--accent));
+}
+
+.two-one-panels {
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.85fr);
+}
+
+.wide-panel {
+  min-height: 100%;
+}
+
+.executive-alert-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.executive-alert {
+  padding: 16px;
+  border: 1px solid rgba(201, 134, 90, 0.28);
+  border-radius: 8px;
+  background: rgba(248, 236, 228, 0.72);
+  box-shadow: 0 14px 34px rgba(47, 65, 61, 0.09);
+}
+
+.executive-alert span {
+  color: #6d5546;
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.executive-alert strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--ink);
+  font-size: 1.18rem;
+}
+
+.executive-alert p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+  font-weight: 700;
+}
+
+.muted-chip {
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid var(--line);
+}
+
+@media (max-width: 1120px) {
+  .ceo-kpi-grid,
+  .daycare-card-grid,
+  .executive-alert-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .two-one-panels {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .ceo-dashboard {
+    gap: 10px;
+  }
+
+  .ceo-dashboard .compact-hero {
+    padding: 14px;
+  }
+
+  .ceo-dashboard .compact-hero .subtitle {
+    font-size: 0.92rem;
+  }
+
+  .ceo-kpi-grid,
+  .daycare-card-grid,
+  .executive-alert-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ceo-kpi-grid .kpi-card,
+  .daycare-card,
+  .executive-alert {
+    min-height: auto;
+    padding: 14px;
+  }
+
+  .kpi-card.primary-kpi strong {
+    font-size: clamp(2rem, 10vw, 2.65rem);
+  }
+
+  .daycare-card-grid {
+    gap: 10px;
+  }
+
+  .daycare-card-head {
+    flex-direction: column;
+  }
+
+  .daycare-card-head > strong {
+    font-size: 1.6rem;
+  }
+
+  .daycare-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .daycare-metrics div {
+    min-height: 66px;
+    padding: 10px;
+  }
+
+  .tables-section .dashboard-panel {
+    padding: 12px;
+  }
+}
+
+
+/* Cashflow-first dashboard */
+.cashflow-dashboard .cashflow-hero {
+  padding-block: 14px;
+}
+
+.cashflow-dashboard .cashflow-hero h1 {
+  font-size: clamp(1.55rem, 2.8vw, 2.25rem);
+}
+
+.cashflow-summary {
+  gap: 12px;
+}
+
+.cashflow-kpi-grid {
+  grid-template-columns: repeat(4, minmax(0, 1.25fr)) repeat(4, minmax(0, 0.85fr));
+}
+
+.cashflow-kpi {
+  min-height: 128px;
+}
+
+.cashflow-kpi.income-kpi,
+.cashflow-kpi.expense-kpi,
+.cashflow-kpi.balance-kpi,
+.cashflow-kpi.payroll-kpi,
+.cashflow-kpi.attention-kpi {
+  padding: 21px;
+  border-color: rgba(68, 118, 108, 0.26);
+  background: linear-gradient(180deg, rgba(229, 240, 236, 0.86), rgba(255, 255, 255, 0.96));
+}
+
+.cashflow-kpi.expense-kpi,
+.cashflow-kpi.payroll-kpi {
+  border-color: rgba(201, 134, 90, 0.28);
+  background: linear-gradient(180deg, rgba(248, 236, 228, 0.62), rgba(255, 255, 255, 0.96));
+}
+
+.cashflow-kpi.attention-kpi {
+  border-color: rgba(201, 134, 90, 0.48);
+  background: rgba(248, 236, 228, 0.82);
+}
+
+.cashflow-kpi.income-kpi strong,
+.cashflow-kpi.expense-kpi strong,
+.cashflow-kpi.balance-kpi strong,
+.cashflow-kpi.payroll-kpi strong,
+.cashflow-kpi.attention-kpi strong {
+  color: var(--brand-dark);
+  font-size: clamp(1.9rem, 3.4vw, 2.85rem);
+}
+
+.financial-status-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.financial-status-card .daycare-card-head > strong {
+  font-size: 1.65rem;
+}
+
+.financial-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.budget-note {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed rgba(102, 118, 125, 0.34);
+  border-radius: 8px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.68);
+  font-weight: 900;
+}
+
+.reduced-section .dashboard-panel {
+  box-shadow: 0 12px 30px rgba(47, 65, 61, 0.08);
+}
+
+.reduced-section .section-title-row h2 {
+  font-size: clamp(1.18rem, 1.8vw, 1.52rem);
+}
+
+.payroll-analysis-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.metric-chart .bar-row-text strong {
+  color: var(--ink);
+}
+
+.cashflow-dashboard .dashboard-table {
+  min-width: 860px;
+}
+
+@media (max-width: 1120px) {
+  .cashflow-kpi-grid,
+  .financial-status-grid,
+  .payroll-analysis-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .cashflow-dashboard .cashflow-hero {
+    padding: 12px;
+  }
+
+  .cashflow-kpi-grid,
+  .financial-status-grid,
+  .payroll-analysis-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cashflow-kpi {
+    min-height: 108px;
+  }
+
+  .cashflow-kpi.income-kpi strong,
+  .cashflow-kpi.expense-kpi strong,
+  .cashflow-kpi.balance-kpi strong,
+  .cashflow-kpi.payroll-kpi strong,
+  .cashflow-kpi.attention-kpi strong {
+    font-size: clamp(2rem, 10vw, 2.7rem);
+  }
+
+  .financial-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .reduced-section {
+    margin-top: 2px;
+  }
+}
