@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="../assets/styles.css" />
   </head>
   <body>
-    <main class="portal-shell module-coming-soon-page">
+    <main class="portal-shell employees-page">
       <header class="global-nav" aria-label="ניווט ראשי">
         <a class="global-brand" href="../" aria-label="עמוד הבית של פורטל מנהלות חמ״ה">
           <img src="../assets/chamah-logo.svg" alt="חמ״ה" />
@@ -16,11 +16,11 @@
         <input class="nav-toggle" id="nav-toggle" type="checkbox" aria-hidden="true" />
         <label class="hamburger-button" for="nav-toggle" aria-label="פתיחת תפריט" role="button"><span></span><span></span><span></span></label>
         <nav class="desktop-nav" aria-label="ניווט עמודים">
-          <a class="global-nav-item " href="../">בית</a>
-          <a class="global-nav-item " href="../calculators/">מחשבונים</a>
-          <a class="global-nav-item " href="../dashboard/">דשבורד</a>
-          <a class="global-nav-item " href="../maintenance/">תחזוקה</a>
-          <a class="global-nav-item " href="../tasks/">משימות</a>
+          <a class="global-nav-item" href="../">בית</a>
+          <a class="global-nav-item" href="../calculators/">מחשבונים</a>
+          <a class="global-nav-item" href="../dashboard/">דשבורד</a>
+          <a class="global-nav-item" href="../maintenance/">תחזוקה</a>
+          <a class="global-nav-item" href="../tasks/">משימות</a>
           <a class="global-nav-item current" href="../employees/">צוות ורישוי</a>
         </nav>
         <label class="nav-backdrop" for="nav-toggle" aria-hidden="true"></label>
@@ -29,22 +29,60 @@
             <img src="../assets/chamah-logo.svg" alt="חמ״ה" />
             <strong>פורטל מנהלות חמ״ה</strong>
           </div>
-          <a class="global-nav-item " href="../">בית</a>
-          <a class="global-nav-item " href="../calculators/">מחשבונים</a>
-          <a class="global-nav-item " href="../dashboard/">דשבורד</a>
-          <a class="global-nav-item " href="../maintenance/">תחזוקה</a>
-          <a class="global-nav-item " href="../tasks/">משימות</a>
+          <a class="global-nav-item" href="../">בית</a>
+          <a class="global-nav-item" href="../calculators/">מחשבונים</a>
+          <a class="global-nav-item" href="../dashboard/">דשבורד</a>
+          <a class="global-nav-item" href="../maintenance/">תחזוקה</a>
+          <a class="global-nav-item" href="../tasks/">משימות</a>
           <a class="global-nav-item current" href="../employees/">צוות ורישוי</a>
         </aside>
       </header>
-      <section class="coming-soon-panel" aria-labelledby="coming-soon-title">
-        <span class="coming-soon-icon">צ</span>
-        <p class="eyebrow">בקרוב</p>
-        <h1 id="coming-soon-title">צוות ורישוי</h1>
-        <p>ניהול עובדים, הכשרות ומסמכי רישוי.</p>
-        <p>המודול נמצא בפיתוח.</p>
-        <a class="primary-button home-return-button" href="../">חזרה לבית</a>
+      <section class="employees-hero" aria-labelledby="employees-title">
+        <div>
+          <p class="eyebrow">מודול צוות ורישוי</p>
+          <h1 id="employees-title">צוות ורישוי</h1>
+          <p class="subtitle">תמונת מצב של עובדות, שיבוצים, הכשרות ומסמכים. הנתונים בדוגמה בלבד עד חיבור Google Sheets.</p>
+        </div>
+      </section>
+
+      <section class="employee-insights" aria-label="תובנות צוות">
+        <article><span>סה״כ עובדות</span><strong id="insight-total">0</strong></article>
+        <article><span>פעילות</span><strong id="insight-active">0</strong></article>
+        <article><span>חסרות תעודת מטפלת</span><strong id="insight-missing-cert">0</strong></article>
+        <article><span>הכשרות שפגות בקרוב</span><strong id="insight-expiring">0</strong></article>
+      </section>
+
+      <section class="employee-filters" aria-label="סינון עובדות">
+        <label><span>חיפוש שם עובדת</span><input id="employee-search" type="search" placeholder="לדוגמה: שרה" /></label>
+        <label><span>מעון</span><select id="daycare-filter"></select></label>
+        <label><span>תפקיד</span><select id="role-filter"></select></label>
+        <label><span>סטטוס</span><select id="status-filter"></select></label>
+        <label><span>תעודת מטפלת</span><select id="certificate-filter"></select></label>
+      </section>
+
+      <section class="employees-workspace">
+        <section class="employee-list-panel" aria-labelledby="employee-list-title">
+          <div class="employee-list-heading">
+            <div>
+              <p class="eyebrow">רשימת עובדות</p>
+              <h2 id="employee-list-title">עובדות מוצגות</h2>
+            </div>
+            <span id="employee-count-label">0 עובדות</span>
+          </div>
+          <div class="employee-card-list" id="employee-card-list"></div>
+          <p class="employee-empty" id="employee-empty" hidden>לא נמצאו עובדות לפי הסינון הנוכחי.</p>
+        </section>
+
+        <aside class="employee-detail-panel" id="employee-detail-panel" aria-live="polite">
+          <div class="employee-detail-empty" id="employee-detail-empty">
+            <span>צ</span>
+            <strong>בחרי עובדת מהרשימה</strong>
+            <p>כאן יוצגו פרטי שיבוץ, משרה, רישוי ומסמכים.</p>
+          </div>
+          <div class="employee-detail-content" id="employee-detail-content" hidden></div>
+        </aside>
       </section>
     </main>
+    <script src="script.js"></script>
   </body>
 </html>

@@ -5,7 +5,8 @@ export const pages = [
   { path: '/calculators/', name: 'calculators' },
   { path: '/occupancy/', name: 'occupancy' },
   { path: '/salary/', name: 'salary' },
-  { path: '/dashboard/', name: 'dashboard' }
+  { path: '/dashboard/', name: 'dashboard' },
+  { path: '/employees/', name: 'employees' }
 ];
 
 export const screenshotTargets = new Set(['desktop-1440', 'mobile-390']);
@@ -37,7 +38,7 @@ export async function expectCoreLayoutInsideViewport(page) {
     const selectors = [
       '.portal-shell', '.global-nav', '.app-home-hero', '.app-module-card',
       '.calculator-hub-hero', '.calculator-card', '.occupancy-form',
-      '.result-card', '.salary-form-panel', '.dashboard-section', '.filter-bar'
+      '.result-card', '.salary-form-panel', '.dashboard-section', '.filter-bar', '.employees-hero', '.employee-card', '.employee-detail-panel'
     ];
     const width = document.documentElement.clientWidth;
     const items = [];
