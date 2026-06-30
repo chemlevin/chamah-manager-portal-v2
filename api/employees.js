@@ -3,9 +3,17 @@ const TAB_NAME = 'עובדים';
 const RANGE = TAB_NAME + '!A:AF';
 const ERROR_MESSAGE = 'לא ניתן לטעון את נתוני הצוות כרגע.';
 
+function normalizePrivateKey(value) {
+  if (!value) return '';
+  return value
+    .replace(/^"|"$/g, '')
+    .replace(/\\n/g, "\n")
+    .trim();
+}
+
 function getPrivateKey() {
   const key = process.env.GOOGLE_PRIVATE_KEY || process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
-  return key ? key.replace(/\\n/g, '\n') : '';
+  return normalizePrivateKey(key);
 }
 
 function getClientEmail() {
