@@ -2953,3 +2953,19 @@ body { width: 100%; max-width: 100%; overflow-x: clip; }
   .cashflow-dashboard .dashboard-table td { padding: 8px 9px; }
   .cashflow-dashboard .tables-section { padding-bottom: 10px; }
 }
+
+.employee-export-button {
+  align-self: end;
+  min-height: 48px;
+  color: #fff;
+  background: var(--brand);
+  box-shadow: 0 12px 22px rgba(68, 118, 108, .18);
+}
+.employee-export-button:hover { background: var(--brand-dark); }
+@media (min-width: 1121px) {
+  .employee-filters { grid-template-columns: minmax(220px, 1.25fr) repeat(6, minmax(118px, 1fr)) auto; }
+  .employee-export-button { min-width: 118px; }
+}
+@media (max-width: 1120px) {
+  .employee-export-button { width: 100%; }
+}
