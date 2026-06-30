@@ -24,7 +24,7 @@
         <div>
           <p class="eyebrow">מחשבון תפוסה ותקינה</p>
           <h1 id="occupancy-title">כדאיות כיתה במבט ניהולי</h1>
-          <p class="subtitle">בדיקה מהירה או חישוב מלא לשטח, תקינה, הכנסה, עלות צוות ורווחיות לפי הרכב גילאים תקין.</p>
+          <p class="subtitle">בדיקה מהירה או חישוב מלא לשטח, תקינה, הכנסה, עלות צוות ויתרה חודשית לפי הרכב גילאים תקין.</p>
         </div>
         <div class="mode-switch" aria-label="בחירת מצב חישוב">
           <label><input type="radio" name="calculator-mode" value="quick" checked /><span>בדיקה מהירה</span></label>
@@ -40,17 +40,29 @@
               <strong id="occupancy-status-title">תקין</strong>
               <p id="occupancy-status-detail">הכיתה עומדת בדרישות השטח והתקינה.</p>
             </div>
-            <div class="profit-badge">
-              <span>רווח גולמי משוער</span>
-              <strong id="gross-profit">₪0</strong>
+            <div class="balance-badge">
+              <span>יתרה חודשית משוערת</span>
+              <strong id="estimated-balance">₪0</strong>
             </div>
           </div>
 
-          <article class="recommendation-card" id="occupancy-recommendation">
-            <span>המלצת מערכת</span>
+          <article class="recommendation-card best-alternative-card" id="occupancy-recommendation">
+            <span>חלופה מומלצת</span>
             <strong>בודק חלופות תקינות...</strong>
             <p>המערכת תשווה בין ההרכב הנוכחי לבין חלופות תקינות בלבד.</p>
           </article>
+
+          <section class="export-share-card" aria-label="ייצוא ושיתוף סיכום">
+            <div>
+              <span>ייצוא ושיתוף</span>
+              <strong>סיכום כיתה נקי להעברה</strong>
+            </div>
+            <div class="export-actions">
+              <button class="secondary-button" type="button" id="copy-summary">העתק סיכום</button>
+              <button class="print-button" type="button" id="download-pdf" disabled>הורד PDF - בקרוב</button>
+            </div>
+            <p id="copy-feedback" aria-live="polite"></p>
+          </section>
 
           <div class="occupancy-summary-grid" id="occupancy-summary-grid"></div>
 
@@ -143,8 +155,8 @@
 
         <section class="scenario-section" aria-labelledby="scenario-title">
           <div class="section-heading">
-            <h2 id="scenario-title">חלופות תקינות להשוואה</h2>
-            <span>ללא תינוק + בוגר וללא שלוש שכבות יחד</span>
+            <h2 id="scenario-title">חלופות מפורטות להשוואה</h2>
+            <span>פירוט משני לאחר הסיכום וההמלצה</span>
           </div>
           <div class="scenario-grid" id="scenario-grid"></div>
         </section>

@@ -1,7 +1,7 @@
 const DEFAULT_RULES = {
-  infants: { label: "תינוק", plural: "תינוקות", sqmPerChild: 2.8, ratio: 5, tuition: 3936, staffCost: 9000 },
-  toddlers: { label: "פעוט", plural: "פעוטים", sqmPerChild: 2.6, ratio: 8, tuition: 2917, staffCost: 9000 },
-  older: { label: "בוגר", plural: "בוגרים", sqmPerChild: 2.2, ratio: 10, tuition: 2587, staffCost: 9000 },
+  infants: { label: "תינוק", plural: "תינוקות", sqmPerChild: 2.8, ratio: 5, tuition: 3936, staffCost: 9000, maxChildren: 20 },
+  toddlers: { label: "פעוט", plural: "פעוטים", sqmPerChild: 2.6, ratio: 8, tuition: 2917, staffCost: 9000, maxChildren: 27 },
+  older: { label: "בוגר", plural: "בוגרים", sqmPerChild: 2.2, ratio: 10, tuition: 2587, staffCost: 9000, maxChildren: 33 },
 };
 
 const CLASS_TYPE_AGES = {
@@ -14,7 +14,7 @@ const CLASS_TYPE_AGES = {
 
 const DEFAULT_QUICK_COUNTS = {
   infants: { infants: 18, toddlers: 0, older: 0 },
-  toddlers: { infants: 0, toddlers: 28, older: 0 },
+  toddlers: { infants: 0, toddlers: 27, older: 0 },
   older: { infants: 0, toddlers: 0, older: 32 },
   "infants-toddlers": { infants: 10, toddlers: 12, older: 0 },
   "toddlers-older": { infants: 0, toddlers: 5, older: 26 },
@@ -28,15 +28,18 @@ const modeLabel = document.querySelector("#mode-label");
 const classLabel = document.querySelector("#occupancy-class-label");
 const statusTitle = document.querySelector("#occupancy-status-title");
 const statusDetail = document.querySelector("#occupancy-status-detail");
-const grossProfitOutput = document.querySelector("#gross-profit");
+const monthlyBalanceOutput = document.querySelector("#estimated-balance");
 const totalRequiredStaffOutput = document.querySelector("#total-required-staff");
 const summaryGrid = document.querySelector("#occupancy-summary-grid");
 const ageBreakdownList = document.querySelector("#age-breakdown-list");
 const scenarioGrid = document.querySelector("#scenario-grid");
 const recommendationCard = document.querySelector("#occupancy-recommendation");
+const copySummaryButton = document.querySelector("#copy-summary");
+const copyFeedback = document.querySelector("#copy-feedback");
 
 const numberFormatter = new Intl.NumberFormat("he-IL", { maximumFractionDigits: 1 });
 const currencyFormatter = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
+let lastSummaryText = "";
 
 function money(value) {
   return currencyFormatter.format(Number.isFinite(value) ? value : 0);
@@ -54,6 +57,11 @@ function calculateRequiredStaff(children, ratio) {
 function calculateRequiredSqm(children, sqmPerChild) {
   if (!Number.isFinite(children) || children <= 0 || !Number.isFinite(sqmPerChild) || sqmPerChild <= 0) return 0;
   return children * sqmPerChild;
+}
+
+function calculateSqmCapacity(actualSqm, sqmPerChild) {
+  if (!Number.isFinite(actualSqm) || actualSqm <= 0 || !Number.isFinite(sqmPerChild) || sqmPerChild <= 0) return 0;
+  return Math.ceil(actualSqm / sqmPerChild);
 }
 
 function calculateIncome(children, tuition) {
@@ -74,76 +82,77 @@ function getMode() {
 function getRules() {
   const isFull = getMode() === "full";
   return {
-    infants: {
-      ...DEFAULT_RULES.infants,
-      tuition: isFull ? valueOf("infant-tuition", DEFAULT_RULES.infants.tuition) : DEFAULT_RULES.infants.tuition,
-      sqmPerChild: isFull ? valueOf("infant-sqm", DEFAULT_RULES.infants.sqmPerChild) : DEFAULT_RULES.infants.sqmPerChild,
-      ratio: isFull ? valueOf("infant-ratio", DEFAULT_RULES.infants.ratio) : DEFAULT_RULES.infants.ratio,
-    },
-    toddlers: {
-      ...DEFAULT_RULES.toddlers,
-      tuition: isFull ? valueOf("toddler-tuition", DEFAULT_RULES.toddlers.tuition) : DEFAULT_RULES.toddlers.tuition,
-      sqmPerChild: isFull ? valueOf("toddler-sqm", DEFAULT_RULES.toddlers.sqmPerChild) : DEFAULT_RULES.toddlers.sqmPerChild,
-      ratio: isFull ? valueOf("toddler-ratio", DEFAULT_RULES.toddlers.ratio) : DEFAULT_RULES.toddlers.ratio,
-    },
-    older: {
-      ...DEFAULT_RULES.older,
-      tuition: isFull ? valueOf("older-tuition", DEFAULT_RULES.older.tuition) : DEFAULT_RULES.older.tuition,
-      sqmPerChild: isFull ? valueOf("older-sqm", DEFAULT_RULES.older.sqmPerChild) : DEFAULT_RULES.older.sqmPerChild,
-      ratio: isFull ? valueOf("older-ratio", DEFAULT_RULES.older.ratio) : DEFAULT_RULES.older.ratio,
-    },
+    infants: { ...DEFAULT_RULES.infants, tuition: isFull ? valueOf("infant-tuition", 3936) : 3936, sqmPerChild: isFull ? valueOf("infant-sqm", 2.8) : 2.8, ratio: isFull ? valueOf("infant-ratio", 5) : 5 },
+    toddlers: { ...DEFAULT_RULES.toddlers, tuition: isFull ? valueOf("toddler-tuition", 2917) : 2917, sqmPerChild: isFull ? valueOf("toddler-sqm", 2.6) : 2.6, ratio: isFull ? valueOf("toddler-ratio", 8) : 8 },
+    older: { ...DEFAULT_RULES.older, tuition: isFull ? valueOf("older-tuition", 2587) : 2587, sqmPerChild: isFull ? valueOf("older-sqm", 2.2) : 2.2, ratio: isFull ? valueOf("older-ratio", 10) : 10 },
   };
 }
 
-function getCompositionValidation(composition) {
+function getCapacityViolations(composition, rules = DEFAULT_RULES) {
+  return Object.entries(composition)
+    .filter(([key, count]) => Number(count) > Number(rules[key]?.maxChildren || 0))
+    .map(([key, count]) => ({ key, count: Number(count), max: rules[key].maxChildren, label: rules[key].label }));
+}
+
+function formatCapacityViolations(violations) {
+  if (!violations.length) return "";
+  return "חריגה מכמות הילדים המותרת לכיתה. המקסימום המותר: " + violations.map((item) => item.label + " " + item.max).join(", ") + ".";
+}
+
+function getCompositionValidation(composition, rules = DEFAULT_RULES) {
   const active = Object.entries(composition).filter(([, count]) => Number(count) > 0).map(([key]) => key);
-  if (active.length <= 1) return { valid: true, message: "הרכב חד-גילאי תקין." };
-  if (active.length > 2) return { valid: false, message: "כיתה מעורבת יכולה להיות רק בין שתי שכבות גיל סמוכות." };
-  if (active.includes("infants") && active.includes("older")) {
-    return { valid: false, message: "כיתה מעורבת בין תינוק ובוגר אינה אפשרית." };
-  }
+  if (active.length > 2) return { valid: false, message: "כיתה מעורבת יכולה להיות רק בין שתי שכבות גיל סמוכות.", invalidMix: true, capacityViolations: [] };
+  if (active.includes("infants") && active.includes("older")) return { valid: false, message: "כיתה מעורבת בין תינוק ובוגר אינה אפשרית.", invalidMix: true, capacityViolations: [] };
+  const capacityViolations = getCapacityViolations(composition, rules);
+  if (capacityViolations.length) return { valid: false, message: formatCapacityViolations(capacityViolations), invalidMix: false, capacityViolations };
+  if (active.length <= 1) return { valid: true, message: "הרכב חד-גילאי תקין.", invalidMix: false, capacityViolations: [] };
   const adjacent = (active.includes("infants") && active.includes("toddlers")) || (active.includes("toddlers") && active.includes("older"));
-  return adjacent ? { valid: true, message: "הרכב מעורב תקין." } : { valid: false, message: "הרכב הכיתה אינו אפשרי." };
+  return adjacent ? { valid: true, message: "הרכב מעורב תקין.", invalidMix: false, capacityViolations: [] } : { valid: false, message: "הרכב הכיתה אינו אפשרי.", invalidMix: true, capacityViolations: [] };
 }
 
 function getSqmStatus(actualSqm, requiredSqm) {
-  if (requiredSqm <= 0) return { label: "לא חושב", detail: "אין ילדים בכיתה לחישוב שטח.", tone: "warning" };
-  if (actualSqm >= requiredSqm) return { label: "תקין", detail: "הכיתה תקינה מבחינת שטח: כן", tone: "ok" };
-  if (actualSqm >= requiredSqm * 0.95) return { label: "גבולי", detail: "הכיתה קרובה לדרישת השטח אך חסר שטח.", tone: "warning" };
-  return { label: "לא תקין", detail: "הכיתה תקינה מבחינת שטח: לא", tone: "danger" };
+  const roundedRequiredSqm = Math.floor(requiredSqm);
+  if (requiredSqm <= 0) return { label: "לא חושב", detail: "אין ילדים בכיתה לחישוב שטח.", tone: "warning", roundedRequiredSqm };
+  if (actualSqm >= roundedRequiredSqm) return { label: "תקין", detail: "הכיתה תקינה מבחינת שטח: כן", tone: "ok", roundedRequiredSqm };
+  if (actualSqm >= roundedRequiredSqm * 0.95) return { label: "גבולי", detail: "הכיתה קרובה לדרישת השטח אך חסר שטח.", tone: "warning", roundedRequiredSqm };
+  return { label: "לא תקין", detail: "הכיתה תקינה מבחינת שטח: לא", tone: "danger", roundedRequiredSqm };
 }
 
-function calculateScenarioProfit(composition, options) {
-  const validation = getCompositionValidation(composition);
+function calculateScenarioBalance(composition, options) {
+  const validation = getCompositionValidation(composition, options.rules);
   const rows = Object.entries(options.rules).map(([key, rule]) => {
     const children = Math.max(Number(composition[key] || 0), 0);
     const requiredSqm = calculateRequiredSqm(children, rule.sqmPerChild);
     const requiredStaff = calculateRequiredStaff(children, rule.ratio);
     const income = calculateIncome(children, rule.tuition);
-    return { key, ...rule, children, requiredSqm, requiredStaff, income };
+    const sqmCapacity = calculateSqmCapacity(options.actualSqm, rule.sqmPerChild);
+    return { key, ...rule, children, requiredSqm, requiredStaff, income, sqmCapacity };
   });
   const totalChildren = rows.reduce((sum, row) => sum + row.children, 0);
   const requiredSqm = rows.reduce((sum, row) => sum + row.requiredSqm, 0);
   const requiredStaff = rows.reduce((sum, row) => sum + row.requiredStaff, 0);
   const income = rows.reduce((sum, row) => sum + row.income, 0);
   const staffCost = requiredStaff * options.staffCostPerPerson;
-  const grossProfit = income - staffCost;
+  const monthlyBalance = income - staffCost;
   const sqmStatus = getSqmStatus(options.actualSqm, requiredSqm);
-  const areaCompliant = requiredSqm > 0 && options.actualSqm >= requiredSqm;
+  const areaCompliant = requiredSqm > 0 && options.actualSqm >= sqmStatus.roundedRequiredSqm;
   return {
     rows,
     totalChildren,
     requiredSqm,
+    roundedRequiredSqm: sqmStatus.roundedRequiredSqm,
     actualSqm: options.actualSqm,
     requiredStaff,
     income,
     staffCost,
-    grossProfit,
-    profitPerChild: totalChildren > 0 ? grossProfit / totalChildren : 0,
-    profitPerSqm: options.actualSqm > 0 ? grossProfit / options.actualSqm : 0,
+    monthlyBalance,
+    balancePerChild: totalChildren > 0 ? monthlyBalance / totalChildren : 0,
+    balancePerSqm: options.actualSqm > 0 ? monthlyBalance / options.actualSqm : 0,
     areaCompliant,
     validComposition: validation.valid,
+    invalidMix: validation.invalidMix,
     compositionMessage: validation.message,
+    capacityViolations: validation.capacityViolations || [],
     sqmStatus,
     compliant: totalChildren > 0 && validation.valid && areaCompliant,
   };
@@ -151,26 +160,29 @@ function calculateScenarioProfit(composition, options) {
 
 function getInput() {
   const isFull = getMode() === "full";
-  const staffCostDefault = DEFAULT_RULES.infants.staffCost;
   return {
     className: document.querySelector("#classroom-name").value.trim() || "כיתה ללא שם",
     mode: getMode(),
     actualSqm: valueOf("actual-sqm", 0),
-    composition: {
-      infants: valueOf("infant-count", 0),
-      toddlers: valueOf("toddler-count", 0),
-      older: valueOf("older-count", 0),
-    },
+    composition: { infants: valueOf("infant-count", 0), toddlers: valueOf("toddler-count", 0), older: valueOf("older-count", 0) },
     rules: getRules(),
-    staffCostPerPerson: isFull ? valueOf("staff-cost-override", staffCostDefault) : staffCostDefault,
+    staffCostPerPerson: isFull ? valueOf("staff-cost-override", 9000) : 9000,
   };
 }
 
-function compositionLabel(composition) {
+function compositionLabel(composition, separator = " + ") {
   return Object.entries(DEFAULT_RULES)
     .map(([key, rule]) => composition[key] > 0 ? numberFormatter.format(composition[key]) + " " + rule.plural : "")
     .filter(Boolean)
-    .join(" + ") || "ללא ילדים";
+    .join(separator) || "ללא ילדים";
+}
+
+function centralReason(result, input) {
+  if (result.compliant) return "הכיתה תקינה ועומדת בדרישות השטח והתקינה.";
+  if (!result.validComposition) return result.compositionMessage;
+  const missingSqm = Math.max(result.roundedRequiredSqm - input.actualSqm, 0);
+  if (!result.areaCompliant) return "הכיתה אינה תקינה - חסרים " + numberFormatter.format(missingSqm) + " מ״ר.";
+  return "הכיתה אינה תקינה לפי הנתונים שהוזנו.";
 }
 
 function summaryItem(label, value, note, tone = "") {
@@ -178,44 +190,41 @@ function summaryItem(label, value, note, tone = "") {
 }
 
 function renderResult(result, input) {
-  const status = result.validComposition ? result.sqmStatus : { label: "לא תקין", detail: result.compositionMessage, tone: "danger" };
-  const missingSqm = Math.max(result.requiredSqm - input.actualSqm, 0);
+  const status = result.compliant ? { label: "תקין", tone: "ok" } : { label: "לא תקין", tone: "danger" };
   classLabel.textContent = input.className;
   statusTitle.textContent = status.label;
   statusTitle.className = "status-title " + status.tone;
-  statusDetail.textContent = result.validComposition && result.areaCompliant
-    ? "הכיתה עומדת בדרישות השטח והתקינה."
-    : result.validComposition
-      ? "חסרים " + numberFormatter.format(missingSqm) + " מ״ר."
-      : result.compositionMessage;
-  grossProfitOutput.textContent = money(result.grossProfit);
+  statusDetail.textContent = centralReason(result, input);
+  monthlyBalanceOutput.textContent = money(result.monthlyBalance);
   totalRequiredStaffOutput.textContent = numberFormatter.format(result.requiredStaff) + " אנשי צוות";
 
+  const activeRows = result.rows.filter((row) => row.children > 0);
+  const missingSqm = Math.max(result.roundedRequiredSqm - input.actualSqm, 0);
+  const capacityNote = result.capacityViolations.length ? formatCapacityViolations(result.capacityViolations) : activeRows.map((row) => row.label + " עד " + row.maxChildren).join(", ");
+  const childBreakdown = compositionLabel(input.composition, ", ");
+
   summaryGrid.innerHTML = [
-    summaryItem("סה״כ ילדים", numberFormatter.format(result.totalChildren), compositionLabel(input.composition)),
-    summaryItem("שטח נדרש", numberFormatter.format(result.requiredSqm) + " מ״ר", "לפי שכבות הגיל", status.tone),
-    summaryItem("שטח בפועל", numberFormatter.format(input.actualSqm) + " מ״ר", status.detail, status.tone),
-    summaryItem("תקינה נדרשת", numberFormatter.format(result.requiredStaff), "אנשי צוות"),
+    summaryItem("סטטוס", status.label, centralReason(result, input), status.tone),
+    summaryItem("סה״כ ילדים", numberFormatter.format(result.totalChildren), childBreakdown),
+    summaryItem("פירוט ילדים לפי שכבה", childBreakdown, "הרכב כיתה נוכחי"),
+    summaryItem("שטח נדרש", numberFormatter.format(result.requiredSqm) + " מ״ר", "לבדיקת תקינות: " + numberFormatter.format(result.roundedRequiredSqm) + " מ״ר", result.areaCompliant ? "ok" : "danger"),
+    summaryItem("שטח בפועל", numberFormatter.format(input.actualSqm) + " מ״ר", missingSqm > 0 ? "חסר " + numberFormatter.format(missingSqm) + " מ״ר" : "מספיק לפי הכלל המעוגל", result.areaCompliant ? "ok" : "danger"),
+    summaryItem("חריגת מקסימום", result.capacityViolations.length ? "כן" : "לא", capacityNote, result.capacityViolations.length ? "danger" : "ok"),
+    summaryItem("שילוב גילים", result.invalidMix ? "לא חוקי" : "תקין", result.invalidMix ? result.compositionMessage : "שילוב מותר", result.invalidMix ? "danger" : "ok"),
+    summaryItem("צוות נדרש", numberFormatter.format(result.requiredStaff), "אנשי צוות"),
     summaryItem("הכנסה חודשית", money(result.income), "לפי שכר לימוד"),
-    summaryItem("עלות צוות", money(result.staffCost), money(input.staffCostPerPerson) + " לאיש צוות"),
-    summaryItem("רווח לילד", money(result.profitPerChild), "רווח גולמי משוער"),
-    summaryItem("רווח למ״ר", money(result.profitPerSqm), "לפי שטח הכיתה בפועל"),
+    summaryItem("עלות צוות חודשית", money(result.staffCost), money(input.staffCostPerPerson) + " לאיש צוות"),
+    summaryItem("יתרה חודשית משוערת", money(result.monthlyBalance), "הכנסה פחות עלות צוות"),
   ].join("");
 
-  ageBreakdownList.innerHTML = result.rows.filter((row) => row.children > 0).map((row) => (
-    '<article class="age-breakdown-card"><div><h3>' + row.label + '</h3><span>' + numberFormatter.format(row.children) + ' ילדים</span></div><dl><dt>שטח</dt><dd>' + numberFormatter.format(row.requiredSqm) + ' מ״ר</dd><dt>תקינה</dt><dd>' + numberFormatter.format(row.requiredStaff) + '</dd><dt>הכנסה</dt><dd>' + money(row.income) + '</dd></dl></article>'
+  ageBreakdownList.innerHTML = activeRows.map((row) => (
+    '<article class="age-breakdown-card"><div><h3>' + row.label + '</h3><span>' + numberFormatter.format(row.children) + ' ילדים</span></div><dl><dt>שטח</dt><dd>' + numberFormatter.format(row.requiredSqm) + ' מ״ר</dd><dt>תקינה</dt><dd>' + numberFormatter.format(row.requiredStaff) + '</dd><dt>תקרה</dt><dd>' + row.maxChildren + '</dd><dt>קיבולת שטח</dt><dd>' + numberFormatter.format(row.sqmCapacity) + '</dd><dt>הכנסה</dt><dd>' + money(row.income) + '</dd></dl></article>'
   )).join("") || '<p class="empty-state">אין ילדים בכיתה לחישוב.</p>';
 }
 
 function splitComposition(totalChildren, firstKey, secondKey) {
   const secondCount = Math.min(5, Math.max(totalChildren - 1, 0));
-  return {
-    infants: 0,
-    toddlers: 0,
-    older: 0,
-    [firstKey]: Math.max(totalChildren - secondCount, 0),
-    [secondKey]: secondCount,
-  };
+  return { infants: 0, toddlers: 0, older: 0, [firstKey]: Math.max(totalChildren - secondCount, 0), [secondKey]: secondCount };
 }
 
 function buildAlternativeScenarios(input) {
@@ -230,7 +239,7 @@ function buildAlternativeScenarios(input) {
   ];
   return candidates.filter((scenario, index, list) => {
     if (totalChildren <= 0) return scenario.title === "הרכב נוכחי";
-    const validation = getCompositionValidation(scenario.composition);
+    const validation = getCompositionValidation(scenario.composition, input.rules);
     if (!validation.valid && scenario.title !== "הרכב נוכחי") return false;
     const key = JSON.stringify(scenario.composition);
     return list.findIndex((item) => JSON.stringify(item.composition) === key) === index;
@@ -239,54 +248,64 @@ function buildAlternativeScenarios(input) {
 
 function scenarioCard(scenario) {
   const result = scenario.result;
-  const tone = result.validComposition ? result.sqmStatus.tone : "danger";
+  const tone = result.compliant ? "ok" : result.validComposition ? result.sqmStatus.tone : "danger";
   const status = result.compliant ? "עומד בדרישות" : result.validComposition ? result.sqmStatus.label : result.compositionMessage;
-  return '<article class="scenario-card ' + tone + (result.compliant ? ' compliant' : ' not-compliant') + '"><div class="scenario-head"><span>' + scenario.title + '</span><strong>' + money(result.grossProfit) + '</strong></div><p class="scenario-composition">' + compositionLabel(scenario.composition) + '</p><div class="scenario-metrics"><span>ילדים: <b>' + numberFormatter.format(result.totalChildren) + '</b></span><span>שטח נדרש: <b>' + numberFormatter.format(result.requiredSqm) + ' מ״ר</b></span><span>שטח בפועל: <b>' + numberFormatter.format(result.actualSqm) + ' מ״ר</b></span><span>תקינה: <b>' + numberFormatter.format(result.requiredStaff) + '</b></span><span>הכנסה: <b>' + money(result.income) + '</b></span><span>עלות צוות: <b>' + money(result.staffCost) + '</b></span><span>רווח לילד: <b>' + money(result.profitPerChild) + '</b></span><span>רווח למ״ר: <b>' + money(result.profitPerSqm) + '</b></span></div><p>' + status + '</p></article>';
+  return '<article class="scenario-card ' + tone + (result.compliant ? ' compliant' : ' not-compliant') + '"><div class="scenario-head"><span>' + scenario.title + '</span><strong>' + money(result.monthlyBalance) + '</strong></div><p class="scenario-composition">' + compositionLabel(scenario.composition) + '</p><div class="scenario-metrics"><span>ילדים: <b>' + numberFormatter.format(result.totalChildren) + '</b></span><span>שטח נדרש: <b>' + numberFormatter.format(result.requiredSqm) + ' מ״ר</b></span><span>שטח בפועל: <b>' + numberFormatter.format(result.actualSqm) + ' מ״ר</b></span><span>תקינה: <b>' + numberFormatter.format(result.requiredStaff) + '</b></span><span>הכנסה: <b>' + money(result.income) + '</b></span><span>עלות צוות: <b>' + money(result.staffCost) + '</b></span><span>יתרה לילד: <b>' + money(result.balancePerChild) + '</b></span><span>יתרה למ״ר: <b>' + money(result.balancePerSqm) + '</b></span></div><p>' + status + '</p></article>';
 }
 
-function getRecommendation(scenarios) {
+function getBestRecommendation(scenarios) {
   const current = scenarios[0];
-  const compliant = scenarios.filter((scenario) => scenario.result.compliant).sort((a, b) => b.result.grossProfit - a.result.grossProfit);
+  const compliant = scenarios.filter((scenario) => scenario.result.compliant).sort((a, b) => b.result.monthlyBalance - a.result.monthlyBalance);
   const best = compliant[0];
-
-  if (!current.result.validComposition) {
-    return best
-      ? { tone: "danger", title: current.result.compositionMessage, detail: best.title + " היא החלופה התקינה והרווחית ביותר שנמצאה: " + money(best.result.grossProfit) + "." }
-      : { tone: "danger", title: current.result.compositionMessage, detail: "לא נמצאה חלופה תקינה בשטח הכיתה הנוכחי." };
-  }
-
-  if (!current.result.areaCompliant) {
-    return best
-      ? { tone: "warning", title: "ההרכב הנוכחי חורג מדרישת השטח", detail: best.title + " עומדת בדרישות ומציגה רווח של " + money(best.result.grossProfit) + "." }
-      : { tone: "danger", title: "אין חלופה תקינה בשטח הנוכחי", detail: "מומלץ להפחית ילדים או להגדיל שטח לפני קבלת החלטה." };
-  }
-
-  if (best && best.title !== "הרכב נוכחי") {
-    const delta = best.result.grossProfit - current.result.grossProfit;
-    if (delta > 0) {
-      return { tone: "ok", title: best.title + " מגדילה רווח חודשי ב-" + money(delta), detail: "החלופה תקינה מבחינת שטח ותקינה ומציגה רווח של " + money(best.result.grossProfit) + "." };
-    }
-  }
-
-  const costlyAlternative = scenarios.find((scenario) => scenario.title !== "הרכב נוכחי" && scenario.result.areaCompliant && scenario.result.staffCost > current.result.staffCost && scenario.result.grossProfit < current.result.grossProfit);
-  if (costlyAlternative) {
-    return { tone: "warning", title: "ההרכב הנוכחי תקין ומומלץ כרגע", detail: costlyAlternative.title + " אינה מומלצת כעת בגלל תוספת תקינה ועלות צוות גבוהה יותר." };
-  }
-
-  return { tone: "ok", title: "ההרכב הנוכחי תקין", detail: "לא נמצאה חלופה תקינה שמגדילה את הרווח החודשי לפי הנתונים הנוכחיים." };
+  const currentIsBest = !best || best.title === "הרכב נוכחי" || best.result.monthlyBalance <= current.result.monthlyBalance;
+  if (currentIsBest) return { scenario: current, delta: 0, better: false };
+  return { scenario: best, delta: best.result.monthlyBalance - current.result.monthlyBalance, better: true };
 }
 
-function renderRecommendation(recommendation) {
-  recommendationCard.className = "recommendation-card " + recommendation.tone;
-  recommendationCard.innerHTML = '<span>המלצת מערכת</span><strong>' + recommendation.title + '</strong><p>' + recommendation.detail + '</p>';
+function renderRecommendation(bestInfo) {
+  const scenario = bestInfo.scenario;
+  const result = scenario.result;
+  const tone = bestInfo.better ? "ok" : result.compliant ? "ok" : "warning";
+  recommendationCard.className = "recommendation-card best-alternative-card " + tone;
+  if (bestInfo.better) {
+    recommendationCard.innerHTML = '<span>חלופה מומלצת</span><strong>חלופה מומלצת: ' + compositionLabel(scenario.composition) + '.</strong><p>חלופה זו משאירה יתרה חודשית גבוהה יותר ב-' + money(bestInfo.delta) + ' ועומדת בתקינה.</p><div class="best-alternative-metrics"><span>צוות נדרש: <b>' + numberFormatter.format(result.requiredStaff) + '</b></span><span>הכנסה חודשית: <b>' + money(result.income) + '</b></span><span>עלות צוות חודשית: <b>' + money(result.staffCost) + '</b></span><span>יתרה חודשית משוערת: <b>' + money(result.monthlyBalance) + '</b></span></div>';
+    return;
+  }
+  recommendationCard.innerHTML = '<span>חלופה מומלצת</span><strong>ההרכב הנוכחי הוא האפשרות המומלצת לפי הנתונים שהוזנו.</strong><p>' + (result.compliant ? 'ההרכב הנוכחי עומד בתקינה.' : 'לא נמצאה חלופה תקינה טובה יותר בשטח ובנתונים הנוכחיים.') + '</p><div class="best-alternative-metrics"><span>צוות נדרש: <b>' + numberFormatter.format(result.requiredStaff) + '</b></span><span>הכנסה חודשית: <b>' + money(result.income) + '</b></span><span>עלות צוות חודשית: <b>' + money(result.staffCost) + '</b></span><span>יתרה חודשית משוערת: <b>' + money(result.monthlyBalance) + '</b></span></div>';
 }
 
-function renderScenarios(input) {
-  const scenarios = buildAlternativeScenarios(input).map((scenario) => ({
-    ...scenario,
-    result: calculateScenarioProfit(scenario.composition, input),
-  }));
-  renderRecommendation(getRecommendation(scenarios));
+function createSummaryText(input, current, bestInfo) {
+  const recommended = bestInfo.scenario;
+  const deltaLine = bestInfo.better
+    ? "החלופה משאירה יתרה חודשית גבוהה יותר ב-" + money(bestInfo.delta) + " ועומדת בתקינה."
+    : "ההרכב הנוכחי הוא האפשרות המומלצת לפי הנתונים שהוזנו.";
+  return [
+    "מחשבון תפוסה ותקינה - סיכום כיתה",
+    "",
+    "סטטוס: " + (current.compliant ? "תקין" : "לא תקין"),
+    "סיבה מרכזית: " + centralReason(current, input),
+    "הרכב כיתה: " + compositionLabel(input.composition, ", "),
+    "סה״כ ילדים: " + numberFormatter.format(current.totalChildren),
+    "שטח בפועל: " + numberFormatter.format(current.actualSqm) + " מ״ר",
+    "שטח נדרש: " + numberFormatter.format(current.requiredSqm) + " מ״ר",
+    "צוות נדרש: " + numberFormatter.format(current.requiredStaff),
+    "",
+    "הכנסה חודשית: " + money(current.income),
+    "עלות צוות חודשית: " + money(current.staffCost),
+    "יתרה חודשית משוערת: " + money(current.monthlyBalance),
+    "",
+    "חלופה מומלצת:",
+    compositionLabel(recommended.composition, " ו-"),
+    "",
+    deltaLine,
+  ].join("\n");
+}
+
+function renderScenarios(input, currentResult) {
+  const scenarios = buildAlternativeScenarios(input).map((scenario) => ({ ...scenario, result: calculateScenarioBalance(scenario.composition, input) }));
+  const bestInfo = getBestRecommendation(scenarios);
+  renderRecommendation(bestInfo);
+  lastSummaryText = createSummaryText(input, currentResult, bestInfo);
   scenarioGrid.innerHTML = scenarios.filter((scenario) => scenario.result.validComposition || scenario.title === "הרכב נוכחי").map(scenarioCard).join("") || '<p class="empty-state">אין חלופות להצגה.</p>';
 }
 
@@ -318,16 +337,25 @@ function updateMode() {
 
 function updateCalculator() {
   const input = getInput();
-  const result = calculateScenarioProfit(input.composition, input);
+  const result = calculateScenarioBalance(input.composition, input);
   renderResult(result, input);
-  renderScenarios(input);
+  renderScenarios(input, result);
+}
+
+async function copySummary() {
+  updateCalculator();
+  try {
+    await navigator.clipboard.writeText(lastSummaryText);
+    copyFeedback.textContent = "הסיכום הועתק.";
+  } catch {
+    copyFeedback.textContent = "לא ניתן להעתיק אוטומטית בדפדפן הזה.";
+  }
 }
 
 classroomTypeInput.addEventListener("change", () => {
   applyQuickClassType(true);
   updateCalculator();
 });
-
 modeInputs.forEach((input) => input.addEventListener("change", updateMode));
 form.addEventListener("input", updateCalculator);
 form.addEventListener("submit", (event) => {
@@ -343,6 +371,7 @@ form.addEventListener("reset", () => {
     updateMode();
   }, 0);
 });
+copySummaryButton.addEventListener("click", copySummary);
 
 applyQuickClassType(false);
-updateCalculator();
+updateMode();
