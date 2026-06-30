@@ -8,15 +8,34 @@
   </head>
   <body>
     <main class="portal-shell calculator-hub-page">
-      <header class="topbar">
-        <a class="brand" href="../dashboard/">
-          <small>מעונות חמ״ה</small>
-          <strong>פורטל מנהלות</strong>
+      <header class="global-nav" aria-label="ניווט ראשי">
+        <a class="global-brand" href="../" aria-label="עמוד הבית של פורטל מנהלות חמ״ה">
+          <img src="../assets/chamah-logo.svg" alt="חמ״ה" />
+          <span>פורטל מנהלות חמ״ה</span>
         </a>
-        <nav class="dashboard-nav" aria-label="ניווט ראשי">
-          <a class="nav-link" href="../dashboard/">דשבורד</a>
-          <a class="nav-link active" href="../calculators/">מחשבונים</a>
+        <input class="nav-toggle" id="nav-toggle" type="checkbox" aria-hidden="true" />
+        <label class="hamburger-button" for="nav-toggle" aria-label="פתיחת תפריט" role="button"><span></span><span></span><span></span></label>
+        <nav class="desktop-nav" aria-label="ניווט עמודים">
+          <a class="global-nav-item active" href="../">בית<small>פעיל</small></a>
+          <a class="global-nav-item beta" href="../dashboard/">דשבורד<small>בהקמה</small></a>
+          <a class="global-nav-item current active" href="../calculators/">מחשבונים<small>פעיל</small></a>
+          <span class="global-nav-item disabled" aria-disabled="true">תחזוקה<small>בקרוב</small></span>
+          <span class="global-nav-item disabled" aria-disabled="true">משימות<small>בקרוב</small></span>
+          <span class="global-nav-item disabled" aria-disabled="true">צוות ורישוי<small>בקרוב</small></span>
         </nav>
+        <label class="nav-backdrop" for="nav-toggle" aria-hidden="true"></label>
+        <aside class="mobile-drawer" aria-label="תפריט מובייל">
+          <div class="drawer-brand">
+            <img src="../assets/chamah-logo.svg" alt="חמ״ה" />
+            <strong>פורטל מנהלות חמ״ה</strong>
+          </div>
+          <a class="global-nav-item active" href="../">בית<small>פעיל</small></a>
+          <a class="global-nav-item beta" href="../dashboard/">דשבורד<small>בהקמה</small></a>
+          <a class="global-nav-item current active" href="../calculators/">מחשבונים<small>פעיל</small></a>
+          <span class="global-nav-item disabled" aria-disabled="true">תחזוקה<small>בקרוב</small></span>
+          <span class="global-nav-item disabled" aria-disabled="true">משימות<small>בקרוב</small></span>
+          <span class="global-nav-item disabled" aria-disabled="true">צוות ורישוי<small>בקרוב</small></span>
+        </aside>
       </header>
 
       <section class="hero calculator-hub-hero" aria-labelledby="calculators-title">
