@@ -44,26 +44,58 @@
         <div>
           <p class="eyebrow">מודול צוות ורישוי</p>
           <h1 id="employees-title">צוות ורישוי</h1>
-          <p class="subtitle">תמונת מצב של עובדות, שיבוצים, הכשרות ומסמכים. הנתונים נטענים מגיליון עובדים מאובטח בצד שרת.</p>
+          <p class="subtitle">תמונת צוות מהירה לפי מעון, תפקיד, ימי עבודה והכשרות. הנתונים נטענים מגיליון העובדים המאובטח בצד שרת.</p>
         </div>
       </section>
 
-      <section class="employee-insights" aria-label="תובנות צוות">
-        <article><span>סה״כ עובדות</span><strong id="insight-total">0</strong></article>
-        <article><span>פעילות</span><strong id="insight-active">0</strong></article>
-        <article><span>חסרות תעודת מטפלת</span><strong id="insight-missing-cert">0</strong></article>
-        <article><span>הכשרות שפגות בקרוב</span><strong id="insight-expiring">0</strong></article>
+      <section class="employee-insights" aria-label="תמונת מצב צוות">
+        <div class="employee-insight-heading">
+          <p class="eyebrow">תמונת מצב</p>
+          <h2 id="employee-insight-scope">נתוני צוות כלליים</h2>
+          <p id="employee-result-summary">מציג 0 עובדות מתוך 0</p>
+        </div>
+        <button class="employee-kpi-card" type="button" data-kpi-filter="all" aria-label="הצגת כל העובדות">
+          <span>סה"כ עובדות</span>
+          <strong id="insight-total">0</strong>
+        </button>
+        <button class="employee-kpi-card" type="button" data-kpi-filter="active">
+          <span>עובדות פעילות</span>
+          <strong id="insight-active">0</strong>
+        </button>
+        <button class="employee-kpi-card" type="button" data-kpi-filter="missing-cert">
+          <span>תעודות חסרות / לא תקינות</span>
+          <strong id="insight-missing-cert">0</strong>
+        </button>
+        <button class="employee-kpi-card" type="button" data-kpi-filter="expiring">
+          <span>הכשרות שפגות בקרוב</span>
+          <strong id="insight-expiring">0</strong>
+        </button>
       </section>
 
-      <section class="employee-filters" aria-label="סינון עובדות">
-        <label><span>חיפוש שם עובדת</span><input id="employee-search" type="search" placeholder="לדוגמה: שרה" /></label>
-        <label><span>מעון</span><select id="daycare-filter"></select></label>
-        <label><span>מנהלת ישירה</span><select id="manager-filter"></select></label>
-        <label><span>תפקיד</span><select id="role-filter"></select></label>
-        <label><span>סטטוס</span><select id="status-filter"></select></label>
-        <label><span>תעודת מטפלת</span><select id="certificate-filter"></select></label>
-        <label><span>יום שלישי</span><select id="tuesday-filter"></select></label>
-        <button class="employee-export-button" id="employee-export-button" type="button">ייצוא דוח</button>
+            <section class="employee-filters" aria-label="סינון עובדים">
+        <div class="employee-filter-head">
+          <div>
+            <p class="eyebrow">סינון עובדים</p>
+            <h2>מצאי צוות במהירות</h2>
+          </div>
+          <button class="employee-export-button" id="employee-export-button" type="button">ייצוא דוח</button>
+        </div>
+        <div class="employee-filter-row daycare-filter-row">
+          <span class="filter-label">מעונות</span>
+          <div class="daycare-chip-list" id="daycare-chip-list"></div>
+        </div>
+        <div class="employee-filter-row extra-filter-row">
+          <label><span>תנאי נוסף</span><select id="extra-filter-field"></select></label>
+          <label><span>ערך</span><select id="extra-filter-value" disabled></select></label>
+        </div>
+        <div class="employee-filter-row search-filter-row">
+          <label><span>חיפוש חופשי</span><input id="employee-search" type="search" placeholder="חיפוש חופשי לפי שם, כיתה, תפקיד, הערה..." /></label>
+          <div class="employee-filter-actions">
+            <button class="primary-button" id="employee-filter-apply" type="button">חפש</button>
+            <button class="secondary-button" id="employee-filter-reset" type="button">נקה סינון</button>
+          </div>
+        </div>
+        <div class="active-filter-chips" id="active-filter-chips" hidden></div>
       </section>
 
       <section class="employees-workspace">
@@ -71,7 +103,7 @@
           <div class="employee-list-heading">
             <div>
               <p class="eyebrow">רשימת עובדות</p>
-              <h2 id="employee-list-title">עובדות מוצגות</h2>
+              <h2 id="employee-list-title">עובדות בתצוגה</h2>
             </div>
             <span id="employee-count-label">0 עובדות</span>
           </div>
@@ -83,7 +115,7 @@
           <div class="employee-detail-empty" id="employee-detail-empty">
             <span>צ</span>
             <strong>בחרי עובדת מהרשימה</strong>
-            <p>כאן יוצגו פרטי שיבוץ, משרה, רישוי ומסמכים.</p>
+            <p>כאן יוצגו תפקיד, כיתה, יום חופשי, משרה והכשרות.</p>
           </div>
           <div class="employee-detail-content" id="employee-detail-content" hidden></div>
         </aside>

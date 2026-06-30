@@ -36,18 +36,60 @@ const FIELD_KEYS = {
 };
 
 const today = new Date();
-const soonMs = 60 * 24 * 60 * 60 * 1000;
-const state = { search: '', daycare: 'all', manager: 'all', role: 'all', status: 'all', certificate: 'all', tuesday: 'all', selectedId: '' };
+today.setHours(0, 0, 0, 0);
+const soonMs = 90 * 24 * 60 * 60 * 1000;
+
+const dayFields = [
+  ['יום ראשון', 'sunday'],
+  ['יום שני', 'monday'],
+  ['יום שלישי', 'tuesday'],
+  ['יום רביעי', 'wednesday'],
+  ['יום חמישי', 'thursday'],
+  ['יום שישי', 'friday'],
+];
+
+const extraFilterFields = [
+  { value: 'manager', label: 'מנהלת ישירה', type: 'values' },
+  { value: 'classroom', label: 'כיתה', type: 'values' },
+  { value: 'role', label: 'תפקיד', type: 'values' },
+  { value: 'status', label: 'סטטוס', type: 'values' },
+  { value: 'caregiverCertificate', label: 'תעודת מטפלת', type: 'certificate' },
+  { value: 'classroomLead', label: 'אחראית כיתה', type: 'values' },
+  { value: 'sunday', label: 'יום ראשון', type: 'values' },
+  { value: 'monday', label: 'יום שני', type: 'values' },
+  { value: 'tuesday', label: 'יום שלישי', type: 'values' },
+  { value: 'wednesday', label: 'יום רביעי', type: 'values' },
+  { value: 'thursday', label: 'יום חמישי', type: 'values' },
+  { value: 'friday', label: 'יום שישי', type: 'values' },
+  { value: 'firstAidUntil', label: 'עזרה ראשונה', type: 'dateStatus' },
+  { value: 'safeConductUntil', label: 'התנהלות בטוחה', type: 'dateStatus' },
+  { value: 'expiringSoon', label: 'הכשרות שפגות בקרוב', type: 'yesNo' },
+  { value: 'missingCertificates', label: 'תעודות חסרות', type: 'yesNo' },
+];
+
+const state = {
+  selectedDaycares: [],
+  extraField: '',
+  extraValue: '',
+  search: '',
+  selectedId: '',
+};
 
 const fields = {
+  daycareChips: document.querySelector('#daycare-chip-list'),
+  extraField: document.querySelector('#extra-filter-field'),
+  extraValue: document.querySelector('#extra-filter-value'),
   search: document.querySelector('#employee-search'),
-  daycare: document.querySelector('#daycare-filter'),
-  manager: document.querySelector('#manager-filter'),
-  role: document.querySelector('#role-filter'),
-  status: document.querySelector('#status-filter'),
-  certificate: document.querySelector('#certificate-filter'),
-  tuesday: document.querySelector('#tuesday-filter'),
+  apply: document.querySelector('#employee-filter-apply'),
+  reset: document.querySelector('#employee-filter-reset'),
   exportButton: document.querySelector('#employee-export-button'),
+  activeFilters: document.querySelector('#active-filter-chips'),
+  resultSummary: document.querySelector('#employee-result-summary'),
+  insightScope: document.querySelector('#employee-insight-scope'),
+  insightTotal: document.querySelector('#insight-total'),
+  insightActive: document.querySelector('#insight-active'),
+  insightMissingCert: document.querySelector('#insight-missing-cert'),
+  insightExpiring: document.querySelector('#insight-expiring'),
   list: document.querySelector('#employee-card-list'),
   empty: document.querySelector('#employee-empty'),
   count: document.querySelector('#employee-count-label'),
@@ -56,11 +98,17 @@ const fields = {
 };
 
 function value(employee, key) {
-  return employee?.[FIELD_KEYS[key]] || '';
+  return String(employee?.[FIELD_KEYS[key]] || '').trim();
+}
+
+function clean(valueToClean) {
+  const text = String(valueToClean || '').trim();
+  if (!text || ['-', 'undefined', 'null', 'לא ידוע', 'חסר'].includes(text)) return '';
+  return text;
 }
 
 function unique(key) {
-  return [...new Set(employees.map((item) => value(item, key)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'he'));
+  return [...new Set(employees.map((item) => clean(value(item, key))).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'he'));
 }
 
 function escapeHtml(text) {
@@ -72,80 +120,289 @@ function escapeHtml(text) {
     .replace(/'/g, '&#039;');
 }
 
-function fillSelect(select, label, values, extraOptions = []) {
-  const options = [
-    '<option value="all">' + escapeHtml(label) + '</option>',
-    ...extraOptions.map((item) => '<option value="' + escapeHtml(item.value) + '">' + escapeHtml(item.label) + '</option>'),
-    ...values.map((item) => '<option value="' + escapeHtml(item) + '">' + escapeHtml(item) + '</option>'),
-  ];
-  select.innerHTML = options.join('');
-}
-
-function resetFilters() {
-  fillSelect(fields.daycare, 'כל המעונות', unique('daycare'));
-  fillSelect(fields.manager, 'כל המנהלות', unique('manager'));
-  fillSelect(fields.role, 'כל התפקידים', unique('role'));
-  fillSelect(fields.status, 'כל הסטטוסים', unique('status'));
-  fillSelect(fields.certificate, 'כל מצבי התעודה', unique('caregiverCertificate'), [{ value: '__empty__', label: 'ריק' }]);
-  fillSelect(fields.tuesday, 'כל יום שלישי', unique('tuesday'));
-}
-
-function licenseTone(certificate) {
-  if (!certificate || certificate === 'חסרה') return 'danger';
-  if (certificate === 'בתהליך') return 'warning';
-  return 'ok';
-}
-
-function parseDate(value) {
-  if (!value) return null;
-  const direct = new Date(value);
+function parseDate(dateValue) {
+  if (!dateValue) return null;
+  const text = String(dateValue).trim();
+  const direct = new Date(text);
   if (!Number.isNaN(direct.getTime())) return direct;
-  const match = String(value).match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
+  const match = text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
   if (!match) return null;
   const year = match[3].length === 2 ? '20' + match[3] : match[3];
   const date = new Date(Number(year), Number(match[2]) - 1, Number(match[1]));
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function dateTone(dateValue) {
+function dateStatus(dateValue) {
   const date = parseDate(dateValue);
-  if (!date) return 'danger';
-  if (date < today) return 'danger';
-  if (date.getTime() - today.getTime() <= soonMs) return 'warning';
-  return 'ok';
+  if (!date) return 'missing';
+  date.setHours(0, 0, 0, 0);
+  if (date < today) return 'expired';
+  if (date.getTime() - today.getTime() <= soonMs) return 'soon';
+  return 'valid';
 }
 
-function toneText(tone) {
-  return tone === 'ok' ? 'בתוקף' : tone === 'warning' ? 'פג בקרוב' : 'חסר / פג';
+function statusText(status) {
+  return status === 'valid' ? 'תקף' : status === 'soon' ? 'פג בקרוב' : status === 'expired' ? 'פג תוקף' : 'חסר';
+}
+
+function statusTone(status) {
+  return status === 'valid' ? 'ok' : status === 'soon' ? 'warning' : 'danger';
 }
 
 function formatDate(dateValue) {
-  if (!dateValue) return 'חסר';
-  const date = parseDate(dateValue);
-  if (!date) return dateValue;
+  const cleaned = clean(dateValue);
+  if (!cleaned) return '';
+  const date = parseDate(cleaned);
+  if (!date) return cleaned;
   return date.toLocaleDateString('he-IL');
 }
 
-function isMissingCert(employee) {
-  return ['חסרה', 'בתהליך', ''].includes(value(employee, 'caregiverCertificate'));
+function isActive(employee) {
+  return value(employee, 'status') === 'פעילה';
+}
+
+function isInvalidCertificate(employee) {
+  const certificate = value(employee, 'caregiverCertificate');
+  return !certificate || /חסר|אין|לא|בתהליך|בלימוד/.test(certificate);
 }
 
 function hasExpiringTraining(employee) {
-  return ['firstAidUntil', 'safeConductUntil', 'graduationDate'].some((key) => dateTone(value(employee, key)) === 'warning');
+  return ['firstAidUntil', 'safeConductUntil', 'graduationDate'].some((key) => dateStatus(value(employee, key)) === 'soon');
+}
+
+function hasExpiredTraining(employee) {
+  return ['firstAidUntil', 'safeConductUntil'].some((key) => dateStatus(value(employee, key)) === 'expired');
+}
+
+function findFreeDay(employee) {
+  const free = dayFields.find(([, key]) => {
+    const dayValue = value(employee, key);
+    return !dayValue || /חופש|חופשי|לא|ריק|-/.test(dayValue);
+  });
+  return free ? free[0] : '';
+}
+
+function employeeMatchesSearch(employee, search) {
+  if (!search) return true;
+  const haystack = ['name', 'daycare', 'classroom', 'role', 'position', 'manager', 'notes']
+    .map((key) => value(employee, key))
+    .join(' ');
+  return haystack.includes(search);
+}
+
+function employeeMatchesExtra(employee) {
+  if (!state.extraField || !state.extraValue) return true;
+  if (state.extraField === 'expiringSoon') return hasExpiringTraining(employee);
+  if (state.extraField === 'missingCertificates') return isInvalidCertificate(employee);
+  if (state.extraField === 'caregiverCertificate') {
+    const certificate = value(employee, 'caregiverCertificate');
+    if (state.extraValue === '__empty__') return !certificate;
+    if (state.extraValue === '__exists__') return Boolean(certificate) && !isInvalidCertificate(employee);
+    if (state.extraValue === '__invalid__') return isInvalidCertificate(employee);
+    return certificate === state.extraValue;
+  }
+  if (['firstAidUntil', 'safeConductUntil'].includes(state.extraField)) {
+    return dateStatus(value(employee, state.extraField)) === state.extraValue;
+  }
+  return value(employee, state.extraField) === state.extraValue;
 }
 
 function filteredEmployees() {
   return employees.filter((employee) => {
-    const matchSearch = value(employee, 'name').includes(state.search);
-    const matchDaycare = state.daycare === 'all' || value(employee, 'daycare') === state.daycare;
-    const matchManager = state.manager === 'all' || value(employee, 'manager') === state.manager;
-    const matchRole = state.role === 'all' || value(employee, 'role') === state.role;
-    const matchStatus = state.status === 'all' || value(employee, 'status') === state.status;
-    const certificateValue = value(employee, 'caregiverCertificate');
-    const matchCertificate = state.certificate === 'all' || (state.certificate === '__empty__' ? !certificateValue : certificateValue === state.certificate);
-    const matchTuesday = state.tuesday === 'all' || value(employee, 'tuesday') === state.tuesday;
-    return matchSearch && matchDaycare && matchManager && matchRole && matchStatus && matchCertificate && matchTuesday;
+    const daycareMatch = state.selectedDaycares.length === 0 || state.selectedDaycares.includes(value(employee, 'daycare'));
+    return daycareMatch && employeeMatchesExtra(employee) && employeeMatchesSearch(employee, state.search);
   });
+}
+
+function scopeTitle() {
+  if (state.selectedDaycares.length === 1) return 'נתוני מעון ' + state.selectedDaycares[0];
+  if (state.selectedDaycares.length > 1) return 'נתוני מעונות נבחרים';
+  if (state.extraField === 'manager' && state.extraValue) return 'נתוני מנהלת: ' + state.extraValue;
+  return 'נתוני צוות כלליים';
+}
+
+function renderDaycareChips() {
+  const daycares = unique('daycare');
+  fields.daycareChips.innerHTML = daycares.map((daycare) => {
+    const selected = state.selectedDaycares.includes(daycare);
+    return '<button class="filter-chip-button' + (selected ? ' selected' : '') + '" type="button" data-daycare="' + escapeHtml(daycare) + '">' + escapeHtml(daycare) + '</button>';
+  }).join('');
+}
+
+function setSelectOptions(select, label, options) {
+  select.innerHTML = '<option value="">' + escapeHtml(label) + '</option>' + options.map((option) => '<option value="' + escapeHtml(option.value) + '">' + escapeHtml(option.label) + '</option>').join('');
+}
+
+function updateExtraValueOptions() {
+  const config = extraFilterFields.find((item) => item.value === fields.extraField.value);
+  fields.extraValue.disabled = !config;
+  state.extraField = fields.extraField.value;
+  state.extraValue = config ? state.extraValue : '';
+  if (!config) {
+    setSelectOptions(fields.extraValue, 'בחרי ערך', []);
+    return;
+  }
+
+  let options = [];
+  if (config.type === 'values') {
+    options = unique(config.value).map((item) => ({ value: item, label: item }));
+  } else if (config.type === 'certificate') {
+    options = [
+      { value: '__empty__', label: 'ריק' },
+      { value: '__exists__', label: 'יש תעודה תקינה' },
+      { value: '__invalid__', label: 'חסר / לא תקין' },
+      ...unique('caregiverCertificate').map((item) => ({ value: item, label: item })),
+    ];
+  } else if (config.type === 'dateStatus') {
+    options = [
+      { value: 'valid', label: 'תקף' },
+      { value: 'soon', label: 'פג בקרוב' },
+      { value: 'expired', label: 'פג תוקף' },
+      { value: 'missing', label: 'חסר' },
+    ];
+  } else if (config.type === 'yesNo') {
+    options = [{ value: 'yes', label: 'כן' }];
+  }
+  setSelectOptions(fields.extraValue, 'בחרי ערך', options);
+  if (state.extraValue) fields.extraValue.value = state.extraValue;
+}
+
+function renderActiveFilterChips(list) {
+  const chips = [];
+  state.selectedDaycares.forEach((daycare) => chips.push(daycare));
+  const config = extraFilterFields.find((item) => item.value === state.extraField);
+  if (config && state.extraValue) {
+    const selectedOption = [...fields.extraValue.options].find((option) => option.value === state.extraValue);
+    chips.push(config.label + ': ' + (selectedOption?.textContent || state.extraValue));
+  }
+  if (state.search) chips.push('חיפוש: ' + state.search);
+  fields.activeFilters.innerHTML = chips.map((chip) => '<span>' + escapeHtml(chip) + '</span>').join('');
+  fields.activeFilters.hidden = chips.length === 0;
+  fields.resultSummary.textContent = 'מציג ' + list.length + ' עובדות מתוך ' + employees.length;
+}
+
+function renderInsights() {
+  const list = filteredEmployees();
+  fields.insightScope.textContent = scopeTitle();
+  fields.insightTotal.textContent = list.length;
+  fields.insightActive.textContent = list.filter(isActive).length;
+  fields.insightMissingCert.textContent = list.filter(isInvalidCertificate).length;
+  fields.insightExpiring.textContent = list.filter(hasExpiringTraining).length;
+  renderActiveFilterChips(list);
+}
+
+function warningBadges(employee) {
+  const badges = [];
+  if (isInvalidCertificate(employee)) badges.push(['danger', 'תעודת מטפלת חסרה']);
+  const firstAid = dateStatus(value(employee, 'firstAidUntil'));
+  if (firstAid === 'expired') badges.push(['danger', 'עזרה ראשונה פגה']);
+  if (firstAid === 'soon') badges.push(['warning', 'עזרה ראשונה פגה בקרוב']);
+  const safe = dateStatus(value(employee, 'safeConductUntil'));
+  if (safe === 'expired') badges.push(['danger', 'התנהלות בטוחה פגה']);
+  if (safe === 'soon') badges.push(['warning', 'התנהלות בטוחה פגה בקרוב']);
+  return badges.map(([tone, label]) => '<span class="employee-warning-badge ' + tone + '">' + escapeHtml(label) + '</span>').join('');
+}
+
+function inlineMeta(items) {
+  return items.filter(Boolean).map(escapeHtml).join(' · ');
+}
+
+function card(employee) {
+  const selected = value(employee, 'id') === state.selectedId ? ' selected' : '';
+  const freeDay = findFreeDay(employee);
+  const meta = inlineMeta([value(employee, 'daycare'), value(employee, 'classroom')]);
+  const roleLine = inlineMeta([value(employee, 'role'), value(employee, 'position')]);
+  return '<button class="employee-card' + selected + '" type="button" data-id="' + escapeHtml(value(employee, 'id')) + '">' +
+    '<div class="employee-card-main"><strong>' + escapeHtml(value(employee, 'name')) + '</strong>' + (meta ? '<span>' + meta + '</span>' : '') + '</div>' +
+    (roleLine ? '<p class="employee-card-line">' + roleLine + '</p>' : '') +
+    (freeDay ? '<p class="employee-free-day">יום חופשי: ' + escapeHtml(freeDay) + '</p>' : '') +
+    '<div class="employee-warning-list">' + warningBadges(employee) + '</div>' +
+    '</button>';
+}
+
+function detailItem(label, itemValue, extra = '') {
+  const cleaned = clean(itemValue);
+  if (!cleaned) return '';
+  return '<div class="employee-detail-item ' + extra + '"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(cleaned) + '</strong></div>';
+}
+
+function statusItem(label, itemValue) {
+  const status = dateStatus(itemValue);
+  const displayValue = formatDate(itemValue);
+  return '<div class="training-status ' + statusTone(status) + '"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(displayValue || statusText(status)) + '</strong><small>' + statusText(status) + '</small></div>';
+}
+
+function certificateStatusItem(employee) {
+  const certificate = value(employee, 'caregiverCertificate');
+  const invalid = isInvalidCertificate(employee);
+  return '<div class="training-status ' + (invalid ? 'danger' : 'ok') + '"><span>תעודת מטפלת</span><strong>' + escapeHtml(certificate || 'חסרה') + '</strong><small>' + (invalid ? 'חסר / לא תקין' : 'תקף') + '</small></div>';
+}
+
+function detailSection(title, html, extra = '') {
+  if (!html.trim()) return '';
+  return '<section class="employee-detail-section ' + extra + '"><h3>' + escapeHtml(title) + '</h3><div>' + html + '</div></section>';
+}
+
+function renderDetail(employee) {
+  if (!employee) {
+    fields.detail.hidden = true;
+    fields.detailEmpty.hidden = false;
+    return;
+  }
+
+  const freeDay = findFreeDay(employee);
+  fields.detailEmpty.hidden = true;
+  fields.detail.hidden = false;
+
+  const summary = detailItem('שם', value(employee, 'name')) +
+    detailItem('מעון', value(employee, 'daycare')) +
+    detailItem('כיתה', value(employee, 'classroom')) +
+    detailItem('תפקיד', value(employee, 'role')) +
+    detailItem('יום חופשי', freeDay) +
+    detailItem('משרה', value(employee, 'position'));
+
+  const compliance = certificateStatusItem(employee) +
+    statusItem('סיום לימודים', value(employee, 'graduationDate')) +
+    statusItem('עזרה ראשונה עד', value(employee, 'firstAidUntil')) +
+    statusItem('התנהלות בטוחה עד', value(employee, 'safeConductUntil')) +
+    detailItem('אחראית כיתה', value(employee, 'classroomLead'));
+
+  const workDays = dayFields.map(([label, key]) => detailItem(label, value(employee, key))).join('');
+
+  const employment = detailItem('תאריך תחילת עבודה', formatDate(value(employee, 'startDate'))) +
+    detailItem('ותק לשכר', value(employee, 'salarySeniority')) +
+    detailItem('שנים במערכת', value(employee, 'systemYears')) +
+    detailItem('סטטוס', value(employee, 'status')) +
+    detailItem('סוג העסקה', value(employee, 'employmentType'));
+
+  const additional = detailItem('מנהלת ישירה', value(employee, 'manager')) +
+    detailItem('מסמכים חסרים', value(employee, 'missingDocuments')) +
+    detailItem('הערות', value(employee, 'notes')) +
+    detailItem('עדכון אחרון', formatDate(value(employee, 'lastUpdate')));
+
+  const sensitive = detailItem('תעודת זהות', value(employee, 'nationalId'), 'sensitive') +
+    detailItem('טלפון', value(employee, 'phone'), 'sensitive') +
+    detailItem('שכר בסיס', value(employee, 'baseSalary'), 'sensitive') +
+    detailItem('תאריך לידה לועזי', formatDate(value(employee, 'birthDate')), 'sensitive') +
+    detailItem('תאריך לידה עברי', value(employee, 'hebrewBirthDate'), 'sensitive');
+
+  fields.detail.innerHTML = '<div class="employee-profile-head"><div><span>תקציר עובדת</span><strong>' + escapeHtml(value(employee, 'name')) + '</strong><p>' + escapeHtml(inlineMeta([value(employee, 'role'), value(employee, 'daycare'), value(employee, 'classroom')])) + '</p></div><span class="employee-status-chip">' + escapeHtml(value(employee, 'status')) + '</span></div>' +
+    detailSection('תקציר עובדת', summary, 'manager-summary') +
+    detailSection('הכשרות ורישוי', '<div class="training-grid">' + compliance + '</div>') +
+    detailSection('ימי עבודה', workDays) +
+    detailSection('ותק והעסקה', employment) +
+    detailSection('מידע נוסף', additional) +
+    (sensitive.trim() ? '<details class="employee-detail-section sensitive-section"><summary>מידע רגיש</summary><div>' + sensitive + '</div></details>' : '');
+}
+
+function renderList() {
+  const list = filteredEmployees();
+  fields.count.textContent = list.length + ' עובדות';
+  fields.empty.hidden = list.length > 0;
+  fields.list.innerHTML = list.map(card).join('');
+  if (!list.some((item) => value(item, 'id') === state.selectedId)) state.selectedId = value(list[0], 'id') || '';
+  renderInsights();
+  renderDetail(list.find((item) => value(item, 'id') === state.selectedId));
 }
 
 const EXPORT_FIELDS = [
@@ -155,91 +412,55 @@ const EXPORT_FIELDS = [
   { label: 'תפקיד', key: 'role' },
   { label: 'משרה', key: 'position' },
   { label: 'יום חופשי', get: findFreeDay },
-  { label: 'ותק לשכר', key: 'salarySeniority' },
   { label: 'סטטוס', key: 'status' },
+  { label: 'תעודת מטפלת', key: 'caregiverCertificate' },
+  { label: 'עזרה ראשונה עד', get: (employee) => formatDate(value(employee, 'firstAidUntil')) },
+  { label: 'התנהלות בטוחה עד', get: (employee) => formatDate(value(employee, 'safeConductUntil')) },
 ];
-
-const FILTER_LABELS = {
-  search: 'חיפוש',
-  daycare: 'מעון',
-  manager: 'מנהלת ישירה',
-  role: 'תפקיד',
-  status: 'סטטוס',
-  certificate: 'תעודת מטפלת',
-  tuesday: 'יום שלישי',
-};
-
-function findFreeDay(employee) {
-  const days = [
-    ['יום ראשון', 'sunday'],
-    ['יום שני', 'monday'],
-    ['יום שלישי', 'tuesday'],
-    ['יום רביעי', 'wednesday'],
-    ['יום חמישי', 'thursday'],
-    ['יום שישי', 'friday'],
-  ];
-  const free = days.find(([, key]) => {
-    const dayValue = value(employee, key).trim();
-    return !dayValue || /חופש|חופשי|לא|ריק|-/.test(dayValue);
-  });
-  return free ? free[0] : '';
-}
 
 function activeFilters() {
   const filters = [];
-  if (state.search) filters.push([FILTER_LABELS.search, state.search]);
-  ['daycare', 'manager', 'role', 'status', 'certificate', 'tuesday'].forEach((key) => {
-    if (state[key] === 'all') return;
-    filters.push([FILTER_LABELS[key], state[key] === '__empty__' ? 'ריק' : state[key]]);
-  });
+  if (state.selectedDaycares.length) filters.push(['מעונות', state.selectedDaycares.join(', ')]);
+  const config = extraFilterFields.find((item) => item.value === state.extraField);
+  if (config && state.extraValue) {
+    const selectedOption = [...fields.extraValue.options].find((option) => option.value === state.extraValue);
+    filters.push([config.label, selectedOption?.textContent || state.extraValue]);
+  }
+  if (state.search) filters.push(['חיפוש', state.search]);
   return filters;
 }
 
 function exportKpis(list) {
   return [
     ['סהכ עובדות בתוצאה', list.length],
-    ['פעילות בתוצאה', list.filter((item) => value(item, 'status') === 'פעילה').length],
-    ['חסרות תעודת מטפלת', list.filter(isMissingCert).length],
+    ['פעילות בתוצאה', list.filter(isActive).length],
+    ['תעודות חסרות / לא תקינות', list.filter(isInvalidCertificate).length],
     ['הכשרות שפגות בקרוב', list.filter(hasExpiringTraining).length],
   ];
 }
 
 function buildReportRows(list) {
   const filters = activeFilters();
-  const producedAt = new Date().toLocaleDateString('he-IL');
   const rows = [
     ['דוח עובדים'],
     [],
-    ['תאריך הפקה', producedAt],
+    ['תאריך הפקה', new Date().toLocaleDateString('he-IL')],
     ['מספר עובדים בתוצאה', list.length],
     ['סהכ עובדים במערכת', employees.length],
     [],
     ['מסננים פעילים'],
   ];
-
-  if (filters.length) {
-    filters.forEach(([label, filterValue]) => rows.push([label, filterValue]));
-  } else {
-    rows.push(['ללא מסננים', 'כל העובדות']);
-  }
-
+  if (filters.length) filters.forEach((row) => rows.push(row));
+  else rows.push(['ללא מסננים', 'כל העובדות']);
   rows.push([], ['מדדי דוח']);
   exportKpis(list).forEach((row) => rows.push(row));
   rows.push([], EXPORT_FIELDS.map((field) => field.label));
-  list.forEach((employee) => {
-    rows.push(EXPORT_FIELDS.map((field) => field.get ? field.get(employee) : value(employee, field.key)));
-  });
-
+  list.forEach((employee) => rows.push(EXPORT_FIELDS.map((field) => field.get ? field.get(employee) : value(employee, field.key))));
   return rows;
 }
 
 function xmlEscape(text) {
-  return String(text ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+  return String(text ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
 
 function columnName(index) {
@@ -254,13 +475,10 @@ function columnName(index) {
 }
 
 function sheetXml(rows) {
-  const body = rows.map((row, rowIndex) => {
-    const cells = row.map((cell, columnIndex) => {
-      const ref = columnName(columnIndex) + (rowIndex + 1);
-      return '<c r="' + ref + '" t="inlineStr"><is><t>' + xmlEscape(cell) + '</t></is></c>';
-    }).join('');
-    return '<row r="' + (rowIndex + 1) + '">' + cells + '</row>';
-  }).join('');
+  const body = rows.map((row, rowIndex) => '<row r="' + (rowIndex + 1) + '">' + row.map((cell, columnIndex) => {
+    const ref = columnName(columnIndex) + (rowIndex + 1);
+    return '<c r="' + ref + '" t="inlineStr"><is><t>' + xmlEscape(cell) + '</t></is></c>';
+  }).join('') + '</row>').join('');
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" rightToLeft="1"><sheetViews><sheetView workbookViewId="0" rightToLeft="1"/></sheetViews><sheetData>' + body + '</sheetData></worksheet>';
 }
 
@@ -290,7 +508,6 @@ function createZip(files) {
   const localParts = [];
   const centralParts = [];
   let offset = 0;
-
   files.forEach((file) => {
     const nameBytes = encoder.encode(file.name);
     const contentBytes = encoder.encode(file.content);
@@ -298,8 +515,6 @@ function createZip(files) {
     const local = new Uint8Array(30 + nameBytes.length + contentBytes.length);
     writeUint32(local, 0, 0x04034b50);
     writeUint16(local, 4, 20);
-    writeUint16(local, 6, 0);
-    writeUint16(local, 8, 0);
     writeUint32(local, 14, crc);
     writeUint32(local, 18, contentBytes.length);
     writeUint32(local, 22, contentBytes.length);
@@ -307,13 +522,10 @@ function createZip(files) {
     local.set(nameBytes, 30);
     local.set(contentBytes, 30 + nameBytes.length);
     localParts.push(local);
-
     const central = new Uint8Array(46 + nameBytes.length);
     writeUint32(central, 0, 0x02014b50);
     writeUint16(central, 4, 20);
     writeUint16(central, 6, 20);
-    writeUint16(central, 8, 0);
-    writeUint16(central, 10, 0);
     writeUint32(central, 16, crc);
     writeUint32(central, 20, contentBytes.length);
     writeUint32(central, 24, contentBytes.length);
@@ -323,7 +535,6 @@ function createZip(files) {
     centralParts.push(central);
     offset += local.length;
   });
-
   const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
   const end = new Uint8Array(22);
   writeUint32(end, 0, 0x06054b50);
@@ -362,60 +573,57 @@ function exportEmployeesReport() {
   downloadBlob(createWorkbookBlob(rows), 'דוח-עובדים-' + datePart + '.xlsx');
 }
 
-function renderInsights() {
-  document.querySelector('#insight-total').textContent = employees.length;
-  document.querySelector('#insight-active').textContent = employees.filter((item) => value(item, 'status') === 'פעילה').length;
-  document.querySelector('#insight-missing-cert').textContent = employees.filter(isMissingCert).length;
-  document.querySelector('#insight-expiring').textContent = employees.filter(hasExpiringTraining).length;
+function applyFilters() {
+  state.extraField = fields.extraField.value;
+  state.extraValue = fields.extraValue.value;
+  state.search = fields.search.value.trim();
+  renderList();
 }
 
-function card(employee) {
-  const selected = value(employee, 'id') === state.selectedId ? ' selected' : '';
-  return '<button class="employee-card' + selected + '" type="button" data-id="' + value(employee, 'id') + '">' +
-    '<div class="employee-card-main"><strong>' + value(employee, 'name') + '</strong><span>' + value(employee, 'daycare') + ' · ' + value(employee, 'classroom') + '</span></div>' +
-    '<dl><div><dt>תפקיד</dt><dd>' + value(employee, 'role') + '</dd></div><div><dt>משרה</dt><dd>' + value(employee, 'position') + '</dd></div><div><dt>סטטוס</dt><dd>' + value(employee, 'status') + '</dd></div></dl>' +
-    '</button>';
+function resetFilters() {
+  state.selectedDaycares = [];
+  state.extraField = '';
+  state.extraValue = '';
+  state.search = '';
+  fields.extraField.value = '';
+  fields.search.value = '';
+  updateExtraValueOptions();
+  renderDaycareChips();
+  renderList();
 }
 
-function detailItem(label, itemValue, extra = '') {
-  return '<div class="employee-detail-item ' + extra + '"><span>' + label + '</span><strong>' + (itemValue || 'חסר') + '</strong></div>';
-}
-
-function statusItem(label, itemValue) {
-  const tone = dateTone(itemValue);
-  return '<div class="training-status ' + tone + '"><span>' + label + '</span><strong>' + formatDate(itemValue) + '</strong><small>' + toneText(tone) + '</small></div>';
-}
-
-function detailSection(title, html, extra = '') {
-  return '<section class="employee-detail-section ' + extra + '"><h3>' + title + '</h3><div>' + html + '</div></section>';
-}
-
-function renderDetail(employee) {
-  if (!employee) {
-    fields.detail.hidden = true;
-    fields.detailEmpty.hidden = false;
+function applyKpiFilter(type) {
+  if (type === 'all') {
+    fields.extraField.value = '';
+    state.extraField = '';
+    state.extraValue = '';
+    updateExtraValueOptions();
+    renderList();
     return;
   }
-
-  fields.detailEmpty.hidden = true;
-  fields.detail.hidden = false;
-  fields.detail.innerHTML = '<div class="employee-profile-head"><div><span>פרופיל עובדת</span><strong>' + value(employee, 'name') + '</strong><p>' + value(employee, 'role') + ' · ' + value(employee, 'daycare') + '</p></div><span class="employee-status-chip">' + value(employee, 'status') + '</span></div>' +
-    detailSection('פרטים כלליים', detailItem('מספר עובד', value(employee, 'id')) + detailItem('שם עובדת', value(employee, 'name')) + detailItem('תאריך לידה לועזי', formatDate(value(employee, 'birthDate'))) + detailItem('תאריך לידה עברי', value(employee, 'hebrewBirthDate')) + detailItem('עדכון אחרון', formatDate(value(employee, 'lastUpdate')))) +
-    detailSection('מידע רגיש', detailItem('תעודת זהות', value(employee, 'nationalId'), 'sensitive') + detailItem('טלפון', value(employee, 'phone'), 'sensitive') + detailItem('שכר בסיס', value(employee, 'baseSalary'), 'sensitive'), 'sensitive-section') +
-    detailSection('שיבוץ ותפקיד', detailItem('מעון', value(employee, 'daycare')) + detailItem('מנהלת ישירה', value(employee, 'manager')) + detailItem('כיתה', value(employee, 'classroom')) + detailItem('תפקיד', value(employee, 'role')) + detailItem('אחראית כיתה', value(employee, 'classroomLead')) + detailItem('סטטוס', value(employee, 'status')) + detailItem('סוג העסקה', value(employee, 'employmentType'))) +
-    detailSection('ימי עבודה ומשרה', detailItem('משרה', value(employee, 'position')) + detailItem('היקף שעות', value(employee, 'hours')) + detailItem('יום ראשון', value(employee, 'sunday')) + detailItem('יום שני', value(employee, 'monday')) + detailItem('יום שלישי', value(employee, 'tuesday')) + detailItem('יום רביעי', value(employee, 'wednesday')) + detailItem('יום חמישי', value(employee, 'thursday')) + detailItem('יום שישי', value(employee, 'friday'))) +
-    detailSection('ותק ושכר', detailItem('תאריך תחילת עבודה', formatDate(value(employee, 'startDate'))) + detailItem('ותק לשכר', value(employee, 'salarySeniority')) + detailItem('שנים במערכת', value(employee, 'systemYears'))) +
-    detailSection('הכשרות ורישוי', '<div class="training-grid">' + statusItem('עזרה ראשונה עד', value(employee, 'firstAidUntil')) + statusItem('התנהלות בטוחה עד', value(employee, 'safeConductUntil')) + statusItem('סיום לימודים', value(employee, 'graduationDate')) + '</div>' + detailItem('תעודת מטפלת', value(employee, 'caregiverCertificate'), licenseTone(value(employee, 'caregiverCertificate')))) +
-    detailSection('מסמכים והערות', detailItem('מסמכים חסרים', value(employee, 'missingDocuments')) + detailItem('הערות', value(employee, 'notes')));
-}
-
-function renderList() {
-  const list = filteredEmployees();
-  fields.count.textContent = list.length + ' עובדות';
-  fields.empty.hidden = list.length > 0;
-  fields.list.innerHTML = list.map(card).join('');
-  if (!list.some((item) => value(item, 'id') === state.selectedId)) state.selectedId = value(list[0], 'id') || '';
-  renderDetail(employees.find((item) => value(item, 'id') === state.selectedId));
+  if (type === 'active') {
+    fields.extraField.value = 'status';
+    state.extraField = 'status';
+    state.extraValue = 'פעילה';
+    updateExtraValueOptions();
+    fields.extraValue.value = 'פעילה';
+  }
+  if (type === 'missing-cert') {
+    fields.extraField.value = 'missingCertificates';
+    state.extraField = 'missingCertificates';
+    state.extraValue = 'yes';
+    updateExtraValueOptions();
+    fields.extraValue.value = 'yes';
+  }
+  if (type === 'expiring') {
+    fields.extraField.value = 'expiringSoon';
+    state.extraField = 'expiringSoon';
+    state.extraValue = 'yes';
+    updateExtraValueOptions();
+    fields.extraValue.value = 'yes';
+  }
+  state.search = fields.search.value.trim();
+  renderList();
 }
 
 function setLoading() {
@@ -425,7 +633,10 @@ function setLoading() {
   fields.count.textContent = '0 עובדות';
   fields.detail.hidden = true;
   fields.detailEmpty.hidden = false;
-  renderInsights();
+  fields.insightTotal.textContent = '0';
+  fields.insightActive.textContent = '0';
+  fields.insightMissingCert.textContent = '0';
+  fields.insightExpiring.textContent = '0';
 }
 
 function setError() {
@@ -440,14 +651,29 @@ function setError() {
 }
 
 function bind() {
-  fields.search.addEventListener('input', (event) => { state.search = event.target.value.trim(); renderList(); });
-  fields.daycare.addEventListener('change', (event) => { state.daycare = event.target.value; renderList(); });
-  fields.manager.addEventListener('change', (event) => { state.manager = event.target.value; renderList(); });
-  fields.role.addEventListener('change', (event) => { state.role = event.target.value; renderList(); });
-  fields.status.addEventListener('change', (event) => { state.status = event.target.value; renderList(); });
-  fields.certificate.addEventListener('change', (event) => { state.certificate = event.target.value; renderList(); });
-  fields.tuesday.addEventListener('change', (event) => { state.tuesday = event.target.value; renderList(); });
+  fields.daycareChips.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-daycare]');
+    if (!button) return;
+    const daycare = button.dataset.daycare;
+    state.selectedDaycares = state.selectedDaycares.includes(daycare)
+      ? state.selectedDaycares.filter((item) => item !== daycare)
+      : [...state.selectedDaycares, daycare];
+    renderDaycareChips();
+  });
+  fields.extraField.addEventListener('change', () => {
+    state.extraField = fields.extraField.value;
+    state.extraValue = '';
+    updateExtraValueOptions();
+  });
+  fields.apply.addEventListener('click', applyFilters);
+  fields.reset.addEventListener('click', resetFilters);
   fields.exportButton.addEventListener('click', exportEmployeesReport);
+  document.querySelectorAll('[data-kpi-filter]').forEach((button) => {
+    button.addEventListener('click', () => applyKpiFilter(button.dataset.kpiFilter));
+  });
+  fields.search.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') applyFilters();
+  });
   fields.list.addEventListener('click', (event) => {
     const button = event.target.closest('.employee-card');
     if (!button) return;
@@ -465,8 +691,9 @@ async function loadEmployees() {
     const data = await response.json();
     employees = Array.isArray(data.employees) ? data.employees : [];
     state.selectedId = value(employees[0], 'id') || '';
-    resetFilters();
-    renderInsights();
+    setSelectOptions(fields.extraField, 'בחרי שדה', extraFilterFields.map((item) => ({ value: item.value, label: item.label })));
+    updateExtraValueOptions();
+    renderDaycareChips();
     renderList();
   } catch (error) {
     console.error(error);
@@ -474,6 +701,5 @@ async function loadEmployees() {
   }
 }
 
-resetFilters();
 bind();
 loadEmployees();
