@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>מחשבון תפוסה ותקינה - פורטל מנהלות חמ״ה</title>
+    <link rel="stylesheet" href="../assets/styles.css" />
+  </head>
+  <body>
+    <main class="portal-shell occupancy-page">
+      <header class="topbar dashboard-topbar">
+        <a class="brand" href="../dashboard/">
+          <small>מעונות חמ״ה</small>
+          <strong>פורטל מנהלות</strong>
+        </a>
+        <nav class="dashboard-nav" aria-label="ניווט ראשי">
+          <a class="nav-link" href="../dashboard/">דשבורד</a>
+          <a class="nav-link" href="../calculators/">מחשבונים</a>
+          <a class="nav-link" href="../salary/">מחשבון שכר</a>
+        </nav>
+      </header>
+
+      <section class="occupancy-hero compact-occupancy-hero" aria-labelledby="occupancy-title">
+        <div>
+          <p class="eyebrow">מחשבון תפוסה ותקינה</p>
+          <h1 id="occupancy-title">כדאיות כיתה במבט ניהולי</h1>
+          <p class="subtitle">בדיקה מהירה או חישוב מלא לשטח, תקינה, הכנסה, עלות צוות ורווחיות לפי הרכב גילאים תקין.</p>
+        </div>
+        <div class="mode-switch" aria-label="בחירת מצב חישוב">
+          <label><input type="radio" name="calculator-mode" value="quick" checked /><span>בדיקה מהירה</span></label>
+          <label><input type="radio" name="calculator-mode" value="full" /><span>חישוב מלא</span></label>
+        </div>
+      </section>
+
+      <section class="occupancy-calculator standalone-occupancy" aria-label="מחשבון תפוסה ותקינה">
+        <section class="result-card occupancy-results result-priority" aria-live="polite" aria-label="תוצאות חישוב תפוסה">
+          <div class="occupancy-result-head">
+            <div>
+              <span id="occupancy-class-label">כיתה לדוגמה</span>
+              <strong id="occupancy-status-title">תקין</strong>
+              <p id="occupancy-status-detail">הכיתה עומדת בדרישות השטח והתקינה.</p>
+            </div>
+            <div class="profit-badge">
+              <span>רווח גולמי משוער</span>
+              <strong id="gross-profit">₪0</strong>
+            </div>
+          </div>
+
+          <article class="recommendation-card" id="occupancy-recommendation">
+            <span>המלצת מערכת</span>
+            <strong>בודק חלופות תקינות...</strong>
+            <p>המערכת תשווה בין ההרכב הנוכחי לבין חלופות תקינות בלבד.</p>
+          </article>
+
+          <div class="occupancy-summary-grid" id="occupancy-summary-grid"></div>
+
+          <section class="age-breakdown-section">
+            <div class="section-heading">
+              <h2>פירוט לפי שכבה</h2>
+              <span id="total-required-staff">0 אנשי צוות</span>
+            </div>
+            <div class="age-breakdown-list" id="age-breakdown-list"></div>
+          </section>
+        </section>
+
+        <form class="form-panel occupancy-form occupancy-decision-form" id="occupancy-form">
+          <div class="form-section-heading">
+            <div>
+              <p class="eyebrow">נתוני כיתה</p>
+              <h2>הרכב נוכחי</h2>
+            </div>
+            <span id="mode-label">בדיקה מהירה</span>
+          </div>
+
+          <div class="field-grid occupancy-field-grid">
+            <label class="field wide-choice full-only">
+              <span>שם הכיתה</span>
+              <input id="classroom-name" type="text" placeholder="לדוגמה: בוגרים א׳" value="כיתה לדוגמה" />
+            </label>
+
+            <label class="field">
+              <span>שטח הכיתה בפועל (מ״ר)</span>
+              <input id="actual-sqm" type="number" min="0" step="0.1" inputmode="decimal" value="70" />
+            </label>
+
+            <label class="field quick-only">
+              <span>סוג כיתה</span>
+              <select id="classroom-type">
+                <option value="older">בוגר</option>
+                <option value="toddlers">פעוט</option>
+                <option value="infants">תינוק</option>
+                <option value="infants-toddlers">תינוק + פעוט</option>
+                <option value="toddlers-older">פעוט + בוגר</option>
+              </select>
+            </label>
+
+            <section class="age-input-card infant-card" data-age-card="infants">
+              <h2>תינוק</h2>
+              <label class="field"><span>מספר תינוקות</span><input id="infant-count" type="number" min="0" step="1" inputmode="numeric" value="0" /></label>
+              <p>2.8 מ״ר לילד · תקינה 1/5 · שכר לימוד ₪3,936</p>
+            </section>
+
+            <section class="age-input-card toddler-card" data-age-card="toddlers">
+              <h2>פעוט</h2>
+              <label class="field"><span>מספר פעוטים</span><input id="toddler-count" type="number" min="0" step="1" inputmode="numeric" value="0" /></label>
+              <p>2.6 מ״ר לילד · תקינה 1/8 · שכר לימוד ₪2,917</p>
+            </section>
+
+            <section class="age-input-card older-card" data-age-card="older">
+              <h2>בוגר</h2>
+              <label class="field"><span>מספר בוגרים</span><input id="older-count" type="number" min="0" step="1" inputmode="numeric" value="32" /></label>
+              <p>2.2 מ״ר לילד · תקינה 1/10 · שכר לימוד ₪2,587</p>
+            </section>
+          </div>
+
+          <section class="advanced-assumptions" id="advanced-assumptions" hidden>
+            <div class="form-section-heading compact">
+              <div>
+                <p class="eyebrow">הנחות חישוב</p>
+                <h2>עריכה מתקדמת</h2>
+              </div>
+            </div>
+
+            <div class="assumption-grid">
+              <label class="field"><span>עלות מטפלת חודשית</span><input id="staff-cost-override" type="number" min="0" step="100" inputmode="numeric" value="9000" /></label>
+              <label class="field"><span>שכר לימוד תינוק</span><input id="infant-tuition" type="number" min="0" step="1" inputmode="numeric" value="3936" /></label>
+              <label class="field"><span>שכר לימוד פעוט</span><input id="toddler-tuition" type="number" min="0" step="1" inputmode="numeric" value="2917" /></label>
+              <label class="field"><span>שכר לימוד בוגר</span><input id="older-tuition" type="number" min="0" step="1" inputmode="numeric" value="2587" /></label>
+              <label class="field"><span>מ״ר לתינוק</span><input id="infant-sqm" type="number" min="0" step="0.1" inputmode="decimal" value="2.8" /></label>
+              <label class="field"><span>מ״ר לפעוט</span><input id="toddler-sqm" type="number" min="0" step="0.1" inputmode="decimal" value="2.6" /></label>
+              <label class="field"><span>מ״ר לבוגר</span><input id="older-sqm" type="number" min="0" step="0.1" inputmode="decimal" value="2.2" /></label>
+              <label class="field"><span>יחס תקינה תינוק</span><input id="infant-ratio" type="number" min="0.1" step="0.1" inputmode="decimal" value="5" /></label>
+              <label class="field"><span>יחס תקינה פעוט</span><input id="toddler-ratio" type="number" min="0.1" step="0.1" inputmode="decimal" value="8" /></label>
+              <label class="field"><span>יחס תקינה בוגר</span><input id="older-ratio" type="number" min="0.1" step="0.1" inputmode="decimal" value="10" /></label>
+            </div>
+          </section>
+
+          <div class="actions occupancy-actions">
+            <button class="primary-button" type="submit">חשב</button>
+            <button class="secondary-button" type="reset">איפוס</button>
+          </div>
+        </form>
+
+        <section class="scenario-section" aria-labelledby="scenario-title">
+          <div class="section-heading">
+            <h2 id="scenario-title">חלופות תקינות להשוואה</h2>
+            <span>ללא תינוק + בוגר וללא שלוש שכבות יחד</span>
+          </div>
+          <div class="scenario-grid" id="scenario-grid"></div>
+        </section>
+      </section>
+      <script src="script.js"></script>
+    </main>
+  </body>
+</html>

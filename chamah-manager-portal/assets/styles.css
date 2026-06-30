@@ -1799,3 +1799,321 @@ button:hover { transform: translateY(-1px); }
     font-size: 1.24rem;
   }
 }
+
+
+/* Calculator hub and standalone occupancy page */
+.calculator-hub-page {
+  display: grid;
+  gap: 18px;
+}
+
+.calculator-hub-hero {
+  padding-block: 22px;
+}
+
+.calculator-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.calculator-card {
+  min-height: 210px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 16px;
+  padding: 22px;
+  border: 1px solid rgba(223, 229, 225, 0.92);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow);
+}
+
+.calculator-card.featured {
+  border-color: rgba(68, 118, 108, 0.28);
+  background: linear-gradient(180deg, rgba(229, 240, 236, 0.66), rgba(255, 255, 255, 0.94));
+}
+
+.calculator-card-mark {
+  width: 48px;
+  min-height: 48px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--brand-dark);
+  background: var(--brand-soft);
+  font-weight: 900;
+}
+
+.calculator-card h2 {
+  margin: 0;
+  font-size: 1.38rem;
+}
+
+.calculator-card p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+  font-weight: 700;
+}
+
+.calculator-card > strong {
+  color: var(--brand-dark);
+  font-size: 1rem;
+}
+
+.occupancy-page {
+  width: min(1240px, 100%);
+  display: grid;
+  gap: 16px;
+}
+
+.compact-occupancy-hero {
+  margin: 0;
+  padding: 18px 22px;
+}
+
+.compact-occupancy-hero .subtitle {
+  max-width: 680px;
+  margin-top: 8px;
+  font-size: 0.96rem;
+}
+
+.mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 7px;
+  border: 1px solid rgba(68, 118, 108, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.mode-switch label {
+  min-height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.mode-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mode-switch label:has(input:checked) {
+  color: #fff;
+  background: var(--brand);
+  box-shadow: 0 10px 22px rgba(68, 118, 108, 0.2);
+}
+
+.standalone-occupancy {
+  margin-top: 0;
+  grid-template-columns: minmax(0, 1.12fr) minmax(320px, 0.88fr);
+  align-items: start;
+}
+
+.standalone-occupancy .result-priority {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.standalone-occupancy .occupancy-decision-form {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.standalone-occupancy .scenario-section {
+  grid-column: 1 / -1;
+}
+
+.occupancy-result-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 0.32fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.occupancy-result-head > div:first-child,
+.profit-badge {
+  display: grid;
+  gap: 9px;
+  padding: 18px;
+  border: 1px solid rgba(68, 118, 108, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.occupancy-result-head span,
+.profit-badge span {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.status-title,
+.profit-badge strong {
+  color: var(--brand-dark);
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  line-height: 1;
+}
+
+.status-title.warning {
+  color: #8a613b;
+}
+
+.status-title.danger {
+  color: #9b3f35;
+}
+
+.occupancy-result-head p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+  font-weight: 800;
+}
+
+.profit-badge {
+  align-content: center;
+  border-color: rgba(201, 134, 90, 0.24);
+  background: rgba(248, 236, 228, 0.58);
+}
+
+.form-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.form-section-heading h2 {
+  margin: 0;
+  font-size: 1.22rem;
+}
+
+.form-section-heading > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 8px;
+  color: var(--brand-dark);
+  background: var(--brand-soft);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.form-section-heading.compact {
+  margin: 18px 0 12px;
+}
+
+.assumption-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.advanced-assumptions {
+  margin-top: 18px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.advanced-assumptions[hidden],
+.quick-only[hidden],
+.full-only[hidden],
+.age-input-card[hidden] {
+  display: none;
+}
+
+.occupancy-decision-form .age-input-card {
+  align-content: start;
+}
+
+.occupancy-decision-form .age-input-card h2 {
+  font-size: 1.08rem;
+}
+
+.occupancy-decision-form .age-input-card p {
+  font-size: 0.88rem;
+}
+
+@media (max-width: 1120px) {
+  .standalone-occupancy {
+    grid-template-columns: 1fr;
+  }
+
+  .standalone-occupancy .result-priority,
+  .standalone-occupancy .occupancy-decision-form,
+  .standalone-occupancy .scenario-section {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .standalone-occupancy .result-priority {
+    order: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .calculator-hub-page,
+  .occupancy-page {
+    padding: 10px;
+  }
+
+  .calculator-hub-grid,
+  .mode-switch,
+  .occupancy-result-head,
+  .assumption-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .calculator-card {
+    min-height: 166px;
+    padding: 16px;
+  }
+
+  .compact-occupancy-hero {
+    padding: 14px;
+  }
+
+  .mode-switch {
+    width: 100%;
+  }
+
+  .standalone-occupancy {
+    gap: 12px;
+  }
+
+  .occupancy-result-head > div:first-child,
+  .profit-badge {
+    padding: 15px;
+  }
+
+  .status-title,
+  .profit-badge strong {
+    font-size: clamp(2.05rem, 12vw, 3rem);
+  }
+
+  .form-section-heading {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-section-heading > span {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .occupancy-decision-form .field-grid {
+    gap: 10px;
+  }
+
+  .occupancy-decision-form .age-input-card {
+    min-height: auto;
+  }
+}
