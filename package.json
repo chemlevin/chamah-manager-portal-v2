@@ -1,7 +1,12 @@
 {
   "scripts": {
     "build": "node scripts/build.mjs",
-    "start": "node scripts/serve.mjs"
+    "start": "node scripts/serve.mjs",
+    "qa": "node scripts/run-qa.mjs",
+    "qa:update": "node scripts/run-qa.mjs --update",
+    "qa:report": "node tests/report.mjs"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@playwright/test": "^1.54.0"
+  }
 }
