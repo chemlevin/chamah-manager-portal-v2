@@ -3283,3 +3283,98 @@ details.employee-detail-section > div {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* Employees certificate status and mobile card fixes */
+.employee-warning-badge.ok,
+.training-status.ok {
+  color: var(--brand-dark);
+  background: var(--brand-soft);
+}
+.employee-warning-badge.orange,
+.training-status.orange {
+  color: #7b5a38;
+  background: var(--accent-soft);
+}
+.employee-warning-badge.pink,
+.training-status.pink {
+  color: #9b3f66;
+  background: #fde8ef;
+}
+.employee-warning-badge.pink-light,
+.training-status.pink-light {
+  color: #9b5570;
+  background: #fff0f5;
+}
+.employee-warning-badge.danger,
+.training-status.danger {
+  color: #9b3f35;
+  background: rgba(255, 236, 232, .94);
+}
+.employee-detail-close {
+  min-height: 34px;
+  width: auto;
+  padding: 0 12px;
+  color: var(--brand-dark);
+  background: #fff;
+  border: 1px solid rgba(68, 118, 108, .2);
+  border-radius: 999px;
+  box-shadow: none;
+  font-size: .84rem;
+}
+.employee-detail-close:hover {
+  color: #fff;
+  background: var(--brand);
+}
+.employee-profile-head {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+@media (max-width: 768px) {
+  .daycare-chip-list {
+    gap: 5px;
+    max-height: 92px;
+    overflow-y: auto;
+    padding-inline-end: 2px;
+  }
+  .filter-chip-button {
+    min-height: 28px;
+    padding-inline: 8px;
+    font-size: .76rem;
+    border-radius: 999px;
+  }
+  .employee-filter-row {
+    gap: 6px;
+  }
+  .employee-filters {
+    gap: 9px;
+    padding: 10px;
+  }
+  .employee-profile-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+  .employee-profile-head .employee-status-chip {
+    grid-column: 1 / -1;
+  }
+  .employee-detail-close {
+    min-height: 32px;
+    padding-inline: 10px;
+  }
+  .employee-warning-list {
+    gap: 5px;
+  }
+  .employee-warning-badge {
+    min-height: 25px;
+    padding-inline: 7px;
+    font-size: .74rem;
+  }
+}
+/* Keep the backdrop click target outside the mobile drawer for QA and real taps */
+@media (max-width: 860px) {
+  .nav-toggle:checked ~ .nav-backdrop,
+  .nav-drawer-open .nav-backdrop {
+    right: min(280px, calc(100% - 42px));
+    left: 0;
+    width: auto;
+  }
+}

@@ -161,17 +161,70 @@ function isActive(employee) {
   return value(employee, 'status') === 'פעילה';
 }
 
-function isInvalidCertificate(employee) {
+function certificateStatus(employee) {
   const certificate = value(employee, 'caregiverCertificate');
-  return !certificate || /חסר|אין|לא|בתהליך|בלימוד/.test(certificate);
+  if (!certificate) return { tone: 'hidden', label: '', missing: true };
+  if (certificate === 'יש') return { tone: 'ok', label: 'תעודת מטפלת: יש', missing: false };
+  if (certificate === 'אין') return { tone: 'danger', label: 'תעודת מטפלת: אין', missing: true };
+  if (certificate === 'בלימודים') return { tone: 'orange', label: 'תעודת מטפלת: בלימודים', missing: true };
+  if (certificate === 'מחכה לקורס') return { tone: 'pink', label: 'תעודת מטפלת: מחכה לקורס', missing: true };
+  if (/אין|חסר|לא|בתהליך|בלימוד|מחכה/.test(certificate)) {
+    return { tone: 'danger', label: 'תעודת מטפלת: ' + certificate, missing: true };
+  }
+  return { tone: 'ok', label: 'תעודת מטפלת: ' + certificate, missing: false };
+}
+
+function isInvalidCertificate(employee) {
+  return certificateStatus(employee).missing;
+}
+
+function graduationStatus(employee) {
+  const graduation = value(employee, 'graduationDate');
+  if (!graduation) return null;
+  const status = dateStatus(graduation);
+  const date = formatDate(graduation);
+  if (status === 'expired') return { tone: 'danger', label: 'סיום לימודים עבר: ' + date, status };
+  if (status === 'soon') return { tone: 'pink-light', label: 'סיום לימודים בקרוב: ' + date, status };
+  return { tone: 'orange', label: 'סיום לימודים: ' + date, status };
+}
+
+function firstAidStatus(employee) {
+  const firstAid = value(employee, 'firstAidUntil');
+  const status = dateStatus(firstAid);
+  if (status === 'missing') return { tone: 'danger', label: 'עזרה ראשונה חסרה', status };
+  if (status === 'expired') return { tone: 'danger', label: 'עזרה ראשונה פגה', status };
+  if (status === 'soon') return { tone: 'pink', label: 'עזרה ראשונה פגה בקרוב', status };
+  return { tone: 'ok', label: 'עזרה ראשונה בתוקף', status };
+}
+
+function safeConductStatus(employee) {
+  const safe = value(employee, 'safeConductUntil');
+  if (!safe || safe === 'אין') return { tone: 'danger', label: 'התנהלות בטוחה חסרה', status: 'missing' };
+  if (safe === 'בלימודים') return { tone: 'orange', label: 'התנהלות בטוחה בלימודים', status: 'study' };
+  const status = dateStatus(safe);
+  if (status === 'missing') return { tone: 'danger', label: 'התנהלות בטוחה חסרה', status };
+  if (status === 'expired') return { tone: 'danger', label: 'התנהלות בטוחה פגה', status };
+  if (status === 'soon') return { tone: 'pink', label: 'התנהלות בטוחה פגה בקרוב', status };
+  return { tone: 'ok', label: 'התנהלות בטוחה בתוקף', status };
+}
+
+function employeeStatusBadges(employee) {
+  return [
+    certificateStatus(employee),
+    graduationStatus(employee),
+    firstAidStatus(employee),
+    safeConductStatus(employee),
+  ].filter((badge) => badge && badge.tone !== 'hidden');
 }
 
 function hasExpiringTraining(employee) {
-  return ['firstAidUntil', 'safeConductUntil', 'graduationDate'].some((key) => dateStatus(value(employee, key)) === 'soon');
+  return [graduationStatus(employee), firstAidStatus(employee), safeConductStatus(employee)]
+    .some((badge) => badge && ['soon'].includes(badge.status));
 }
 
 function hasExpiredTraining(employee) {
-  return ['firstAidUntil', 'safeConductUntil'].some((key) => dateStatus(value(employee, key)) === 'expired');
+  return [firstAidStatus(employee), safeConductStatus(employee)]
+    .some((badge) => badge && badge.status === 'expired');
 }
 
 function findFreeDay(employee) {
@@ -292,15 +345,9 @@ function renderInsights() {
 }
 
 function warningBadges(employee) {
-  const badges = [];
-  if (isInvalidCertificate(employee)) badges.push(['danger', 'תעודת מטפלת חסרה']);
-  const firstAid = dateStatus(value(employee, 'firstAidUntil'));
-  if (firstAid === 'expired') badges.push(['danger', 'עזרה ראשונה פגה']);
-  if (firstAid === 'soon') badges.push(['warning', 'עזרה ראשונה פגה בקרוב']);
-  const safe = dateStatus(value(employee, 'safeConductUntil'));
-  if (safe === 'expired') badges.push(['danger', 'התנהלות בטוחה פגה']);
-  if (safe === 'soon') badges.push(['warning', 'התנהלות בטוחה פגה בקרוב']);
-  return badges.map(([tone, label]) => '<span class="employee-warning-badge ' + tone + '">' + escapeHtml(label) + '</span>').join('');
+  return employeeStatusBadges(employee)
+    .map((badge) => '<span class="employee-warning-badge ' + badge.tone + '">' + escapeHtml(badge.label) + '</span>')
+    .join('');
 }
 
 function inlineMeta(items) {
@@ -308,7 +355,7 @@ function inlineMeta(items) {
 }
 
 function card(employee) {
-  const selected = value(employee, 'id') === state.selectedId ? ' selected' : '';
+  const selected = state.selectedId && value(employee, 'id') === state.selectedId ? ' selected' : '';
   const freeDay = findFreeDay(employee);
   const meta = inlineMeta([value(employee, 'daycare'), value(employee, 'classroom')]);
   const roleLine = inlineMeta([value(employee, 'role'), value(employee, 'position')]);
@@ -332,10 +379,37 @@ function statusItem(label, itemValue) {
   return '<div class="training-status ' + statusTone(status) + '"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(displayValue || statusText(status)) + '</strong><small>' + statusText(status) + '</small></div>';
 }
 
+function badgeStatusItem(title, badge, fallbackValue = '') {
+  if (!badge) return '';
+  const valueText = fallbackValue || badge.label.replace(title + ': ', '').replace(title + ' ', '');
+  return '<div class="training-status ' + badge.tone + '"><span>' + escapeHtml(title) + '</span><strong>' + escapeHtml(valueText) + '</strong><small>' + escapeHtml(badge.label) + '</small></div>';
+}
+
+function graduationStatusItem(employee) {
+  const graduation = value(employee, 'graduationDate');
+  if (!graduation) return '';
+  return badgeStatusItem('סיום לימודים', graduationStatus(employee), formatDate(graduation));
+}
+
+function firstAidStatusItem(employee) {
+  return badgeStatusItem('עזרה ראשונה', firstAidStatus(employee), formatDate(value(employee, 'firstAidUntil')));
+}
+
+function safeConductStatusItem(employee) {
+  const safe = value(employee, 'safeConductUntil');
+  const badge = safeConductStatus(employee);
+  return badgeStatusItem('התנהלות בטוחה', badge, parseDate(safe) ? formatDate(safe) : safe);
+}
+
 function certificateStatusItem(employee) {
-  const certificate = value(employee, 'caregiverCertificate');
-  const invalid = isInvalidCertificate(employee);
-  return '<div class="training-status ' + (invalid ? 'danger' : 'ok') + '"><span>תעודת מטפלת</span><strong>' + escapeHtml(certificate || 'חסרה') + '</strong><small>' + (invalid ? 'חסר / לא תקין' : 'תקף') + '</small></div>';
+  const badge = certificateStatus(employee);
+  const label = badge.label || 'תעודת מטפלת חסרה';
+  return '<div class="training-status ' + (badge.tone === 'hidden' ? 'danger' : badge.tone) + '"><span>תעודת מטפלת</span><strong>' + escapeHtml(label.replace('תעודת מטפלת: ', '')) + '</strong><small>' + (badge.missing ? 'חסר / לא תקין' : 'תקף') + '</small></div>';
+}
+
+function closeEmployeeDetail() {
+  state.selectedId = '';
+  renderList();
 }
 
 function detailSection(title, html, extra = '') {
@@ -362,9 +436,9 @@ function renderDetail(employee) {
     detailItem('משרה', value(employee, 'position'));
 
   const compliance = certificateStatusItem(employee) +
-    statusItem('סיום לימודים', value(employee, 'graduationDate')) +
-    statusItem('עזרה ראשונה עד', value(employee, 'firstAidUntil')) +
-    statusItem('התנהלות בטוחה עד', value(employee, 'safeConductUntil')) +
+    graduationStatusItem(employee) +
+    firstAidStatusItem(employee) +
+    safeConductStatusItem(employee) +
     detailItem('אחראית כיתה', value(employee, 'classroomLead'));
 
   const workDays = dayFields.map(([label, key]) => detailItem(label, value(employee, key))).join('');
@@ -386,7 +460,7 @@ function renderDetail(employee) {
     detailItem('תאריך לידה לועזי', formatDate(value(employee, 'birthDate')), 'sensitive') +
     detailItem('תאריך לידה עברי', value(employee, 'hebrewBirthDate'), 'sensitive');
 
-  fields.detail.innerHTML = '<div class="employee-profile-head"><div><span>תקציר עובדת</span><strong>' + escapeHtml(value(employee, 'name')) + '</strong><p>' + escapeHtml(inlineMeta([value(employee, 'role'), value(employee, 'daycare'), value(employee, 'classroom')])) + '</p></div><span class="employee-status-chip">' + escapeHtml(value(employee, 'status')) + '</span></div>' +
+  fields.detail.innerHTML = '<div class="employee-profile-head"><div><span>תקציר עובדת</span><strong>' + escapeHtml(value(employee, 'name')) + '</strong><p>' + escapeHtml(inlineMeta([value(employee, 'role'), value(employee, 'daycare'), value(employee, 'classroom')])) + '</p></div><button class="employee-detail-close" type="button" data-close-detail>סגור</button><span class="employee-status-chip">' + escapeHtml(value(employee, 'status')) + '</span></div>' +
     detailSection('תקציר עובדת', summary, 'manager-summary') +
     detailSection('הכשרות ורישוי', '<div class="training-grid">' + compliance + '</div>') +
     detailSection('ימי עבודה', workDays) +
@@ -400,9 +474,9 @@ function renderList() {
   fields.count.textContent = list.length + ' עובדות';
   fields.empty.hidden = list.length > 0;
   fields.list.innerHTML = list.map(card).join('');
-  if (!list.some((item) => value(item, 'id') === state.selectedId)) state.selectedId = value(list[0], 'id') || '';
+  if (!list.some((item) => value(item, 'id') === state.selectedId)) state.selectedId = '';
   renderInsights();
-  renderDetail(list.find((item) => value(item, 'id') === state.selectedId));
+  renderDetail(state.selectedId ? list.find((item) => value(item, 'id') === state.selectedId) : null);
 }
 
 const EXPORT_FIELDS = [
@@ -681,6 +755,10 @@ function bind() {
     renderList();
     document.querySelector('#employee-detail-panel').scrollIntoView({ block: 'start', behavior: 'smooth' });
   });
+  document.querySelector('#employee-detail-panel').addEventListener('click', (event) => {
+    if (!event.target.closest('[data-close-detail]')) return;
+    closeEmployeeDetail();
+  });
 }
 
 async function loadEmployees() {
@@ -690,7 +768,7 @@ async function loadEmployees() {
     if (!response.ok) throw new Error('Failed to load employees');
     const data = await response.json();
     employees = Array.isArray(data.employees) ? data.employees : [];
-    state.selectedId = value(employees[0], 'id') || '';
+    state.selectedId = '';
     setSelectOptions(fields.extraField, 'בחרי שדה', extraFilterFields.map((item) => ({ value: item.value, label: item.label })));
     updateExtraValueOptions();
     renderDaycareChips();
