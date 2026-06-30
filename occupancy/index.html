@@ -30,11 +30,11 @@
 
       <section class="calculation-entry" aria-labelledby="entry-title">
         <div class="section-heading entry-heading">
-          <h2 id="entry-title">בחרי סוג חישוב</h2>
-          <span>הטופס יופיע לאחר בחירה</span>
+          <h2 id="entry-title">בדיקה מהירה</h2>
+          <span>מצב ברירת מחדל למנהלות</span>
         </div>
         <div class="calculation-mode-cards" role="radiogroup" aria-label="סוג חישוב">
-          <button class="mode-card" type="button" data-mode-choice="quick" aria-pressed="false">
+          <button class="mode-card" type="button" data-mode-choice="quick" aria-pressed="true">
             <span>⚡</span>
             <strong>בדיקה מהירה</strong>
             <small>שטח, סוג כיתה ומספר ילדים בלבד</small>
@@ -45,11 +45,11 @@
             <small>כולל שכר לימוד, תקינה והנחות מתקדמות</small>
           </button>
         </div>
-        <input class="visually-hidden" type="radio" name="calculator-mode" value="quick" />
+        <input class="visually-hidden" type="radio" name="calculator-mode" value="quick" checked />
         <input class="visually-hidden" type="radio" name="calculator-mode" value="full" />
       </section>
 
-      <section class="occupancy-workspace" id="occupancy-workspace" hidden>
+      <section class="occupancy-workspace" id="occupancy-workspace">
         <form class="form-panel occupancy-form occupancy-decision-form" id="occupancy-form">
           <div class="form-section-heading">
             <div>
@@ -66,8 +66,9 @@
             </label>
             <label class="field">
               <span>שטח הכיתה בפועל (מ״ר)</span>
-              <input id="actual-sqm" type="number" min="0" step="0.1" inputmode="decimal" value="70" />
+              <input id="actual-sqm" type="number" min="0" step="0.1" inputmode="decimal" placeholder="לדוגמה: 70" />
             </label>
+            <p class="calculation-helper" id="quick-helper">בחרי סוג כיתה והזיני שטח או מספר ילדים.</p>
             <label class="field quick-only">
               <span>סוג כיתה</span>
               <select id="classroom-type">
@@ -90,7 +91,7 @@
             </section>
             <section class="age-input-card older-card" data-age-card="older">
               <h2>בוגר</h2>
-              <label class="field"><span>מספר בוגרים</span><input id="older-count" type="number" min="0" step="1" inputmode="numeric" value="32" /></label>
+              <label class="field"><span>מספר בוגרים</span><input id="older-count" type="number" min="0" step="1" inputmode="numeric" placeholder="לדוגמה: 32" /></label>
               <p data-validation="older">מקסימום 33 ילדים.</p>
             </section>
           </div>

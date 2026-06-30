@@ -12,14 +12,6 @@ const CLASS_TYPE_AGES = {
   "toddlers-older": ["toddlers", "older"],
 };
 
-const DEFAULT_QUICK_COUNTS = {
-  infants: { infants: 18, toddlers: 0, older: 0 },
-  toddlers: { infants: 0, toddlers: 24, older: 0 },
-  older: { infants: 0, toddlers: 0, older: 32 },
-  "infants-toddlers": { infants: 10, toddlers: 12, older: 0 },
-  "toddlers-older": { infants: 0, toddlers: 5, older: 26 },
-};
-
 const form = document.querySelector("#occupancy-form");
 const workspace = document.querySelector("#occupancy-workspace");
 const emptyState = document.querySelector("#occupancy-empty-state");
@@ -29,6 +21,9 @@ const modeCards = document.querySelectorAll("[data-mode-choice]");
 const classroomTypeInput = document.querySelector("#classroom-type");
 const advancedPanel = document.querySelector("#advanced-assumptions");
 const modeLabel = document.querySelector("#mode-label");
+const quickHelper = document.querySelector("#quick-helper");
+const actualSqmInput = document.querySelector("#actual-sqm");
+const countInputs = { infants: document.querySelector("#infant-count"), toddlers: document.querySelector("#toddler-count"), older: document.querySelector("#older-count") };
 const classLabel = document.querySelector("#occupancy-class-label");
 const healthCard = document.querySelector("#health-status-card");
 const statusIcon = document.querySelector("#occupancy-status-icon");
@@ -52,6 +47,7 @@ const numberFormatter = new Intl.NumberFormat("he-IL", { maximumFractionDigits: 
 const currencyFormatter = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
 let lastSummaryText = "";
 let hasCalculated = false;
+let quickInputBasis = "";
 
 function money(value) {
   return currencyFormatter.format(Number.isFinite(value) ? value : 0);
@@ -92,7 +88,15 @@ function valueOf(id, fallback = 0) {
 }
 
 function getMode() {
-  return document.querySelector('input[name="calculator-mode"]:checked')?.value || "";
+  return document.querySelector('input[name="calculator-mode"]:checked')?.value || "quick";
+}
+
+function isQuickMode() {
+  return getMode() === "quick";
+}
+
+function isMixedType(type = classroomTypeInput.value) {
+  return CLASS_TYPE_AGES[type].length > 1;
 }
 
 function getRules() {
@@ -102,6 +106,11 @@ function getRules() {
     toddlers: { ...DEFAULT_RULES.toddlers, tuition: isFull ? valueOf("toddler-tuition", 2917) : 2917, sqmPerChild: isFull ? valueOf("toddler-sqm", 2.6) : 2.6, ratio: isFull ? valueOf("toddler-ratio", 8) : 8 },
     older: { ...DEFAULT_RULES.older, tuition: isFull ? valueOf("older-tuition", 2587) : 2587, sqmPerChild: isFull ? valueOf("older-sqm", 2.2) : 2.2, ratio: isFull ? valueOf("older-ratio", 10) : 10 },
   };
+}
+
+function singleActiveAge() {
+  const ages = CLASS_TYPE_AGES[classroomTypeInput.value] || [];
+  return ages.length === 1 ? ages[0] : "";
 }
 
 function getCapacityViolations(composition, rules = DEFAULT_RULES) {
@@ -129,9 +138,25 @@ function getCompositionValidation(composition, rules = DEFAULT_RULES) {
 function getSqmStatus(actualSqm, requiredSqm) {
   const roundedRequiredSqm = Math.floor(requiredSqm);
   if (requiredSqm <= 0) return { label: "לא חושב", detail: "אין ילדים בכיתה לחישוב שטח.", tone: "warning", roundedRequiredSqm };
+  if (actualSqm <= 0) return { label: "שטח נדרש", detail: "לא הוזן שטח כיתה בפועל.", tone: "warning", roundedRequiredSqm };
   if (actualSqm >= roundedRequiredSqm) return { label: "תקין", detail: "הכיתה תקינה מבחינת שטח: כן", tone: "ok", roundedRequiredSqm };
   if (actualSqm >= roundedRequiredSqm * 0.95) return { label: "גבולי", detail: "הכיתה קרובה לדרישת השטח אך חסר שטח.", tone: "warning", roundedRequiredSqm };
   return { label: "לא תקין", detail: "הכיתה תקינה מבחינת שטח: לא", tone: "danger", roundedRequiredSqm };
+}
+
+function quickCompositionFromInputs(rules) {
+  const type = classroomTypeInput.value;
+  const ages = CLASS_TYPE_AGES[type];
+  const actualSqm = valueOf("actual-sqm", 0);
+  const composition = { infants: 0, toddlers: 0, older: 0 };
+  if (ages.length === 1 && quickInputBasis === "sqm" && actualSqm > 0) {
+    const key = ages[0];
+    composition[key] = Math.min(calculateSqmCapacity(actualSqm, rules[key].sqmPerChild), rules[key].maxChildren);
+    countInputs[key].value = composition[key];
+    return composition;
+  }
+  ages.forEach((key) => { composition[key] = valueOf(key === "infants" ? "infant-count" : key === "toddlers" ? "toddler-count" : "older-count", 0); });
+  return composition;
 }
 
 function calculateScenarioBalance(composition, options) {
@@ -151,53 +176,24 @@ function calculateScenarioBalance(composition, options) {
   const staffCost = requiredStaff * options.staffCostPerPerson;
   const monthlyBalance = income - staffCost;
   const sqmStatus = getSqmStatus(options.actualSqm, requiredSqm);
-  const areaCompliant = requiredSqm > 0 && options.actualSqm >= sqmStatus.roundedRequiredSqm;
+  const areaCompliant = requiredSqm > 0 && (options.actualSqm <= 0 || options.actualSqm >= sqmStatus.roundedRequiredSqm);
   const activeRows = rows.filter((row) => row.children > 0);
   const minCapacity = activeRows.length ? Math.min(...activeRows.map((row) => row.maxChildren)) : 0;
-  return {
-    rows,
-    totalChildren,
-    requiredSqm,
-    roundedRequiredSqm: sqmStatus.roundedRequiredSqm,
-    actualSqm: options.actualSqm,
-    requiredStaff,
-    income,
-    staffCost,
-    monthlyBalance,
-    balancePerChild: totalChildren > 0 ? monthlyBalance / totalChildren : 0,
-    balancePerSqm: options.actualSqm > 0 ? monthlyBalance / options.actualSqm : 0,
-    areaCompliant,
-    validComposition: validation.valid,
-    invalidMix: validation.invalidMix,
-    compositionMessage: validation.message,
-    capacityViolations: validation.capacityViolations || [],
-    sqmStatus,
-    compliant: totalChildren > 0 && validation.valid && areaCompliant,
-    capacityLimit: minCapacity,
-  };
+  return { rows, totalChildren, requiredSqm, roundedRequiredSqm: sqmStatus.roundedRequiredSqm, actualSqm: options.actualSqm, requiredStaff, income, staffCost, monthlyBalance, balancePerChild: totalChildren > 0 ? monthlyBalance / totalChildren : 0, balancePerSqm: options.actualSqm > 0 ? monthlyBalance / options.actualSqm : 0, areaCompliant, validComposition: validation.valid, invalidMix: validation.invalidMix, compositionMessage: validation.message, capacityViolations: validation.capacityViolations || [], sqmStatus, compliant: totalChildren > 0 && validation.valid && areaCompliant, capacityLimit: minCapacity };
 }
 
 function getInput() {
   const isFull = getMode() === "full";
-  return {
-    className: document.querySelector("#classroom-name").value.trim() || "כיתה ללא שם",
-    mode: getMode(),
-    actualSqm: valueOf("actual-sqm", 0),
-    composition: { infants: valueOf("infant-count", 0), toddlers: valueOf("toddler-count", 0), older: valueOf("older-count", 0) },
-    rules: getRules(),
-    staffCostPerPerson: isFull ? valueOf("staff-cost-override", 9000) : 9000,
-  };
+  const rules = getRules();
+  return { className: document.querySelector("#classroom-name").value.trim() || "כיתה ללא שם", mode: getMode(), actualSqm: valueOf("actual-sqm", 0), composition: isQuickMode() ? quickCompositionFromInputs(rules) : { infants: valueOf("infant-count", 0), toddlers: valueOf("toddler-count", 0), older: valueOf("older-count", 0) }, rules, staffCostPerPerson: isFull ? valueOf("staff-cost-override", 9000) : 9000 };
 }
 
 function compositionLabel(composition, separator = " + ") {
-  return Object.entries(DEFAULT_RULES)
-    .map(([key, rule]) => composition[key] > 0 ? numberFormatter.format(composition[key]) + " " + rule.plural : "")
-    .filter(Boolean)
-    .join(separator) || "ללא ילדים";
+  return Object.entries(DEFAULT_RULES).map(([key, rule]) => composition[key] > 0 ? numberFormatter.format(composition[key]) + " " + rule.plural : "").filter(Boolean).join(separator) || "ללא ילדים";
 }
 
 function centralReason(result, input) {
-  if (result.compliant) return "הכיתה עומדת בדרישות.";
+  if (result.compliant) return input.actualSqm > 0 ? "הכיתה עומדת בדרישות." : "חושב שטח נדרש לפי מספר הילדים.";
   if (!result.validComposition) return result.compositionMessage;
   const missingSqm = Math.max(result.roundedRequiredSqm - input.actualSqm, 0);
   if (!result.areaCompliant) return "חסרים " + numberFormatter.format(missingSqm) + " מ״ר.";
@@ -257,19 +253,13 @@ function renderResult(result, input, bestInfo) {
   healthCard.className = "health-status-card " + tone;
   kpiChildren.textContent = numberFormatter.format(result.totalChildren);
   kpiStaff.textContent = numberFormatter.format(result.requiredStaff);
-  kpiSqm.textContent = numberFormatter.format(result.actualSqm) + "/" + numberFormatter.format(result.roundedRequiredSqm);
+  kpiSqm.textContent = input.actualSqm > 0 ? numberFormatter.format(result.actualSqm) + "/" + numberFormatter.format(result.roundedRequiredSqm) : numberFormatter.format(result.requiredSqm);
   kpiBalance.textContent = money(result.monthlyBalance);
-
   const use = getUtilization(result);
-  utilizationBars.innerHTML = [
-    utilizationBar("שטח", use.areaUse),
-    utilizationBar("תקינה", use.staffUse),
-    utilizationBar("קיבולת", use.capacityUse),
-  ].join("");
+  utilizationBars.innerHTML = [utilizationBar("שטח", use.areaUse), utilizationBar("תקינה", use.staffUse), utilizationBar("קיבולת", use.capacityUse)].join("");
   const factor = limitingFactor(result);
   limitingFactorOutput.textContent = "הגורם המגביל: " + factor.icon + " " + factor.key;
   microInsights.innerHTML = getMicroInsights(result, input, bestInfo).map((text) => '<span>' + text + '</span>').join("");
-
   const activeRows = result.rows.filter((row) => row.children > 0);
   const missingSqm = Math.max(result.roundedRequiredSqm - input.actualSqm, 0);
   const childBreakdown = compositionLabel(input.composition, ", ");
@@ -278,7 +268,7 @@ function renderResult(result, input, bestInfo) {
     summaryItem("סטטוס", result.compliant ? "תקין" : "לא תקין", centralReason(result, input), tone),
     summaryItem("פירוט ילדים", childBreakdown, "הרכב כיתה"),
     summaryItem("שטח נדרש", numberFormatter.format(result.requiredSqm) + " מ״ר", "בדיקה לפי " + numberFormatter.format(result.roundedRequiredSqm) + " מ״ר", result.areaCompliant ? "ok" : "danger"),
-    summaryItem("שטח בפועל", numberFormatter.format(input.actualSqm) + " מ״ר", missingSqm > 0 ? "חסר " + numberFormatter.format(missingSqm) + " מ״ר" : "מספיק", result.areaCompliant ? "ok" : "danger"),
+    summaryItem("שטח בפועל", input.actualSqm > 0 ? numberFormatter.format(input.actualSqm) + " מ״ר" : "לא הוזן", missingSqm > 0 && input.actualSqm > 0 ? "חסר " + numberFormatter.format(missingSqm) + " מ״ר" : "אופציונלי לבדיקה", result.areaCompliant ? "ok" : "danger"),
     summaryItem("מקסימום ילדים", result.capacityViolations.length ? "חריגה" : "תקין", capacityNote, result.capacityViolations.length ? "danger" : "ok"),
     summaryItem("צוות נדרש", numberFormatter.format(result.requiredStaff), "אנשי צוות"),
     summaryItem("הכנסה חודשית", money(result.income), "לפי שכר לימוד"),
@@ -334,35 +324,16 @@ function renderRecommendation(bestInfo) {
   const tone = bestInfo.better ? "ok" : result.compliant ? "ok" : "warning";
   recommendationCard.className = "recommendation-card management-insight-card " + tone;
   if (bestInfo.better) {
-    recommendationCard.innerHTML = '<span>המלצת המערכת</span><strong>כדאי לשקול ' + compositionLabel(scenario.composition) + '.</strong><p>החלופה מגדילה את היתרה ב-' + money(bestInfo.delta) + ' ועומדת בתקינה.</p>';
+    recommendationCard.innerHTML = '<span>המלצת המערכת</span><strong>כדאי לשקול ' + compositionLabel(scenario.composition) + '.</strong><p>החלופה משאירה יתרה גבוהה יותר ב-' + money(bestInfo.delta) + ' ועומדת בתקינה.</p>';
     return;
   }
-  recommendationCard.innerHTML = '<span>המלצת המערכת</span><strong>ההרכב הנוכחי הוא האפשרות המומלצת לפי הנתונים שהוזנו.</strong><p>' + (result.compliant ? 'ההרכב הנוכחי תקין.' : 'לא נמצאה חלופה תקינה טובה יותר בשטח ובנתונים הנוכחיים.') + '</p>';
+  recommendationCard.innerHTML = '<span>המלצת המערכת</span><strong>ההרכב הנוכחי מומלץ.</strong><p>' + (result.compliant ? 'ההרכב הנוכחי תקין.' : 'לא נמצאה חלופה תקינה טובה יותר בשטח ובנתונים הנוכחיים.') + '</p>';
 }
 
 function createSummaryText(input, current, bestInfo) {
   const recommended = bestInfo.scenario;
   const deltaLine = bestInfo.better ? "החלופה משאירה יתרה חודשית גבוהה יותר ב-" + money(bestInfo.delta) + " ועומדת בתקינה." : "ההרכב הנוכחי הוא האפשרות המומלצת לפי הנתונים שהוזנו.";
-  return [
-    "מחשבון תפוסה ותקינה - סיכום כיתה",
-    "",
-    "סטטוס: " + (current.compliant ? "תקין" : "לא תקין"),
-    "סיבה מרכזית: " + centralReason(current, input),
-    "הרכב כיתה: " + compositionLabel(input.composition, ", "),
-    "סה״כ ילדים: " + numberFormatter.format(current.totalChildren),
-    "שטח בפועל: " + numberFormatter.format(current.actualSqm) + " מ״ר",
-    "שטח נדרש: " + numberFormatter.format(current.requiredSqm) + " מ״ר",
-    "צוות נדרש: " + numberFormatter.format(current.requiredStaff),
-    "",
-    "הכנסה חודשית: " + money(current.income),
-    "עלות צוות חודשית: " + money(current.staffCost),
-    "יתרה חודשית משוערת: " + money(current.monthlyBalance),
-    "",
-    "חלופה מומלצת:",
-    compositionLabel(recommended.composition, " ו-"),
-    "",
-    deltaLine,
-  ].join("\\n");
+  return ["מחשבון תפוסה ותקינה - סיכום כיתה", "", "סטטוס: " + (current.compliant ? "תקין" : "לא תקין"), "סיבה מרכזית: " + centralReason(current, input), "הרכב כיתה: " + compositionLabel(input.composition, ", "), "סה״כ ילדים: " + numberFormatter.format(current.totalChildren), "שטח בפועל: " + (current.actualSqm > 0 ? numberFormatter.format(current.actualSqm) + " מ״ר" : "לא הוזן"), "שטח נדרש: " + numberFormatter.format(current.requiredSqm) + " מ״ר", "צוות נדרש: " + numberFormatter.format(current.requiredStaff), "", "הכנסה חודשית: " + money(current.income), "עלות צוות חודשית: " + money(current.staffCost), "יתרה חודשית משוערת: " + money(current.monthlyBalance), "", "חלופה מומלצת:", compositionLabel(recommended.composition, " ו-"), "", deltaLine].join("\\n");
 }
 
 function renderScenarios(input, currentResult) {
@@ -374,21 +345,59 @@ function renderScenarios(input, currentResult) {
   scenarioGrid.innerHTML = scenarios.filter((scenario) => scenario.result.validComposition || scenario.title === "הרכב נוכחי").map(scenarioCard).join("") || '<p class="empty-state">אין חלופות להצגה.</p>';
 }
 
+function visibleAgeKeys() {
+  return Array.from(document.querySelectorAll("[data-age-card]")).filter((card) => !card.hidden).map((card) => card.getAttribute("data-age-card"));
+}
+
+function updateQuickBasis(changed) {
+  if (!isQuickMode() || isMixedType()) {
+    quickInputBasis = "children";
+    actualSqmInput.disabled = false;
+    Object.values(countInputs).forEach((input) => { input.disabled = false; });
+    return;
+  }
+  const age = singleActiveAge();
+  const countInput = countInputs[age];
+  const hasSqm = actualSqmInput.value !== "" && Number(actualSqmInput.value) > 0;
+  const hasChildren = countInput && countInput.value !== "" && Number(countInput.value) > 0;
+  if (!hasSqm && !hasChildren) quickInputBasis = "";
+  else if (!quickInputBasis && changed === "sqm" && hasSqm) quickInputBasis = "sqm";
+  else if (!quickInputBasis && changed === "children" && hasChildren) quickInputBasis = "children";
+  else if (quickInputBasis === "sqm" && !hasSqm) quickInputBasis = hasChildren ? "children" : "";
+  else if (quickInputBasis === "children" && !hasChildren) quickInputBasis = hasSqm ? "sqm" : "";
+  actualSqmInput.disabled = false;
+  Object.entries(countInputs).forEach(([key, input]) => { input.disabled = key === age && quickInputBasis === "sqm"; });
+  if (quickInputBasis === "sqm" && age && hasSqm) {
+    const rules = getRules();
+    const calculatedChildren = Math.min(calculateSqmCapacity(Number(actualSqmInput.value), rules[age].sqmPerChild), rules[age].maxChildren);
+    countInputs[age].value = calculatedChildren;
+    if (quickHelper) quickHelper.textContent = "מחושב לפי שטח הכיתה.";
+  }
+}
+
 function updateValidationHints() {
+  updateQuickBasis();
   const input = getInput();
+  const keys = visibleAgeKeys();
+  if (isQuickMode() && !isMixedType() && quickInputBasis === "sqm") quickHelper.textContent = "מחושב לפי שטח הכיתה.";
+  else if (isQuickMode() && !isMixedType() && quickInputBasis === "children") quickHelper.textContent = "מחושב לפי מספר הילדים.";
+  else if (isQuickMode() && isMixedType()) quickHelper.textContent = "בכיתה מעורבת יש להזין את מספר הילדים בכל שכבת גיל.";
+  else quickHelper.textContent = "בחרי סוג כיתה והזיני שטח או מספר ילדים.";
   Object.entries(input.composition).forEach(([key, count]) => {
     const hint = document.querySelector('[data-validation="' + key + '"]');
     if (!hint) return;
     const max = input.rules[key].maxChildren;
     const remaining = max - count;
     hint.className = remaining < 0 ? "validation-danger" : "validation-ok";
-    if (remaining < 0) hint.textContent = "חריגה מהמקסימום. מקסימום " + max + " ילדים.";
+    if (!keys.includes(key)) hint.textContent = "מקסימום " + max + " ילדים.";
+    else if (isQuickMode() && !isMixedType() && quickInputBasis === "sqm" && key === singleActiveAge()) hint.textContent = "מחושב לפי שטח הכיתה. מקסימום " + max + " ילדים.";
+    else if (remaining < 0) hint.textContent = "חריגה מהמקסימום. מקסימום " + max + " ילדים.";
     else if (remaining === 0) hint.textContent = "הכיתה מלאה לפי מקסימום " + max + " ילדים.";
     else hint.textContent = "נותר מקום לעוד " + numberFormatter.format(remaining) + " ילדים. מקסימום " + max + ".";
   });
 }
 
-function applyQuickClassType(syncCounts = false) {
+function applyQuickClassType() {
   const mode = getMode();
   const selectedType = classroomTypeInput.value;
   const activeAges = mode === "quick" ? CLASS_TYPE_AGES[selectedType] : ["infants", "toddlers", "older"];
@@ -396,16 +405,16 @@ function applyQuickClassType(syncCounts = false) {
     const key = card.getAttribute("data-age-card");
     card.hidden = !activeAges.includes(key);
   });
-  if (mode === "quick" && syncCounts) {
-    const defaults = DEFAULT_QUICK_COUNTS[selectedType];
-    document.querySelector("#infant-count").value = defaults.infants;
-    document.querySelector("#toddler-count").value = defaults.toddlers;
-    document.querySelector("#older-count").value = defaults.older;
+  if (mode === "quick") {
+    Object.entries(countInputs).forEach(([key, input]) => {
+      if (!activeAges.includes(key)) input.value = "";
+    });
   }
+  quickInputBasis = "";
   updateValidationHints();
 }
 
-function chooseMode(mode) {
+function chooseMode(mode, shouldScroll = true) {
   modeInputs.forEach((input) => { input.checked = input.value === mode; });
   modeCards.forEach((card) => {
     const active = card.dataset.modeChoice === mode;
@@ -417,7 +426,7 @@ function chooseMode(mode) {
   emptyState.hidden = false;
   hasCalculated = false;
   updateMode();
-  form.scrollIntoView({ block: "start", behavior: "smooth" });
+  if (shouldScroll) form.scrollIntoView({ block: "start", behavior: "smooth" });
 }
 
 function updateMode() {
@@ -426,7 +435,7 @@ function updateMode() {
   modeLabel.textContent = mode === "quick" ? "בדיקה מהירה" : "חישוב מלא";
   document.querySelectorAll(".quick-only").forEach((element) => { element.hidden = mode !== "quick"; });
   document.querySelectorAll(".full-only").forEach((element) => { element.hidden = mode !== "full"; });
-  applyQuickClassType(false);
+  applyQuickClassType();
 }
 
 function updateCalculator() {
@@ -435,6 +444,11 @@ function updateCalculator() {
   const input = getInput();
   const result = calculateScenarioBalance(input.composition, input);
   renderScenarios(input, result);
+}
+
+function canCalculate(input) {
+  const active = Object.entries(input.composition).filter(([, count]) => count > 0);
+  return active.length > 0 || (isQuickMode() && !isMixedType() && valueOf("actual-sqm", 0) > 0);
 }
 
 async function copySummary() {
@@ -448,29 +462,34 @@ async function copySummary() {
 }
 
 modeCards.forEach((card) => card.addEventListener("click", () => chooseMode(card.dataset.modeChoice)));
-classroomTypeInput.addEventListener("change", () => {
-  applyQuickClassType(true);
-  updateCalculator();
-});
+classroomTypeInput.addEventListener("change", () => { applyQuickClassType(); updateCalculator(); });
+actualSqmInput.addEventListener("input", () => { updateQuickBasis("sqm"); updateCalculator(); });
+Object.values(countInputs).forEach((input) => input.addEventListener("input", () => { updateQuickBasis("children"); updateCalculator(); }));
 form.addEventListener("input", updateCalculator);
 form.addEventListener("submit", (event) => {
   event.preventDefault();
+  const input = getInput();
+  if (!canCalculate(input)) {
+    quickHelper.textContent = isMixedType() ? "בכיתה מעורבת יש להזין את מספר הילדים בכל שכבת גיל." : "הזיני שטח כיתה או מספר ילדים.";
+    return;
+  }
   hasCalculated = true;
   emptyState.hidden = true;
   resultsPanel.hidden = false;
-  updateCalculator();
+  const result = calculateScenarioBalance(input.composition, input);
+  renderScenarios(input, result);
   resultsPanel.scrollIntoView({ block: "start", behavior: "smooth" });
 });
 form.addEventListener("reset", () => {
   window.setTimeout(() => {
     classroomTypeInput.value = "older";
+    quickInputBasis = "";
     hasCalculated = false;
     resultsPanel.hidden = true;
     emptyState.hidden = false;
-    applyQuickClassType(true);
-    updateValidationHints();
+    chooseMode("quick", false);
   }, 0);
 });
 copySummaryButton.addEventListener("click", copySummary);
 
-updateValidationHints();
+chooseMode("quick", false);
