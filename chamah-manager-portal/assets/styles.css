@@ -2195,3 +2195,509 @@ button:hover { transform: translateY(-1px); }
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Mobile-first management experience */
+.app-home-page {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+}
+
+.app-home-hero {
+  padding: 28px;
+  border: 1px solid rgba(223, 229, 225, 0.92);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow);
+}
+
+.app-home-hero h1 {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+}
+
+.app-module-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.app-module-card {
+  min-height: 184px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid rgba(223, 229, 225, 0.92);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow);
+}
+
+.app-module-card h2,
+.app-module-card p {
+  margin: 0;
+}
+
+.app-module-card h2 {
+  font-size: 1.28rem;
+}
+
+.app-module-card p {
+  margin-top: 8px;
+  color: var(--muted);
+  line-height: 1.5;
+  font-weight: 700;
+}
+
+.app-module-icon {
+  width: 46px;
+  min-height: 46px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--brand-dark);
+  background: var(--brand-soft);
+  font-weight: 900;
+}
+
+.app-module-card > strong {
+  width: fit-content;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-weight: 900;
+}
+
+.active-module {
+  border-color: rgba(68, 118, 108, 0.35);
+  background: linear-gradient(180deg, rgba(229, 240, 236, 0.74), rgba(255, 255, 255, 0.96));
+}
+
+.active-module > strong {
+  color: var(--brand-dark);
+  background: var(--brand-soft);
+}
+
+.disabled-module {
+  opacity: 0.76;
+}
+
+.disabled-module > strong {
+  color: #6d5546;
+  background: var(--accent-soft);
+}
+
+.management-occupancy-page {
+  gap: 12px;
+}
+
+.calculation-entry,
+.empty-calculation-card,
+.health-status-card,
+.status-bars-card,
+.collapsed-section {
+  border: 1px solid rgba(223, 229, 225, 0.92);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow);
+}
+
+.calculation-entry {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.entry-heading h2 {
+  margin: 0;
+}
+
+.calculation-mode-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mode-card {
+  min-height: 128px;
+  display: grid;
+  justify-items: start;
+  align-content: center;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.84);
+  color: var(--ink);
+  text-align: right;
+  box-shadow: none;
+}
+
+.mode-card span {
+  width: 42px;
+  min-height: 42px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--brand-dark);
+  background: var(--brand-soft);
+}
+
+.mode-card strong {
+  font-size: 1.22rem;
+}
+
+.mode-card small {
+  color: var(--muted);
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.mode-card.selected {
+  border-color: rgba(68, 118, 108, 0.36);
+  background: rgba(229, 240, 236, 0.72);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.occupancy-workspace {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.82fr) minmax(0, 1.18fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.empty-calculation-card {
+  min-height: 320px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+}
+
+.empty-illustration {
+  width: 78px;
+  min-height: 78px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--brand-dark);
+  background: var(--brand-soft);
+  font-size: 2.4rem;
+  font-weight: 900;
+}
+
+.empty-calculation-card strong {
+  font-size: 1.28rem;
+}
+
+.empty-calculation-card p {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.management-occupancy-page .result-priority {
+  gap: 12px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.health-status-card {
+  min-height: 138px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  padding: 20px;
+  background: linear-gradient(180deg, rgba(229, 240, 236, 0.9), rgba(255, 255, 255, 0.96));
+}
+
+.health-status-card.danger {
+  border-color: rgba(173, 73, 63, 0.34);
+  background: linear-gradient(180deg, rgba(255, 236, 232, 0.92), rgba(255, 255, 255, 0.96));
+}
+
+#occupancy-status-icon {
+  width: 52px;
+  min-height: 52px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--brand-dark);
+  background: rgba(68, 118, 108, 0.14);
+  font-size: 1.4rem;
+}
+
+.health-status-card.danger #occupancy-status-icon {
+  color: #9b3f35;
+  background: rgba(173, 73, 63, 0.14);
+}
+
+.health-status-card small {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.health-status-card strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--brand-dark);
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  line-height: 1;
+}
+
+.health-status-card.danger strong {
+  color: #9b3f35;
+}
+
+.health-status-card p {
+  margin: 8px 0 0;
+  color: var(--ink);
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.management-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.management-kpi-grid article {
+  min-height: 86px;
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.management-kpi-grid span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.management-kpi-grid strong {
+  color: var(--ink);
+  font-size: clamp(1.35rem, 3vw, 2rem);
+  line-height: 1;
+}
+
+.micro-insights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.micro-insights span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid rgba(68, 118, 108, 0.16);
+  border-radius: 8px;
+  color: var(--brand-dark);
+  background: rgba(229, 240, 236, 0.68);
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+
+.status-bars-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.limit-factor {
+  color: var(--ink);
+  font-weight: 900;
+}
+
+.utilization-bars {
+  display: grid;
+  gap: 10px;
+}
+
+.utilization-row {
+  display: grid;
+  gap: 6px;
+}
+
+.utilization-row > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.utilization-track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #eef2ef;
+}
+
+.utilization-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--brand), var(--accent));
+}
+
+.management-insight-card {
+  border-width: 1px;
+  background: linear-gradient(180deg, rgba(229, 240, 236, 0.86), rgba(255, 255, 255, 0.96));
+}
+
+.collapsed-section {
+  padding: 0;
+  overflow: hidden;
+}
+
+.collapsed-section summary {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  color: var(--brand-dark);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.collapsed-section[open] {
+  padding-bottom: 14px;
+}
+
+.collapsed-section[open] summary {
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 14px;
+}
+
+.collapsed-section .scenario-grid,
+.collapsed-section .occupancy-summary-grid,
+.collapsed-section .age-breakdown-list {
+  padding: 0 14px;
+}
+
+.validation-ok {
+  color: var(--brand-dark) !important;
+}
+
+.validation-danger {
+  color: #9b3f35 !important;
+}
+
+@media (max-width: 1120px) {
+  .app-module-grid,
+  .occupancy-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-home-page,
+  .management-occupancy-page {
+    padding: 10px;
+  }
+
+  .app-home-hero,
+  .calculation-entry,
+  .occupancy-form {
+    padding: 14px;
+  }
+
+  .app-module-grid,
+  .calculation-mode-cards {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .app-module-card,
+  .mode-card {
+    min-height: 128px;
+    padding: 14px;
+  }
+
+  .compact-occupancy-hero {
+    display: none;
+  }
+
+  .occupancy-workspace {
+    gap: 10px;
+  }
+
+  .empty-calculation-card {
+    min-height: 220px;
+    padding: 18px;
+  }
+
+  .health-status-card {
+    min-height: 112px;
+    padding: 14px;
+    gap: 10px;
+  }
+
+  #occupancy-status-icon {
+    width: 42px;
+    min-height: 42px;
+  }
+
+  .health-status-card strong {
+    font-size: clamp(2rem, 12vw, 3rem);
+  }
+
+  .management-kpi-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .management-kpi-grid article {
+    min-height: 74px;
+    padding: 9px;
+  }
+
+  .management-kpi-grid span {
+    font-size: 0.76rem;
+  }
+
+  .management-kpi-grid strong {
+    font-size: clamp(1rem, 5vw, 1.45rem);
+  }
+
+  .micro-insights span {
+    width: 100%;
+    min-height: 30px;
+    font-size: 0.82rem;
+  }
+
+  .status-bars-card,
+  .recommendation-card,
+  .export-share-card {
+    padding: 12px;
+  }
+}
+
+@media (max-width: 380px) {
+  .management-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -3,18 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>מחשבון תפוסה ותקינה - פורטל מנהלות חמ״ה</title>
+    <title>מחשבון תפוסה ותקינה - פורטל מנהלות חמ"ה</title>
     <link rel="stylesheet" href="../assets/styles.css" />
   </head>
   <body>
-    <main class="portal-shell occupancy-page">
+    <main class="portal-shell occupancy-page management-occupancy-page">
       <header class="topbar dashboard-topbar">
-        <a class="brand" href="../dashboard/">
-          <small>מעונות חמ״ה</small>
+        <a class="brand" href="../">
+          <small>מעונות חמ"ה</small>
           <strong>פורטל מנהלות</strong>
         </a>
         <nav class="dashboard-nav" aria-label="ניווט ראשי">
-          <a class="nav-link" href="../dashboard/">דשבורד</a>
+          <a class="nav-link" href="../">בית</a>
           <a class="nav-link" href="../calculators/">מחשבונים</a>
           <a class="nav-link" href="../salary/">מחשבון שכר</a>
         </nav>
@@ -23,65 +23,40 @@
       <section class="occupancy-hero compact-occupancy-hero" aria-labelledby="occupancy-title">
         <div>
           <p class="eyebrow">מחשבון תפוסה ותקינה</p>
-          <h1 id="occupancy-title">כדאיות כיתה במבט ניהולי</h1>
-          <p class="subtitle">בדיקה מהירה או חישוב מלא לשטח, תקינה, הכנסה, עלות צוות ויתרה חודשית לפי הרכב גילאים תקין.</p>
-        </div>
-        <div class="mode-switch" aria-label="בחירת מצב חישוב">
-          <label><input type="radio" name="calculator-mode" value="quick" checked /><span>בדיקה מהירה</span></label>
-          <label><input type="radio" name="calculator-mode" value="full" /><span>חישוב מלא</span></label>
+          <h1 id="occupancy-title">בדיקת מצב כיתה</h1>
+          <p class="subtitle">כלי קצר למנהלת: האם הכיתה תקינה, מה נדרש, ומה כדאי לעשות עכשיו.</p>
         </div>
       </section>
 
-      <section class="occupancy-calculator standalone-occupancy" aria-label="מחשבון תפוסה ותקינה">
-        <section class="result-card occupancy-results result-priority" aria-live="polite" aria-label="תוצאות חישוב תפוסה">
-          <div class="occupancy-result-head">
-            <div>
-              <span id="occupancy-class-label">כיתה לדוגמה</span>
-              <strong id="occupancy-status-title">תקין</strong>
-              <p id="occupancy-status-detail">הכיתה עומדת בדרישות השטח והתקינה.</p>
-            </div>
-            <div class="balance-badge">
-              <span>יתרה חודשית משוערת</span>
-              <strong id="estimated-balance">₪0</strong>
-            </div>
-          </div>
+      <section class="calculation-entry" aria-labelledby="entry-title">
+        <div class="section-heading entry-heading">
+          <h2 id="entry-title">בחרי סוג חישוב</h2>
+          <span>הטופס יופיע לאחר בחירה</span>
+        </div>
+        <div class="calculation-mode-cards" role="radiogroup" aria-label="סוג חישוב">
+          <button class="mode-card" type="button" data-mode-choice="quick" aria-pressed="false">
+            <span>⚡</span>
+            <strong>בדיקה מהירה</strong>
+            <small>שטח, סוג כיתה ומספר ילדים בלבד</small>
+          </button>
+          <button class="mode-card" type="button" data-mode-choice="full" aria-pressed="false">
+            <span>⚙</span>
+            <strong>חישוב מלא</strong>
+            <small>כולל שכר לימוד, תקינה והנחות מתקדמות</small>
+          </button>
+        </div>
+        <input class="visually-hidden" type="radio" name="calculator-mode" value="quick" />
+        <input class="visually-hidden" type="radio" name="calculator-mode" value="full" />
+      </section>
 
-          <article class="recommendation-card best-alternative-card" id="occupancy-recommendation">
-            <span>חלופה מומלצת</span>
-            <strong>בודק חלופות תקינות...</strong>
-            <p>המערכת תשווה בין ההרכב הנוכחי לבין חלופות תקינות בלבד.</p>
-          </article>
-
-          <section class="export-share-card" aria-label="ייצוא ושיתוף סיכום">
-            <div>
-              <span>ייצוא ושיתוף</span>
-              <strong>סיכום כיתה נקי להעברה</strong>
-            </div>
-            <div class="export-actions">
-              <button class="secondary-button" type="button" id="copy-summary">העתק סיכום</button>
-              <button class="print-button" type="button" id="download-pdf" disabled>הורד PDF - בקרוב</button>
-            </div>
-            <p id="copy-feedback" aria-live="polite"></p>
-          </section>
-
-          <div class="occupancy-summary-grid" id="occupancy-summary-grid"></div>
-
-          <section class="age-breakdown-section">
-            <div class="section-heading">
-              <h2>פירוט לפי שכבה</h2>
-              <span id="total-required-staff">0 אנשי צוות</span>
-            </div>
-            <div class="age-breakdown-list" id="age-breakdown-list"></div>
-          </section>
-        </section>
-
+      <section class="occupancy-workspace" id="occupancy-workspace" hidden>
         <form class="form-panel occupancy-form occupancy-decision-form" id="occupancy-form">
           <div class="form-section-heading">
             <div>
               <p class="eyebrow">נתוני כיתה</p>
               <h2>הרכב נוכחי</h2>
             </div>
-            <span id="mode-label">בדיקה מהירה</span>
+            <span id="mode-label">בחרי מצב</span>
           </div>
 
           <div class="field-grid occupancy-field-grid">
@@ -89,12 +64,10 @@
               <span>שם הכיתה</span>
               <input id="classroom-name" type="text" placeholder="לדוגמה: בוגרים א׳" value="כיתה לדוגמה" />
             </label>
-
             <label class="field">
               <span>שטח הכיתה בפועל (מ״ר)</span>
               <input id="actual-sqm" type="number" min="0" step="0.1" inputmode="decimal" value="70" />
             </label>
-
             <label class="field quick-only">
               <span>סוג כיתה</span>
               <select id="classroom-type">
@@ -105,34 +78,25 @@
                 <option value="toddlers-older">פעוט + בוגר</option>
               </select>
             </label>
-
             <section class="age-input-card infant-card" data-age-card="infants">
               <h2>תינוק</h2>
               <label class="field"><span>מספר תינוקות</span><input id="infant-count" type="number" min="0" step="1" inputmode="numeric" value="0" /></label>
-              <p>2.8 מ״ר לילד · תקינה 1/5 · שכר לימוד ₪3,936</p>
+              <p data-validation="infants">מקסימום 20 ילדים.</p>
             </section>
-
             <section class="age-input-card toddler-card" data-age-card="toddlers">
               <h2>פעוט</h2>
               <label class="field"><span>מספר פעוטים</span><input id="toddler-count" type="number" min="0" step="1" inputmode="numeric" value="0" /></label>
-              <p>2.6 מ״ר לילד · תקינה 1/8 · שכר לימוד ₪2,917</p>
+              <p data-validation="toddlers">מקסימום 27 ילדים.</p>
             </section>
-
             <section class="age-input-card older-card" data-age-card="older">
               <h2>בוגר</h2>
               <label class="field"><span>מספר בוגרים</span><input id="older-count" type="number" min="0" step="1" inputmode="numeric" value="32" /></label>
-              <p>2.2 מ״ר לילד · תקינה 1/10 · שכר לימוד ₪2,587</p>
+              <p data-validation="older">מקסימום 33 ילדים.</p>
             </section>
           </div>
 
           <section class="advanced-assumptions" id="advanced-assumptions" hidden>
-            <div class="form-section-heading compact">
-              <div>
-                <p class="eyebrow">הנחות חישוב</p>
-                <h2>עריכה מתקדמת</h2>
-              </div>
-            </div>
-
+            <div class="form-section-heading compact"><div><p class="eyebrow">הנחות חישוב</p><h2>עריכה מתקדמת</h2></div></div>
             <div class="assumption-grid">
               <label class="field"><span>עלות מטפלת חודשית</span><input id="staff-cost-override" type="number" min="0" step="100" inputmode="numeric" value="9000" /></label>
               <label class="field"><span>שכר לימוד תינוק</span><input id="infant-tuition" type="number" min="0" step="1" inputmode="numeric" value="3936" /></label>
@@ -153,12 +117,61 @@
           </div>
         </form>
 
-        <section class="scenario-section" aria-labelledby="scenario-title">
-          <div class="section-heading">
-            <h2 id="scenario-title">חלופות מפורטות להשוואה</h2>
-            <span>פירוט משני לאחר הסיכום וההמלצה</span>
-          </div>
-          <div class="scenario-grid" id="scenario-grid"></div>
+        <section class="empty-calculation-card" id="occupancy-empty-state" aria-live="polite">
+          <div class="empty-illustration">○</div>
+          <strong>מלאי את נתוני הכיתה ולחצי על חשב.</strong>
+          <p>לא יוצגו המלצות, תוצאות או חלופות לפני חישוב.</p>
+        </section>
+
+        <section class="result-card occupancy-results result-priority" id="occupancy-results" aria-live="polite" hidden>
+          <section class="health-status-card" id="health-status-card">
+            <span id="occupancy-status-icon">●</span>
+            <div>
+              <small id="occupancy-class-label">כיתה לדוגמה</small>
+              <strong id="occupancy-status-title">תקין</strong>
+              <p id="occupancy-status-detail">הכיתה עומדת בדרישות.</p>
+            </div>
+          </section>
+
+          <section class="management-kpi-grid" aria-label="סיכום ניהולי">
+            <article><span>ילדים</span><strong id="kpi-children">0</strong></article>
+            <article><span>צוות</span><strong id="kpi-staff">0</strong></article>
+            <article><span>שטח</span><strong id="kpi-sqm">0/0</strong></article>
+            <article><span>יתרה</span><strong id="kpi-balance">₪0</strong></article>
+          </section>
+
+          <section class="micro-insights" id="micro-insights" aria-label="תובנות קצרות"></section>
+
+          <section class="status-bars-card" aria-label="מדדי ניצול">
+            <div class="limit-factor" id="limiting-factor">הגורם המגביל: שטח</div>
+            <div id="utilization-bars" class="utilization-bars"></div>
+          </section>
+
+          <article class="recommendation-card management-insight-card" id="occupancy-recommendation">
+            <span>המלצת המערכת</span>
+            <strong>בודק חלופות תקינות...</strong>
+            <p></p>
+          </article>
+
+          <section class="export-share-card" aria-label="ייצוא ושיתוף סיכום">
+            <div><span>ייצוא ושיתוף</span><strong>סיכום ניהולי להעברה</strong></div>
+            <div class="export-actions">
+              <button class="secondary-button" type="button" id="copy-summary">העתק סיכום</button>
+              <button class="print-button" type="button" id="download-pdf" disabled>הורד PDF - בקרוב</button>
+            </div>
+            <p id="copy-feedback" aria-live="polite"></p>
+          </section>
+
+          <details class="scenario-section collapsed-section" id="alternatives-details">
+            <summary>הצג חלופות נוספות</summary>
+            <div class="scenario-grid" id="scenario-grid"></div>
+          </details>
+
+          <details class="age-breakdown-section collapsed-section" id="calculation-details">
+            <summary>הצג פרטים</summary>
+            <div class="occupancy-summary-grid" id="occupancy-summary-grid"></div>
+            <div class="age-breakdown-list" id="age-breakdown-list"></div>
+          </details>
         </section>
       </section>
       <script src="script.js"></script>
