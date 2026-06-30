@@ -2705,7 +2705,7 @@ button:hover { transform: translateY(-1px); }
 
 /* Global portal navigation */
 .global-nav { position: relative; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 72px; margin-bottom: 18px; padding: 10px 14px; border: 1px solid rgba(19, 74, 59, .12); border-radius: 18px; background: rgba(255,255,255,.9); box-shadow: 0 16px 40px rgba(24, 55, 47, .08); backdrop-filter: blur(16px); }
-.global-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; font-weight: 900; white-space: nowrap; }
+.global-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-weight: 900; white-space: nowrap; }
 .global-brand img { width: auto; height: 54px; object-fit: contain; }
 .global-brand span { font-size: 1.02rem; }
 .desktop-nav { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
@@ -2714,13 +2714,13 @@ button:hover { transform: translateY(-1px); }
 .global-nav-item.beta small { background: rgba(180, 123, 30, .13); color: #936315; }
 .global-nav-item.disabled { cursor: not-allowed; opacity: .6; }
 .global-nav-item.disabled small { background: rgba(71, 85, 105, .09); color: #667085; }
-.global-nav-item.current, .global-nav-item:hover:not(.disabled) { border-color: rgba(15, 143, 109, .18); color: var(--text); background: rgba(15, 143, 109, .07); }
+.global-nav-item.current, .global-nav-item:hover:not(.disabled) { border-color: rgba(15, 143, 109, .18); color: var(--ink); background: rgba(15, 143, 109, .07); }
 .nav-toggle { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .hamburger-button { display: none; width: 44px; height: 44px; border: 1px solid rgba(19, 74, 59, .16); border-radius: 14px; background: #fff; align-items: center; justify-content: center; flex-direction: column; gap: 5px; cursor: pointer; box-shadow: 0 10px 24px rgba(24, 55, 47, .08); }
 .hamburger-button span { width: 20px; height: 2px; border-radius: 999px; background: #173f35; }
 .nav-backdrop { display: none; }
 .mobile-drawer { position: fixed; inset: 0 0 0 auto; z-index: 50; width: min(82vw, 330px); padding: 18px; background: #fff; box-shadow: -20px 0 50px rgba(24, 55, 47, .18); transform: translateX(105%); transition: transform .2s ease; display: flex; flex-direction: column; gap: 10px; }
-.drawer-brand { display: flex; align-items: center; gap: 10px; padding-bottom: 10px; margin-bottom: 6px; border-bottom: 1px solid var(--line); color: var(--text); }
+.drawer-brand { display: flex; align-items: center; gap: 10px; padding-bottom: 10px; margin-bottom: 6px; border-bottom: 1px solid var(--line); color: var(--ink); }
 .drawer-brand img { height: 42px; width: auto; }
 .mobile-drawer .global-nav-item { width: 100%; justify-content: space-between; border-color: rgba(19, 74, 59, .1); border-radius: 12px; padding: 12px 13px; }
 .home-logo { display: block; width: min(220px, 72vw); height: auto; margin: 0 auto 12px; filter: drop-shadow(0 12px 22px rgba(24, 55, 47, .08)); }
@@ -2758,3 +2758,47 @@ button:hover { transform: translateY(-1px); }
 .home-return-button { min-width: 150px; margin-top: 12px; }
 @media (max-width: 860px) { .global-brand img { height: 31px; } .global-brand span { font-size: .86rem; } .drawer-brand img { height: 31px; } .home-logo { width: min(170px, 58vw); } }
 @media (max-width: 768px) { .app-home-hero { padding: 20px 14px; } .app-module-card { min-height: 118px; } .calculator-card .module-status { position: static; } .coming-soon-panel { min-height: calc(100vh - 112px); padding: 24px 14px; } }
+
+
+/* Overflow and branding polish */
+html { width: 100%; max-width: 100%; overflow-x: clip; }
+*, *::before, *::after { box-sizing: border-box; }
+body { width: 100%; max-width: 100%; overflow-x: clip; }
+.portal-shell { width: min(1180px, calc(100% - 32px)); max-width: 1180px; padding: 18px 0 28px; overflow-x: clip; }
+.portal-shell > * { max-width: 100%; min-width: 0; }
+.global-nav { width: 100%; min-height: 58px; padding: 8px 10px; gap: 10px; border-radius: 12px; overflow: visible; }
+.global-brand { flex: 0 1 auto; min-width: 0; gap: 8px; }
+.global-brand img { width: 36px; height: 36px; flex: 0 0 36px; border-radius: 12px; object-fit: contain; }
+.global-brand span { overflow: hidden; text-overflow: ellipsis; font-size: .98rem; }
+.desktop-nav { flex: 1 1 auto; min-width: 0; justify-content: flex-end; gap: 4px; flex-wrap: nowrap; }
+.global-nav-item { flex: 0 1 auto; min-width: 0; min-height: 34px; padding: 6px 8px; border-radius: 9px; white-space: nowrap; font-size: .86rem; }
+.global-nav-item.current { box-shadow: inset 0 0 0 1px rgba(68, 118, 108, .16); }
+.hamburger-button { flex: 0 0 42px; }
+.mobile-drawer { max-width: calc(100% - 34px); box-sizing: border-box; }
+.home-logo { width: 64px; height: 64px; margin-bottom: 8px; border-radius: 18px; }
+.app-home-page { gap: 14px; }
+.app-home-hero { min-height: 0; padding: 20px 18px; border-radius: 12px; }
+.app-home-hero h1 { font-size: clamp(1.8rem, 3vw, 2.55rem); }
+.app-home-hero .subtitle { margin-top: 8px; font-size: 1rem; }
+.home-description { margin-top: 6px; }
+.app-module-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.app-module-card { min-width: 0; min-height: 150px; padding: 15px; overflow: hidden; border-radius: 12px; }
+.app-module-card h2 { font-size: 1.12rem; line-height: 1.2; }
+.app-module-card p { font-size: .92rem; line-height: 1.45; }
+.app-module-icon { width: 38px; min-height: 38px; border-radius: 11px; }
+.calculator-hub-page { gap: 14px; }
+.calculator-hub-hero { margin-bottom: 0; padding: 18px 20px; border-radius: 12px; }
+.calculator-hub-hero h1 { font-size: clamp(1.85rem, 3vw, 2.55rem); }
+.calculator-hub-hero .subtitle { margin-top: 8px; }
+.calculator-hub-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: stretch; }
+.calculator-card { min-width: 0; min-height: 176px; padding: 18px; border-radius: 12px; overflow: hidden; }
+.calculator-card .module-status { position: static; grid-row: auto; align-self: start; }
+.calculator-card-mark { width: 42px; min-height: 42px; border-radius: 11px; }
+.calculator-card h2 { font-size: 1.22rem; line-height: 1.25; }
+.calculator-card p { font-size: .94rem; line-height: 1.5; }
+.calculator-card > strong { align-self: end; }
+.hero, .panel, .intro, .form-panel, .result-card, .dashboard-hero, .filter-bar, .dashboard-panel, .kpi-card, .warning-card { max-width: 100%; min-width: 0; }
+.dashboard-table-wrap, .table-wrap, .age-breakdown-table-wrap { max-width: 100%; overflow-x: auto; }
+@media (max-width: 1120px) { .portal-shell { width: min(1000px, calc(100% - 24px)); } .global-brand span { max-width: 190px; } .global-nav-item { padding-inline: 6px; font-size: .8rem; } .app-module-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 860px) { html, body { overflow-x: hidden; } .portal-shell { width: 100%; max-width: 100%; padding: 10px; } .global-nav { min-height: 54px; padding: 7px 8px; } .global-brand img { width: 31px; height: 31px; flex-basis: 31px; border-radius: 10px; } .global-brand span { max-width: 210px; font-size: .86rem; } .desktop-nav { display: none; } .hamburger-button { display: inline-flex; } .mobile-drawer { width: min(82vw, 320px); } .home-logo { width: 58px; height: 58px; } .app-module-grid, .calculator-hub-grid { grid-template-columns: 1fr; } }
+@media (max-width: 768px) { .app-home-page, .calculator-hub-page, .management-occupancy-page, .occupancy-page { padding: 10px; } .app-home-hero { padding: 16px 14px; } .app-module-card, .calculator-card { min-height: auto; padding: 14px; } .calculator-hub-hero { padding: 15px 14px; } input, select, textarea, button { max-width: 100%; } }
