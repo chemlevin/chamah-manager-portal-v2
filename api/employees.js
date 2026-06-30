@@ -39,18 +39,19 @@ function createSheetsClient() {
 }
 
 function rowsToObjects(values = []) {
-  const [headers = [], ...rows] = values;
-  const normalizedHeaders = headers.map((header) => String(header || '').trim());
+  if (!Array.isArray(values) || values.length === 0) return [];
 
-  return rows
-    .filter((row) => row.some((cell) => String(cell || '').trim()))
+  const [headerRow, ...dataRows] = values;
+  const headers = (headerRow || []).map((header) => String(header || '').trim());
+
+  return dataRows
+    .filter((row) => Array.isArray(row) && row.some((cell) => String(cell || '').trim()))
     .map((row) => {
-      const item = {};
-      normalizedHeaders.forEach((header, index) => {
-        if (!header) return;
-        item[header] = String(row[index] || '').trim();
-      });
-      return item;
+      return headers.reduce((employee, header, index) => {
+        if (!header) return employee;
+        employee[header] = String(row[index] || '').trim();
+        return employee;
+      }, {});
     });
 }
 
@@ -76,7 +77,10 @@ module.exports = async function handler(req, res) {
       majorDimension: 'ROWS',
     });
 
-    sendJson(res, 200, { employees: rowsToObjects(response.data.values || []) });
+    const sheetRows = response.data.values || [];
+    const employees = rowsToObjects(sheetRows);
+
+    sendJson(res, 200, { employees });
   } catch (error) {
     console.error('Employees API error:', error);
     sendJson(res, 500, {
