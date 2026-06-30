@@ -2915,3 +2915,41 @@ body { width: 100%; max-width: 100%; overflow-x: clip; }
   .app-module-card p { font-size: .8rem; }
   .mobile-drawer { width: min(276px, calc(100% - 34px)); }
 }
+
+
+/* QA results fix pass */
+[hidden], #occupancy-results[hidden], #occupancy-recommendation[hidden] { display: none !important; }
+@media (max-width: 768px) {
+  .cashflow-dashboard { gap: 9px; }
+  .cashflow-dashboard .dashboard-hero { padding: 12px; gap: 10px; }
+  .cashflow-dashboard .dashboard-hero h1 { font-size: clamp(1.45rem, 7vw, 1.9rem); }
+  .cashflow-dashboard .dashboard-hero .subtitle { max-height: 3.1em; overflow: hidden; font-size: .86rem; line-height: 1.45; }
+  .cashflow-dashboard .dashboard-period { min-width: 0; padding: 10px; }
+  .cashflow-dashboard .filter-bar,
+  .cashflow-dashboard .table-tools { grid-template-columns: 1fr; gap: 8px; padding: 10px; }
+  .cashflow-dashboard .dashboard-section { padding: 10px; border-radius: 11px; }
+  .cashflow-dashboard .section-title-row { gap: 8px; margin-bottom: 8px; }
+  .cashflow-dashboard .section-title-row h2 { font-size: 1rem; line-height: 1.25; }
+  .cashflow-dashboard .section-chip { min-height: 24px; padding: 4px 8px; font-size: .72rem; }
+  .cashflow-dashboard .kpi-grid,
+  .cashflow-dashboard .cashflow-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .cashflow-dashboard .kpi-card { min-height: 94px; padding: 10px; gap: 8px; }
+  .cashflow-dashboard .kpi-card strong { font-size: clamp(1.15rem, 6vw, 1.65rem); }
+  .cashflow-dashboard .kpi-icon { width: 32px; height: 32px; border-radius: 9px; }
+  .cashflow-dashboard .daycare-card-grid,
+  .cashflow-dashboard .dashboard-panels,
+  .cashflow-dashboard .payroll-analysis-grid,
+  .cashflow-dashboard .executive-alert-grid,
+  .cashflow-dashboard .warning-grid,
+  .cashflow-dashboard .data-table-grid { max-height: 620px; overflow-y: auto; overscroll-behavior: contain; padding-inline-end: 2px; }
+  .cashflow-dashboard .dashboard-panel,
+  .cashflow-dashboard .financial-status-card,
+  .cashflow-dashboard .warning-card,
+  .cashflow-dashboard .insight-card { padding: 10px; border-radius: 10px; }
+  .cashflow-dashboard .bar-chart { max-height: 260px; overflow-y: auto; }
+  .cashflow-dashboard .bar-row { gap: 6px; padding-block: 5px; }
+  .cashflow-dashboard .dashboard-table-wrap { max-height: 360px; overflow: auto; }
+  .cashflow-dashboard .dashboard-table th,
+  .cashflow-dashboard .dashboard-table td { padding: 8px 9px; }
+  .cashflow-dashboard .tables-section { padding-bottom: 10px; }
+}
