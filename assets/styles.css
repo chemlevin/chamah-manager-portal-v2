@@ -2726,3 +2726,35 @@ button:hover { transform: translateY(-1px); }
 .home-logo { display: block; width: min(220px, 72vw); height: auto; margin: 0 auto 12px; filter: drop-shadow(0 12px 22px rgba(24, 55, 47, .08)); }
 @media (max-width: 860px) { .global-nav { min-height: 62px; margin-bottom: 12px; padding: 8px 10px; border-radius: 14px; } .global-brand img { height: 38px; } .global-brand span { font-size: .92rem; } .desktop-nav { display: none; } .hamburger-button { display: inline-flex; } .nav-toggle:checked ~ .mobile-drawer { transform: translateX(0); } .nav-toggle:checked ~ .nav-backdrop { display: block; position: fixed; inset: 0; z-index: 45; background: rgba(15, 23, 42, .28); } .home-logo { width: min(180px, 68vw); margin-bottom: 8px; } }
 @media print { .global-nav { display: none; } }
+
+
+/* Master product UX refinements */
+.global-nav { min-height: 64px; border-radius: 14px; }
+.global-brand img { height: 46px; }
+.global-nav-item { min-height: 36px; padding: 7px 10px; border-radius: 10px; }
+.global-nav-item small { display: none; }
+.global-nav-item.current { color: var(--brand-dark); background: var(--brand-soft); }
+.global-nav-item:hover { color: var(--brand-dark); background: rgba(229, 240, 236, .7); }
+.drawer-brand img { height: 34px; }
+.app-home-hero { text-align: center; padding: 26px 22px; }
+.app-home-hero .subtitle { margin-inline: auto; }
+.home-description { max-width: 620px; margin: 10px auto 0; color: var(--muted); font-weight: 750; line-height: 1.65; }
+.home-logo { width: min(190px, 62vw); }
+.app-module-card { transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
+.app-module-card:hover { transform: translateY(-2px); box-shadow: 0 24px 55px rgba(47, 65, 61, .16); }
+.beta-module { border-color: rgba(201, 134, 90, .24); }
+.beta-module > strong { color: #7b5a38; background: var(--accent-soft); }
+.soon-module { box-shadow: 0 14px 36px rgba(47, 65, 61, .08); }
+.soon-module > strong, .module-status { width: fit-content; min-height: 28px; display: inline-flex; align-items: center; padding: 0 9px; border-radius: 999px; font-size: .82rem; font-weight: 900; }
+.soon-module > strong { color: #6d5546; background: var(--accent-soft); }
+.module-status.active-status { color: var(--brand-dark); background: var(--brand-soft); }
+.calculator-card { position: relative; min-height: 190px; }
+.calculator-card .module-status { position: absolute; inset-block-start: 16px; inset-inline-start: 16px; }
+.module-coming-soon-page { display: grid; gap: 18px; align-content: start; }
+.coming-soon-panel { min-height: min(560px, calc(100vh - 130px)); display: grid; place-items: center; align-content: center; gap: 10px; padding: 34px 20px; text-align: center; border: 1px solid rgba(223, 229, 225, .92); border-radius: 12px; background: rgba(255,255,255,.92); box-shadow: var(--shadow); }
+.coming-soon-icon { width: 76px; min-height: 76px; display: grid; place-items: center; border-radius: 22px; color: var(--brand-dark); background: var(--brand-soft); font-size: 2rem; font-weight: 900; }
+.coming-soon-panel h1 { font-size: clamp(1.9rem, 4vw, 3rem); }
+.coming-soon-panel p { max-width: 520px; margin: 0; color: var(--muted); font-weight: 800; line-height: 1.6; }
+.home-return-button { min-width: 150px; margin-top: 12px; }
+@media (max-width: 860px) { .global-brand img { height: 31px; } .global-brand span { font-size: .86rem; } .drawer-brand img { height: 31px; } .home-logo { width: min(170px, 58vw); } }
+@media (max-width: 768px) { .app-home-hero { padding: 20px 14px; } .app-module-card { min-height: 118px; } .calculator-card .module-status { position: static; } .coming-soon-panel { min-height: calc(100vh - 112px); padding: 24px 14px; } }

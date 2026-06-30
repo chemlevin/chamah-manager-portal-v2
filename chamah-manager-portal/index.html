@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>פורטל מנהלות חמ"ה</title>
+    <title>פורטל מנהלות חמ״ה</title>
     <link rel="stylesheet" href="assets/styles.css" />
   </head>
   <body>
@@ -16,12 +16,12 @@
         <input class="nav-toggle" id="nav-toggle" type="checkbox" aria-hidden="true" />
         <label class="hamburger-button" for="nav-toggle" aria-label="פתיחת תפריט" role="button"><span></span><span></span><span></span></label>
         <nav class="desktop-nav" aria-label="ניווט עמודים">
-          <a class="global-nav-item current active" href="./">בית<small>פעיל</small></a>
-          <a class="global-nav-item beta" href="dashboard/">דשבורד<small>בהקמה</small></a>
-          <a class="global-nav-item active" href="calculators/">מחשבונים<small>פעיל</small></a>
-          <span class="global-nav-item disabled" aria-disabled="true">תחזוקה<small>בקרוב</small></span>
-          <span class="global-nav-item disabled" aria-disabled="true">משימות<small>בקרוב</small></span>
-          <span class="global-nav-item disabled" aria-disabled="true">צוות ורישוי<small>בקרוב</small></span>
+          <a class="global-nav-item current" href="./">בית</a>
+          <a class="global-nav-item " href="calculators/">מחשבונים</a>
+          <a class="global-nav-item " href="dashboard/">דשבורד</a>
+          <a class="global-nav-item " href="maintenance/">תחזוקה</a>
+          <a class="global-nav-item " href="tasks/">משימות</a>
+          <a class="global-nav-item " href="employees/">צוות ורישוי</a>
         </nav>
         <label class="nav-backdrop" for="nav-toggle" aria-hidden="true"></label>
         <aside class="mobile-drawer" aria-label="תפריט מובייל">
@@ -29,47 +29,47 @@
             <img src="assets/chamah-logo.svg" alt="חמ״ה" />
             <strong>פורטל מנהלות חמ״ה</strong>
           </div>
-          <a class="global-nav-item current active" href="./">בית<small>פעיל</small></a>
-          <a class="global-nav-item beta" href="dashboard/">דשבורד<small>בהקמה</small></a>
-          <a class="global-nav-item active" href="calculators/">מחשבונים<small>פעיל</small></a>
-          <span class="global-nav-item disabled" aria-disabled="true">תחזוקה<small>בקרוב</small></span>
-          <span class="global-nav-item disabled" aria-disabled="true">משימות<small>בקרוב</small></span>
-          <span class="global-nav-item disabled" aria-disabled="true">צוות ורישוי<small>בקרוב</small></span>
+          <a class="global-nav-item current" href="./">בית</a>
+          <a class="global-nav-item " href="calculators/">מחשבונים</a>
+          <a class="global-nav-item " href="dashboard/">דשבורד</a>
+          <a class="global-nav-item " href="maintenance/">תחזוקה</a>
+          <a class="global-nav-item " href="tasks/">משימות</a>
+          <a class="global-nav-item " href="employees/">צוות ורישוי</a>
         </aside>
       </header>
       <section class="app-home-hero" aria-labelledby="home-title">
         <img class="home-logo" src="assets/chamah-logo.svg" alt="לוגו חמ״ה" />
-        <p class="eyebrow">מעונות חמ"ה</p>
-        <h1 id="home-title">פורטל מנהלות חמ"ה</h1>
+        <h1 id="home-title">פורטל מנהלות חמ״ה</h1>
         <p class="subtitle">מערכת ניהול למנהלות המעונות</p>
+        <p class="home-description">כלים לניהול, בקרה, חישובים ותמונת מצב.</p>
       </section>
 
       <section class="app-module-grid" aria-label="מודולי הפורטל">
-        <article class="app-module-card disabled-module">
-          <span class="app-module-icon">▦</span>
-          <div><h2>דשבורד</h2><p>תמונת מצב ניהולית ותזרימית.</p></div>
-          <strong>בהקמה</strong>
-        </article>
         <a class="app-module-card active-module" href="calculators/">
-          <span class="app-module-icon">₪</span>
-          <div><h2>מחשבונים</h2><p>שכר, תפוסה, תקינה והחלטות כיתה.</p></div>
+          <span class="app-module-icon">ח</span>
+          <div><h2>מחשבונים</h2><p>כלי בדיקה וחישוב.</p></div>
           <strong>פעיל</strong>
         </a>
-        <article class="app-module-card disabled-module">
-          <span class="app-module-icon">⚙</span>
-          <div><h2>תחזוקה</h2><p>מעקב תקלות וקריאות שירות.</p></div>
+        <a class="app-module-card beta-module" href="dashboard/">
+          <span class="app-module-icon">ד</span>
+          <div><h2>דשבורד</h2><p>תמונת מצב ניהולית.</p></div>
+          <strong>בהקמה</strong>
+        </a>
+        <a class="app-module-card soon-module" href="maintenance/">
+          <span class="app-module-icon">ת</span>
+          <div><h2>תחזוקה</h2><p>מעקב אחר תקלות.</p></div>
           <strong>בקרוב</strong>
-        </article>
-        <article class="app-module-card disabled-module">
-          <span class="app-module-icon">✓</span>
-          <div><h2>משימות</h2><p>ניהול משימות ותהליכים שוטפים.</p></div>
+        </a>
+        <a class="app-module-card soon-module" href="tasks/">
+          <span class="app-module-icon">מ</span>
+          <div><h2>משימות</h2><p>ניהול משימות.</p></div>
           <strong>בקרוב</strong>
-        </article>
-        <article class="app-module-card disabled-module">
+        </a>
+        <a class="app-module-card soon-module" href="employees/">
           <span class="app-module-icon">צ</span>
-          <div><h2>צוות ורישוי</h2><p>עובדות, תקינה ומסמכי רישוי.</p></div>
+          <div><h2>צוות ורישוי</h2><p>ניהול עובדים והכשרות.</p></div>
           <strong>בקרוב</strong>
-        </article>
+        </a>
       </section>
     </main>
   </body>
