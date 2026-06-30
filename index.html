@@ -16,12 +16,12 @@
         <input class="nav-toggle" id="nav-toggle" type="checkbox" aria-hidden="true" />
         <label class="hamburger-button" for="nav-toggle" aria-label="פתיחת תפריט" role="button"><span></span><span></span><span></span></label>
         <nav class="desktop-nav" aria-label="ניווט עמודים">
-          <a class="global-nav-item current" href="./">בית</a>
-          <a class="global-nav-item " href="calculators/">מחשבונים</a>
-          <a class="global-nav-item " href="dashboard/">דשבורד</a>
-          <a class="global-nav-item " href="maintenance/">תחזוקה</a>
-          <a class="global-nav-item " href="tasks/">משימות</a>
-          <a class="global-nav-item " href="employees/">צוות ורישוי</a>
+          <a class="global-nav-item current" href="./"><span class="nav-icon" aria-hidden="true">🏠</span><span>בית</span></a>
+          <a class="global-nav-item " href="calculators/"><span class="nav-icon" aria-hidden="true">🧮</span><span>מחשבונים</span></a>
+          <a class="global-nav-item " href="employees/"><span class="nav-icon" aria-hidden="true">👥</span><span>צוות ורישוי</span></a>
+          <a class="global-nav-item " href="dashboard/"><span class="nav-icon" aria-hidden="true">📊</span><span>דשבורד</span></a>
+          <a class="global-nav-item " href="maintenance/"><span class="nav-icon" aria-hidden="true">🔧</span><span>תחזוקה</span></a>
+          <a class="global-nav-item " href="tasks/"><span class="nav-icon" aria-hidden="true">✅</span><span>משימות</span></a>
         </nav>
         <label class="nav-backdrop" for="nav-toggle" aria-hidden="true"></label>
         <aside class="mobile-drawer" aria-label="תפריט מובייל">
@@ -29,12 +29,15 @@
             <img src="assets/chamah-logo.svg" alt="חמ״ה" />
             <strong>פורטל מנהלות חמ״ה</strong>
           </div>
-          <a class="global-nav-item current" href="./">בית</a>
-          <a class="global-nav-item " href="calculators/">מחשבונים</a>
-          <a class="global-nav-item " href="dashboard/">דשבורד</a>
-          <a class="global-nav-item " href="maintenance/">תחזוקה</a>
-          <a class="global-nav-item " href="tasks/">משימות</a>
-          <a class="global-nav-item " href="employees/">צוות ורישוי</a>
+          <nav class="mobile-drawer-nav" aria-label="ניווט מובייל">
+          <a class="global-nav-item current" href="./"><span class="nav-icon" aria-hidden="true">🏠</span><span>בית</span></a>
+          <a class="global-nav-item " href="calculators/"><span class="nav-icon" aria-hidden="true">🧮</span><span>מחשבונים</span></a>
+          <a class="global-nav-item " href="employees/"><span class="nav-icon" aria-hidden="true">👥</span><span>צוות ורישוי</span></a>
+          <a class="global-nav-item " href="dashboard/"><span class="nav-icon" aria-hidden="true">📊</span><span>דשבורד</span></a>
+          <a class="global-nav-item " href="maintenance/"><span class="nav-icon" aria-hidden="true">🔧</span><span>תחזוקה</span></a>
+          <a class="global-nav-item " href="tasks/"><span class="nav-icon" aria-hidden="true">✅</span><span>משימות</span></a>
+          </nav>
+          <small class="drawer-version">גרסה 1.0</small>
         </aside>
       </header>
       <section class="app-home-hero" aria-labelledby="home-title">
@@ -46,27 +49,27 @@
 
       <section class="app-module-grid" aria-label="מודולי הפורטל">
         <a class="app-module-card active-module" href="calculators/">
-          <span class="app-module-icon">ח</span>
+          <span class="app-module-icon" aria-hidden="true">🧮</span>
           <div><h2>מחשבונים</h2><p>כלי בדיקה וחישוב.</p></div>
           <strong>פעיל</strong>
         </a>
         <a class="app-module-card beta-module" href="dashboard/">
-          <span class="app-module-icon">ד</span>
+          <span class="app-module-icon" aria-hidden="true">📊</span>
           <div><h2>דשבורד</h2><p>תמונת מצב ניהולית.</p></div>
           <strong>בהקמה</strong>
         </a>
         <a class="app-module-card soon-module" href="maintenance/">
-          <span class="app-module-icon">ת</span>
+          <span class="app-module-icon" aria-hidden="true">🔧</span>
           <div><h2>תחזוקה</h2><p>מעקב אחר תקלות.</p></div>
           <strong>בקרוב</strong>
         </a>
         <a class="app-module-card soon-module" href="tasks/">
-          <span class="app-module-icon">מ</span>
+          <span class="app-module-icon" aria-hidden="true">✅</span>
           <div><h2>משימות</h2><p>ניהול משימות.</p></div>
           <strong>בקרוב</strong>
         </a>
         <a class="app-module-card active-module" href="employees/">
-          <span class="app-module-icon">צ</span>
+          <span class="app-module-icon" aria-hidden="true">👥</span>
           <div><h2>צוות ורישוי</h2><p>עובדות, הכשרות ומסמכי רישוי.</p></div>
           <strong>פעיל</strong>
         </a>
