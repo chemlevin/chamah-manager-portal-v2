@@ -157,8 +157,33 @@ function formatDate(dateValue) {
   return date.toLocaleDateString('he-IL');
 }
 
+function employeeStatusValue(employee) {
+  return value(employee, 'status');
+}
+
+function isLeftEmployee(employee) {
+  return employeeStatusValue(employee) === 'עזבה';
+}
+
 function isActive(employee) {
-  return value(employee, 'status') === 'פעילה';
+  return employeeStatusValue(employee) === 'עובדת';
+}
+
+function statsEmployees(list = filteredEmployees()) {
+  return list.filter((employee) => !isLeftEmployee(employee));
+}
+
+function employeeStatusTone(employee) {
+  const status = employeeStatusValue(employee);
+  if (status === 'עובדת') return 'ok';
+  if (status === 'עזבה') return 'danger';
+  return status ? 'orange' : 'muted';
+}
+
+function employeeStatusBadge(employee) {
+  const status = employeeStatusValue(employee);
+  if (!status) return '';
+  return '<span class="employee-card-status ' + employeeStatusTone(employee) + '">' + escapeHtml(status) + '</span>';
 }
 
 function certificateStatus(employee) {
@@ -191,10 +216,11 @@ function graduationStatus(employee) {
 function firstAidStatus(employee) {
   const firstAid = value(employee, 'firstAidUntil');
   const status = dateStatus(firstAid);
+  const date = formatDate(firstAid);
   if (status === 'missing') return { tone: 'danger', label: 'עזרה ראשונה חסרה', status };
-  if (status === 'expired') return { tone: 'danger', label: 'עזרה ראשונה פגה', status };
-  if (status === 'soon') return { tone: 'pink', label: 'עזרה ראשונה פגה בקרוב', status };
-  return { tone: 'ok', label: 'עזרה ראשונה בתוקף', status };
+  if (status === 'expired') return { tone: 'danger', label: 'עזרה ראשונה פגה: ' + date, status };
+  if (status === 'soon') return { tone: 'pink-light', label: 'עזרה ראשונה פגה בקרוב: ' + date, status };
+  return { tone: 'ok', label: 'עזרה ראשונה בתוקף עד: ' + date, status };
 }
 
 function safeConductStatus(employee) {
@@ -202,10 +228,11 @@ function safeConductStatus(employee) {
   if (!safe || safe === 'אין') return { tone: 'danger', label: 'התנהלות בטוחה חסרה', status: 'missing' };
   if (safe === 'בלימודים') return { tone: 'orange', label: 'התנהלות בטוחה בלימודים', status: 'study' };
   const status = dateStatus(safe);
+  const date = formatDate(safe);
   if (status === 'missing') return { tone: 'danger', label: 'התנהלות בטוחה חסרה', status };
-  if (status === 'expired') return { tone: 'danger', label: 'התנהלות בטוחה פגה', status };
-  if (status === 'soon') return { tone: 'pink', label: 'התנהלות בטוחה פגה בקרוב', status };
-  return { tone: 'ok', label: 'התנהלות בטוחה בתוקף', status };
+  if (status === 'expired') return { tone: 'danger', label: 'התנהלות בטוחה פגה: ' + date, status };
+  if (status === 'soon') return { tone: 'pink-light', label: 'התנהלות בטוחה פגה בקרוב: ' + date, status };
+  return { tone: 'ok', label: 'התנהלות בטוחה בתוקף עד: ' + date, status };
 }
 
 function employeeStatusBadges(employee) {
@@ -321,6 +348,7 @@ function updateExtraValueOptions() {
 }
 
 function renderActiveFilterChips(list) {
+  const statsList = statsEmployees(list);
   const chips = [];
   state.selectedDaycares.forEach((daycare) => chips.push(daycare));
   const config = extraFilterFields.find((item) => item.value === state.extraField);
@@ -331,17 +359,17 @@ function renderActiveFilterChips(list) {
   if (state.search) chips.push('חיפוש: ' + state.search);
   fields.activeFilters.innerHTML = chips.map((chip) => '<span>' + escapeHtml(chip) + '</span>').join('');
   fields.activeFilters.hidden = chips.length === 0;
-  fields.resultSummary.textContent = 'מציג ' + list.length + ' עובדות מתוך ' + employees.length;
+  fields.resultSummary.textContent = 'מציג ' + statsList.length + ' עובדות מתוך ' + statsEmployees(employees).length;
 }
 
 function renderInsights() {
-  const list = filteredEmployees();
+  const list = statsEmployees(filteredEmployees());
   fields.insightScope.textContent = scopeTitle();
   fields.insightTotal.textContent = list.length;
   fields.insightActive.textContent = list.filter(isActive).length;
   fields.insightMissingCert.textContent = list.filter(isInvalidCertificate).length;
   fields.insightExpiring.textContent = list.filter(hasExpiringTraining).length;
-  renderActiveFilterChips(list);
+  renderActiveFilterChips(filteredEmployees());
 }
 
 function warningBadges(employee) {
@@ -360,7 +388,7 @@ function card(employee) {
   const meta = inlineMeta([value(employee, 'daycare'), value(employee, 'classroom')]);
   const roleLine = inlineMeta([value(employee, 'role'), value(employee, 'position')]);
   return '<button class="employee-card' + selected + '" type="button" data-id="' + escapeHtml(value(employee, 'id')) + '">' +
-    '<div class="employee-card-main"><strong>' + escapeHtml(value(employee, 'name')) + '</strong>' + (meta ? '<span>' + meta + '</span>' : '') + '</div>' +
+    '<div class="employee-card-main"><div class="employee-card-title"><strong>' + escapeHtml(value(employee, 'name')) + '</strong>' + employeeStatusBadge(employee) + '</div>' + (meta ? '<span>' + meta + '</span>' : '') + '</div>' +
     (roleLine ? '<p class="employee-card-line">' + roleLine + '</p>' : '') +
     (freeDay ? '<p class="employee-free-day">יום חופשי: ' + escapeHtml(freeDay) + '</p>' : '') +
     '<div class="employee-warning-list">' + warningBadges(employee) + '</div>' +
@@ -505,11 +533,12 @@ function activeFilters() {
 }
 
 function exportKpis(list) {
+  const statsList = statsEmployees(list);
   return [
-    ['סהכ עובדות בתוצאה', list.length],
-    ['פעילות בתוצאה', list.filter(isActive).length],
-    ['תעודות חסרות / לא תקינות', list.filter(isInvalidCertificate).length],
-    ['הכשרות שפגות בקרוב', list.filter(hasExpiringTraining).length],
+    ['סהכ עובדות בתוצאה', statsList.length],
+    ['עובדות בתוצאה', statsList.filter(isActive).length],
+    ['תעודות חסרות / לא תקינות', statsList.filter(isInvalidCertificate).length],
+    ['הכשרות שפגות בקרוב', statsList.filter(hasExpiringTraining).length],
   ];
 }
 
@@ -519,8 +548,8 @@ function buildReportRows(list) {
     ['דוח עובדים'],
     [],
     ['תאריך הפקה', new Date().toLocaleDateString('he-IL')],
-    ['מספר עובדים בתוצאה', list.length],
-    ['סהכ עובדים במערכת', employees.length],
+    ['מספר עובדים בתוצאה', statsEmployees(list).length],
+    ['סהכ עובדים במערכת', statsEmployees(employees).length],
     [],
     ['מסננים פעילים'],
   ];
@@ -678,9 +707,9 @@ function applyKpiFilter(type) {
   if (type === 'active') {
     fields.extraField.value = 'status';
     state.extraField = 'status';
-    state.extraValue = 'פעילה';
+    state.extraValue = 'עובדת';
     updateExtraValueOptions();
-    fields.extraValue.value = 'פעילה';
+    fields.extraValue.value = 'עובדת';
   }
   if (type === 'missing-cert') {
     fields.extraField.value = 'missingCertificates';

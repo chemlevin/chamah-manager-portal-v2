@@ -3378,3 +3378,40 @@ details.employee-detail-section > div {
     width: auto;
   }
 }
+/* Employee card status pill */
+.employee-card-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.employee-card-status {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 8px;
+  font-size: .76rem;
+  font-weight: 900;
+  line-height: 1;
+}
+.employee-card-status.ok {
+  color: var(--brand-dark);
+  background: var(--brand-soft);
+}
+.employee-card-status.orange {
+  color: #7b5a38;
+  background: var(--accent-soft);
+}
+.employee-card-status.danger {
+  color: #9b3f35;
+  background: rgba(255, 236, 232, .94);
+}
+.employee-card-status.muted {
+  color: var(--muted);
+  background: rgba(223, 229, 225, .7);
+}
+@media (max-width: 768px) {
+  .employee-card-title { gap: 6px; }
+  .employee-card-status { min-height: 22px; padding-inline: 7px; font-size: .72rem; }
+}
