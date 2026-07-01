@@ -203,22 +203,22 @@ function countWhere(list, predicate) {
 }
 
 function kpiCard(item) {
-  return '<article class="employee-kpi-card ' + item.tone + '"><span>' + escapeHtml(item.group) + '</span><strong>' + numberFormatter.format(item.value) + '</strong><small>' + escapeHtml(item.label) + '</small></article>';
+  return '<article class="employee-kpi-card ' + item.tone + (item.primary ? ' primary' : '') + '"><span>' + escapeHtml(item.group) + '</span><strong>' + numberFormatter.format(item.value) + '</strong><small>' + escapeHtml(item.label) + '</small></article>';
 }
 
 function managementKpiItems(list) {
   const currentEmployees = list.filter((employee) => !isLeftEmployee(employee));
   return [
-    { group: 'סטטוס עובדות', label: 'פעילות', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'active'), tone: 'ok' },
-    { group: 'סטטוס עובדות', label: 'חופשת לידה', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'maternity'), tone: 'orange' },
+    { group: 'סטטוס עובדות', label: 'פעילות', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'active'), tone: 'ok', primary: true },
+    { group: 'סטטוס עובדות', label: 'חופשת לידה', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'maternity'), tone: 'orange', primary: true },
     { group: 'סטטוס עובדות', label: 'מחלה / תאונת עבודה', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'sick'), tone: 'orange' },
     { group: 'סטטוס עובדות', label: 'חל"ת', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'unpaid'), tone: 'orange' },
     { group: 'סטטוס עובדות', label: 'עזבו', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'left'), tone: 'danger' },
     { group: 'תעודת מטפלת', label: 'תקפה', value: countWhere(currentEmployees, (employee) => caregiverCertificateCategory(employee) === 'valid'), tone: 'ok' },
     { group: 'תעודת מטפלת', label: 'בלימודים / בתהליך', value: countWhere(currentEmployees, (employee) => caregiverCertificateCategory(employee) === 'study'), tone: 'orange' },
-    { group: 'תעודת מטפלת', label: 'חסרה', value: countWhere(currentEmployees, (employee) => caregiverCertificateCategory(employee) === 'missing'), tone: 'danger' },
+    { group: 'תעודת מטפלת', label: 'חסרה', value: countWhere(currentEmployees, (employee) => caregiverCertificateCategory(employee) === 'missing'), tone: 'danger', primary: true },
     { group: 'עזרה ראשונה', label: 'פג תוקף', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'firstAidUntil') === 'expired'), tone: 'danger' },
-    { group: 'עזרה ראשונה', label: 'פג בקרוב', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'firstAidUntil') === 'soon'), tone: 'warning' },
+    { group: 'עזרה ראשונה', label: 'פג בקרוב', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'firstAidUntil') === 'soon'), tone: 'warning', primary: true },
     { group: 'עזרה ראשונה', label: 'חסר', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'firstAidUntil') === 'missing'), tone: 'danger' },
     { group: 'התנהלות בטוחה', label: 'פג תוקף', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'safeConductUntil') === 'expired'), tone: 'danger' },
     { group: 'התנהלות בטוחה', label: 'פג בקרוב', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'safeConductUntil') === 'soon'), tone: 'warning' },
@@ -282,6 +282,39 @@ function employeeStatusBadges(employee) {
     firstAidStatus(employee),
     safeConductStatus(employee),
   ].filter((badge) => badge && badge.tone !== 'hidden');
+}
+
+function attentionBadges(employee) {
+  return employeeStatusBadges(employee).filter((badge) => ['danger', 'warning', 'pink', 'pink-light', 'orange'].includes(badge.tone) || ['expired', 'missing', 'soon', 'study'].includes(badge.status));
+}
+
+function attentionSummary(employee) {
+  const status = normalizedEmployeeStatus(employee);
+  const badges = attentionBadges(employee);
+  if (status === 'left') return { tone: 'danger', label: 'עזבה', detail: 'לא פעילה במערכת', count: Math.max(1, badges.length) };
+  const dangerCount = badges.filter((badge) => badge.tone === 'danger' || ['expired', 'missing'].includes(badge.status)).length;
+  const soonCount = badges.filter((badge) => ['warning', 'pink', 'pink-light', 'orange'].includes(badge.tone) || ['soon', 'study'].includes(badge.status)).length;
+  if (dangerCount > 0) return { tone: 'danger', label: 'דורשת טיפול', detail: dangerCount + ' נושאים דחופים', count: badges.length };
+  if (soonCount > 0) return { tone: 'warning', label: 'למעקב', detail: soonCount + ' נושאים למעקב', count: badges.length };
+  return { tone: 'ok', label: 'תקין', detail: 'אין התראות פתוחות', count: 0 };
+}
+
+function shortBadgeLabel(label) {
+  return String(label || '')
+    .replace('תעודת מטפלת: ', 'תעודה: ')
+    .replace('עזרה ראשונה ', 'עזרה ראשונה ')
+    .replace('התנהלות בטוחה ', 'בטוחה ')
+    .replace('בתוקף עד: ', 'עד ')
+    .replace('פגה בקרוב: ', 'בקרוב ')
+    .replace('פגה: ', 'פג ')
+    .replace('חסרה', 'חסר');
+}
+
+function compactWarningBadges(employee) {
+  const badges = attentionBadges(employee);
+  const visible = badges.slice(0, 2).map((badge) => '<span class="employee-warning-badge ' + badge.tone + '">' + escapeHtml(shortBadgeLabel(badge.label)) + '</span>');
+  if (badges.length > 2) visible.push('<span class="employee-warning-badge more">+' + (badges.length - 2) + ' נושאים</span>');
+  return visible.join('');
 }
 
 function hasExpiringTraining(employee) {
@@ -405,16 +438,17 @@ function renderActiveFilterChips(list) {
 function renderInsights() {
   const list = filteredEmployees();
   const statsList = statsEmployees(list);
+  const items = managementKpiItems(list);
+  const primary = items.filter((item) => item.primary);
+  const secondary = items.filter((item) => !item.primary);
   fields.insightScope.textContent = scopeTitle();
   fields.resultSummary.textContent = 'מציג ' + statsList.length + ' עובדות מתוך ' + statsEmployees(employees).length;
-  fields.managementKpis.innerHTML = managementKpiItems(list).map(kpiCard).join('');
+  fields.managementKpis.innerHTML = primary.map(kpiCard).join('') + '<details class="management-kpi-details"><summary>פירוט מדדים</summary><div class="employee-management-kpi-more">' + secondary.map(kpiCard).join('') + '</div></details>';
   renderActiveFilterChips(list);
 }
 
 function warningBadges(employee) {
-  return employeeStatusBadges(employee)
-    .map((badge) => '<span class="employee-warning-badge ' + badge.tone + '">' + escapeHtml(badge.label) + '</span>')
-    .join('');
+  return compactWarningBadges(employee);
 }
 
 function inlineMeta(items) {
@@ -426,11 +460,12 @@ function card(employee) {
   const freeDay = findFreeDay(employee);
   const meta = inlineMeta([value(employee, 'daycare'), value(employee, 'classroom')]);
   const roleLine = inlineMeta([value(employee, 'role'), value(employee, 'position')]);
-  return '<button class="employee-card' + selected + '" type="button" data-id="' + escapeHtml(value(employee, 'id')) + '">' +
-    '<div class="employee-card-main"><div class="employee-card-title"><strong>' + escapeHtml(value(employee, 'name')) + '</strong>' + employeeStatusBadge(employee) + '</div>' + (meta ? '<span>' + meta + '</span>' : '') + '</div>' +
-    (roleLine ? '<p class="employee-card-line">' + roleLine + '</p>' : '') +
-    (freeDay ? '<p class="employee-free-day">יום חופשי: ' + escapeHtml(freeDay) + '</p>' : '') +
-    '<div class="employee-warning-list">' + warningBadges(employee) + '</div>' +
+  const attention = attentionSummary(employee);
+  const warnings = warningBadges(employee);
+  return '<button class="employee-card' + selected + ' attention-' + attention.tone + '" type="button" data-id="' + escapeHtml(value(employee, 'id')) + '">' +
+    '<div class="employee-card-level employee-card-level-1"><div class="employee-card-main"><div class="employee-card-title"><strong>' + escapeHtml(value(employee, 'name')) + '</strong>' + employeeStatusBadge(employee) + '</div>' + (meta ? '<span>' + meta + '</span>' : '') + '</div><span class="employee-attention-indicator ' + attention.tone + '"><b>' + escapeHtml(attention.label) + '</b><small>' + escapeHtml(attention.detail) + '</small></span></div>' +
+    '<div class="employee-card-level employee-card-level-2">' + (warnings ? '<div class="employee-warning-list">' + warnings + '</div>' : '<div class="employee-warning-list"><span class="employee-warning-badge ok">אין התראות</span></div>') + (attention.count ? '<span class="employee-issue-count">' + attention.count + ' נושאים</span>' : '') + '</div>' +
+    '<div class="employee-card-level employee-card-level-3">' + (roleLine ? '<p class="employee-card-line">' + roleLine + '</p>' : '') + (freeDay ? '<p class="employee-free-day">יום חופשי: ' + escapeHtml(freeDay) + '</p>' : '') + '</div>' +
     '</button>';
 }
 
@@ -790,6 +825,17 @@ function setError() {
   renderInsights();
 }
 
+function initResponsiveEmployeeFilters() {
+  const details = document.querySelector('#employee-filter-details');
+  if (!details) return;
+  const sync = () => {
+    if (window.matchMedia('(max-width: 768px)').matches) details.removeAttribute('open');
+    else details.setAttribute('open', '');
+  };
+  sync();
+  window.addEventListener('resize', sync);
+}
+
 function bind() {
   fields.daycareChips.addEventListener('click', (event) => {
     const button = event.target.closest('[data-daycare]');
@@ -845,5 +891,6 @@ async function loadEmployees() {
   }
 }
 
+initResponsiveEmployeeFilters();
 bind();
 loadEmployees();

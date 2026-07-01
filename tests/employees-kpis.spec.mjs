@@ -28,6 +28,15 @@ function employee(data) {
   };
 }
 
+async function openEmployeeFiltersIfCollapsed(page) {
+  const filterPanel = page.locator('#employee-filter-details');
+  if (!(await filterPanel.count())) return;
+  if (!(await filterPanel.evaluate((element) => element.open))) {
+    await filterPanel.locator('summary').click();
+  }
+  await expect(page.locator('#employee-search')).toBeVisible();
+}
+
 test.describe('employees management KPIs', () => {
   test.beforeEach(async ({ page }) => {
     await page.route('**/api/employees', async (route) => {
@@ -55,6 +64,7 @@ test.describe('employees management KPIs', () => {
     await expect(page.locator('.employee-kpi-card').filter({ hasText: 'עזרה ראשונה' }).filter({ hasText: 'פג תוקף' }).locator('strong')).toHaveText('1');
     await expect(page.locator('.employee-kpi-card').filter({ hasText: 'התנהלות בטוחה' }).filter({ hasText: 'חסר' }).locator('strong')).toHaveText('1');
 
+    await openEmployeeFiltersIfCollapsed(page);
     await page.locator('#employee-search').fill('שרה');
     await page.locator('#employee-filter-apply').click();
 

@@ -3446,3 +3446,194 @@ details.employee-detail-section > div {
   .employee-management-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
   .employee-kpi-card small { font-size: .78rem; }
 }
+
+
+/* Employees mobile scanning hierarchy */
+.employee-filter-details,
+.employee-filter-content {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.employee-filter-details > summary,
+.management-kpi-details > summary {
+  cursor: pointer;
+  list-style: none;
+  color: var(--brand-dark);
+  font-weight: 950;
+}
+.employee-filter-details > summary::-webkit-details-marker,
+.management-kpi-details > summary::-webkit-details-marker { display: none; }
+.employee-filter-details > summary {
+  display: none;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  border: 1px solid rgba(68, 118, 108, .18);
+  border-radius: 10px;
+  background: var(--brand-soft);
+}
+.employee-filter-details > summary::after,
+.management-kpi-details > summary::after { content: '+'; font-weight: 950; }
+.employee-filter-details[open] > summary::after,
+.management-kpi-details[open] > summary::after { content: '−'; }
+.employee-management-kpis {
+  align-content: start;
+}
+.management-kpi-details,
+.employee-management-kpi-more {
+  display: contents;
+}
+.management-kpi-details > summary {
+  display: none;
+}
+.employee-kpi-card {
+  position: relative;
+}
+.employee-card-level {
+  min-width: 0;
+}
+.employee-card-level-1 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+}
+.employee-card-level-2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.employee-card-level-3 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.employee-attention-indicator {
+  min-width: 74px;
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  padding: 6px 8px;
+  border-radius: 10px;
+  font-size: .78rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.employee-attention-indicator b { font-size: .82rem; }
+.employee-attention-indicator small { color: inherit; font-size: .68rem; font-weight: 850; opacity: .86; }
+.employee-attention-indicator.ok { color: var(--brand-dark); background: var(--brand-soft); }
+.employee-attention-indicator.warning { color: #8a6224; background: rgba(255, 246, 226, .95); }
+.employee-attention-indicator.danger { color: #9b3f35; background: rgba(255, 236, 232, .95); }
+.employee-issue-count {
+  flex: 0 0 auto;
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(246, 248, 247, .96);
+  font-size: .78rem;
+  font-weight: 900;
+}
+.employee-warning-badge.more {
+  color: var(--brand-dark);
+  background: rgba(229, 240, 236, .82);
+}
+.employee-card.attention-danger { border-color: rgba(173, 73, 63, .22); }
+.employee-card.attention-warning { border-color: rgba(224, 174, 92, .26); }
+@media (min-width: 769px) {
+  .employee-filter-details:not([open]) > .employee-filter-content { display: grid; }
+}
+@media (max-width: 768px) {
+  .employee-filter-details > summary {
+    display: flex;
+  }
+  .employee-filter-details:not([open]) > .employee-filter-content {
+    display: none;
+  }
+  .employee-insights {
+    align-items: start;
+  }
+  .employee-management-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+  .employee-management-kpis > .employee-kpi-card.primary {
+    min-height: 68px;
+  }
+  .management-kpi-details {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 7px;
+  }
+  .management-kpi-details > summary {
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px;
+    border-radius: 10px;
+    background: rgba(246, 248, 247, .96);
+    border: 1px solid var(--line);
+    font-size: .86rem;
+  }
+  .employee-management-kpi-more {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+  .management-kpi-details:not([open]) .employee-management-kpi-more {
+    display: none;
+  }
+  .employee-card {
+    gap: 7px;
+    padding: 10px 11px;
+  }
+  .employee-card-level-1 {
+    grid-template-columns: minmax(0, 1fr) minmax(72px, auto);
+    gap: 8px;
+  }
+  .employee-card-title {
+    gap: 6px;
+  }
+  .employee-card-main strong {
+    font-size: 1rem;
+  }
+  .employee-card-main span {
+    font-size: .8rem;
+    line-height: 1.3;
+  }
+  .employee-card-level-3 {
+    display: none;
+  }
+  .employee-warning-list {
+    gap: 5px;
+    overflow: hidden;
+  }
+  .employee-warning-badge {
+    min-height: 24px;
+    padding: 0 7px;
+    font-size: .72rem;
+  }
+  .employee-attention-indicator {
+    min-width: 70px;
+    padding: 5px 7px;
+  }
+  .employee-attention-indicator small {
+    display: none;
+  }
+  .employee-issue-count {
+    min-height: 24px;
+    font-size: .72rem;
+  }
+}
+
+
+@media (min-width: 769px) {
+  .management-kpi-details:not([open]) > .employee-management-kpi-more { display: contents; }
+}
