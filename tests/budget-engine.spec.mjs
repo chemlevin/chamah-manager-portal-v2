@@ -113,3 +113,37 @@ test.describe('budget calculation engine', () => {
     expect(food.total).toBe(744);
   });
 });
+
+
+test.describe('budget calculation engine Hebrew sheet columns', () => {
+  test('maps Hebrew BUDGET columns into the existing calculation model', () => {
+    const rows = [
+      ['TABLE: OCCUPANCY'],
+      ['מעון', 'חודש', 'שם כיתה', 'כיתה 1', 'כמות ילדים', 'כיתה 2', 'כמות ילדים 2'],
+      ['אשקלון', '09/2026', 'חדר א', 'פעוט', '16', 'תינוק', '10'],
+      ['TABLE: STAFFING'],
+      ['כיתה', 'כמות צוות לילד', 'שכר לימוד', 'מינימום צוות'],
+      ['תינוק', '5', '3936', '1'],
+      ['פעוט', '8', '2917', '1'],
+      ['בוגר', '10', '2587', '1'],
+      ['TABLE: MONTH_HOURS'],
+      ['חודש', 'שעות תקן'],
+      ['09/2026', '182'],
+      ['TABLE: FIXED_STAFF'],
+      ['מעון', 'חודש', 'תפקיד 1', 'כמות 1', 'עלות 1'],
+      ['אשקלון', '09/2026', 'מנהלת', '1', '12000'],
+      ['TABLE: COST_RULES'],
+      ['סעיף תקציבי', 'מעון', 'בסיס לחישוב', 'ערך', 'תקופה'],
+      ['מזון', 'אשקלון', 'ילדים', '12', 'חודשי'],
+    ];
+
+    const model = engine.calculateBudgetModel(engine.parseBudgetTables(rows));
+
+    expect(model.classroomStaffing).toHaveLength(1);
+    expect(model.classroomStaffing[0]).toEqual(expect.objectContaining({ daycare: 'אשקלון', classroom: 'חדר א', children: 26, requiredStaff: 4 }));
+    expect(model.daycareStaffing[0]).toEqual(expect.objectContaining({ daycare: 'אשקלון', children: 26, requiredStaff: 4 }));
+    expect(model.monthlyRequiredHours[0]).toEqual(expect.objectContaining({ standardHours: 182, requiredHours: 728 }));
+    expect(model.fixedStaff[0]).toEqual(expect.objectContaining({ role: 'מנהלת', positions: 1, amount: 12000 }));
+    expect(model.costs[0]).toEqual(expect.objectContaining({ category: 'מזון', quantity: 26, total: 312 }));
+  });
+});

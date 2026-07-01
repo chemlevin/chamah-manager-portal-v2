@@ -3,17 +3,20 @@ const REQUIRED_TABLES = ['OCCUPANCY', 'STAFFING', 'MONTH_HOURS', 'FIXED_STAFF', 
 const FIELD_ALIASES = {
   daycare: ['daycare', 'department', 'branch', 'site', 'מעון', 'מחלקה', 'סניף', 'עבור מחלקה'],
   month: ['month', 'חודש', 'עבור חודש'],
-  classroom: ['classroom', 'class', 'כיתה'],
-  ageGroup: ['ageGroup', 'age_group', 'age', 'שכבת גיל', 'גיל', 'קבוצת גיל'],
-  children: ['children', 'childCount', 'count', 'ילדים', 'מספר ילדים', 'כמות ילדים'],
-  ratio: ['ratio', 'staffRatio', 'תקינה', 'יחס'],
-  standardHours: ['standardHours', 'hours', 'monthlyHours', 'שעות חודשיות', 'תקן שעות', 'שעות'],
+  classroom: ['classroom', 'class', 'כיתה', 'שם כיתה', 'מספר כיתה', 'חדר', 'כיתה בפועל'],
+  ageGroup: ['ageGroup', 'age_group', 'age', 'שכבת גיל', 'גיל', 'קבוצת גיל', 'כיתה'],
+  children: ['children', 'childCount', 'count', 'ילדים', 'מספר ילדים', 'כמות ילדים', 'כמות ילדים 1'],
+  ratio: ['ratio', 'staffRatio', 'תקינה', 'יחס', 'כמות צוות לילד'],
+  tuition: ['tuition', 'monthlyTuition', 'שכר לימוד'],
+  minimumStaff: ['minimumStaff', 'minStaff', 'מינימום צוות'],
+  standardHours: ['standardHours', 'hours', 'monthlyHours', 'שעות חודשיות', 'תקן שעות', 'שעות', 'שעות תקן'],
   workDays: ['workDays', 'days', 'ימי עבודה', 'ימי פעילות'],
-  positions: ['positions', 'staff', 'count', 'תקנים', 'משרות', 'כמות'],
-  role: ['role', 'תפקיד'],
-  category: ['category', 'name', 'סעיף', 'קטגוריה', 'שם'],
-  basis: ['basis', 'calculationBasis', 'בסיס חישוב', 'לפי'],
-  amount: ['amount', 'rate', 'cost', 'עלות', 'סכום', 'תעריף'],
+  positions: ['positions', 'staff', 'count', 'תקנים', 'משרות', 'כמות', 'כמות 1'],
+  role: ['role', 'תפקיד', 'תפקיד 1'],
+  category: ['category', 'name', 'סעיף', 'קטגוריה', 'שם', 'סעיף תקציבי'],
+  basis: ['basis', 'calculationBasis', 'בסיס חישוב', 'בסיס לחישוב', 'לפי'],
+  amount: ['amount', 'rate', 'cost', 'עלות', 'סכום', 'תעריף', 'ערך', 'עלות 1'],
+  period: ['period', 'תקופה'],
   divisor: ['divisor', 'divider', 'מחלק', 'חלוקה'],
 };
 
@@ -58,6 +61,77 @@ function valueByAliases(row, headers, aliases) {
   return index === -1 ? '' : clean(row[index]);
 }
 
+function valueByExactHeader(object, header) {
+  const key = Object.keys(object || {}).find((candidate) => normalizeKey(candidate) === normalizeKey(header));
+  return key ? clean(object[key]) : '';
+}
+
+function numberedHeaderValue(object, bases, index) {
+  for (const base of bases) {
+    const candidates = [base + ' ' + index, base + index];
+    for (const candidate of candidates) {
+      const value = valueByExactHeader(object, candidate);
+      if (value) return value;
+    }
+  }
+  return '';
+}
+
+function numberedIndexes(object, bases) {
+  const indexes = new Set();
+  const normalizedBases = bases.map(normalizeKey);
+  for (const header of Object.keys(object || {})) {
+    const normalized = normalizeKey(header);
+    for (const base of normalizedBases) {
+      if (!normalized.startsWith(base)) continue;
+      const suffix = normalized.slice(base.length).trim();
+      if (/^\d+$/.test(suffix)) indexes.add(Number(suffix));
+    }
+  }
+  return [...indexes].sort((a, b) => a - b);
+}
+
+function expandOccupancyRows(rows = []) {
+  return rows.flatMap((row, rowIndex) => {
+    const ageIndexes = numberedIndexes(row, ['כיתה', 'שכבת גיל', 'גיל', 'קבוצת גיל']);
+    if (!ageIndexes.length) return [row];
+
+    const headers = Object.keys(row);
+    const values = Object.values(row);
+    const daycare = valueByAliases(values, headers, FIELD_ALIASES.daycare);
+    const month = valueByAliases(values, headers, FIELD_ALIASES.month);
+    const classroom = valueByAliases(values, headers, FIELD_ALIASES.classroom) || valueByExactHeader(row, 'שם כיתה') || 'כיתה ' + (rowIndex + 1);
+
+    return ageIndexes.map((index) => {
+      const ageGroup = numberedHeaderValue(row, ['כיתה', 'שכבת גיל', 'גיל', 'קבוצת גיל'], index);
+      const children = numberedHeaderValue(row, ['כמות ילדים', 'מספר ילדים', 'ילדים'], index)
+        || (index === 1 ? valueByAliases(values, headers, FIELD_ALIASES.children) : '');
+      if (!ageGroup || numberValue(children) <= 0) return null;
+      return { ...row, daycare, month, classroom, ageGroup, children };
+    }).filter(Boolean);
+  });
+}
+
+function expandFixedStaffRows(rows = []) {
+  return rows.flatMap((row) => {
+    const roleIndexes = numberedIndexes(row, ['תפקיד', 'role']);
+    if (!roleIndexes.length) return [row];
+
+    const headers = Object.keys(row);
+    const values = Object.values(row);
+    const daycare = valueByAliases(values, headers, FIELD_ALIASES.daycare);
+    const month = valueByAliases(values, headers, FIELD_ALIASES.month);
+
+    return roleIndexes.map((index) => {
+      const role = numberedHeaderValue(row, ['תפקיד', 'role'], index);
+      const positions = numberedHeaderValue(row, ['כמות', 'תקנים', 'משרות', 'positions'], index);
+      const amount = numberedHeaderValue(row, ['עלות', 'cost', 'amount'], index);
+      if (!role && numberValue(positions) <= 0 && numberValue(amount) <= 0) return null;
+      return { ...row, daycare, month, role, positions, amount };
+    }).filter(Boolean);
+  });
+}
+
 function numberValue(value, fallback = 0) {
   if (typeof value === 'number') return Number.isFinite(value) ? value : fallback;
   const text = clean(value).replace(/,/g, '').replace(/₪/g, '').replace(/%/g, '');
@@ -67,14 +141,18 @@ function numberValue(value, fallback = 0) {
 }
 
 function parseRatio(value) {
-  if (typeof value === 'number') return value;
+  if (typeof value === 'number') return value > 0 && value < 1 ? 1 / value : value;
   const text = clean(value);
   if (!text) return 0;
   const slash = text.match(/^(?:1\s*\/\s*)?(\d+(?:\.\d+)?)$/);
-  if (slash) return Number(slash[1]);
+  if (slash) {
+    const parsed = Number(slash[1]);
+    return parsed > 0 && parsed < 1 ? 1 / parsed : parsed;
+  }
   const ratio = text.match(/1\s*[:/]\s*(\d+(?:\.\d+)?)/);
   if (ratio) return Number(ratio[1]);
-  return numberValue(text, 0);
+  const parsed = numberValue(text, 0);
+  return parsed > 0 && parsed < 1 ? 1 / parsed : parsed;
 }
 
 function parseBudgetTables(rows) {
@@ -149,7 +227,7 @@ function normalizeMonthHoursRows(rows = []) {
 }
 
 function normalizeFixedStaffRows(rows = []) {
-  return rows.map((row) => {
+  return expandFixedStaffRows(rows).map((row) => {
     const headers = Object.keys(row);
     const values = Object.values(row);
     return {
@@ -158,6 +236,7 @@ function normalizeFixedStaffRows(rows = []) {
       role: valueByAliases(values, headers, FIELD_ALIASES.role),
       positions: numberValue(valueByAliases(values, headers, FIELD_ALIASES.positions)),
       hours: numberValue(valueByAliases(values, headers, FIELD_ALIASES.standardHours)),
+      amount: numberValue(valueByAliases(values, headers, FIELD_ALIASES.amount)),
     };
   }).filter((row) => row.daycare || row.month || row.role || row.positions || row.hours);
 }
@@ -171,6 +250,7 @@ function normalizeCostRuleRows(rows = []) {
       daycare: valueByAliases(values, headers, FIELD_ALIASES.daycare),
       month: valueByAliases(values, headers, FIELD_ALIASES.month),
       basis: normalizeKey(valueByAliases(values, headers, FIELD_ALIASES.basis)),
+      period: normalizeKey(valueByAliases(values, headers, FIELD_ALIASES.period)),
       amount: numberValue(valueByAliases(values, headers, FIELD_ALIASES.amount)),
       divisor: numberValue(valueByAliases(values, headers, FIELD_ALIASES.divisor), 1) || 1,
     };
@@ -188,7 +268,7 @@ function groupKey(parts) {
 function calculateClassroomStaffing(occupancyRows = [], staffingRows = []) {
   const staffingRules = normalizeStaffingRows(staffingRows);
   const classroomMap = new Map();
-  for (const rawRow of occupancyRows) {
+  for (const rawRow of expandOccupancyRows(occupancyRows)) {
     const row = normalizeOccupancyRow(rawRow);
     if (!row.daycare || !row.month || !row.classroom || !row.ageGroup || row.children <= 0) continue;
     const rule = staffingRules.get(row.ageGroup);
@@ -245,24 +325,24 @@ function rowMatchesRule(row, rule) {
 
 function basisQuantity(rule, context) {
   const basis = rule.basis;
-  const occupancy = context.occupancyRows.map(normalizeOccupancyRow).filter((row) => rowMatchesRule(row, rule));
+  const occupancy = expandOccupancyRows(context.occupancyRows).map(normalizeOccupancyRow).filter((row) => rowMatchesRule(row, rule));
   const classrooms = context.classroomStaffing.filter((row) => rowMatchesRule(row, rule));
   const daycareStaffing = aggregateStaffingByDaycare(classrooms);
   const fixedStaff = context.fixedStaff.filter((row) => rowMatchesRule(row, rule));
   const monthHours = normalizeMonthHoursRows(context.monthHoursRows);
-  if (basis === 'children' || basis === 'ילדים') return occupancy.reduce((sum, row) => sum + row.children, 0);
-  if (basis === 'classrooms' || basis === 'כיתות') return classrooms.length;
-  if (basis === 'staff' || basis === 'תקנים' || basis === 'צוות') return daycareStaffing.reduce((sum, row) => sum + row.requiredStaff, 0) + fixedStaff.reduce((sum, row) => sum + row.positions, 0);
-  if (basis === 'work days' || basis === 'work_days' || basis === 'ימי עבודה') {
+  if (basis === 'children' || basis === 'ילדים' || basis === 'ילד' || basis === 'כמות ילדים') return occupancy.reduce((sum, row) => sum + row.children, 0);
+  if (basis === 'classrooms' || basis === 'כיתות' || basis === 'כיתה') return classrooms.length;
+  if (basis === 'staff' || basis === 'תקנים' || basis === 'צוות' || basis === 'משרות') return daycareStaffing.reduce((sum, row) => sum + row.requiredStaff, 0) + fixedStaff.reduce((sum, row) => sum + row.positions, 0);
+  if (basis === 'work days' || basis === 'work_days' || basis === 'ימי עבודה' || basis === 'ימי פעילות') {
     const months = new Set([...occupancy.map((row) => row.month), ...fixedStaff.map((row) => row.month)].filter(Boolean));
     return [...months].reduce((sum, month) => sum + (monthHours.get(month)?.workDays || 0), 0);
   }
-  if (basis === 'hourly' || basis === 'hours' || basis === 'שעות') {
+  if (basis === 'hourly' || basis === 'hours' || basis === 'שעות' || basis === 'שעתי') {
     const daycareHours = calculateMonthlyRequiredHours(classrooms, context.monthHoursRows).reduce((sum, row) => sum + row.requiredHours, 0);
     const fixedHours = fixedStaff.reduce((sum, row) => sum + row.requiredHours, 0);
     return daycareHours + fixedHours;
   }
-  if (basis === 'fixed/monthly' || basis === 'fixed' || basis === 'monthly' || basis === 'קבוע' || basis === 'חודשי') return 1;
+  if (basis === 'fixed/monthly' || basis === 'fixed' || basis === 'monthly' || basis === 'קבוע' || basis === 'חודשי' || basis === 'קבוע חודשי') return 1;
   return 0;
 }
 
