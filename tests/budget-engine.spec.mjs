@@ -119,8 +119,8 @@ test.describe('budget calculation engine Hebrew sheet columns', () => {
   test('maps Hebrew BUDGET columns into the existing calculation model', () => {
     const rows = [
       ['TABLE: OCCUPANCY'],
-      ['מעון', 'חודש', 'שם כיתה', 'כיתה 1', 'כמות ילדים', 'כיתה 2', 'כמות ילדים 2'],
-      ['אשקלון', '09/2026', 'חדר א', 'פעוט', '16', 'תינוק', '10'],
+      ['מעון', 'חודש', 'שם כיתה', 'כיתה מעורבת', 'כיתה 1', 'כמות ילדים', 'כיתה 2', 'כמות ילדים 2'],
+      ['אשקלון', '09/2026', 'חדר א', 'כן', 'פעוט', '16', 'תינוק', '10'],
       ['TABLE: STAFFING'],
       ['כיתה', 'כמות צוות לילד', 'שכר לימוד', 'מינימום צוות'],
       ['תינוק', '5', '3936', '1'],
@@ -145,5 +145,115 @@ test.describe('budget calculation engine Hebrew sheet columns', () => {
     expect(model.monthlyRequiredHours[0]).toEqual(expect.objectContaining({ standardHours: 182, requiredHours: 728 }));
     expect(model.fixedStaff[0]).toEqual(expect.objectContaining({ role: 'מנהלת', positions: 1, amount: 12000 }));
     expect(model.costs[0]).toEqual(expect.objectContaining({ category: 'מזון', quantity: 26, total: 312 }));
+  });
+});
+
+
+test.describe('budget classroom grouping and extra cost basis', () => {
+  test('treats wide occupancy age groups as separate classrooms unless mixed is explicit', () => {
+    const rows = [
+      ['TABLE: OCCUPANCY'],
+      ['מעון', 'חודש', 'כיתה 1', 'כמות ילדים', 'כיתה 2', 'כמות ילדים 2', 'כיתה 3', 'כמות ילדים 3', 'כיתה 4', 'כמות ילדים 4'],
+      ['אשקלון', '09/2026', 'תינוק', '18', 'תינוק', '18', 'פעוט', '26', 'בוגר', '32'],
+      ['TABLE: STAFFING'],
+      ['כיתה', 'כמות צוות לילד'],
+      ['תינוק', '5'],
+      ['פעוט', '8'],
+      ['בוגר', '10'],
+      ['TABLE: MONTH_HOURS'],
+      ['חודש', 'שעות תקן', 'ימי עבודה'],
+      ['09/2026', '182', '22'],
+      ['TABLE: FIXED_STAFF'],
+      ['מעון', 'חודש', 'תפקיד 1', 'כמות 1'],
+      ['אשקלון', '09/2026', 'מנהלת', '1'],
+      ['TABLE: COST_RULES'],
+      ['סעיף תקציבי', 'בסיס לחישוב', 'ערך'],
+      ['ציוד כיתות', 'כיתות', '100'],
+    ];
+
+    const model = engine.calculateBudgetModel(engine.parseBudgetTables(rows));
+
+    expect(model.classroomStaffing).toHaveLength(4);
+    expect(model.daycareStaffing[0]).toEqual(expect.objectContaining({ classroomCount: 4, children: 94, requiredStaff: 15 }));
+    expect(model.classroomStaffing.map((room) => room.ageGroups)).toEqual([
+      [expect.objectContaining({ ageGroup: 'תינוק', children: 18, roundedStaff: 4 })],
+      [expect.objectContaining({ ageGroup: 'תינוק', children: 18, roundedStaff: 4 })],
+      [expect.objectContaining({ ageGroup: 'פעוט', children: 26, roundedStaff: 3.5 })],
+      [expect.objectContaining({ ageGroup: 'בוגר', children: 32, roundedStaff: 3.5 })],
+    ]);
+  });
+
+  test('multiplies COST_RULES by additional work days basis', () => {
+    const rows = [
+      ['TABLE: OCCUPANCY'],
+      ['מעון', 'חודש', 'כיתה 1', 'כמות ילדים'],
+      ['אשקלון', '09/2026', 'תינוק', '10'],
+      ['TABLE: STAFFING'],
+      ['כיתה', 'כמות צוות לילד'],
+      ['תינוק', '5'],
+      ['TABLE: MONTH_HOURS'],
+      ['חודש', 'שעות תקן', 'ימי עבודה'],
+      ['09/2026', '182', '22'],
+      ['TABLE: FIXED_STAFF'],
+      ['מעון', 'חודש', 'תפקיד 1', 'כמות 1'],
+      ['אשקלון', '09/2026', 'מנהלת', '1'],
+      ['TABLE: COST_RULES'],
+      ['סעיף תקציבי', 'מעון', 'בסיס לחישוב', 'בסיס נוסף', 'ערך'],
+      ['מזון', 'אשקלון', 'ילדים', 'ימי עבודה', '12'],
+    ];
+
+    const model = engine.calculateBudgetModel(engine.parseBudgetTables(rows));
+    const food = model.costs.find((cost) => cost.category === 'מזון');
+
+    expect(food.quantity).toBe(10);
+    expect(food.additionalQuantity).toBe(22);
+    expect(food.total).toBe(2640);
+  });
+});
+
+
+test.describe('budget partial coverage model', () => {
+  test('supports incomplete COST_RULES and surfaces unmapped actual expense categories', () => {
+    const rows = [
+      ['TABLE: OCCUPANCY'],
+      ['מעון', 'חודש', 'כיתה 1', 'כמות ילדים'],
+      ['אשקלון', '09/2026', 'תינוק', '10'],
+      ['TABLE: STAFFING'],
+      ['כיתה', 'כמות צוות לילד'],
+      ['תינוק', '5'],
+      ['TABLE: MONTH_HOURS'],
+      ['חודש', 'שעות תקן', 'ימי עבודה'],
+      ['09/2026', '182', '22'],
+      ['TABLE: FIXED_STAFF'],
+      ['מעון', 'חודש', 'תפקיד 1', 'כמות 1'],
+      ['אשקלון', '09/2026', 'מנהלת', '1'],
+      ['TABLE: COST_RULES'],
+      ['סעיף תקציבי', 'מעון', 'בסיס לחישוב', 'ערך'],
+      ['מזון', 'אשקלון', 'ילדים', '12'],
+      ['ציוד', 'אשקלון', 'כיתות', '100'],
+      ['TABLE: BANK_TRANSACTIONS'],
+      ['סכום', 'הגדרה', 'עבור מחלקה', 'עבור חודש', 'פירוט'],
+      ['-820', 'מזון', 'אשקלון', '09/2026', 'קניות'],
+      ['-180', 'חשמל', 'אשקלון', '09/2026', 'חשבון'],
+    ];
+
+    const model = engine.calculateBudgetModel(engine.parseBudgetTables(rows));
+
+    expect(model.costs).toHaveLength(2);
+    expect(model.budgetCoverage.actualExpenseTotal).toBe(1000);
+    expect(model.budgetCoverage.budgetedActualExpenseTotal).toBe(820);
+    expect(model.budgetCoverage.coveragePercentage).toBe(82);
+    expect(model.budgetCoverage.budgetedCategories).toEqual([expect.objectContaining({ category: 'מזון', total: 820 })]);
+    expect(model.budgetCoverage.actualExpensesWithoutBudget).toEqual([expect.objectContaining({ category: 'חשמל', total: 180 })]);
+    expect(model.budgetCoverage.unmappedExpenseCategories).toEqual(['חשמל']);
+    expect(model.budgetCoverage.budgetCategoriesWithoutActual).toEqual(['ציוד']);
+  });
+
+  test('keeps budget coverage empty when no actual expenses are loaded', () => {
+    const model = engine.calculateBudgetModel(parsedTables());
+
+    expect(model.budgetCoverage.actualExpenseTotal).toBe(0);
+    expect(model.budgetCoverage.coveragePercentage).toBe(0);
+    expect(model.budgetCoverage.actualExpensesWithoutBudget).toEqual([]);
   });
 });

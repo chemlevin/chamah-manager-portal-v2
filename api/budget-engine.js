@@ -13,10 +13,13 @@ const FIELD_ALIASES = {
   workDays: ['workDays', 'days', 'ימי עבודה', 'ימי פעילות'],
   positions: ['positions', 'staff', 'count', 'תקנים', 'משרות', 'כמות', 'כמות 1'],
   role: ['role', 'תפקיד', 'תפקיד 1'],
-  category: ['category', 'name', 'סעיף', 'קטגוריה', 'שם', 'סעיף תקציבי'],
+  category: ['category', 'name', 'סעיף', 'קטגוריה', 'שם', 'סעיף תקציבי', 'הגדרה', 'קטגוריית הוצאה'],
   basis: ['basis', 'calculationBasis', 'בסיס חישוב', 'בסיס לחישוב', 'לפי'],
+  additionalBasis: ['additionalBasis', 'secondaryBasis', 'בסיס נוסף', 'בסיס משני'],
   amount: ['amount', 'rate', 'cost', 'עלות', 'סכום', 'תעריף', 'ערך', 'עלות 1'],
+  detail: ['detail', 'description', 'פירוט', 'תיאור'],
   period: ['period', 'תקופה'],
+  mixedClassroom: ['mixedClassroom', 'mixed', 'כיתה מעורבת', 'מעורבת', 'סוג כיתה'],
   divisor: ['divisor', 'divider', 'מחלק', 'חלוקה'],
 };
 
@@ -91,6 +94,25 @@ function numberedIndexes(object, bases) {
   return [...indexes].sort((a, b) => a - b);
 }
 
+function isTruthyMarker(value) {
+  const text = normalizeKey(value);
+  return ['true', 'yes', '1', 'כן', 'מעורב', 'מעורבת', 'כיתה מעורבת', 'mixed'].includes(text);
+}
+
+function isMixedClassroomRow(row) {
+  const headers = Object.keys(row || {});
+  const values = Object.values(row || {});
+  return isTruthyMarker(valueByAliases(values, headers, FIELD_ALIASES.mixedClassroom));
+}
+
+function classroomLabel(base, rowIndex, ageIndex, mixed) {
+  const cleanBase = clean(base);
+  if (mixed && cleanBase) return cleanBase;
+  if (mixed) return 'כיתה ' + (rowIndex + 1);
+  if (cleanBase) return cleanBase + ' ' + ageIndex;
+  return 'כיתה ' + (rowIndex + 1) + '.' + ageIndex;
+}
+
 function expandOccupancyRows(rows = []) {
   return rows.flatMap((row, rowIndex) => {
     const ageIndexes = numberedIndexes(row, ['כיתה', 'שכבת גיל', 'גיל', 'קבוצת גיל']);
@@ -100,14 +122,15 @@ function expandOccupancyRows(rows = []) {
     const values = Object.values(row);
     const daycare = valueByAliases(values, headers, FIELD_ALIASES.daycare);
     const month = valueByAliases(values, headers, FIELD_ALIASES.month);
-    const classroom = valueByAliases(values, headers, FIELD_ALIASES.classroom) || valueByExactHeader(row, 'שם כיתה') || 'כיתה ' + (rowIndex + 1);
+    const classroomBase = valueByExactHeader(row, 'שם כיתה') || valueByExactHeader(row, 'חדר') || valueByExactHeader(row, 'classroom') || valueByExactHeader(row, 'class');
+    const mixedClassroom = isMixedClassroomRow(row);
 
     return ageIndexes.map((index) => {
       const ageGroup = numberedHeaderValue(row, ['כיתה', 'שכבת גיל', 'גיל', 'קבוצת גיל'], index);
       const children = numberedHeaderValue(row, ['כמות ילדים', 'מספר ילדים', 'ילדים'], index)
         || (index === 1 ? valueByAliases(values, headers, FIELD_ALIASES.children) : '');
       if (!ageGroup || numberValue(children) <= 0) return null;
-      return { ...row, daycare, month, classroom, ageGroup, children };
+      return { ...row, daycare, month, classroom: classroomLabel(classroomBase, rowIndex, index, mixedClassroom), ageGroup, children };
     }).filter(Boolean);
   });
 }
@@ -250,11 +273,75 @@ function normalizeCostRuleRows(rows = []) {
       daycare: valueByAliases(values, headers, FIELD_ALIASES.daycare),
       month: valueByAliases(values, headers, FIELD_ALIASES.month),
       basis: normalizeKey(valueByAliases(values, headers, FIELD_ALIASES.basis)),
+      additionalBasis: normalizeKey(valueByAliases(values, headers, FIELD_ALIASES.additionalBasis)),
       period: normalizeKey(valueByAliases(values, headers, FIELD_ALIASES.period)),
       amount: numberValue(valueByAliases(values, headers, FIELD_ALIASES.amount)),
       divisor: numberValue(valueByAliases(values, headers, FIELD_ALIASES.divisor), 1) || 1,
     };
   }).filter((row) => row.category || row.basis || row.amount);
+}
+
+function normalizeActualExpenseRows(rows = []) {
+  return rows.map((row) => {
+    const headers = Object.keys(row);
+    const values = Object.values(row);
+    const amount = numberValue(valueByAliases(values, headers, FIELD_ALIASES.amount));
+    return {
+      category: valueByAliases(values, headers, FIELD_ALIASES.category),
+      daycare: valueByAliases(values, headers, FIELD_ALIASES.daycare),
+      month: valueByAliases(values, headers, FIELD_ALIASES.month),
+      detail: valueByAliases(values, headers, FIELD_ALIASES.detail),
+      amount,
+      expenseAmount: Math.abs(amount),
+    };
+  }).filter((row) => row.category || row.amount || row.detail);
+}
+
+function optionalActualExpenseRows(tables = {}) {
+  return tables.ACTUAL_EXPENSES
+    || tables.BANK_TRANSACTIONS
+    || tables.BANKS
+    || tables.BANK
+    || tables.TRANSACTIONS
+    || [];
+}
+
+function sumByCategory(rows = []) {
+  const map = new Map();
+  for (const row of rows) {
+    const category = clean(row.category) || 'ללא הגדרה';
+    if (!map.has(category)) map.set(category, { category, total: 0, rows: 0 });
+    const item = map.get(category);
+    item.total += row.expenseAmount;
+    item.rows += 1;
+  }
+  return [...map.values()];
+}
+
+function calculateBudgetCoverage(actualRows = [], costRuleRows = []) {
+  const actualExpenses = normalizeActualExpenseRows(actualRows);
+  const budgetRules = normalizeCostRuleRows(costRuleRows).filter((rule) => clean(rule.category));
+  const budgetCategories = new Set(budgetRules.map((rule) => normalizeKey(rule.category)));
+  const actualCategories = new Set(actualExpenses.map((row) => normalizeKey(row.category || 'ללא הגדרה')));
+  const budgetedExpenses = actualExpenses.filter((row) => budgetCategories.has(normalizeKey(row.category)));
+  const unbudgetedExpenses = actualExpenses.filter((row) => !budgetCategories.has(normalizeKey(row.category)));
+  const budgetCategoriesWithoutActual = budgetRules
+    .filter((rule) => !actualCategories.has(normalizeKey(rule.category)))
+    .map((rule) => rule.category);
+  const actualExpenseTotal = actualExpenses.reduce((sum, row) => sum + row.expenseAmount, 0);
+  const budgetedActualExpenseTotal = budgetedExpenses.reduce((sum, row) => sum + row.expenseAmount, 0);
+  const coveragePercentage = actualExpenseTotal > 0 ? (budgetedActualExpenseTotal / actualExpenseTotal) * 100 : 0;
+
+  return {
+    actualExpenseTotal,
+    budgetedActualExpenseTotal,
+    coveragePercentage,
+    budgetedCategories: sumByCategory(budgetedExpenses),
+    actualExpensesWithoutBudget: sumByCategory(unbudgetedExpenses),
+    budgetCategoriesWithoutActual,
+    unmappedExpenseCategories: [...new Set(unbudgetedExpenses.map((row) => row.category || 'ללא הגדרה'))],
+    label: 'Unmapped expense categories',
+  };
 }
 
 function roundStaff(value) {
@@ -350,8 +437,9 @@ function calculateCostRules(costRuleRows = [], context) {
   const rules = normalizeCostRuleRows(costRuleRows);
   return rules.map((rule) => {
     const quantity = basisQuantity(rule, context);
-    const total = (quantity * rule.amount) / rule.divisor;
-    return { ...rule, quantity, total };
+    const additionalQuantity = rule.additionalBasis ? basisQuantity({ ...rule, basis: rule.additionalBasis }, context) : 1;
+    const total = (quantity * additionalQuantity * rule.amount) / rule.divisor;
+    return { ...rule, quantity, additionalQuantity, total };
   });
 }
 
@@ -362,11 +450,13 @@ function calculateBudgetModel(tables) {
   const monthHoursRows = tables.MONTH_HOURS || [];
   const fixedStaffRows = tables.FIXED_STAFF || [];
   const costRuleRows = tables.COST_RULES || [];
+  const actualExpenseRows = optionalActualExpenseRows(tables);
   const classroomStaffing = calculateClassroomStaffing(occupancyRows, staffingRows);
   const monthlyRequiredHours = calculateMonthlyRequiredHours(classroomStaffing, monthHoursRows);
   const fixedStaff = fixedStaffWithHours(fixedStaffRows, monthHoursRows);
   const costs = calculateCostRules(costRuleRows, { occupancyRows, classroomStaffing, monthHoursRows, fixedStaff });
-  return { classroomStaffing, daycareStaffing: aggregateStaffingByDaycare(classroomStaffing), monthlyRequiredHours, fixedStaff, costs };
+  const budgetCoverage = calculateBudgetCoverage(actualExpenseRows, costRuleRows);
+  return { classroomStaffing, daycareStaffing: aggregateStaffingByDaycare(classroomStaffing), monthlyRequiredHours, fixedStaff, costs, budgetCoverage };
 }
 
 module.exports = {
@@ -380,6 +470,8 @@ module.exports = {
   normalizeFixedStaffRows,
   fixedStaffWithHours,
   normalizeCostRuleRows,
+  normalizeActualExpenseRows,
+  calculateBudgetCoverage,
   calculateCostRules,
   calculateBudgetModel,
 };
