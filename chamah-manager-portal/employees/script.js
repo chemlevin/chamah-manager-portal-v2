@@ -35,8 +35,7 @@ const FIELD_KEYS = {
   lastUpdate: "עדכון אחרון",
 };
 
-const today = new Date();
-today.setHours(0, 0, 0, 0);
+const today = window.ChamahDates.startOfLocalDay(new Date());
 const soonMs = 90 * 24 * 60 * 60 * 1000;
 
 const dayFields = [
@@ -121,15 +120,7 @@ function escapeHtml(text) {
 }
 
 function parseDate(dateValue) {
-  if (!dateValue) return null;
-  const text = String(dateValue).trim();
-  const direct = new Date(text);
-  if (!Number.isNaN(direct.getTime())) return direct;
-  const match = text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
-  if (!match) return null;
-  const year = match[3].length === 2 ? '20' + match[3] : match[3];
-  const date = new Date(Number(year), Number(match[2]) - 1, Number(match[1]));
-  return Number.isNaN(date.getTime()) ? null : date;
+  return window.ChamahDates.parseIsraeliSheetDate(dateValue);
 }
 
 function dateStatus(dateValue) {
@@ -152,9 +143,7 @@ function statusTone(status) {
 function formatDate(dateValue) {
   const cleaned = clean(dateValue);
   if (!cleaned) return '';
-  const date = parseDate(cleaned);
-  if (!date) return cleaned;
-  return date.toLocaleDateString('he-IL');
+  return window.ChamahDates.formatIsraeliSheetDate(cleaned) || cleaned;
 }
 
 function employeeStatusValue(employee) {
@@ -547,7 +536,7 @@ function buildReportRows(list) {
   const rows = [
     ['דוח עובדים'],
     [],
-    ['תאריך הפקה', new Date().toLocaleDateString('he-IL')],
+    ['תאריך הפקה', window.ChamahDates.formatIsraeliDate(new Date())],
     ['מספר עובדים בתוצאה', statsEmployees(list).length],
     ['סהכ עובדים במערכת', statsEmployees(employees).length],
     [],
@@ -672,7 +661,7 @@ function downloadBlob(blob, filename) {
 function exportEmployeesReport() {
   const list = filteredEmployees();
   const rows = buildReportRows(list);
-  const datePart = new Date().toISOString().slice(0, 10);
+  const datePart = window.ChamahDates.formatIsraeliDate(new Date()).replaceAll('/', '-');
   downloadBlob(createWorkbookBlob(rows), 'דוח-עובדים-' + datePart + '.xlsx');
 }
 
