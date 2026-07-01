@@ -57,7 +57,7 @@ test.describe('employees management KPIs', () => {
     await page.goto('/employees/');
 
     await expect(page.locator('#employee-management-kpis')).toContainText('1 עובדות פעילות');
-    await expect(page.locator('#employee-management-kpis')).toContainText('0 תעודות מטפלת חסרות');
+    await expect(page.locator('#employee-management-kpis')).not.toContainText('0 תעודות מטפלת חסרות');
     await expect(page.locator('#employee-management-kpis')).toContainText('1 עזרה ראשונה פגה');
     await expect(page.locator('#employee-management-kpis')).toContainText('1 התנהלות בטוחה חסרה');
 
@@ -76,7 +76,7 @@ test.describe('employees management KPIs', () => {
     await page.locator('#employee-filter-apply').click();
 
     await expect(page.locator('#employee-management-kpis')).toContainText('1 עובדות פעילות');
-    await expect(page.locator('#employee-management-kpis')).toContainText('0 עזרה ראשונה פגה');
-    await expect(page.locator('#employee-management-kpis')).toContainText('0 התנהלות בטוחה חסרה');
+    await expect(page.locator('#employee-management-kpis')).not.toContainText('0 עזרה ראשונה פגה');
+    await expect(page.locator('#employee-management-kpis')).not.toContainText('0 התנהלות בטוחה חסרה');
   });
 });

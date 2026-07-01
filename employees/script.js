@@ -203,6 +203,12 @@ function countWhere(list, predicate) {
   return list.filter(predicate).length;
 }
 
+function shouldShowKpi(item) {
+  if (item.alwaysShow) return true;
+  return Number(item.value) > 0;
+}
+
+
 function employeeMatchesKpiFilter(employee) {
   if (!state.kpiFilter) return true;
   if (state.kpiFilter === 'active') return normalizedEmployeeStatus(employee) === 'active';
@@ -276,7 +282,7 @@ function kpiCard(item) {
 function managementKpiItems(list) {
   const currentEmployees = list.filter((employee) => !isLeftEmployee(employee));
   return [
-    { text: 'עובדות פעילות', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'active'), tone: 'ok', primary: true, filter: 'active' },
+    { text: 'עובדות פעילות', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'active'), tone: 'ok', primary: true, filter: 'active', alwaysShow: true },
     { text: 'תעודות מטפלת חסרות', value: countWhere(currentEmployees, (employee) => caregiverCertificateCategory(employee) === 'missing'), tone: 'danger', primary: true, filter: 'missing-caregiver' },
     { text: 'עזרה ראשונה פגה', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'firstAidUntil') === 'expired'), tone: 'danger', primary: true, filter: 'expired-first-aid' },
     { text: 'עזרה ראשונה תפוג בקרוב', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'firstAidUntil') === 'soon'), tone: 'warning', primary: true, filter: 'soon-first-aid' },
@@ -284,13 +290,13 @@ function managementKpiItems(list) {
     { text: 'עובדות דורשות טיפול', value: countWhere(currentEmployees, (employee) => attentionSummary(employee).count > 0), tone: 'danger', primary: true, filter: 'needs-attention' },
     { text: 'חופשת לידה', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'maternity'), tone: 'orange', filter: 'maternity' },
     { text: 'מחלה / תאונת עבודה', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'sick'), tone: 'orange', filter: 'sick' },
-    { text: 'עזבו', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'left'), tone: 'danger', filter: 'left' },
+    { text: 'עזבה', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'left'), tone: 'danger', filter: 'left' },
     { text: 'תעודת מטפלת תקפה', value: countWhere(currentEmployees, (employee) => caregiverCertificateCategory(employee) === 'valid'), tone: 'ok', filter: 'valid-caregiver' },
     { text: 'תעודת מטפלת בלימודים / בתהליך', value: countWhere(currentEmployees, (employee) => caregiverCertificateCategory(employee) === 'study'), tone: 'orange', filter: 'study-caregiver' },
     { text: 'עזרה ראשונה חסרה', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'firstAidUntil') === 'missing'), tone: 'danger', filter: 'missing-first-aid' },
     { text: 'התנהלות בטוחה פגה', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'safeConductUntil') === 'expired'), tone: 'danger', filter: 'expired-safe-conduct' },
     { text: 'התנהלות בטוחה תפוג בקרוב', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'safeConductUntil') === 'soon'), tone: 'warning', filter: 'soon-safe-conduct' },
-  ];
+  ].filter(shouldShowKpi);
 }
 
 function certificateStatus(employee) {
