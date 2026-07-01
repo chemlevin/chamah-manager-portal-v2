@@ -1,5 +1,45 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "cleanUrls": true
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/employees.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/budget.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/budget-test.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/employees",
+      "dest": "/api/employees.js"
+    },
+    {
+      "src": "/api/budget",
+      "dest": "/api/budget.js"
+    },
+    {
+      "src": "/api/budget-test",
+      "dest": "/api/budget-test.js"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ]
 }
