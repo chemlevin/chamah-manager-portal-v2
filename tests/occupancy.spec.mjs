@@ -41,6 +41,32 @@ test.describe('occupancy calculator QA', () => {
     await expectCoreLayoutInsideViewport(page);
   });
 
+  test('empty classroom area does not show remaining capacity or area alternatives', async ({ page }) => {
+    await page.locator('#classroom-type').selectOption('older');
+    await page.locator('#older-count').fill('20');
+    await page.locator('#occupancy-form button[type="submit"]').click();
+
+    await expect(page.locator('#occupancy-results')).toBeVisible();
+    await expect(page.locator('#occupancy-results')).toContainText('לא הוזן שטח כיתה, לכן לא ניתן לחשב קיבולת לפי מ״ר.');
+    await expect(page.locator('#occupancy-results')).not.toContainText('נותר מקום לעוד');
+    await expect(page.locator('#occupancy-recommendation')).toContainText('להצגת חלופות לפי שטח ורווחיות, יש להזין שטח כיתה.');
+
+    await page.locator('#alternatives-details').click();
+    await expect(page.locator('#scenario-grid .scenario-card')).toHaveCount(0);
+    await expect(page.locator('#scenario-grid')).toContainText('להצגת חלופות לפי שטח ורווחיות, יש להזין שטח כיתה.');
+  });
+
+  test('filled classroom area shows remaining capacity and area alternatives', async ({ page }) => {
+    await page.locator('#classroom-type').selectOption('older');
+    await page.locator('#older-count').fill('20');
+    await page.locator('#actual-sqm').fill('72');
+    await page.locator('#occupancy-form button[type="submit"]').click();
+
+    await expect(page.locator('#occupancy-results')).toContainText('נותר מקום לעוד');
+    await page.locator('#alternatives-details').click();
+    await expect(page.locator('#scenario-grid .scenario-card')).toHaveCount(6);
+  });
+
   test('alternatives ranking searches profitable valid compositions', async ({ page }) => {
     await page.locator('#classroom-type').selectOption('older');
     await page.locator('#older-count').fill('20');

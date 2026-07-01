@@ -161,12 +161,13 @@ function quickCompositionFromInputs(rules) {
 
 function calculateScenarioBalance(composition, options) {
   const validation = getCompositionValidation(composition, options.rules);
+  const areaKnown = Number(options.actualSqm) > 0;
   const rows = Object.entries(options.rules).map(([key, rule]) => {
     const children = Math.max(Number(composition[key] || 0), 0);
     const requiredSqm = calculateRequiredSqm(children, rule.sqmPerChild);
     const requiredStaff = calculateRequiredStaff(children, rule.ratio);
     const income = calculateIncome(children, rule.tuition);
-    const sqmCapacity = calculateSqmCapacity(options.actualSqm, rule.sqmPerChild);
+    const sqmCapacity = areaKnown ? calculateSqmCapacity(options.actualSqm, rule.sqmPerChild) : 0;
     return { key, ...rule, children, requiredSqm, requiredStaff, income, sqmCapacity };
   });
   const totalChildren = rows.reduce((sum, row) => sum + row.children, 0);
@@ -176,10 +177,10 @@ function calculateScenarioBalance(composition, options) {
   const staffCost = requiredStaff * options.staffCostPerPerson;
   const monthlyBalance = income - staffCost;
   const sqmStatus = getSqmStatus(options.actualSqm, requiredSqm);
-  const areaCompliant = requiredSqm > 0 && (options.actualSqm <= 0 || options.actualSqm >= sqmStatus.roundedRequiredSqm);
+  const areaCompliant = requiredSqm > 0 && (!areaKnown || options.actualSqm >= sqmStatus.roundedRequiredSqm);
   const activeRows = rows.filter((row) => row.children > 0);
   const minCapacity = activeRows.length ? Math.min(...activeRows.map((row) => row.maxChildren)) : 0;
-  return { rows, totalChildren, requiredSqm, roundedRequiredSqm: sqmStatus.roundedRequiredSqm, actualSqm: options.actualSqm, requiredStaff, income, staffCost, monthlyBalance, balancePerChild: totalChildren > 0 ? monthlyBalance / totalChildren : 0, balancePerSqm: options.actualSqm > 0 ? monthlyBalance / options.actualSqm : 0, areaCompliant, validComposition: validation.valid, invalidMix: validation.invalidMix, compositionMessage: validation.message, capacityViolations: validation.capacityViolations || [], sqmStatus, compliant: totalChildren > 0 && validation.valid && areaCompliant, capacityLimit: minCapacity };
+  return { rows, totalChildren, requiredSqm, roundedRequiredSqm: sqmStatus.roundedRequiredSqm, actualSqm: options.actualSqm, areaKnown, requiredStaff, income, staffCost, monthlyBalance, balancePerChild: totalChildren > 0 ? monthlyBalance / totalChildren : 0, balancePerSqm: areaKnown ? monthlyBalance / options.actualSqm : 0, areaCompliant, validComposition: validation.valid, invalidMix: validation.invalidMix, compositionMessage: validation.message, capacityViolations: validation.capacityViolations || [], sqmStatus, compliant: totalChildren > 0 && validation.valid && areaCompliant, capacityLimit: minCapacity };
 }
 
 function getInput() {
@@ -193,8 +194,9 @@ function compositionLabel(composition, separator = " + ") {
 }
 
 function centralReason(result, input) {
-  if (result.compliant) return input.actualSqm > 0 ? "הכיתה עומדת בדרישות." : "חושב שטח נדרש לפי מספר הילדים.";
+  if (result.compliant) return input.actualSqm > 0 ? "הכיתה עומדת בדרישות." : "לא הוזן שטח כיתה, לכן לא ניתן לחשב קיבולת לפי מ״ר.";
   if (!result.validComposition) return result.compositionMessage;
+  if (input.actualSqm <= 0) return "לא הוזן שטח כיתה, לכן לא ניתן לחשב קיבולת לפי מ״ר.";
   const missingSqm = Math.max(result.roundedRequiredSqm - input.actualSqm, 0);
   if (!result.areaCompliant) return "חסרים " + numberFormatter.format(missingSqm) + " מ״ר.";
   return "הכיתה אינה תקינה לפי הנתונים שהוזנו.";
@@ -234,21 +236,26 @@ function getMicroInsights(result, input, bestInfo) {
   const factor = limitingFactor(result);
   const use = getUtilization(result);
   const activeRows = result.rows.filter((row) => row.children > 0);
-  const remainingByCapacity = activeRows.map((row) => row.maxChildren - row.children);
-  const remainingChildren = remainingByCapacity.length ? Math.min(...remainingByCapacity) : 0;
-  if (remainingChildren > 0 && result.compliant) insights.push("נותר מקום לעוד " + numberFormatter.format(remainingChildren) + " ילדים לפי מגבלת הכמות.");
+  if (input.actualSqm <= 0) {
+    insights.push("לא הוזן שטח כיתה, לכן לא ניתן לחשב קיבולת לפי מ״ר.");
+  } else {
+    const remainingByCapacity = activeRows.map((row) => row.maxChildren - row.children);
+    const remainingChildren = remainingByCapacity.length ? Math.min(...remainingByCapacity) : 0;
+    if (remainingChildren > 0 && result.compliant) insights.push("נותר מקום לעוד " + numberFormatter.format(remainingChildren) + " ילדים לפי מגבלת הכמות.");
+    if (use.areaUse > 0) insights.push("הכיתה מנצלת " + percent(use.areaUse) + "% מהשטח.");
+  }
   if (result.requiredStaff % 1 === 0.5) insights.push("נדרש חצי תקן נוסף לפי התקינה.");
-  if (use.areaUse > 0) insights.push("הכיתה מנצלת " + percent(use.areaUse) + "% מהשטח.");
   if (bestInfo?.better) insights.push("ניתן לשפר את היתרה החודשית.");
-  insights.push("הגורם המגביל: " + factor.key + ".");
+  insights.push(input.actualSqm > 0 ? "הגורם המגביל: " + factor.key + "." : "קיבולת השטח אינה ידועה.");
   return insights.slice(0, 4);
 }
 
 function renderResult(result, input, bestInfo) {
-  const tone = result.compliant ? "ok" : "danger";
+  const areaUnknown = input.actualSqm <= 0;
+  const tone = areaUnknown ? "warning" : result.compliant ? "ok" : "danger";
   classLabel.textContent = input.className;
-  statusIcon.textContent = result.compliant ? "●" : "●";
-  statusTitle.textContent = result.compliant ? "תקין" : "לא תקין";
+  statusIcon.textContent = "●";
+  statusTitle.textContent = areaUnknown ? "בדיקה חלקית" : result.compliant ? "תקין" : "לא תקין";
   statusDetail.textContent = centralReason(result, input);
   healthCard.className = "health-status-card " + tone;
   kpiChildren.textContent = numberFormatter.format(result.totalChildren);
@@ -256,19 +263,19 @@ function renderResult(result, input, bestInfo) {
   kpiSqm.textContent = input.actualSqm > 0 ? numberFormatter.format(result.actualSqm) + "/" + numberFormatter.format(result.roundedRequiredSqm) : numberFormatter.format(result.requiredSqm);
   kpiBalance.textContent = money(result.monthlyBalance);
   const use = getUtilization(result);
-  utilizationBars.innerHTML = [utilizationBar("שטח", use.areaUse), utilizationBar("תקינה", use.staffUse), utilizationBar("קיבולת", use.capacityUse)].join("");
+  utilizationBars.innerHTML = [utilizationBar(input.actualSqm > 0 ? "שטח" : "שטח לא ידוע", use.areaUse), utilizationBar("תקינה", use.staffUse), utilizationBar("קיבולת", use.capacityUse)].join("");
   const factor = limitingFactor(result);
-  limitingFactorOutput.textContent = "הגורם המגביל: " + factor.icon + " " + factor.key;
+  limitingFactorOutput.textContent = input.actualSqm > 0 ? "הגורם המגביל: " + factor.icon + " " + factor.key : "הגורם המגביל: לא ניתן לקבוע ללא שטח כיתה.";
   microInsights.innerHTML = getMicroInsights(result, input, bestInfo).map((text) => '<span>' + text + '</span>').join("");
   const activeRows = result.rows.filter((row) => row.children > 0);
   const missingSqm = Math.max(result.roundedRequiredSqm - input.actualSqm, 0);
   const childBreakdown = compositionLabel(input.composition, ", ");
   const capacityNote = result.capacityViolations.length ? formatCapacityViolations(result.capacityViolations) : activeRows.map((row) => row.label + " עד " + row.maxChildren).join(", ");
   summaryGrid.innerHTML = [
-    summaryItem("סטטוס", result.compliant ? "תקין" : "לא תקין", centralReason(result, input), tone),
+    summaryItem("סטטוס", areaUnknown ? "בדיקה חלקית" : result.compliant ? "תקין" : "לא תקין", centralReason(result, input), tone),
     summaryItem("פירוט ילדים", childBreakdown, "הרכב כיתה"),
     summaryItem("שטח נדרש", numberFormatter.format(result.requiredSqm) + " מ״ר", "בדיקה לפי " + numberFormatter.format(result.roundedRequiredSqm) + " מ״ר", result.areaCompliant ? "ok" : "danger"),
-    summaryItem("שטח בפועל", input.actualSqm > 0 ? numberFormatter.format(input.actualSqm) + " מ״ר" : "לא הוזן", missingSqm > 0 && input.actualSqm > 0 ? "חסר " + numberFormatter.format(missingSqm) + " מ״ר" : "אופציונלי לבדיקה", result.areaCompliant ? "ok" : "danger"),
+    summaryItem("שטח בפועל", input.actualSqm > 0 ? numberFormatter.format(input.actualSqm) + " מ״ר" : "לא הוזן", input.actualSqm > 0 ? (missingSqm > 0 ? "חסר " + numberFormatter.format(missingSqm) + " מ״ר" : "נבדק לפי שטח בפועל") : "לא ניתן לחשב קיבולת לפי מ״ר", input.actualSqm > 0 ? (result.areaCompliant ? "ok" : "danger") : "warning"),
     summaryItem("מקסימום ילדים", result.capacityViolations.length ? "חריגה" : "תקין", capacityNote, result.capacityViolations.length ? "danger" : "ok"),
     summaryItem("צוות נדרש", numberFormatter.format(result.requiredStaff), "אנשי צוות"),
     summaryItem("הכנסה חודשית", money(result.income), "לפי שכר לימוד"),
@@ -360,6 +367,7 @@ function pickBalancedAlternative(candidates, usedKeys) {
 
 function buildAlternativeScenarios(input) {
   const currentScenario = { title: "הרכב נוכחי", composition: input.composition, result: calculateScenarioBalance(input.composition, input), distance: 0, totalDelta: 0 };
+  if (input.actualSqm <= 0) return [currentScenario];
   const candidates = generateAlternativeCandidates(input)
     .filter((candidate, index, list) => list.findIndex((item) => compositionKey(item.composition) === compositionKey(candidate.composition)) === index)
     .filter((candidate) => compositionKey(candidate.composition) !== compositionKey(input.composition));
@@ -410,6 +418,11 @@ function getBestRecommendation(scenarios) {
 function renderRecommendation(bestInfo) {
   const scenario = bestInfo.scenario;
   const result = scenario.result;
+  if (bestInfo.areaUnknown) {
+    recommendationCard.className = "recommendation-card management-insight-card warning";
+    recommendationCard.innerHTML = '<span>המלצת המערכת</span><strong>לא ניתן לחשב חלופות לפי שטח.</strong><p>להצגת חלופות לפי שטח ורווחיות, יש להזין שטח כיתה.</p>';
+    return;
+  }
   const tone = bestInfo.better ? "ok" : result.compliant ? "ok" : "warning";
   recommendationCard.className = "recommendation-card management-insight-card " + tone;
   if (bestInfo.better) {
@@ -426,6 +439,15 @@ function createSummaryText(input, current, bestInfo) {
 }
 
 function renderScenarios(input, currentResult) {
+  if (input.actualSqm <= 0) {
+    const currentScenario = { title: "הרכב נוכחי", composition: input.composition, result: currentResult };
+    const bestInfo = { scenario: currentScenario, delta: 0, better: false, areaUnknown: true };
+    renderResult(currentResult, input, bestInfo);
+    renderRecommendation(bestInfo);
+    lastSummaryText = createSummaryText(input, currentResult, bestInfo);
+    scenarioGrid.innerHTML = '<p class="empty-state">להצגת חלופות לפי שטח ורווחיות, יש להזין שטח כיתה.</p>';
+    return;
+  }
   const scenarios = buildAlternativeScenarios(input).map((scenario) => ({ ...scenario, result: calculateScenarioBalance(scenario.composition, input) }));
   const bestInfo = getBestRecommendation(scenarios);
   renderResult(currentResult, input, bestInfo);
