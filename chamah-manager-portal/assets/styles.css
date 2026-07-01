@@ -3415,3 +3415,34 @@ details.employee-detail-section > div {
   .employee-card-title { gap: 6px; }
   .employee-card-status { min-height: 22px; padding-inline: 7px; font-size: .72rem; }
 }
+
+
+/* Employees management KPI refinement */
+.employee-management-kpis {
+  grid-column: span 4;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(104px, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+.employee-kpi-card small {
+  color: var(--ink);
+  font-size: .88rem;
+  font-weight: 900;
+  line-height: 1.25;
+}
+.employee-kpi-card.ok { border-color: rgba(68, 118, 108, .26); background: rgba(229, 240, 236, .82); }
+.employee-kpi-card.ok strong { color: var(--brand-dark); }
+.employee-kpi-card.warning { border-color: rgba(224, 174, 92, .32); background: rgba(255, 246, 226, .88); }
+.employee-kpi-card.warning strong { color: #8a6224; }
+.employee-kpi-card.orange { border-color: rgba(201, 134, 90, .34); background: rgba(255, 244, 234, .9); }
+.employee-kpi-card.orange strong { color: #8b5431; }
+.employee-kpi-card.danger { border-color: rgba(173, 73, 63, .28); background: rgba(255, 236, 232, .92); }
+.employee-kpi-card.danger strong { color: #9b3f35; }
+@media (max-width: 1120px) {
+  .employee-management-kpis { grid-column: 1 / -1; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 768px) {
+  .employee-management-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+  .employee-kpi-card small { font-size: .78rem; }
+}

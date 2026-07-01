@@ -1,4 +1,5 @@
 let employees = [];
+const numberFormatter = new Intl.NumberFormat('he-IL');
 
 const FIELD_KEYS = {
   id: "מספר עובד",
@@ -85,10 +86,7 @@ const fields = {
   activeFilters: document.querySelector('#active-filter-chips'),
   resultSummary: document.querySelector('#employee-result-summary'),
   insightScope: document.querySelector('#employee-insight-scope'),
-  insightTotal: document.querySelector('#insight-total'),
-  insightActive: document.querySelector('#insight-active'),
-  insightMissingCert: document.querySelector('#insight-missing-cert'),
-  insightExpiring: document.querySelector('#insight-expiring'),
+  managementKpis: document.querySelector('#employee-management-kpis'),
   list: document.querySelector('#employee-card-list'),
   empty: document.querySelector('#employee-empty'),
   count: document.querySelector('#employee-count-label'),
@@ -173,6 +171,59 @@ function employeeStatusBadge(employee) {
   const status = employeeStatusValue(employee);
   if (!status) return '';
   return '<span class="employee-card-status ' + employeeStatusTone(employee) + '">' + escapeHtml(status) + '</span>';
+}
+
+function normalizedEmployeeStatus(employee) {
+  const status = employeeStatusValue(employee);
+  if (status === 'עובדת') return 'active';
+  if (status === 'עזבה') return 'left';
+  if (/חל["׳']?ד|חופשת לידה|לידה/.test(status)) return 'maternity';
+  if (/מחלה|תאונת עבודה|תאונה/.test(status)) return 'sick';
+  if (/חל["׳']?ת|חופשה ללא תשלום|ללא תשלום/.test(status)) return 'unpaid';
+  return status ? 'temporary' : 'temporary';
+}
+
+function caregiverCertificateCategory(employee) {
+  const certificate = value(employee, 'caregiverCertificate');
+  if (certificate === 'יש') return 'valid';
+  if (/בלימוד|בתהליך|מחכה|קורס|לומד/.test(certificate)) return 'study';
+  return 'missing';
+}
+
+function dateKpiCategory(employee, key) {
+  const status = dateStatus(value(employee, key));
+  if (status === 'expired') return 'expired';
+  if (status === 'soon') return 'soon';
+  if (status === 'missing') return 'missing';
+  return 'valid';
+}
+
+function countWhere(list, predicate) {
+  return list.filter(predicate).length;
+}
+
+function kpiCard(item) {
+  return '<article class="employee-kpi-card ' + item.tone + '"><span>' + escapeHtml(item.group) + '</span><strong>' + numberFormatter.format(item.value) + '</strong><small>' + escapeHtml(item.label) + '</small></article>';
+}
+
+function managementKpiItems(list) {
+  const currentEmployees = list.filter((employee) => !isLeftEmployee(employee));
+  return [
+    { group: 'סטטוס עובדות', label: 'פעילות', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'active'), tone: 'ok' },
+    { group: 'סטטוס עובדות', label: 'חופשת לידה', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'maternity'), tone: 'orange' },
+    { group: 'סטטוס עובדות', label: 'מחלה / תאונת עבודה', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'sick'), tone: 'orange' },
+    { group: 'סטטוס עובדות', label: 'חל"ת', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'unpaid'), tone: 'orange' },
+    { group: 'סטטוס עובדות', label: 'עזבו', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'left'), tone: 'danger' },
+    { group: 'תעודת מטפלת', label: 'תקפה', value: countWhere(currentEmployees, (employee) => caregiverCertificateCategory(employee) === 'valid'), tone: 'ok' },
+    { group: 'תעודת מטפלת', label: 'בלימודים / בתהליך', value: countWhere(currentEmployees, (employee) => caregiverCertificateCategory(employee) === 'study'), tone: 'orange' },
+    { group: 'תעודת מטפלת', label: 'חסרה', value: countWhere(currentEmployees, (employee) => caregiverCertificateCategory(employee) === 'missing'), tone: 'danger' },
+    { group: 'עזרה ראשונה', label: 'פג תוקף', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'firstAidUntil') === 'expired'), tone: 'danger' },
+    { group: 'עזרה ראשונה', label: 'פג בקרוב', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'firstAidUntil') === 'soon'), tone: 'warning' },
+    { group: 'עזרה ראשונה', label: 'חסר', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'firstAidUntil') === 'missing'), tone: 'danger' },
+    { group: 'התנהלות בטוחה', label: 'פג תוקף', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'safeConductUntil') === 'expired'), tone: 'danger' },
+    { group: 'התנהלות בטוחה', label: 'פג בקרוב', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'safeConductUntil') === 'soon'), tone: 'warning' },
+    { group: 'התנהלות בטוחה', label: 'חסר', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'safeConductUntil') === 'missing'), tone: 'danger' },
+  ];
 }
 
 function certificateStatus(employee) {
@@ -352,13 +403,12 @@ function renderActiveFilterChips(list) {
 }
 
 function renderInsights() {
-  const list = statsEmployees(filteredEmployees());
+  const list = filteredEmployees();
+  const statsList = statsEmployees(list);
   fields.insightScope.textContent = scopeTitle();
-  fields.insightTotal.textContent = list.length;
-  fields.insightActive.textContent = list.filter(isActive).length;
-  fields.insightMissingCert.textContent = list.filter(isInvalidCertificate).length;
-  fields.insightExpiring.textContent = list.filter(hasExpiringTraining).length;
-  renderActiveFilterChips(filteredEmployees());
+  fields.resultSummary.textContent = 'מציג ' + statsList.length + ' עובדות מתוך ' + statsEmployees(employees).length;
+  fields.managementKpis.innerHTML = managementKpiItems(list).map(kpiCard).join('');
+  renderActiveFilterChips(list);
 }
 
 function warningBadges(employee) {
@@ -719,16 +769,14 @@ function applyKpiFilter(type) {
 }
 
 function setLoading() {
+  employees = [];
   fields.list.innerHTML = '';
   fields.empty.hidden = false;
   fields.empty.textContent = 'טוען נתוני צוות...';
   fields.count.textContent = '0 עובדות';
   fields.detail.hidden = true;
   fields.detailEmpty.hidden = false;
-  fields.insightTotal.textContent = '0';
-  fields.insightActive.textContent = '0';
-  fields.insightMissingCert.textContent = '0';
-  fields.insightExpiring.textContent = '0';
+  if (fields.managementKpis) fields.managementKpis.innerHTML = managementKpiItems([]).map(kpiCard).join('');
 }
 
 function setError() {
