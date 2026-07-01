@@ -278,28 +278,117 @@ function renderResult(result, input, bestInfo) {
   ageBreakdownList.innerHTML = activeRows.map((row) => '<article class="age-breakdown-card"><div><h3>' + row.label + '</h3><span>' + numberFormatter.format(row.children) + ' ילדים</span></div><dl><dt>שטח</dt><dd>' + numberFormatter.format(row.requiredSqm) + ' מ״ר</dd><dt>תקינה</dt><dd>' + numberFormatter.format(row.requiredStaff) + '</dd><dt>תקרה</dt><dd>' + row.maxChildren + '</dd><dt>קיבולת שטח</dt><dd>' + numberFormatter.format(row.sqmCapacity) + '</dd><dt>הכנסה</dt><dd>' + money(row.income) + '</dd></dl></article>').join("");
 }
 
-function splitComposition(totalChildren, firstKey, secondKey) {
-  const secondCount = Math.min(5, Math.max(totalChildren - 1, 0));
-  return { infants: 0, toddlers: 0, older: 0, [firstKey]: Math.max(totalChildren - secondCount, 0), [secondKey]: secondCount };
+function compositionDistance(composition, baseline) {
+  return Object.keys(DEFAULT_RULES).reduce((sum, key) => sum + Math.abs(Number(composition[key] || 0) - Number(baseline[key] || 0)), 0);
+}
+
+function compositionKey(composition) {
+  return Object.keys(DEFAULT_RULES).map((key) => key + ':' + Number(composition[key] || 0)).join('|');
+}
+
+function scenarioTitle(composition, input) {
+  if (compositionKey(composition) === compositionKey(input.composition)) return "הרכב נוכחי";
+  const active = Object.entries(composition).filter(([, count]) => Number(count) > 0).map(([key]) => key);
+  if (active.length === 1) return "חלופה - רק " + DEFAULT_RULES[active[0]].plural;
+  if (active.includes("infants") && active.includes("toddlers")) return "חלופה - תינוקות + פעוטים";
+  if (active.includes("toddlers") && active.includes("older")) return "חלופה - פעוטים + בוגרים";
+  return "חלופה תקינה";
+}
+
+function addUniqueScenario(target, scenario, usedKeys, limit = Infinity) {
+  if (!scenario || target.length >= limit) return false;
+  const key = compositionKey(scenario.composition);
+  if (usedKeys.has(key)) return false;
+  usedKeys.add(key);
+  target.push(scenario);
+  return true;
+}
+
+function generateAlternativeCandidates(input) {
+  const candidates = [];
+  const allowedPairs = [
+    ["infants"],
+    ["toddlers"],
+    ["older"],
+    ["infants", "toddlers"],
+    ["toddlers", "older"],
+  ];
+
+  allowedPairs.forEach((ages) => {
+    const first = ages[0];
+    const second = ages[1];
+    const firstMax = input.rules[first].maxChildren;
+    const secondMax = second ? input.rules[second].maxChildren : 0;
+
+    for (let firstCount = 0; firstCount <= firstMax; firstCount += 1) {
+      const secondLimit = second ? secondMax : 0;
+      for (let secondCount = 0; secondCount <= secondLimit; secondCount += 1) {
+        const composition = { infants: 0, toddlers: 0, older: 0 };
+        composition[first] = firstCount;
+        if (second) composition[second] = secondCount;
+        const totalChildren = composition.infants + composition.toddlers + composition.older;
+        if (totalChildren <= 0) continue;
+
+        const result = calculateScenarioBalance(composition, input);
+        if (!result.compliant) continue;
+        candidates.push({
+          title: scenarioTitle(composition, input),
+          composition,
+          result,
+          distance: compositionDistance(composition, input.composition),
+          totalDelta: Math.abs(totalChildren - (input.composition.infants + input.composition.toddlers + input.composition.older)),
+        });
+      }
+    }
+  });
+
+  return candidates;
+}
+
+function pickBalancedAlternative(candidates, usedKeys) {
+  if (!candidates.length) return null;
+  const balances = candidates.map((candidate) => candidate.result.monthlyBalance).sort((a, b) => a - b);
+  const median = balances[Math.floor(balances.length / 2)] || 0;
+  return candidates
+    .filter((candidate) => !usedKeys.has(compositionKey(candidate.composition)))
+    .sort((a, b) => {
+      const aScore = Math.abs(a.result.monthlyBalance - median) + (a.distance * 250) + (a.result.requiredStaff * 100);
+      const bScore = Math.abs(b.result.monthlyBalance - median) + (b.distance * 250) + (b.result.requiredStaff * 100);
+      return aScore - bScore;
+    })[0] || null;
 }
 
 function buildAlternativeScenarios(input) {
-  const totalChildren = input.composition.infants + input.composition.toddlers + input.composition.older;
-  const candidates = [
-    { title: "הרכב נוכחי", composition: input.composition },
-    { title: "רק תינוקות", composition: { infants: totalChildren, toddlers: 0, older: 0 } },
-    { title: "רק פעוטים", composition: { infants: 0, toddlers: totalChildren, older: 0 } },
-    { title: "רק בוגרים", composition: { infants: 0, toddlers: 0, older: totalChildren } },
-    { title: "תינוקות + פעוטים", composition: splitComposition(totalChildren, "infants", "toddlers") },
-    { title: "פעוטים + בוגרים", composition: splitComposition(totalChildren, "older", "toddlers") },
-  ];
-  return candidates.filter((scenario, index, list) => {
-    if (totalChildren <= 0) return scenario.title === "הרכב נוכחי";
-    const validation = getCompositionValidation(scenario.composition, input.rules);
-    if (!validation.valid && scenario.title !== "הרכב נוכחי") return false;
-    const key = JSON.stringify(scenario.composition);
-    return list.findIndex((item) => JSON.stringify(item.composition) === key) === index;
+  const currentScenario = { title: "הרכב נוכחי", composition: input.composition, result: calculateScenarioBalance(input.composition, input), distance: 0, totalDelta: 0 };
+  const candidates = generateAlternativeCandidates(input)
+    .filter((candidate, index, list) => list.findIndex((item) => compositionKey(item.composition) === compositionKey(candidate.composition)) === index)
+    .filter((candidate) => compositionKey(candidate.composition) !== compositionKey(input.composition));
+
+  const selected = [currentScenario];
+  const usedKeys = new Set([compositionKey(input.composition)]);
+
+  const byProfit = [...candidates].sort((a, b) => {
+    if (b.result.monthlyBalance !== a.result.monthlyBalance) return b.result.monthlyBalance - a.result.monthlyBalance;
+    if (b.result.income !== a.result.income) return b.result.income - a.result.income;
+    return a.distance - b.distance;
   });
+  byProfit.forEach((scenario) => addUniqueScenario(selected, scenario, usedKeys, 3));
+
+  const bySimilarity = [...candidates].sort((a, b) => {
+    if (a.distance !== b.distance) return a.distance - b.distance;
+    if (a.totalDelta !== b.totalDelta) return a.totalDelta - b.totalDelta;
+    return b.result.monthlyBalance - a.result.monthlyBalance;
+  });
+  bySimilarity.forEach((scenario) => addUniqueScenario(selected, scenario, usedKeys, 5));
+
+  addUniqueScenario(selected, pickBalancedAlternative(candidates, usedKeys), usedKeys, 6);
+
+  byProfit.forEach((scenario) => addUniqueScenario(selected, scenario, usedKeys, 6));
+
+  return selected.slice(0, 6).map((scenario) => ({
+    title: scenario.title,
+    composition: scenario.composition,
+  }));
 }
 
 function scenarioCard(scenario) {

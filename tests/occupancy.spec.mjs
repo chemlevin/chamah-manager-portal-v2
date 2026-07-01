@@ -40,4 +40,28 @@ test.describe('occupancy calculator QA', () => {
     await expectNoHorizontalOverflow(page);
     await expectCoreLayoutInsideViewport(page);
   });
+
+  test('alternatives ranking searches profitable valid compositions', async ({ page }) => {
+    await page.locator('#classroom-type').selectOption('older');
+    await page.locator('#older-count').fill('20');
+    await page.locator('#actual-sqm').fill('72');
+    await page.locator('#occupancy-form button[type="submit"]').click();
+    await page.locator('#alternatives-details').click();
+
+    const cards = page.locator('#scenario-grid .scenario-card');
+    await expect(cards).toHaveCount(6);
+    await expect(cards.nth(0)).toContainText('20');
+    await expect(cards.nth(1)).toContainText('33');
+    await expect(cards.nth(1)).toContainText('בוגרים');
+  });
+
+  test('alternatives ranking does not recommend invalid non-adjacent mixed classes', async ({ page }) => {
+    await page.locator('#classroom-type').selectOption('older');
+    await page.locator('#older-count').fill('20');
+    await page.locator('#actual-sqm').fill('72');
+    await page.locator('#occupancy-form button[type="submit"]').click();
+    await page.locator('#alternatives-details').click();
+
+    await expect(page.locator('#scenario-grid')).not.toContainText('תינוקות + בוגרים');
+  });
 });
