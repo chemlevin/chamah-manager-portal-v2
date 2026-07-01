@@ -3637,3 +3637,39 @@ details.employee-detail-section > div {
 @media (min-width: 769px) {
   .management-kpi-details:not([open]) > .employee-management-kpi-more { display: contents; }
 }
+
+
+/* Operational employee KPI interactions */
+.employee-kpi-card {
+  cursor: pointer;
+}
+.employee-kpi-card strong {
+  line-height: 1.18;
+}
+.employee-kpi-card.active {
+  outline: 2px solid rgba(68, 118, 108, .42);
+  outline-offset: 2px;
+  box-shadow: 0 14px 28px rgba(68, 118, 108, .16);
+}
+.employee-clear-kpi-filter {
+  min-height: 40px;
+  align-self: stretch;
+  padding: 0 12px;
+  border-radius: 10px;
+  color: #9b3f35;
+  background: rgba(255, 236, 232, .92);
+  border: 1px solid rgba(173, 73, 63, .24);
+  box-shadow: none;
+  font-size: .86rem;
+  font-weight: 950;
+}
+.employee-clear-kpi-filter:hover {
+  color: #fff;
+  background: #9b3f35;
+}
+@media (max-width: 768px) {
+  .employee-clear-kpi-filter {
+    grid-column: 1 / -1;
+    min-height: 36px;
+  }
+}

@@ -53,23 +53,30 @@ test.describe('employees management KPIs', () => {
     });
   });
 
-  test('KPI cards reflect the current filtered employee list', async ({ page }) => {
+  test('KPI cards reflect the current filtered employee list and act as filters', async ({ page }) => {
     await page.goto('/employees/');
 
-    await expect(page.locator('#employee-management-kpis')).toContainText('פעילות');
-    await expect(page.locator('.employee-kpi-card').filter({ hasText: 'פעילות' }).locator('strong')).toHaveText('1');
-    await expect(page.locator('.employee-kpi-card').filter({ hasText: 'חופשת לידה' }).locator('strong')).toHaveText('1');
-    await expect(page.locator('.employee-kpi-card').filter({ hasText: 'עזבו' }).locator('strong')).toHaveText('1');
-    await expect(page.locator('.employee-kpi-card').filter({ hasText: 'תעודת מטפלת' }).filter({ hasText: 'תקפה' }).locator('strong')).toHaveText('1');
-    await expect(page.locator('.employee-kpi-card').filter({ hasText: 'עזרה ראשונה' }).filter({ hasText: 'פג תוקף' }).locator('strong')).toHaveText('1');
-    await expect(page.locator('.employee-kpi-card').filter({ hasText: 'התנהלות בטוחה' }).filter({ hasText: 'חסר' }).locator('strong')).toHaveText('1');
+    await expect(page.locator('#employee-management-kpis')).toContainText('1 עובדות פעילות');
+    await expect(page.locator('#employee-management-kpis')).toContainText('0 תעודות מטפלת חסרות');
+    await expect(page.locator('#employee-management-kpis')).toContainText('1 עזרה ראשונה פגה');
+    await expect(page.locator('#employee-management-kpis')).toContainText('1 התנהלות בטוחה חסרה');
+
+    await page.locator('[data-kpi-filter="expired-first-aid"]').click();
+    await expect(page.locator('[data-kpi-filter="expired-first-aid"]')).toHaveClass(/active/);
+    await expect(page.locator('#employee-result-summary')).toContainText('מציג 1');
+    await expect(page.locator('.employee-card')).toHaveCount(1);
+    await expect(page.locator('.employee-card')).toContainText('רבקה לוי');
+    await expect(page.locator('[data-clear-kpi-filter]')).toBeVisible();
+
+    await page.locator('[data-clear-kpi-filter]').click();
+    await expect(page.locator('.employee-card')).toHaveCount(3);
 
     await openEmployeeFiltersIfCollapsed(page);
     await page.locator('#employee-search').fill('שרה');
     await page.locator('#employee-filter-apply').click();
 
-    await expect(page.locator('.employee-kpi-card').filter({ hasText: 'פעילות' }).locator('strong')).toHaveText('1');
-    await expect(page.locator('.employee-kpi-card').filter({ hasText: 'חופשת לידה' }).locator('strong')).toHaveText('0');
-    await expect(page.locator('.employee-kpi-card').filter({ hasText: 'עזבו' }).locator('strong')).toHaveText('0');
+    await expect(page.locator('#employee-management-kpis')).toContainText('1 עובדות פעילות');
+    await expect(page.locator('#employee-management-kpis')).toContainText('0 עזרה ראשונה פגה');
+    await expect(page.locator('#employee-management-kpis')).toContainText('0 התנהלות בטוחה חסרה');
   });
 });

@@ -73,6 +73,7 @@ const state = {
   extraValue: '',
   search: '',
   selectedId: '',
+  kpiFilter: '',
 };
 
 const fields = {
@@ -202,27 +203,93 @@ function countWhere(list, predicate) {
   return list.filter(predicate).length;
 }
 
+function employeeMatchesKpiFilter(employee) {
+  if (!state.kpiFilter) return true;
+  if (state.kpiFilter === 'active') return normalizedEmployeeStatus(employee) === 'active';
+  if (state.kpiFilter === 'missing-caregiver') return !isLeftEmployee(employee) && caregiverCertificateCategory(employee) === 'missing';
+  if (state.kpiFilter === 'expired-first-aid') return !isLeftEmployee(employee) && dateKpiCategory(employee, 'firstAidUntil') === 'expired';
+  if (state.kpiFilter === 'soon-first-aid') return !isLeftEmployee(employee) && dateKpiCategory(employee, 'firstAidUntil') === 'soon';
+  if (state.kpiFilter === 'missing-safe-conduct') return !isLeftEmployee(employee) && dateKpiCategory(employee, 'safeConductUntil') === 'missing';
+  if (state.kpiFilter === 'needs-attention') return !isLeftEmployee(employee) && attentionSummary(employee).count > 0;
+  if (state.kpiFilter === 'maternity') return normalizedEmployeeStatus(employee) === 'maternity';
+  if (state.kpiFilter === 'sick') return normalizedEmployeeStatus(employee) === 'sick';
+  if (state.kpiFilter === 'left') return normalizedEmployeeStatus(employee) === 'left';
+  if (state.kpiFilter === 'valid-caregiver') return !isLeftEmployee(employee) && caregiverCertificateCategory(employee) === 'valid';
+  if (state.kpiFilter === 'study-caregiver') return !isLeftEmployee(employee) && caregiverCertificateCategory(employee) === 'study';
+  if (state.kpiFilter === 'missing-first-aid') return !isLeftEmployee(employee) && dateKpiCategory(employee, 'firstAidUntil') === 'missing';
+  if (state.kpiFilter === 'expired-safe-conduct') return !isLeftEmployee(employee) && dateKpiCategory(employee, 'safeConductUntil') === 'expired';
+  if (state.kpiFilter === 'soon-safe-conduct') return !isLeftEmployee(employee) && dateKpiCategory(employee, 'safeConductUntil') === 'soon';
+  return true;
+}
+
+function kpiFilterLabel(type) {
+  const item = managementKpiItems(employees).find((entry) => entry.filter === type);
+  return item ? item.text : '';
+}
+
+function kpiFilterField(type) {
+  const map = {
+    active: ['status', 'עובדת'],
+    maternity: ['status', 'חופשת לידה'],
+    sick: ['status', 'מחלה / תאונת עבודה'],
+    left: ['status', 'עזבה'],
+    'missing-caregiver': ['caregiverCertificate', '__invalid__'],
+    'valid-caregiver': ['caregiverCertificate', '__exists__'],
+    'study-caregiver': ['caregiverCertificate', 'בלימודים'],
+    'expired-first-aid': ['firstAidUntil', 'expired'],
+    'soon-first-aid': ['firstAidUntil', 'soon'],
+    'missing-first-aid': ['firstAidUntil', 'missing'],
+    'expired-safe-conduct': ['safeConductUntil', 'expired'],
+    'soon-safe-conduct': ['safeConductUntil', 'soon'],
+    'missing-safe-conduct': ['safeConductUntil', 'missing'],
+  };
+  return map[type] || null;
+}
+
+function syncKpiFilterControls(type) {
+  const mapped = kpiFilterField(type);
+  if (!mapped) return;
+  fields.extraField.value = mapped[0];
+  state.extraField = mapped[0];
+  state.extraValue = mapped[1];
+  updateExtraValueOptions();
+  fields.extraValue.value = mapped[1];
+}
+
+function clearSyncedKpiFilterControls(type) {
+  const mapped = kpiFilterField(type);
+  if (!mapped) return;
+  if (state.extraField !== mapped[0] || state.extraValue !== mapped[1]) return;
+  fields.extraField.value = '';
+  state.extraField = '';
+  state.extraValue = '';
+  updateExtraValueOptions();
+}
+
+
+
 function kpiCard(item) {
-  return '<article class="employee-kpi-card ' + item.tone + (item.primary ? ' primary' : '') + '"><span>' + escapeHtml(item.group) + '</span><strong>' + numberFormatter.format(item.value) + '</strong><small>' + escapeHtml(item.label) + '</small></article>';
+  const active = state.kpiFilter === item.filter;
+  return '<button class="employee-kpi-card ' + item.tone + (item.primary ? ' primary' : '') + (active ? ' active' : '') + '" type="button" data-kpi-filter="' + escapeHtml(item.filter) + '"><strong>' + numberFormatter.format(item.value) + ' ' + escapeHtml(item.text) + '</strong></button>';
 }
 
 function managementKpiItems(list) {
   const currentEmployees = list.filter((employee) => !isLeftEmployee(employee));
   return [
-    { group: 'סטטוס עובדות', label: 'פעילות', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'active'), tone: 'ok', primary: true },
-    { group: 'סטטוס עובדות', label: 'חופשת לידה', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'maternity'), tone: 'orange', primary: true },
-    { group: 'סטטוס עובדות', label: 'מחלה / תאונת עבודה', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'sick'), tone: 'orange' },
-    { group: 'סטטוס עובדות', label: 'חל"ת', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'unpaid'), tone: 'orange' },
-    { group: 'סטטוס עובדות', label: 'עזבו', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'left'), tone: 'danger' },
-    { group: 'תעודת מטפלת', label: 'תקפה', value: countWhere(currentEmployees, (employee) => caregiverCertificateCategory(employee) === 'valid'), tone: 'ok' },
-    { group: 'תעודת מטפלת', label: 'בלימודים / בתהליך', value: countWhere(currentEmployees, (employee) => caregiverCertificateCategory(employee) === 'study'), tone: 'orange' },
-    { group: 'תעודת מטפלת', label: 'חסרה', value: countWhere(currentEmployees, (employee) => caregiverCertificateCategory(employee) === 'missing'), tone: 'danger', primary: true },
-    { group: 'עזרה ראשונה', label: 'פג תוקף', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'firstAidUntil') === 'expired'), tone: 'danger' },
-    { group: 'עזרה ראשונה', label: 'פג בקרוב', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'firstAidUntil') === 'soon'), tone: 'warning', primary: true },
-    { group: 'עזרה ראשונה', label: 'חסר', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'firstAidUntil') === 'missing'), tone: 'danger' },
-    { group: 'התנהלות בטוחה', label: 'פג תוקף', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'safeConductUntil') === 'expired'), tone: 'danger' },
-    { group: 'התנהלות בטוחה', label: 'פג בקרוב', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'safeConductUntil') === 'soon'), tone: 'warning' },
-    { group: 'התנהלות בטוחה', label: 'חסר', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'safeConductUntil') === 'missing'), tone: 'danger' },
+    { text: 'עובדות פעילות', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'active'), tone: 'ok', primary: true, filter: 'active' },
+    { text: 'תעודות מטפלת חסרות', value: countWhere(currentEmployees, (employee) => caregiverCertificateCategory(employee) === 'missing'), tone: 'danger', primary: true, filter: 'missing-caregiver' },
+    { text: 'עזרה ראשונה פגה', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'firstAidUntil') === 'expired'), tone: 'danger', primary: true, filter: 'expired-first-aid' },
+    { text: 'עזרה ראשונה תפוג בקרוב', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'firstAidUntil') === 'soon'), tone: 'warning', primary: true, filter: 'soon-first-aid' },
+    { text: 'התנהלות בטוחה חסרה', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'safeConductUntil') === 'missing'), tone: 'danger', primary: true, filter: 'missing-safe-conduct' },
+    { text: 'עובדות דורשות טיפול', value: countWhere(currentEmployees, (employee) => attentionSummary(employee).count > 0), tone: 'danger', primary: true, filter: 'needs-attention' },
+    { text: 'חופשת לידה', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'maternity'), tone: 'orange', filter: 'maternity' },
+    { text: 'מחלה / תאונת עבודה', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'sick'), tone: 'orange', filter: 'sick' },
+    { text: 'עזבו', value: countWhere(list, (employee) => normalizedEmployeeStatus(employee) === 'left'), tone: 'danger', filter: 'left' },
+    { text: 'תעודת מטפלת תקפה', value: countWhere(currentEmployees, (employee) => caregiverCertificateCategory(employee) === 'valid'), tone: 'ok', filter: 'valid-caregiver' },
+    { text: 'תעודת מטפלת בלימודים / בתהליך', value: countWhere(currentEmployees, (employee) => caregiverCertificateCategory(employee) === 'study'), tone: 'orange', filter: 'study-caregiver' },
+    { text: 'עזרה ראשונה חסרה', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'firstAidUntil') === 'missing'), tone: 'danger', filter: 'missing-first-aid' },
+    { text: 'התנהלות בטוחה פגה', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'safeConductUntil') === 'expired'), tone: 'danger', filter: 'expired-safe-conduct' },
+    { text: 'התנהלות בטוחה תפוג בקרוב', value: countWhere(currentEmployees, (employee) => dateKpiCategory(employee, 'safeConductUntil') === 'soon'), tone: 'warning', filter: 'soon-safe-conduct' },
   ];
 }
 
@@ -363,7 +430,7 @@ function employeeMatchesExtra(employee) {
 function filteredEmployees() {
   return employees.filter((employee) => {
     const daycareMatch = state.selectedDaycares.length === 0 || state.selectedDaycares.includes(value(employee, 'daycare'));
-    return daycareMatch && employeeMatchesExtra(employee) && employeeMatchesSearch(employee, state.search);
+    return daycareMatch && employeeMatchesExtra(employee) && employeeMatchesKpiFilter(employee) && employeeMatchesSearch(employee, state.search);
   });
 }
 
@@ -425,10 +492,13 @@ function renderActiveFilterChips(list) {
   const chips = [];
   state.selectedDaycares.forEach((daycare) => chips.push(daycare));
   const config = extraFilterFields.find((item) => item.value === state.extraField);
-  if (config && state.extraValue) {
+  const mappedKpi = kpiFilterField(state.kpiFilter);
+  const extraIsSyncedKpi = mappedKpi && state.extraField === mappedKpi[0] && state.extraValue === mappedKpi[1];
+  if (config && state.extraValue && !extraIsSyncedKpi) {
     const selectedOption = [...fields.extraValue.options].find((option) => option.value === state.extraValue);
     chips.push(config.label + ': ' + (selectedOption?.textContent || state.extraValue));
   }
+  if (state.kpiFilter) chips.push('KPI: ' + kpiFilterLabel(state.kpiFilter));
   if (state.search) chips.push('חיפוש: ' + state.search);
   fields.activeFilters.innerHTML = chips.map((chip) => '<span>' + escapeHtml(chip) + '</span>').join('');
   fields.activeFilters.hidden = chips.length === 0;
@@ -438,12 +508,17 @@ function renderActiveFilterChips(list) {
 function renderInsights() {
   const list = filteredEmployees();
   const statsList = statsEmployees(list);
-  const items = managementKpiItems(list);
+  const baseList = employees.filter((employee) => {
+    const daycareMatch = state.selectedDaycares.length === 0 || state.selectedDaycares.includes(value(employee, 'daycare'));
+    return daycareMatch && employeeMatchesExtra(employee) && employeeMatchesSearch(employee, state.search);
+  });
+  const items = managementKpiItems(baseList);
   const primary = items.filter((item) => item.primary);
   const secondary = items.filter((item) => !item.primary);
-  fields.insightScope.textContent = scopeTitle();
+  const clearButton = state.kpiFilter ? '<button class="employee-clear-kpi-filter" type="button" data-clear-kpi-filter>נקה סינון KPI</button>' : '';
+  fields.insightScope.textContent = state.kpiFilter ? 'מסנן KPI: ' + kpiFilterLabel(state.kpiFilter) : scopeTitle();
   fields.resultSummary.textContent = 'מציג ' + statsList.length + ' עובדות מתוך ' + statsEmployees(employees).length;
-  fields.managementKpis.innerHTML = primary.map(kpiCard).join('') + '<details class="management-kpi-details"><summary>פירוט מדדים</summary><div class="employee-management-kpi-more">' + secondary.map(kpiCard).join('') + '</div></details>';
+  fields.managementKpis.innerHTML = primary.map(kpiCard).join('') + clearButton + '<details class="management-kpi-details"><summary>פירוט מדדים</summary><div class="employee-management-kpi-more">' + secondary.map(kpiCard).join('') + '</div></details>';
   renderActiveFilterChips(list);
 }
 
@@ -762,6 +837,7 @@ function resetFilters() {
   state.extraField = '';
   state.extraValue = '';
   state.search = '';
+  state.kpiFilter = '';
   fields.extraField.value = '';
   fields.search.value = '';
   updateExtraValueOptions();
@@ -770,36 +846,13 @@ function resetFilters() {
 }
 
 function applyKpiFilter(type) {
-  if (type === 'all') {
-    fields.extraField.value = '';
-    state.extraField = '';
-    state.extraValue = '';
-    updateExtraValueOptions();
-    renderList();
-    return;
+  if (state.kpiFilter === type) {
+    clearSyncedKpiFilterControls(type);
+    state.kpiFilter = '';
+  } else {
+    state.kpiFilter = type;
+    syncKpiFilterControls(type);
   }
-  if (type === 'active') {
-    fields.extraField.value = 'status';
-    state.extraField = 'status';
-    state.extraValue = 'עובדת';
-    updateExtraValueOptions();
-    fields.extraValue.value = 'עובדת';
-  }
-  if (type === 'missing-cert') {
-    fields.extraField.value = 'missingCertificates';
-    state.extraField = 'missingCertificates';
-    state.extraValue = 'yes';
-    updateExtraValueOptions();
-    fields.extraValue.value = 'yes';
-  }
-  if (type === 'expiring') {
-    fields.extraField.value = 'expiringSoon';
-    state.extraField = 'expiringSoon';
-    state.extraValue = 'yes';
-    updateExtraValueOptions();
-    fields.extraValue.value = 'yes';
-  }
-  state.search = fields.search.value.trim();
   renderList();
 }
 
@@ -854,8 +907,17 @@ function bind() {
   fields.apply.addEventListener('click', applyFilters);
   fields.reset.addEventListener('click', resetFilters);
   fields.exportButton.addEventListener('click', exportEmployeesReport);
-  document.querySelectorAll('[data-kpi-filter]').forEach((button) => {
-    button.addEventListener('click', () => applyKpiFilter(button.dataset.kpiFilter));
+  fields.managementKpis.addEventListener('click', (event) => {
+    const clear = event.target.closest('[data-clear-kpi-filter]');
+    if (clear) {
+      clearSyncedKpiFilterControls(state.kpiFilter);
+      state.kpiFilter = '';
+      renderList();
+      return;
+    }
+    const button = event.target.closest('[data-kpi-filter]');
+    if (!button) return;
+    applyKpiFilter(button.dataset.kpiFilter);
   });
   fields.search.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') applyFilters();
