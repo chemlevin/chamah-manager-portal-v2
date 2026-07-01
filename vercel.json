@@ -1,15 +1,5 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "cleanUrls": true,
-  "rewrites": [
-    {
-      "source": "/api/employees",
-      "destination": "/api/employees.js"
-    },
-    {
-      "source": "/api/budget",
-      "destination": "/api/budget.js"
-    }
-  ]
+  "cleanUrls": true
 }
