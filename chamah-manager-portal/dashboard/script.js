@@ -8,6 +8,8 @@ const API_ENDPOINTS = {
 const STATUS_THRESHOLDS = {
   dataQualityRedBelow: 90,
   dataQualityYellowBelow: 98,
+  hoursCoverageGreenAt: 95,
+  hoursCoverageYellowAt: 75,
   hoursYellowPercent: 5,
   hoursRedPercent: 15,
   employeeYellowGap: 1,
@@ -87,6 +89,12 @@ function sum(rows, key) {
   return rows.reduce((total, row) => total + safeNumber(row[key]), 0);
 }
 
+function coveragePercent(actual, required) {
+  const target = safeNumber(required);
+  if (target <= 0) return null;
+  return safeNumber(actual) / target * 100;
+}
+
 function hasRows(rows) {
   return Array.isArray(rows) && rows.length > 0;
 }
@@ -97,6 +105,10 @@ function formatNumber(value, available = true) {
 
 function formatMoney(value, available = true) {
   return available ? moneyFormatter.format(safeNumber(value)) : NO_DATA;
+}
+
+function formatPercent(value, available = true) {
+  return available && value !== null ? Math.round(safeNumber(value)) + "%" : NO_DATA;
 }
 
 function option(value, label) {
@@ -283,6 +295,8 @@ function buildUnitRows(data) {
     const budget = data.budgetGroups.filter((row) => row.unit === unit);
     const payroll = data.payrollGroups.filter((row) => row.unit === unit);
     const allocations = data.allocationGroups.filter((row) => row.unit === unit);
+    const requiredHours = sum(budget, "requiredHours");
+    const payrollHours = sum(payroll, "payrollHours");
     const row = {
       unit,
       type: unitType(unit, dashboardData),
@@ -293,9 +307,10 @@ function buildUnitRows(data) {
       hasChildren: budget.some((item) => item.hasChildren),
       capacity: budget.some((item) => item.hasCapacity) ? sum(budget.filter((item) => item.hasCapacity), "capacity") : null,
       hasCapacity: budget.some((item) => item.hasCapacity),
-      requiredHours: sum(budget, "requiredHours"),
+      requiredHours,
       hasRequiredHours: budget.some((item) => item.hasRequiredHours),
-      payrollHours: sum(payroll, "payrollHours"),
+      payrollHours,
+      staffingCoverage: coveragePercent(payrollHours, requiredHours),
       requiredEmployees: sum(budget, "requiredEmployees"),
       hasRequiredEmployees: budget.some((item) => item.hasRequiredEmployees),
       payrollEmployees: sum(payroll, "staffingEmployeeCount"),
@@ -338,14 +353,42 @@ function buildIssues(data, unitRows) {
 
   unitRows.forEach((row) => {
     row.issueCount = issues.filter((issue) => issue.unit === row.unit).length;
-    row.status = issues.some((issue) => issue.unit === row.unit && issue.severity === "red") ? "red" : row.issueCount ? "yellow" : "green";
+    row.status = unitStatus(row, issues);
   });
   return issues;
+}
+
+function hoursCoverageStatus(row) {
+  if (!row.hasRequiredHours || !row.hasPayroll || row.staffingCoverage === null) return "yellow";
+  if (row.staffingCoverage >= STATUS_THRESHOLDS.hoursCoverageGreenAt) return "green";
+  if (row.staffingCoverage >= STATUS_THRESHOLDS.hoursCoverageYellowAt) return "yellow";
+  return "red";
+}
+
+function isEmployeeCountIssue(issue) {
+  return String(issue.label || "").includes("מטפלות") || String(issue.label || "").includes("עובדים");
+}
+
+function unitStatus(row, issues) {
+  const unitIssues = issues.filter((issue) => issue.unit === row.unit);
+  const primary = row.type === "daycare" ? hoursCoverageStatus(row) : "green";
+  const nonEmployeeIssues = unitIssues.filter((issue) => !isEmployeeCountIssue(issue));
+  if (nonEmployeeIssues.some((issue) => issue.severity === "red")) return "red";
+  if (primary === "red") return "red";
+  if (primary === "yellow" || nonEmployeeIssues.length) return "yellow";
+  return "green";
 }
 
 function statusFromIssues(issues) {
   if (issues.some((issue) => issue.severity === "red")) return "red";
   if (issues.length) return "yellow";
+  return "green";
+}
+
+function statusFromUnits(unitRows, issues) {
+  if (unitRows.some((row) => row.status === "red")) return "red";
+  if (issues.some((issue) => issue.severity === "red" && !isEmployeeCountIssue(issue))) return "red";
+  if (unitRows.some((row) => row.status === "yellow") || issues.length) return "yellow";
   return "green";
 }
 
@@ -375,7 +418,7 @@ function kpiCard(label, value, sub, tone = "secondary") {
 }
 
 function renderStatus(data, unitRows, issues) {
-  const status = statusFromIssues(issues);
+  const status = statusFromUnits(unitRows, issues);
   els.overallStatusLabel.textContent = statusLabel(status);
   els.overallStatusLabel.className = "status-pill " + status;
   els.lastUpdateLabel.textContent = "עדכון בנק אחרון: " + latestCashDate(dashboardData.allocationRows);
@@ -418,19 +461,29 @@ function comparisonCard(label, actual, expected, actualAvailable, expectedAvaila
   return '<article class="dashboard-panel comparison-card"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(actualText) + ' / ' + escapeHtml(expectedText) + '</strong><p>' + escapeHtml(diffText) + '</p></article>';
 }
 
+function staffingCoverageCard(actual, required, hasPayroll, hasBudget) {
+  const coverage = coveragePercent(actual, required);
+  const actualText = formatNumber(actual, hasPayroll);
+  const requiredText = formatNumber(required, hasBudget);
+  const coverageText = formatPercent(coverage, hasPayroll && hasBudget);
+  const detail = hasPayroll && hasBudget ? coverageText + " כיסוי שעות מטפלות" : "אין מספיק נתונים להשוואה";
+  return '<article class="dashboard-panel comparison-card primary-comparison"><span>שעות מטפלות / שעות נדרשות</span><strong>' + escapeHtml(actualText) + ' / ' + escapeHtml(requiredText) + '</strong><p>' + escapeHtml(detail) + '</p></article>';
+}
+
 function renderOperations(data, issues) {
   const hasBudget = hasRows(data.budgetGroups);
   const hasPayroll = hasRows(data.payrollGroups);
   const children = sum(data.budgetGroups, "children");
   const requiredHours = sum(data.budgetGroups, "requiredHours");
   const payrollHours = sum(data.payrollGroups, "payrollHours");
+  const hoursCoverage = coveragePercent(payrollHours, requiredHours);
   const requiredEmployees = sum(data.budgetGroups, "requiredEmployees");
   const payrollEmployees = sum(data.payrollGroups, "staffingEmployeeCount");
   const operationalIssues = issues.filter((issue) => issue.category === "operational");
   els.operationalStatusChip.textContent = operationalIssues.length ? numberFormatter.format(operationalIssues.length) + " פריטים" : "אין פריטים פתוחים";
   els.operationalGrid.innerHTML = [
+    staffingCoverageCard(payrollHours, requiredHours, hasPayroll, hasBudget),
     comparisonCard("ילדים בפועל", children, children, hasBudget, hasBudget, "ילדים"),
-    comparisonCard("שעות מטפלות מול נדרש", payrollHours, requiredHours, hasPayroll, hasBudget, "שעות"),
     comparisonCard("מטפלות בפועל מול תקן נדרש", payrollEmployees, requiredEmployees, hasPayroll, hasBudget, "מטפלות"),
   ].join("");
 }
@@ -446,7 +499,7 @@ function renderUnits(unitRows) {
     els.unitCardGrid.innerHTML = '<p class="empty-state">אין יחידות להצגה במסננים הנוכחיים.</p>';
     return;
   }
-  els.unitCardGrid.innerHTML = sortedRows.map((row) => '<article class="daycare-card management-unit-card status-' + row.status + '"><div class="unit-status-ribbon">' + escapeHtml(statusLabel(row.status)) + '</div><div class="daycare-card-head"><div><h3>' + escapeHtml(row.unit) + '</h3><span>' + escapeHtml(row.type === "daycare" ? "מעון" : "מחלקה / אחר") + '</span></div><strong aria-label="מספר חריגות">' + escapeHtml(row.issueCount ? numberFormatter.format(row.issueCount) : "אין") + '</strong></div><div class="unit-primary-line"><span>' + escapeHtml(row.issueCount ? "דורש טיפול" : "ללא טיפול פתוח") + '</span><b>' + escapeHtml(row.hasAllocations ? "בנק מעודכן" : "אין נתוני בנק") + '</b></div><div class="daycare-metrics financial-metrics"><div><span>ילדים</span><strong>' + escapeHtml(formatNumber(row.children, row.hasBudget)) + '</strong></div><div><span>שכר</span><strong>' + escapeHtml(formatMoney(row.payrollCost, row.hasPayroll)) + '</strong></div><div><span>הוצאות</span><strong>' + escapeHtml(formatMoney(row.expenses, row.hasAllocations)) + '</strong></div><div><span>שעות מטפלות</span><strong>' + escapeHtml(formatNumber(row.payrollHours, row.hasPayroll)) + '</strong></div><div><span>מטפלות בפועל</span><strong>' + escapeHtml(formatNumber(row.payrollEmployees, row.hasPayroll)) + '</strong></div><div><span>תקן נדרש</span><strong>' + escapeHtml(formatNumber(row.requiredEmployees, row.hasRequiredEmployees)) + '</strong></div></div><div class="budget-note">' + escapeHtml(row.issueCount ? "פתחו את הפעולות והשלימו את הנתון החסר" : "אין חריגות פתוחות ליחידה") + '</div></article>').join("");
+  els.unitCardGrid.innerHTML = sortedRows.map((row) => '<article class="daycare-card management-unit-card status-' + row.status + '"><div class="unit-status-ribbon">' + escapeHtml(statusLabel(row.status)) + '</div><div class="daycare-card-head"><div><h3>' + escapeHtml(row.unit) + '</h3><span>' + escapeHtml(row.type === "daycare" ? "מעון" : "מחלקה / אחר") + '</span></div><strong aria-label="מספר חריגות">' + escapeHtml(row.issueCount ? numberFormatter.format(row.issueCount) : "אין") + '</strong></div><div class="unit-primary-line"><span>' + escapeHtml(row.issueCount ? "דורש טיפול" : "ללא טיפול פתוח") + '</span><b>' + escapeHtml(row.hasRequiredHours && row.hasPayroll ? formatPercent(row.staffingCoverage) + " כיסוי שעות" : "חסר כיסוי שעות") + '</b></div><div class="daycare-metrics financial-metrics"><div><span>שעות מטפלות</span><strong>' + escapeHtml(formatNumber(row.payrollHours, row.hasPayroll)) + '</strong></div><div><span>שעות נדרשות</span><strong>' + escapeHtml(formatNumber(row.requiredHours, row.hasRequiredHours)) + '</strong></div><div><span>שכר</span><strong>' + escapeHtml(formatMoney(row.payrollCost, row.hasPayroll)) + '</strong></div><div><span>ילדים</span><strong>' + escapeHtml(formatNumber(row.children, row.hasBudget)) + '</strong></div><div><span>הוצאות</span><strong>' + escapeHtml(formatMoney(row.expenses, row.hasAllocations)) + '</strong></div><div><span>מטפלות בפועל</span><strong>' + escapeHtml(formatNumber(row.payrollEmployees, row.hasPayroll)) + '</strong></div><div><span>תקן נדרש</span><strong>' + escapeHtml(formatNumber(row.requiredEmployees, row.hasRequiredEmployees)) + '</strong></div></div><div class="budget-note">' + escapeHtml(row.issueCount ? "פתחו את הפעולות והשלימו את הנתון החסר" : "אין חריגות פתוחות ליחידה") + '</div></article>').join("");
 }
 
 function renderIssueList(target, countTarget, issues) {
@@ -475,8 +528,8 @@ function renderInsights(data, issues) {
   if (!hasBudget) insights.push(["אין נתוני תקציב", "לא ניתן להשוות ילדים, שעות נדרשות או תקן עובדים."]);
   if (!hasPayroll) insights.push(["אין נתוני שכר", "לא ניתן להשוות שעות מטפלות או כמות מטפלות בפועל."]);
   if (!hasRows(data.allocationGroups)) insights.push(["אין נתוני בנק", "לא ניתן להציג הוצאות והכנסות בפועל."]);
-  if (hasBudget && hasPayroll && payrollHours > requiredHours) insights.push(["שעות מטפלות מעל הנדרש", numberFormatter.format(payrollHours - requiredHours) + " שעות מעל התקן"]);
-  if (hasBudget && hasPayroll && payrollHours < requiredHours) insights.push(["שעות מטפלות מתחת לנדרש", numberFormatter.format(requiredHours - payrollHours) + " שעות חסרות"]);
+  if (hasBudget && hasPayroll && payrollHours > requiredHours) insights.push(["כיסוי שעות מטפלות מעל הנדרש", formatPercent(hoursCoverage) + " כיסוי | " + numberFormatter.format(payrollHours - requiredHours) + " שעות מעל התקן"]);
+  if (hasBudget && hasPayroll && payrollHours < requiredHours) insights.push(["כיסוי שעות מטפלות חסר", formatPercent(hoursCoverage) + " כיסוי | " + numberFormatter.format(requiredHours - payrollHours) + " שעות חסרות"]);
   if (hasBudget && hasPayroll && payrollEmployees > requiredEmployees) insights.push(["כמות מטפלות מעל הנדרש", numberFormatter.format(payrollEmployees - requiredEmployees) + " מטפלות מעל התקן"]);
   if (hasBudget && hasPayroll && payrollEmployees < requiredEmployees) insights.push(["כמות מטפלות מתחת לנדרש", numberFormatter.format(requiredEmployees - payrollEmployees) + " מטפלות חסרות"]);
   if (dashboardData.unmappedRows.length) insights.push(["תנועות בנק לא משויכות", numberFormatter.format(dashboardData.unmappedRows.length) + " שורות דורשות יחידה או חודש"]);
@@ -545,10 +598,10 @@ function gapStatus(actual, required, actualAvailable, requiredAvailable, type) {
   const diff = actual - required;
   if (type === "hours") {
     if (!required) return { severity: "yellow", label: "אין יעד שעות", diff: null };
-    const percent = Math.abs(diff) / required * 100;
-    if (percent >= STATUS_THRESHOLDS.hoursRedPercent) return { severity: "red", label: diff < 0 ? "חוסר" : "עודף", diff };
-    if (percent >= STATUS_THRESHOLDS.hoursYellowPercent) return { severity: "yellow", label: diff < 0 ? "נמוך" : "גבוה", diff };
-    return { severity: "green", label: "תואם", diff };
+    const coverage = coveragePercent(actual, required);
+    if (coverage >= STATUS_THRESHOLDS.hoursCoverageGreenAt) return { severity: "green", label: "כיסוי תקין", diff, coverage };
+    if (coverage >= STATUS_THRESHOLDS.hoursCoverageYellowAt) return { severity: "yellow", label: "כיסוי חלקי", diff, coverage };
+    return { severity: "red", label: "כיסוי נמוך", diff, coverage };
   }
   if (!required) return { severity: "yellow", label: "אין יעד עובדים", diff: null };
   const gap = Math.abs(diff);
@@ -592,7 +645,8 @@ function renderDataQuality() {
 function comparisonTile(label, actual, target, status, actualAvailable, targetAvailable, unitLabel) {
   const targetText = formatNumber(target, targetAvailable);
   const actualText = formatNumber(actual, actualAvailable);
-  const diffText = status.diff === null ? "אין מספיק נתונים" : (status.diff > 0 ? "+" : "") + numberFormatter.format(status.diff) + " " + unitLabel;
+  const coverageText = status.coverage === undefined ? "" : formatPercent(status.coverage) + " כיסוי | ";
+  const diffText = status.diff === null ? "אין מספיק נתונים" : coverageText + (status.diff > 0 ? "+" : "") + numberFormatter.format(status.diff) + " " + unitLabel;
   return '<div class="comparison-tile severity-' + status.severity + '"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(actualText) + ' / ' + escapeHtml(targetText) + '</strong><small>' + escapeHtml(status.label + ' | ' + diffText) + '</small></div>';
 }
 
@@ -608,8 +662,8 @@ function renderManagementComparisons(unitRows) {
     const hours = gapStatus(row.payrollHours, row.requiredHours, row.hasPayroll, row.hasRequiredHours, "hours");
     const employees = gapStatus(row.payrollEmployees, row.requiredEmployees, row.hasPayroll, row.hasRequiredEmployees, "employees");
     return '<article class="dashboard-panel daycare-comparison-card"><div class="panel-heading"><h3>' + escapeHtml(row.unit) + '</h3><span>' + escapeHtml(statusLabel(row.status)) + '</span></div><div class="comparison-tile-grid">' +
-      comparisonTile("ילדים מול קיבולת", row.children, row.capacity, cap, row.hasChildren, row.hasCapacity, "ילדים") +
       comparisonTile("שעות מטפלות מול נדרש", row.payrollHours, row.requiredHours, hours, row.hasPayroll, row.hasRequiredHours, "שעות") +
+      comparisonTile("ילדים מול קיבולת", row.children, row.capacity, cap, row.hasChildren, row.hasCapacity, "ילדים") +
       comparisonTile("מטפלות בפועל מול תקן נדרש", row.payrollEmployees, row.requiredEmployees, employees, row.hasPayroll, row.hasRequiredEmployees, "מטפלות") +
       '</div></article>';
   }).join("");

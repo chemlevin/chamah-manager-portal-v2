@@ -3978,6 +3978,20 @@ details.employee-detail-section > div {
   font-weight: 850;
 }
 
+.comparison-card.primary-comparison {
+  min-height: 150px;
+  border-color: rgba(37, 99, 235, .34);
+  background: linear-gradient(180deg, rgba(239, 246, 255, .92), rgba(255, 255, 255, .96));
+}
+
+.comparison-card.primary-comparison strong {
+  font-size: clamp(2.05rem, 4vw, 3.15rem);
+}
+
+.comparison-card.primary-comparison p {
+  color: #1d4ed8;
+}
+
 .management-unit-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
