@@ -39,6 +39,23 @@ test.describe('allocations calculation engine', () => {
     expect(Object.keys(model.byUnitMonthKey)).toEqual(['מרכזי|09/2026']);
   });
 
+  test('exposes פירוט as accountingCategory and keeps הערות as free text notes', () => {
+    const model = engine.calculateAllocationsModel([
+      ['עבור חודש', 'עבור מחלקה', 'חובה', 'זכות', 'הגדרה', 'פירוט', 'הערות'],
+      ['09/2026', 'אשקלון', '250', '', 'הוצאה', 'חשמל', 'paid by card'],
+      ['09/2026', 'נאות', '100', '', 'הוצאה', 'חריג לא לחישוב', 'manager approved exception'],
+    ]);
+
+    expect(model.rows[0]).toEqual(expect.objectContaining({
+      accountingCategory: 'חשמל',
+      notes: 'paid by card',
+    }));
+    expect(model.rows[1]).toEqual(expect.objectContaining({
+      accountingCategory: 'חריג לא לחישוב',
+      notes: 'manager approved exception',
+    }));
+  });
+
   test('keeps unknown unit names as data and groups them safely', () => {
     const model = engine.calculateAllocationsModel([
       ['עבור חודש', 'עבור מחלקה', 'חובה', 'זכות'],

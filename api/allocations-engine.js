@@ -8,8 +8,9 @@ const FIELD_ALIASES = {
   debit: ['debit', 'moneyOut', 'expense', 'חובה', 'יציאה', 'הוצאה'],
   credit: ['credit', 'moneyIn', 'income', 'זכות', 'כניסה', 'הכנסה'],
   definition: ['definition', 'category', 'type', 'הגדרה', 'סוג', 'קטגוריה'],
+  accountingCategory: ['accountingCategory', 'accounting category', 'detail', 'details', 'expenseType', 'expense type', 'פירוט'],
   accountingStatus: ['accountingStatus', 'bookkeeping', 'הנה"ח', 'הנהח', 'סטטוס הנהח', 'סטטוס הנה"ח'],
-  notes: ['notes', 'comment', 'description', 'הערות', 'פירוט', 'תיאור'],
+  notes: ['notes', 'comment', 'description', 'הערות', 'תיאור'],
 };
 
 function clean(value) {
@@ -93,6 +94,7 @@ function normalizeAllocationRow(raw, index) {
     credit,
     netCash: credit - debit,
     definition: valueByAliases(values, headers, FIELD_ALIASES.definition),
+    accountingCategory: valueByAliases(values, headers, FIELD_ALIASES.accountingCategory),
     accountingStatus: valueByAliases(values, headers, FIELD_ALIASES.accountingStatus),
     notes: valueByAliases(values, headers, FIELD_ALIASES.notes),
     raw,
