@@ -3,8 +3,15 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const engine = require('../api/payroll-engine.js');
+const businessRules = require('../config/business-rules.js');
 
 test.describe('payroll calculation engine', () => {
+  test('uses the centralized daycare-month key helper', () => {
+    expect(engine.daycareMonthKey('North', '09/2026')).toBe('North|09/2026');
+    expect(engine.daycareMonthKey(' North ', ' 09/2026 ')).toBe('North|09/2026');
+    expect(engine.daycareMonthKey).toBe(businessRules.daycareMonthKey);
+  });
+
   test('normalizes dynamic payroll rows and groups payroll cost and hours by daycare and month', () => {
     const model = engine.calculatePayrollModel([
       ['Daycare', 'Month', 'Employee', 'Class', 'Hours', 'Base Pay', 'Bonus', 'Deductions'],

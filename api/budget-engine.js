@@ -1,5 +1,5 @@
 const REQUIRED_TABLES = ['OCCUPANCY', 'STAFFING', 'MONTH_HOURS', 'FIXED_STAFF', 'COST_RULES'];
-const DEFAULT_AVERAGE_EMPLOYEE_MONTHLY_HOURS = 160;
+const { DEFAULT_AVERAGE_EMPLOYEE_MONTHLY_HOURS } = require('../config/business-rules');
 
 const FIELD_ALIASES = {
   daycare: ['daycare', 'department', 'branch', 'site', 'מעון', 'מעון חריג', 'מחלקה', 'סניף', 'עבור מחלקה'],

@@ -1,0 +1,155 @@
+[
+  {
+    "name": "Budget grain",
+    "value": "daycare + month",
+    "description": "Budget calculations are grouped at the daycare and month level.",
+    "reason": "This is the shared business grain used for budget planning, payroll comparison, and dashboard summaries.",
+    "affectedModules": ["Budget", "Payroll", "Comparison", "Dashboard", "Reports"],
+    "editability": "Fixed business rule",
+    "riskLevel": "High"
+  },
+  {
+    "name": "Payroll grain",
+    "value": "daycare + month",
+    "description": "Payroll rows are aggregated by daycare and month before comparison with budget data.",
+    "reason": "The payroll API must merge cleanly with budget groups without relying on current sheet row order.",
+    "affectedModules": ["Payroll", "Comparison", "Dashboard", "Reports"],
+    "editability": "Fixed business rule",
+    "riskLevel": "High"
+  },
+  {
+    "name": "Daycare-month merge key",
+    "value": "daycare|month",
+    "description": "Keyed API objects use daycare and month joined with a pipe character.",
+    "reason": "This gives future comparison code a stable lookup key while keeping array responses available for display.",
+    "affectedModules": ["Budget", "Payroll", "Comparison", "Dashboard"],
+    "editability": "Fixed integration contract",
+    "riskLevel": "Medium"
+  },
+  {
+    "name": "Average employee monthly hours",
+    "value": "160",
+    "description": "Default monthly hours used to translate required classroom hours into required employee headcount.",
+    "reason": "Regulatory staff and real employee headcount are separate planning numbers.",
+    "affectedModules": ["Budget", "Comparison", "Dashboard"],
+    "editability": "Configurable later; fixed in UI now",
+    "riskLevel": "High"
+  },
+  {
+    "name": "requiredStaff",
+    "value": "regulatory staffing",
+    "description": "Represents staffing required by child counts and classroom ratios.",
+    "reason": "This must remain distinct from actual employee count for compliance and planning.",
+    "affectedModules": ["Budget", "Dashboard", "Reports"],
+    "editability": "Fixed business meaning",
+    "riskLevel": "High"
+  },
+  {
+    "name": "requiredEmployeeHeadcount",
+    "value": "actual employee headcount planning",
+    "description": "Represents real-world employee count derived from required hours and average monthly hours.",
+    "reason": "Managers need operational headcount, not only regulatory staffing ratios.",
+    "affectedModules": ["Budget", "Comparison", "Dashboard", "Reports"],
+    "editability": "Fixed business meaning",
+    "riskLevel": "High"
+  },
+  {
+    "name": "Budget can be partial",
+    "value": "true",
+    "description": "Missing budget categories should not block available budget calculations.",
+    "reason": "The system must remain useful while sheets are incomplete or being prepared.",
+    "affectedModules": ["Budget", "Dashboard", "Reports"],
+    "editability": "Fixed resilience rule",
+    "riskLevel": "Medium"
+  },
+  {
+    "name": "Dynamic spreadsheet data",
+    "value": "no hardcoded sheet values",
+    "description": "Daycares, months, employees, classes, categories, costs, hours, and row counts are treated as data.",
+    "reason": "Adding or removing sheet rows must not require code changes.",
+    "affectedModules": ["PAYROLL", "EMPLOYEES", "SALARY", "BANKS", "TRANSACTIONS", "DASHBOARD", "REPORTS"],
+    "editability": "Fixed architecture rule",
+    "riskLevel": "High"
+  },
+  {
+    "name": "Current Google Sheets values",
+    "value": "test data only",
+    "description": "Current sheet values validate parsing, grouping, calculations, and API structure only.",
+    "reason": "Business logic must not be inferred from temporary or sample values.",
+    "affectedModules": ["Budget", "Payroll", "Employees", "Banks", "Transactions", "Dashboard"],
+    "editability": "Fixed architecture rule",
+    "riskLevel": "High"
+  },
+  {
+    "name": "Unknown or incomplete values",
+    "value": "ignore safely and report when needed",
+    "description": "Unknown, missing, incomplete, or unmapped values should not crash the application.",
+    "reason": "Operational sheets are edited by people and may be temporarily incomplete.",
+    "affectedModules": ["Budget", "Payroll", "Banks", "Transactions", "Dashboard", "Reports"],
+    "editability": "Fixed resilience rule",
+    "riskLevel": "High"
+  },
+  {
+    "name": "Payroll empty rows",
+    "value": "ignored",
+    "description": "Blank payroll rows are skipped during parsing.",
+    "reason": "Sheets commonly contain spacing rows or unfinished areas.",
+    "affectedModules": ["Payroll", "Dashboard", "Reports"],
+    "editability": "Fixed parser rule",
+    "riskLevel": "Low"
+  },
+  {
+    "name": "Payroll rows missing daycare or month",
+    "value": "skipped safely",
+    "description": "Rows without daycare or month do not enter daycare-month aggregates.",
+    "reason": "The merge grain requires both fields; partial rows should not corrupt totals.",
+    "affectedModules": ["Payroll", "Comparison", "Dashboard"],
+    "editability": "Fixed parser rule",
+    "riskLevel": "Medium"
+  },
+  {
+    "name": "Payroll cost detection",
+    "value": "semantic numeric headers",
+    "description": "Payroll cost totals use numeric fields whose headers indicate cost, salary, pay, amount, reimbursement, deduction, or equivalent Hebrew terms.",
+    "reason": "The parser must stay data-driven without hardcoding employee names, classes, or current sheet rows.",
+    "affectedModules": ["Payroll", "Comparison", "Dashboard", "Reports"],
+    "editability": "Editable later with rules UI",
+    "riskLevel": "Medium"
+  },
+  {
+    "name": "Payroll hours detection",
+    "value": "semantic hour headers",
+    "description": "Payroll hour totals use numeric fields whose headers indicate hours or equivalent Hebrew terms.",
+    "reason": "Hours must remain separate from payroll cost for comparison and dashboard analysis.",
+    "affectedModules": ["Payroll", "Comparison", "Dashboard", "Reports"],
+    "editability": "Editable later with rules UI",
+    "riskLevel": "Medium"
+  },
+  {
+    "name": "Payroll byClass",
+    "value": "classroom aggregation inside daycare + month",
+    "description": "Payroll groups expose class-level summaries for cost, hours, rows, and employee count.",
+    "reason": "Managers need class-level visibility without changing the daycare-month merge contract.",
+    "affectedModules": ["Payroll", "Dashboard", "Reports"],
+    "editability": "Fixed response contract",
+    "riskLevel": "Medium"
+  },
+  {
+    "name": "Transaction categories",
+    "value": "תקציבי; תקציב חריג; חריג לא לחישוב",
+    "description": "Known transaction classification labels used for budget and bank-data interpretation.",
+    "reason": "Financial categorization affects budget coverage and exception reporting.",
+    "affectedModules": ["BANKS", "TRANSACTIONS", "Budget", "Dashboard", "Reports"],
+    "editability": "Editable later with controlled admin UI",
+    "riskLevel": "High"
+  },
+  {
+    "name": "Internal rules page",
+    "value": "read only",
+    "description": "Rules are displayed from a local rules data file and cannot be edited in the UI.",
+    "reason": "Administrators and developers need visibility now; editing requires validation and permissions later.",
+    "affectedModules": ["System", "Admin", "Developer documentation"],
+    "editability": "Read-only now",
+    "riskLevel": "Low"
+  }
+]

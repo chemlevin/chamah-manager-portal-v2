@@ -1,3 +1,4 @@
+const { daycareMonthKey } = require('../config/business-rules');
 const IDENTITY_ALIASES = {
   daycare: ['daycare', 'department', 'branch', 'site', 'maon', 'מעון', 'מחלקה', 'סניף', 'עבור מחלקה'],
   month: ['month', 'payrollMonth', 'salaryMonth', 'חודש', 'חודש שכר', 'עבור חודש'],
@@ -142,9 +143,6 @@ function groupKey(...parts) {
   return parts.map((part) => clean(part)).join('||');
 }
 
-function daycareMonthKey(daycare, month) {
-  return [clean(daycare), clean(month)].join('|');
-}
 
 function addFieldTotals(target, fields) {
   for (const [field, value] of Object.entries(fields)) {

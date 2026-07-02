@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const engine = require('../api/budget-engine.js');
+const businessRules = require('../config/business-rules.js');
 
 function finalBusinessRows() {
   return [
@@ -158,7 +159,9 @@ test.describe('budget calculation engine', () => {
 
     expect(machaneSep.requiredStaff).toBe(15);
     expect(machaneSep.requiredHours).toBe(3075);
-    expect(machaneSep.averageEmployeeMonthlyHours).toBe(160);
+    expect(businessRules.DEFAULT_AVERAGE_EMPLOYEE_MONTHLY_HOURS).toBe(160);
+    expect(engine.DEFAULT_AVERAGE_EMPLOYEE_MONTHLY_HOURS).toBe(businessRules.DEFAULT_AVERAGE_EMPLOYEE_MONTHLY_HOURS);
+    expect(machaneSep.averageEmployeeMonthlyHours).toBe(businessRules.DEFAULT_AVERAGE_EMPLOYEE_MONTHLY_HOURS);
     expect(machaneSep.requiredEmployeeHeadcount).toBe(19.5);
     expect(payroll).toEqual(expect.objectContaining({ quantity: 3075, total: 184500 }));
   });

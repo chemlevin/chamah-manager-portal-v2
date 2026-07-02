@@ -1,0 +1,70 @@
+﻿<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Internal Rules Center - Chamah Manager Portal</title>
+    <link rel="stylesheet" href="../assets/styles.css" />
+  </head>
+  <body>
+    <main class="portal-shell rules-page">
+      <header class="global-nav" aria-label="Main navigation">
+        <a class="global-brand" href="../" aria-label="Chamah manager portal home">
+          <img src="../assets/chamah-logo.svg" alt="Chamah" />
+          <span>פורטל מנהלות חמ״ה</span>
+        </a>
+        <input class="nav-toggle" id="nav-toggle" type="checkbox" aria-hidden="true" />
+        <label class="hamburger-button" for="nav-toggle" aria-label="Open menu" role="button"><span></span><span></span><span></span></label>
+        <nav class="desktop-nav" aria-label="Pages">
+          <a class="global-nav-item" href="../"><span class="nav-icon" aria-hidden="true">⌂</span><span>בית</span></a>
+          <a class="global-nav-item" href="../calculators/"><span class="nav-icon" aria-hidden="true">∑</span><span>מחשבונים</span></a>
+          <a class="global-nav-item" href="../employees/"><span class="nav-icon" aria-hidden="true">◎</span><span>צוות ורישוי</span></a>
+          <a class="global-nav-item" href="../dashboard/"><span class="nav-icon" aria-hidden="true">▤</span><span>דשבורד</span></a>
+          <a class="global-nav-item current" href="../rules/"><span class="nav-icon" aria-hidden="true">§</span><span>כללים</span></a>
+        </nav>
+        <label class="nav-backdrop" for="nav-toggle" aria-hidden="true"></label>
+        <aside class="mobile-drawer" aria-label="Mobile menu">
+          <div class="drawer-brand">
+            <img src="../assets/chamah-logo.svg" alt="Chamah" />
+            <strong>פורטל מנהלות חמ״ה</strong>
+          </div>
+          <nav class="mobile-drawer-nav" aria-label="Mobile pages">
+            <a class="global-nav-item" href="../"><span class="nav-icon" aria-hidden="true">⌂</span><span>בית</span></a>
+            <a class="global-nav-item" href="../calculators/"><span class="nav-icon" aria-hidden="true">∑</span><span>מחשבונים</span></a>
+            <a class="global-nav-item" href="../employees/"><span class="nav-icon" aria-hidden="true">◎</span><span>צוות ורישוי</span></a>
+            <a class="global-nav-item" href="../dashboard/"><span class="nav-icon" aria-hidden="true">▤</span><span>דשבורד</span></a>
+            <a class="global-nav-item current" href="../rules/"><span class="nav-icon" aria-hidden="true">§</span><span>כללים</span></a>
+          </nav>
+          <small class="drawer-version">Internal</small>
+        </aside>
+      </header>
+
+      <section class="rules-hero" aria-labelledby="rules-title">
+        <div>
+          <p class="eyebrow">Internal Rules Center</p>
+          <h1 id="rules-title">מרכז כללי מערכת</h1>
+          <p class="subtitle">עמוד פנימי לקריאה בלבד שמסביר איך המערכת עובדת, אילו החלטות פעילות עכשיו, ואילו הנחות חשוב לא לשבור בפיתוח עתידי.</p>
+        </div>
+        <div class="rules-readonly-badge" aria-label="Read only status">
+          <span>Mode</span>
+          <strong>Read only</strong>
+        </div>
+      </section>
+
+      <section class="rules-summary" aria-label="Rules summary">
+        <div><span>Rules</span><strong id="rules-count">0</strong></div>
+        <div><span>Affected modules</span><strong id="module-count">0</strong></div>
+        <div><span>High risk rules</span><strong id="high-risk-count">0</strong></div>
+      </section>
+
+      <section class="rules-note" aria-label="System note">
+        <h2>Purpose</h2>
+        <p>This is not a dashboard. It is an internal reference for administrators and future developers. Rules are loaded from <code>rules.json</code>; future editing may move behind an admin workflow, but this page does not write data.</p>
+      </section>
+
+      <section class="rules-list" id="rules-list" aria-label="Current business and system rules"></section>
+    </main>
+    <script src="script.js"></script>
+    <script src="../assets/navigation.js"></script>
+  </body>
+</html>
