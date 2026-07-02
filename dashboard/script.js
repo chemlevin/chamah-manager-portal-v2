@@ -33,6 +33,12 @@ const els = {
   monthFilterSummary: document.querySelector("#month-filter-summary"),
   unitFilterSummary: document.querySelector("#unit-filter-summary"),
   unitTypeFilter: document.querySelector("#unit-type-filter"),
+  currentPeriodLabel: document.querySelector("#current-period-label"),
+  currentPeriodGrid: document.querySelector("#current-period-grid"),
+  schoolYearGrid: document.querySelector("#school-year-grid"),
+  bankControlLabel: document.querySelector("#bank-control-label"),
+  bankControlGrid: document.querySelector("#bank-control-grid"),
+  budgetCategoryLabel: document.querySelector("#budget-category-label"),
   selectedMonthLabel: document.querySelector("#selected-month-label"),
   overallStatusLabel: document.querySelector("#overall-status-label"),
   lastUpdateLabel: document.querySelector("#last-update-label"),
@@ -213,6 +219,10 @@ function isExcludedAllocation(row) {
   return accountingCategory(row) === EXCLUDED_ACCOUNTING_CATEGORY;
 }
 
+function isBankSalaryRow(row) {
+  return clean(row.definition).includes("שכר") || accountingCategory(row).includes("שכר");
+}
+
 function normalizeBudget(payload) {
   const groups = payload?.budget?.byDaycareMonth || payload?.byDaycareMonth || [];
   return (Array.isArray(groups) ? groups : []).map((group) => {
@@ -284,8 +294,10 @@ function normalizeAllocationRows(payload) {
     credit: safeNumber(row.credit),
     definition: safeText(row.definition, "לא סווג"),
     accountingCategory: accountingCategory(row),
+    accountingStatus: safeText(row.accountingStatus || row.bookkeeping || row.raw?.["הנה\"ח"] || row.raw?.["הנהח"], ""),
     notes: safeText(row.notes, ""),
     excludedFromCalculations: isExcludedAllocation(row),
+    salaryBankRow: isBankSalaryRow(row),
   })).filter((row) => row.unit && row.month);
 }
 
@@ -296,7 +308,7 @@ function groupAllocationRows(rows) {
     if (!map.has(key)) map.set(key, { unit: row.unit, month: row.month, expenses: 0, income: 0, rowCount: 0 });
     const group = map.get(key);
     group.expenses += row.debit;
-    group.income += row.credit;
+    group.income += row.salaryBankRow ? 0 : row.credit;
     group.rowCount += 1;
   });
   return [...map.values()].sort((a, b) => (a.unit + a.month).localeCompare(b.unit + b.month, "he", { numeric: true }));
@@ -578,12 +590,13 @@ function renderFilterOptions() {
   if (state.category !== "all" && !categories.includes(state.category)) state.category = "all";
   els.monthFilter.innerHTML = option("all", "כל החודשים") + months.map((month) => option(month, month)).join("");
   els.unitFilter.innerHTML = option("all", "כל היחידות") + units.map((unit) => option(unit, unit)).join("");
-  els.unitTypeFilter.innerHTML = option("all", "כל הסוגים") + option("daycare", "מעונות") + option("other", "מחלקות / אחר");
+  if (els.unitTypeFilter) els.unitTypeFilter.innerHTML = option("all", "כל הסוגים") + option("daycare", "מעונות") + option("other", "מחלקות / אחר");
   Array.from(els.monthFilter.options).forEach((item) => { item.selected = state.months.includes(item.value); });
   Array.from(els.unitFilter.options).forEach((item) => { item.selected = state.units.includes(item.value); });
-  els.unitTypeFilter.value = state.unitType;
+  if (els.unitTypeFilter) els.unitTypeFilter.value = state.unitType;
   els.categoryFilter.innerHTML = option("all", "כל הסעיפים") + categories.map((category) => option(category, category)).join("");
   els.categoryFilter.value = state.category;
+  if (els.budgetCategoryLabel) els.budgetCategoryLabel.textContent = state.category === "all" ? "כל הסעיפים" : state.category;
   renderFilterPills(months, units);
 }
 
@@ -722,7 +735,7 @@ function budgetSourceRows(data, field) {
 function bankSourceRows(data, type) {
   return data.allocationRows
     .filter((row) => !row.excludedFromCalculations)
-    .filter((row) => type === "income" ? row.credit > 0 : row.debit > 0)
+    .filter((row) => type === "income" ? row.credit > 0 && !row.salaryBankRow : row.debit > 0)
     .map((row) => ({
       date: row.cashDate,
       month: row.month,
@@ -920,17 +933,29 @@ function renderOperations(data, issues) {
 }
 
 function renderUnits(unitRows) {
+  if (!state.units.includes("all") && state.units.length === 1) {
+    els.unitCountLabel.textContent = "יחידה אחת נבחרה";
+    els.unitCardGrid.innerHTML = '<p class="empty-state">נבחרה יחידה אחת. פרטי היחידה מוצגים בסיכומי התקופה, התקציב והבקרה.</p>';
+    return;
+  }
   const sortedRows = [...unitRows].sort((a, b) => {
     const rank = { red: 0, yellow: 1, green: 2 };
     return rank[a.status] - rank[b.status] || b.issueCount - a.issueCount || a.unit.localeCompare(b.unit, "he");
   });
+  const ytdRows = buildUnitRows(ytdData());
+  const ytdByUnit = new Map(ytdRows.map((row) => [row.unit, row]));
   const attentionCount = sortedRows.filter((row) => row.status !== "green").length;
   els.unitCountLabel.textContent = unitRows.length ? (attentionCount ? numberFormatter.format(attentionCount) + " דורשות תשומת לב" : "הכל תקין") : NO_DATA;
   if (!sortedRows.length) {
     els.unitCardGrid.innerHTML = '<p class="empty-state">אין יחידות להצגה במסננים הנוכחיים.</p>';
     return;
   }
-  els.unitCardGrid.innerHTML = sortedRows.map((row) => '<article class="daycare-card management-unit-card status-' + row.status + '"><div class="unit-status-ribbon">' + escapeHtml(statusLabel(row.status)) + '</div><div class="daycare-card-head"><div><h3>' + escapeHtml(row.unit) + '</h3><span>' + escapeHtml(row.type === "daycare" ? "מעון" : "מחלקה / אחר") + '</span></div><strong aria-label="מספר חריגות">' + escapeHtml(row.issueCount ? numberFormatter.format(row.issueCount) : "אין") + '</strong></div><div class="unit-primary-line"><span>' + escapeHtml(row.issueCount ? "דורש טיפול" : "ללא טיפול פתוח") + '</span><b>' + escapeHtml(row.hasRequiredHours && row.hasPayroll ? formatPercent(row.staffingCoverage) + " כיסוי שעות" : "חסר כיסוי שעות") + '</b></div><div class="daycare-metrics financial-metrics"><div><span>שעות מטפלות</span><strong>' + escapeHtml(formatNumber(row.payrollHours, row.hasPayroll)) + '</strong></div><div><span>שעות נדרשות</span><strong>' + escapeHtml(formatNumber(row.requiredHours, row.hasRequiredHours)) + '</strong></div><div><span>שכר</span><strong>' + escapeHtml(formatMoney(row.payrollCost, row.hasPayroll)) + '</strong></div><div><span>ילדים</span><strong>' + escapeHtml(formatNumber(row.children, row.hasBudget)) + '</strong></div><div><span>הוצאות</span><strong>' + escapeHtml(formatMoney(row.expenses, row.hasAllocations)) + '</strong></div><div><span>ניצול תקציב</span><strong>' + escapeHtml(formatPercent(row.budgetUsePercent, row.hasBudgetUse && row.budgetUsePercent !== null)) + '</strong></div><div><span>מטפלות בפועל</span><strong>' + escapeHtml(formatNumber(row.payrollEmployees, row.hasPayroll)) + '</strong></div><div><span>תקן נדרש</span><strong>' + escapeHtml(formatNumber(row.requiredEmployees, row.hasRequiredEmployees)) + '</strong></div></div><div class="budget-note">' + escapeHtml(row.issueCount ? "פתחו את הפעולות והשלימו את הנתון החסר" : "אין חריגות פתוחות ליחידה") + '</div></article>').join("");
+  els.unitCardGrid.innerHTML = sortedRows.map((row) => {
+    const ytd = ytdByUnit.get(row.unit) || {};
+    const currentBalance = row.income - row.expenses;
+    const ytdBalance = safeNumber(ytd.income) - safeNumber(ytd.expenses);
+    return '<article class="daycare-card management-unit-card status-' + row.status + '"><div class="unit-status-ribbon">' + escapeHtml(statusLabel(row.status)) + '</div><div class="daycare-card-head"><div><h3>' + escapeHtml(row.unit) + '</h3><span>' + escapeHtml(row.type === "daycare" ? "מעון" : "מחלקה / אחר") + '</span></div><strong aria-label="מספר חריגות">' + escapeHtml(row.issueCount ? numberFormatter.format(row.issueCount) : "אין") + '</strong></div><div class="unit-primary-line"><span>' + escapeHtml(row.issueCount ? "דורש טיפול" : "ללא טיפול פתוח") + '</span><b>' + escapeHtml(row.hasRequiredHours && row.hasPayroll ? formatPercent(row.staffingCoverage) + " כיסוי שעות" : "חסר כיסוי שעות") + '</b></div><div class="unit-card-block-title">תקופה נבחרת</div><div class="daycare-metrics financial-metrics"><div><span>הכנסות</span><strong>' + escapeHtml(formatMoney(row.income, row.hasAllocations)) + '</strong></div><div><span>הוצאות</span><strong>' + escapeHtml(formatMoney(row.expenses, row.hasAllocations)) + '</strong></div><div><span>יתרה</span><strong>' + escapeHtml(formatMoney(currentBalance, row.hasAllocations)) + '</strong></div></div><div class="unit-card-block-title">שנת לימודים</div><div class="daycare-metrics financial-metrics"><div><span>הכנסות</span><strong>' + escapeHtml(formatMoney(ytd.income, ytd.hasAllocations)) + '</strong></div><div><span>הוצאות</span><strong>' + escapeHtml(formatMoney(ytd.expenses, ytd.hasAllocations)) + '</strong></div><div><span>יתרה</span><strong>' + escapeHtml(formatMoney(ytdBalance, ytd.hasAllocations)) + '</strong></div></div><div class="unit-card-block-title">תפעול</div><div class="daycare-metrics financial-metrics"><div><span>שעות</span><strong>' + escapeHtml(formatNumber(row.payrollHours, row.hasPayroll)) + ' / ' + escapeHtml(formatNumber(row.requiredHours, row.hasRequiredHours)) + '</strong></div><div><span>שכר</span><strong>' + escapeHtml(formatMoney(row.payrollCost, row.hasPayroll)) + '</strong></div><div><span>ילדים</span><strong>' + escapeHtml(formatNumber(row.children, row.hasBudget)) + '</strong></div><div><span>ניצול תקציב</span><strong>' + escapeHtml(row.hasBudgetUse && row.budgetUsePercent !== null ? formatPercent(row.budgetUsePercent) : "לא הוגדר") + '</strong></div></div><div class="budget-note">' + escapeHtml(row.issueCount ? "פתחו את הפעולות והשלימו את הנתון החסר" : "אין חריגות פתוחות ליחידה") + '</div></article>';
+  }).join("");
 }
 
 function renderIssueList(target, countTarget, issues) {
@@ -1121,8 +1146,82 @@ function renderActionCenter(issues) {
 }
 
 function utilizationLine(utilization) {
+  if (!utilization.hasBudget) return formatMoney(utilization.actual, utilization.actual > 0) + " · לא הוגדר תקציב";
   const percent = formatPercent(utilization.percent, utilization.percent !== null);
   return formatMoney(utilization.actual, utilization.actual > 0 || utilization.hasBudget) + " / " + formatMoney(utilization.budget, utilization.hasBudget) + " · " + percent;
+}
+
+function balanceTone(balance, available) {
+  if (!available) return "secondary";
+  if (balance < 0) return "attention";
+  if (balance === 0) return "expense";
+  return "balance";
+}
+
+function periodTotals(data) {
+  const income = sum(data.allocationGroups, "income");
+  const expenses = sum(data.allocationGroups, "expenses");
+  const salary = sum(data.payrollGroups, "payrollCost");
+  const requiredHours = sum(data.budgetGroups, "requiredHours");
+  const payrollHours = sum(data.payrollGroups, "payrollHours");
+  const utilization = budgetUtilization(data, state.category);
+  return {
+    income,
+    expenses,
+    balance: income - expenses,
+    salary,
+    payrollHours,
+    requiredHours,
+    coverage: coveragePercent(payrollHours, requiredHours),
+    utilization,
+    hasAllocations: hasRows(data.allocationGroups),
+    hasPayroll: hasRows(data.payrollGroups),
+    hasBudget: hasRows(data.budgetGroups),
+  };
+}
+
+function renderPeriodSummary(data) {
+  const totals = periodTotals(data);
+  els.currentPeriodLabel.textContent = selectedMonthsLabel();
+  const budgetText = totals.utilization.hasBudget ? formatPercent(totals.utilization.percent) : "לא הוגדר תקציב";
+  const cards = [
+    { label: "הכנסות", value: formatMoney(totals.income, totals.hasAllocations), sub: "תנועות זכות בבנק", tone: "income", metricId: "income" },
+    { label: "הוצאות", value: formatMoney(totals.expenses, totals.hasAllocations), sub: "תנועות חובה בבנק", tone: "expense", metricId: "expenses" },
+    { label: "יתרה", value: formatMoney(totals.balance, totals.hasAllocations), sub: "הכנסות פחות הוצאות", tone: balanceTone(totals.balance, totals.hasAllocations) },
+    { label: "שכר", value: formatMoney(totals.salary, totals.hasPayroll), sub: "PAYROLL, לא BANKS", tone: "payroll", metricId: "salary-cost" },
+    { label: "כיסוי שעות", value: formatPercent(totals.coverage, totals.hasPayroll && totals.hasBudget), sub: formatNumber(totals.payrollHours, totals.hasPayroll) + " / " + formatNumber(totals.requiredHours, totals.hasBudget), tone: coverageTone(totals.coverage, totals.hasPayroll && totals.hasBudget), metricId: "staffing-coverage" },
+    { label: "תקציב", value: budgetText, sub: totals.utilization.hasBudget ? utilizationLine(totals.utilization) : "לא הוגדר תקציב", tone: utilizationTone(totals.utilization.percent, totals.utilization.hasBudget, totals.utilization.actual), metricId: "budget-utilization" },
+  ];
+  els.currentPeriodGrid.innerHTML = cards.map((card) => kpiCard(card.label, card.value, card.sub, card.tone, card.metricId)).join("");
+}
+
+function renderSchoolYearSummary() {
+  const data = ytdData();
+  const totals = periodTotals(data);
+  const budgetText = totals.utilization.hasBudget ? formatPercent(totals.utilization.percent) : "לא הוגדר תקציב";
+  const cards = [
+    { label: "הכנסות", value: formatMoney(totals.income, totals.hasAllocations), sub: "מתחילת שנת הלימודים", tone: "income", metricId: "income" },
+    { label: "הוצאות", value: formatMoney(totals.expenses, totals.hasAllocations), sub: "מתחילת שנת הלימודים", tone: "expense", metricId: "expenses" },
+    { label: "יתרה", value: formatMoney(totals.balance, totals.hasAllocations), sub: "הכנסות פחות הוצאות", tone: balanceTone(totals.balance, totals.hasAllocations) },
+    { label: "שכר", value: formatMoney(totals.salary, totals.hasPayroll), sub: "PAYROLL מתחילת השנה", tone: "payroll", metricId: "salary-cost" },
+    { label: "תקציב", value: budgetText, sub: totals.utilization.hasBudget ? utilizationLine(totals.utilization) : "לא הוגדר תקציב", tone: utilizationTone(totals.utilization.percent, totals.utilization.hasBudget, totals.utilization.actual), metricId: "budget-utilization" },
+  ];
+  els.schoolYearGrid.innerHTML = cards.map((card) => kpiCard(card.label, card.value, card.sub, card.tone, card.metricId)).join("");
+}
+
+function renderBankControl(data) {
+  const unmapped = dashboardData.unmappedRows.length;
+  const statuses = { "נשלח": 0, "מחכה לשליחה": 0, "חסר מסמכים": 0, "ללא אסמכתא": 0 };
+  data.allocationRows.forEach((row) => {
+    const status = clean(row.accountingStatus);
+    if (status.includes("נשלח")) statuses["נשלח"] += 1;
+    else if (status.includes("מחכה")) statuses["מחכה לשליחה"] += 1;
+    else if (status.includes("חסר")) statuses["חסר מסמכים"] += 1;
+    if (!row.reference) statuses["ללא אסמכתא"] += 1;
+  });
+  els.bankControlLabel.textContent = unmapped ? numberFormatter.format(unmapped) + " לא משויכות" : "אין תנועות לא משויכות";
+  els.bankControlGrid.innerHTML = '<button class="bank-control-card warning" type="button" data-scroll-target="supporting-details"><span>תנועות לא משויכות</span><strong>' + escapeHtml(unmapped ? numberFormatter.format(unmapped) : "אין") + '</strong><small>לחיצה פותחת את אזור הבקרה</small></button>' +
+    Object.entries(statuses).map(([label, value]) => '<article class="bank-control-card"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(numberFormatter.format(value)) + '</strong><small>הנהלת חשבונות</small></article>').join("");
 }
 
 function renderFinancialExceptions(data) {
@@ -1196,6 +1295,9 @@ function renderDashboard() {
   const unitRows = buildUnitRows(data);
   const issues = buildIssues(data, unitRows);
   renderStatus(data, unitRows, issues);
+  renderPeriodSummary(data);
+  renderSchoolYearSummary();
+  renderBankControl(data);
   renderDataFreshness();
   renderDataQuality(data);
   renderSummary(data);
@@ -1213,6 +1315,9 @@ function renderDashboard() {
 function renderLoadingState() {
   els.overallStatusLabel.textContent = "נטען";
   els.statusGrid.innerHTML = '<p class="empty-state">לוח הניהול נטען...</p>';
+  els.currentPeriodGrid.innerHTML = "";
+  els.schoolYearGrid.innerHTML = "";
+  els.bankControlGrid.innerHTML = "";
   els.summaryGrid.innerHTML = "";
   els.freshnessGrid.innerHTML = "";
   els.dataQualityGrid.innerHTML = "";
@@ -1269,6 +1374,8 @@ function bindEvents() {
     if (event.target.closest("[data-close-explain]")) closeExplanation();
     if (event.target.closest("[data-close-source]")) closeSourceDrawer();
     if (event.target === els.explainOverlay) closeExplanation();
+    const scrollTarget = event.target.closest("[data-scroll-target]");
+    if (scrollTarget) document.querySelector(".supporting-details-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
   els.showSourceRows.addEventListener("click", openSourceDrawer);
   els.copyExplainSummary.addEventListener("click", () => {
@@ -1292,7 +1399,7 @@ function bindEvents() {
     state.units = toggleSelection(state.units, button.dataset.value);
     renderDashboard();
   });
-  els.unitTypeFilter.addEventListener("change", (event) => { state.unitType = event.target.value; renderDashboard(); });
+  if (els.unitTypeFilter) els.unitTypeFilter.addEventListener("change", (event) => { state.unitType = event.target.value; renderDashboard(); });
   els.categoryFilter.addEventListener("change", (event) => { state.category = event.target.value; renderDashboard(); });
   els.tableSearch.addEventListener("input", (event) => { state.search = event.target.value.trim(); renderDashboard(); });
   els.expenseSort.addEventListener("change", (event) => { state.expenseSort = event.target.value; renderDashboard(); });

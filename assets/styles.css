@@ -5558,6 +5558,118 @@ details.employee-detail-section > div {
   gap: 6px;
 }
 
+/* Phase 5 management workflow */
+.period-summary-section,
+.school-year-section,
+.bank-control-section {
+  display: grid;
+  gap: 10px;
+}
+
+.compact-kpi-grid.management-status-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.bank-control-grid {
+  display: grid;
+  grid-template-columns: 1.35fr repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.bank-control-card {
+  min-height: 82px;
+  display: grid;
+  gap: 5px;
+  align-content: center;
+  padding: 12px;
+  border: 1px solid rgba(223, 229, 225, .92);
+  border-radius: 16px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 8px 22px rgba(47, 65, 61, .06);
+  text-align: right;
+}
+
+.bank-control-card.warning {
+  border-color: rgba(209, 149, 47, .34);
+  background: linear-gradient(180deg, rgba(255, 248, 232, .96), rgba(255, 255, 255, .94));
+}
+
+.bank-control-card span,
+.bank-control-card small,
+.unit-card-block-title {
+  color: var(--muted);
+  font-size: .76rem;
+  font-weight: 900;
+}
+
+.bank-control-card strong {
+  color: var(--brand-dark);
+  font-size: clamp(1.2rem, 2vw, 1.55rem);
+  line-height: 1.1;
+}
+
+.unit-card-block-title {
+  margin: 8px 0 5px;
+}
+
+.management-dashboard-v2 .management-unit-card .daycare-metrics + .unit-card-block-title {
+  margin-top: 10px;
+}
+
+.supporting-collapsible {
+  border: 1px solid rgba(223, 229, 225, .92);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .72);
+  box-shadow: 0 8px 20px rgba(47, 65, 61, .05);
+}
+
+.supporting-collapsible summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.supporting-collapsible[open] {
+  padding-bottom: 12px;
+}
+
+.supporting-collapsible[open] summary {
+  border-bottom: 1px solid rgba(223, 229, 225, .8);
+  margin-bottom: 12px;
+}
+
+.supporting-collapsible .supporting-grid,
+.supporting-collapsible .table-tools,
+.supporting-collapsible .data-table-grid {
+  margin-inline: 12px;
+}
+
+@media (max-width: 1180px) {
+  .compact-kpi-grid.management-status-grid,
+  .bank-control-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .compact-kpi-grid.management-status-grid,
+  .bank-control-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .compact-kpi-grid.management-status-grid,
+  .bank-control-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .explain-overlay {
   position: fixed;
   inset: 0;
