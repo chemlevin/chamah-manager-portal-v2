@@ -287,9 +287,13 @@ function summarizePayroll(payrollInput, issues) {
       });
       continue;
     }
-    const payrollHours = numberValue(group.totalPayrollHours);
+    const payrollHours = group.staffingPayrollHours !== undefined && group.staffingPayrollHours !== null
+      ? numberValue(group.staffingPayrollHours)
+      : numberValue(group.totalPayrollHours);
     const payrollOperationalCost = numberValue(group.totalPayrollCost);
-    const employeeCount = numberValue(group.employeeCount);
+    const employeeCount = group.staffingEmployeeCount !== undefined && group.staffingEmployeeCount !== null
+      ? numberValue(group.staffingEmployeeCount)
+      : numberValue(group.employeeCount);
     const key = daycareMonthKey(daycare, month);
     totals.payrollHours += payrollHours;
     totals.payrollOperationalCost += payrollOperationalCost;

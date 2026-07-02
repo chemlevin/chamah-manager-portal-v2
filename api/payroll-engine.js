@@ -8,6 +8,7 @@ const IDENTITY_ALIASES = {
 
 const HOURS_ALIASES = ['hours', 'payrollHours', 'workHours', 'actualHours', 'standardHours', 'שעות', 'שעות עבודה', 'שעות שכר', 'שעות בפועל'];
 const COST_ALIASES = ['salary', 'payroll', 'pay', 'cost', 'amount', 'gross', 'net', 'base pay', 'bonus', 'deductions', 'reimbursement', 'wage', 'שכר', 'עלות', 'סכום', 'ברוטו', 'נטו', 'בסיס', 'בונוס', 'ניכוי', 'ניכויים', 'החזר', 'תשלום'];
+const STAFFING_COMPLIANCE_CLASSROOM = 'מטפלת';
 
 function clean(value) {
   return String(value ?? '').trim();
@@ -155,6 +156,18 @@ function employeeCount(rows = []) {
   return employees.size || rows.length;
 }
 
+function isStaffingComplianceRow(row) {
+  return clean(row?.classroom) === STAFFING_COMPLIANCE_CLASSROOM;
+}
+
+function staffingPayrollHours(rows = []) {
+  return rows.filter(isStaffingComplianceRow).reduce((sum, row) => sum + row.totalPayrollHours, 0);
+}
+
+function staffingEmployeeCount(rows = []) {
+  return employeeCount(rows.filter(isStaffingComplianceRow));
+}
+
 function buildClassGroups(rows = []) {
   const map = new Map();
   for (const row of rows) {
@@ -230,6 +243,9 @@ function calculatePayrollModel(values = []) {
   const byDaycareMonth = [...map.values()].map((group) => ({
     ...group,
     employeeCount: employeeCount(group.rows),
+    staffingEmployeeCount: staffingEmployeeCount(group.rows),
+    staffingPayrollHours: staffingPayrollHours(group.rows),
+    staffingClassroom: STAFFING_COMPLIANCE_CLASSROOM,
     byClass: buildClassGroups(group.rows),
   })).sort((a, b) => groupKey(a.daycare, a.month).localeCompare(groupKey(b.daycare, b.month)));
   const byDaycareMonthKey = Object.fromEntries(byDaycareMonth.map((group) => [daycareMonthKey(group.daycare, group.month), group]));
@@ -241,5 +257,6 @@ module.exports = {
   rowsToObjects,
   numberValue,
   daycareMonthKey,
+  STAFFING_COMPLIANCE_CLASSROOM,
   calculatePayrollModel,
 };

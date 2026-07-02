@@ -49,6 +49,26 @@ test.describe('payroll calculation engine', () => {
     expect(north.byClass.find((row) => row.classroom === 'Toddlers')).toEqual(expect.objectContaining({ employeeCount: 1, totalPayrollCost: 2500, totalPayrollHours: 50 }));
   });
 
+  test('separates all payroll salary cost from staffing-compliance מטפלת rows', () => {
+    const model = engine.calculatePayrollModel([
+      ['מעון', 'חודש', 'שם עובד', 'כיתה', 'עלות', 'שעות'],
+      ['אשקלון', '09/2026', 'Ada', 'מטפלת', '₪5,000', '100'],
+      ['אשקלון', '09/2026', 'Ben', 'מדריכה', '₪4,000', '80'],
+      ['אשקלון', '09/2026', 'Chen', 'מנהלת', '₪6,000', '40'],
+      ['אשקלון', '09/2026', 'Dana', 'מטפלת', '₪7,000', '120'],
+    ]);
+
+    const group = model.byDaycareMonth[0];
+    expect(group).toEqual(expect.objectContaining({
+      employeeCount: 4,
+      totalPayrollCost: 22000,
+      totalPayrollHours: 340,
+      staffingClassroom: 'מטפלת',
+      staffingEmployeeCount: 2,
+      staffingPayrollHours: 220,
+    }));
+  });
+
   test('ignores empty rows and skips rows missing daycare or month', () => {
     const model = engine.calculatePayrollModel([
       ['Daycare', 'Month', 'Employee', 'Salary'],
