@@ -145,53 +145,53 @@
         <div class="budget-explorer-grid" id="budget-explorer-grid"></div>
       </section>
 
-      <section class="dashboard-section action-center-section priority-section" aria-labelledby="action-title">
-        <div class="section-title-row compact-title-row">
+      <details class="dashboard-section action-center-section priority-section management-collapsible" id="action-section">
+        <summary class="section-title-row compact-title-row">
           <div>
             <p class="eyebrow">פעולה לאחר תמונת מצב</p>
-            <h2 id="action-title">איפה צריך להתערב</h2>
+            <h2 id="action-title">משימות</h2>
           </div>
           <span class="section-chip" id="action-count-label">נטען</span>
-        </div>
+        </summary>
         <div class="dashboard-panel action-center-panel">
           <div class="action-list" id="action-list"></div>
         </div>
-      </section>
+      </details>
 
-      <section class="dashboard-section issues-section" aria-labelledby="issues-title">
-        <div class="section-title-row compact-title-row">
+      <details class="dashboard-section issues-section management-collapsible" id="issues-section">
+        <summary class="section-title-row compact-title-row">
           <div>
             <p class="eyebrow">בעיות בלבד</p>
             <h2 id="issues-title">מרכז חריגות</h2>
           </div>
           <span id="issue-count-label" class="section-chip"></span>
-        </div>
+        </summary>
         <div class="management-issues-layout">
           <article class="dashboard-panel issue-panel"><div class="panel-heading"><h3>חריגות תפעול</h3><span id="operational-issue-count"></span></div><div class="issue-list" id="operational-issue-list"></div></article>
           <article class="dashboard-panel issue-panel"><div class="panel-heading"><h3>חריגות נתונים</h3><span id="data-issue-count"></span></div><div class="issue-list" id="data-issue-list"></div></article>
           <article class="dashboard-panel issue-panel"><div class="panel-heading"><h3>חריגות כספיות</h3><span id="financial-issue-count"></span></div><div class="issue-list" id="financial-issue-list"></div></article>
         </div>
-      </section>
+      </details>
 
-      <section class="dashboard-section insights-section" aria-labelledby="insights-title">
-        <div class="section-title-row compact-title-row">
+      <details class="dashboard-section insights-section management-collapsible" id="insights-section">
+        <summary class="section-title-row compact-title-row">
           <div>
             <p class="eyebrow">תובנות קצרות</p>
             <h2 id="insights-title">מה להבין עכשיו</h2>
           </div>
           <span class="section-chip muted-chip">3-5 תובנות ניהוליות</span>
-        </div>
+        </summary>
         <div class="executive-alert-grid management-insight-grid" id="insight-grid"></div>
-      </section>
+      </details>
 
-      <section class="dashboard-section management-detail-section supporting-details-section" aria-labelledby="details-title">
-        <div class="section-title-row compact-title-row">
+      <details class="dashboard-section management-detail-section supporting-details-section management-collapsible" aria-labelledby="details-title">
+        <summary class="section-title-row compact-title-row">
           <div>
             <p class="eyebrow">פירוט תומך</p>
             <h2 id="details-title">נתוני עזר ובקרה</h2>
           </div>
           <span class="section-chip muted-chip">לא נקודת הפתיחה לניהול</span>
-        </div>
+        </summary>
 
         <details class="supporting-collapsible">
           <summary>השוואות, סטטוס עדכון ושלמות נתונים</summary>
@@ -241,7 +241,7 @@
           </article>
           </div>
         </details>
-      </section>
+      </details>
     </main>
     <div class="explain-overlay" id="explain-overlay" hidden>
       <section class="explain-modal" role="dialog" aria-modal="true" aria-labelledby="explain-title">
