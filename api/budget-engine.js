@@ -1,7 +1,8 @@
 const REQUIRED_TABLES = ['OCCUPANCY', 'STAFFING', 'MONTH_HOURS', 'FIXED_STAFF', 'COST_RULES'];
+const DEFAULT_AVERAGE_EMPLOYEE_MONTHLY_HOURS = 160;
 
 const FIELD_ALIASES = {
-  daycare: ['daycare', 'department', 'branch', 'site', 'מעון', 'מחלקה', 'סניף', 'עבור מחלקה'],
+  daycare: ['daycare', 'department', 'branch', 'site', 'מעון', 'מעון חריג', 'מחלקה', 'סניף', 'עבור מחלקה'],
   month: ['month', 'חודש', 'עבור חודש'],
   classroom: ['classroom', 'class', 'כיתה', 'שם כיתה', 'מספר כיתה', 'חדר', 'כיתה בפועל'],
   ageGroup: ['ageGroup', 'age_group', 'age', 'שכבת גיל', 'גיל', 'קבוצת גיל', 'כיתה'],
@@ -48,6 +49,24 @@ function rowMarker(row) {
     if (marker) return marker;
   }
   return '';
+}
+
+function normalizeHeaders(headers = []) {
+  const seen = new Map();
+  let numberedSlot = 0;
+  return headers.map((header) => {
+    const text = clean(header);
+    const numbered = text.match(new RegExp('^(כיתה|כמות ילדים|מספר ילדים|ילדים|שכבת גיל|גיל|קבוצת גיל)\\s*\\d+$'));
+    if (numbered) {
+      numberedSlot += numbered[1] === 'כיתה' || numbered[1] === 'שכבת גיל' || numbered[1] === 'גיל' || numbered[1] === 'קבוצת גיל' ? 1 : 0;
+      const slot = numbered[1] === 'כיתה' || numbered[1] === 'שכבת גיל' || numbered[1] === 'גיל' || numbered[1] === 'קבוצת גיל' ? numberedSlot : numberedSlot;
+      return numbered[1] + ' ' + slot;
+    }
+    const key = normalizeKey(text);
+    const count = (seen.get(key) || 0) + 1;
+    seen.set(key, count);
+    return count === 1 ? text : text + ' ' + count;
+  });
 }
 
 function headerIndex(headers, aliases) {
@@ -150,7 +169,7 @@ function parseBudgetTables(rows) {
     }
     if (!current || isEmptyRow(row)) continue;
     if (!headers) {
-      headers = row.map(clean);
+      headers = normalizeHeaders(row);
       continue;
     }
     const object = headers.reduce((acc, header, index) => {
@@ -314,6 +333,15 @@ function roundStaff(value) {
   return Math.ceil(Number(value || 0) * 2) / 2;
 }
 
+function roundEmployeeHeadcount(value) {
+  return Math.ceil(Number(value || 0) * 2) / 2;
+}
+
+function normalizeBudgetOptions(options = {}) {
+  const averageEmployeeMonthlyHours = numberValue(options.averageEmployeeMonthlyHours, DEFAULT_AVERAGE_EMPLOYEE_MONTHLY_HOURS) || DEFAULT_AVERAGE_EMPLOYEE_MONTHLY_HOURS;
+  return { averageEmployeeMonthlyHours };
+}
+
 function groupKey(parts) {
   return parts.map((part) => clean(part)).join('||');
 }
@@ -386,7 +414,8 @@ function fixedStaffWithHours(fixedStaffRows = [], monthHoursRows = []) {
   });
 }
 
-function buildDaycareMonthContexts(classroomStaffing = [], fixedStaff = [], monthHoursRows = []) {
+function buildDaycareMonthContexts(classroomStaffing = [], fixedStaff = [], monthHoursRows = [], options = {}) {
+  const budgetOptions = normalizeBudgetOptions(options);
   const monthHours = normalizeMonthHoursRows(monthHoursRows);
   const map = new Map();
 
@@ -401,6 +430,8 @@ function buildDaycareMonthContexts(classroomStaffing = [], fixedStaff = [], mont
         classroomCount: 0,
         requiredStaff: 0,
         requiredHours: 0,
+        averageEmployeeMonthlyHours: budgetOptions.averageEmployeeMonthlyHours,
+        requiredEmployeeHeadcount: 0,
         fixedStaffPositions: 0,
         fixedStaffHours: 0,
         totalRequiredHours: 0,
@@ -422,6 +453,7 @@ function buildDaycareMonthContexts(classroomStaffing = [], fixedStaff = [], mont
 
   for (const item of map.values()) {
     item.requiredHours = item.requiredStaff * item.standardHours;
+    item.requiredEmployeeHeadcount = roundEmployeeHeadcount(item.requiredHours / budgetOptions.averageEmployeeMonthlyHours);
     item.totalRequiredHours = item.requiredHours;
   }
 
@@ -465,7 +497,7 @@ function basisQuantityForContext(basis, context) {
   if (isClassroomsBasis(basis)) return context.classroomCount;
   if (isStaffBasis(basis)) return context.requiredStaff + context.fixedStaffPositions;
   if (isWorkDaysBasis(basis)) return context.workDays;
-  if (isHourlyBasis(basis)) return context.totalRequiredHours;
+  if (isHourlyBasis(basis)) return context.requiredHours;
   if (isFixedBasis(basis)) return 1;
   return 0;
 }
@@ -603,7 +635,7 @@ function attachCostsToDaycareMonth(contexts = [], costs = []) {
   });
 }
 
-function calculateBudgetModel(tables) {
+function calculateBudgetModel(tables, options = {}) {
   assertBudgetTables(tables);
   const occupancyRows = tables.OCCUPANCY || [];
   const staffingRows = tables.STAFFING || [];
@@ -614,7 +646,7 @@ function calculateBudgetModel(tables) {
   const classroomStaffing = calculateClassroomStaffing(occupancyRows, staffingRows);
   const monthlyRequiredHours = calculateMonthlyRequiredHours(classroomStaffing, monthHoursRows);
   const fixedStaff = fixedStaffWithHours(fixedStaffRows, monthHoursRows);
-  const daycareMonthContexts = buildDaycareMonthContexts(classroomStaffing, fixedStaff, monthHoursRows);
+  const daycareMonthContexts = buildDaycareMonthContexts(classroomStaffing, fixedStaff, monthHoursRows, options);
   const costs = calculateCostRulesForDaycareMonth(costRuleRows, daycareMonthContexts);
   const byDaycareMonth = attachCostsToDaycareMonth(daycareMonthContexts, costs);
   const budgetCoverage = calculateBudgetCoverage(actualExpenseRows, costRuleRows);
@@ -631,9 +663,11 @@ function calculateBudgetModel(tables) {
 
 module.exports = {
   REQUIRED_TABLES,
+  DEFAULT_AVERAGE_EMPLOYEE_MONTHLY_HOURS,
   parseBudgetTables,
   assertBudgetTables,
   roundStaff,
+  roundEmployeeHeadcount,
   calculateClassroomStaffing,
   aggregateStaffingByDaycare,
   calculateMonthlyRequiredHours,

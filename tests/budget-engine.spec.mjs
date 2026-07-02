@@ -25,10 +25,10 @@ function finalBusinessRows() {
     ['מחנה', '09/2026', 'מנהלת', '1'],
     ['אשקלון', '09/2026', 'מנהלת', '1'],
     ['TABLE: COST_RULES'],
-    ['סעיף תקציבי', 'מעון', 'בסיס לחישוב', 'בסיס נוסף', 'ערך', 'חלוקה'],
-    ['אוכל', '', 'ילדים', 'ימי עבודה', '8', '1'],
-    ['אוכל', 'אשקלון', 'ילדים', 'ימי עבודה', '13', '1'],
-    ['חשמל', '', 'כיתות', '', '100', '1'],
+    ['סעיף תקציבי', 'בסיס לחישוב', 'בסיס נוסף', 'ערך', 'תקופה', 'חלוקה', 'מעון חריג'],
+    ['אוכל', 'ילדים', 'ימי עבודה', '8', 'חודשי', '1', ''],
+    ['אוכל', 'ילדים', 'ימי עבודה', '13', 'חודשי', '1', 'אשקלון'],
+    ['חשמל', 'כיתות', '', '100', 'שנתי', '1', ''],
   ];
 }
 
@@ -130,6 +130,51 @@ test.describe('budget calculation engine', () => {
     expect(model.byDaycareMonth.length).toBe(3);
   });
 
+
+  test('calculates real-world required employee headcount separately from regulatory staff', () => {
+    const rows = [
+      ['TABLE: OCCUPANCY'],
+      ['מעון', 'חודש', 'כיתה 1', 'כמות ילדים', 'כיתה 2', 'כמות ילדים 2', 'כיתה 3', 'כמות ילדים 3', 'כיתה 4', 'כמות ילדים 4'],
+      ['מחנה', '09/2026', 'תינוק', '18', 'תינוק', '18', 'פעוט', '26', 'בוגר', '32'],
+      ['TABLE: STAFFING'],
+      ['כיתה', 'כמות צוות לילד', 'שכר לימוד'],
+      ['תינוק', '5', '3936'],
+      ['פעוט', '8', '2917'],
+      ['בוגר', '10', '2587'],
+      ['TABLE: MONTH_HOURS'],
+      ['חודש', 'שעות תקן', 'ימי עבודה'],
+      ['09/2026', '205', '26'],
+      ['TABLE: FIXED_STAFF'],
+      ['חודש', 'מעון', 'תפקיד 1', 'כמות 1'],
+      ['09/2026', 'מחנה', 'מנהלת', '1'],
+      ['TABLE: COST_RULES'],
+      ['סעיף תקציבי', 'בסיס לחישוב', 'ערך'],
+      ['שכר מטפלות', 'שעתי', '60'],
+    ];
+
+    const model = engine.calculateBudgetModel(engine.parseBudgetTables(rows));
+    const machaneSep = model.byDaycareMonth[0];
+    const payroll = machaneSep.calculatedCosts.find((cost) => cost.category === 'שכר מטפלות');
+
+    expect(machaneSep.requiredStaff).toBe(15);
+    expect(machaneSep.requiredHours).toBe(3075);
+    expect(machaneSep.averageEmployeeMonthlyHours).toBe(160);
+    expect(machaneSep.requiredEmployeeHeadcount).toBe(19.5);
+    expect(payroll).toEqual(expect.objectContaining({ quantity: 3075, total: 184500 }));
+  });
+
+  test('supports configurable average employee monthly hours for headcount planning', () => {
+    const model = finalModel();
+    const custom = engine.calculateBudgetModel(engine.parseBudgetTables(finalBusinessRows()), { averageEmployeeMonthlyHours: 150 });
+    const defaultMachane = model.byDaycareMonth.find((row) => row.daycare === 'מחנה' && row.month === '09/2026');
+    const customMachane = custom.byDaycareMonth.find((row) => row.daycare === 'מחנה' && row.month === '09/2026');
+
+    expect(customMachane.requiredStaff).toBe(defaultMachane.requiredStaff);
+    expect(customMachane.requiredHours).toBe(defaultMachane.requiredHours);
+    expect(customMachane.averageEmployeeMonthlyHours).toBe(150);
+    expect(customMachane.requiredEmployeeHeadcount).toBe(Math.ceil((customMachane.requiredHours / 150) * 2) / 2);
+  });
+
   test('supports budget coverage percentage with unmapped actual expense categories', () => {
     const rows = [
       ...finalBusinessRows(),
@@ -147,4 +192,31 @@ test.describe('budget calculation engine', () => {
     expect(model.budgetCoverage.unmappedExpenseCategories).toEqual(['ניקיון']);
     expect(model.budgetCoverage.label).toBe('Unmapped expense categories');
   });
+
+  test('preserves duplicate numbered classroom headers from the live BUDGET sheet', () => {
+    const rows = [
+      ['TABLE: OCCUPANCY'],
+      ['מעון', 'חודש', 'כיתה 6', 'כמות ילדים 6', 'כיתה 6', 'כמות ילדים 6 ', 'כיתה 7', 'כמות ילדים 7', 'כיתה 7', 'כמות ילדים 7 '],
+      ['נאות', '09/2026', 'תינוק', '6', 'פעוט', '20', 'פעוט', '6', 'בוגר', '25'],
+      ['TABLE: STAFFING'],
+      ['כיתה', 'כמות צוות לילד', 'שכר לימוד'],
+      ['תינוק', '5', '3936'],
+      ['פעוט', '8', '2917'],
+      ['בוגר', '10', '2587'],
+      ['TABLE: MONTH_HOURS'],
+      ['חודש', 'שעות תקן', 'ימי עבודה'],
+      ['09/2026', '205', '26'],
+      ['TABLE: FIXED_STAFF'],
+      ['חודש', 'מעון', 'תפקיד 1', 'כמות 1'],
+      ['09/2026', 'נאות', 'מנהלת', '1'],
+      ['TABLE: COST_RULES'],
+      ['סעיף תקציבי', 'בסיס לחישוב', 'ערך'],
+      ['חשמל', 'כיתות', '9000'],
+    ];
+
+    const model = engine.calculateBudgetModel(engine.parseBudgetTables(rows));
+
+    expect(model.byDaycareMonth[0]).toEqual(expect.objectContaining({ daycare: 'נאות', children: 57, classroomCount: 4 }));
+  });
+
 });
