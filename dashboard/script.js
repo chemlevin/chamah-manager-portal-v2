@@ -22,7 +22,7 @@ const NO_DATA = "אין נתונים";
 
 const moneyFormatter = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
 const numberFormatter = new Intl.NumberFormat("he-IL");
-const state = { month: "all", unit: "all", unitType: "all", search: "", expenseSort: "amount-desc", payrollSort: "cost-desc" };
+const state = { months: ["all"], units: ["all"], unitType: "all", category: "all", search: "", expenseSort: "amount-desc", payrollSort: "cost-desc" };
 const dashboardData = { budgetGroups: [], payrollGroups: [], payrollRows: [], allocationGroups: [], allocationRows: [], unmappedRows: [], excludedAllocationRows: [], employees: [], errors: [] };
 
 const els = {
@@ -57,6 +57,10 @@ const els = {
   tableSearch: document.querySelector("#table-search"),
   expenseSort: document.querySelector("#expense-sort"),
   payrollSort: document.querySelector("#payroll-sort"),
+  categoryFilter: document.querySelector("#category-filter"),
+  financialExceptionCountLabel: document.querySelector("#financial-exception-count-label"),
+  financialExceptionGrid: document.querySelector("#financial-exception-grid"),
+  budgetExplorerGrid: document.querySelector("#budget-explorer-grid"),
   financialTableBody: document.querySelector("#financial-table-body"),
   payrollTableBody: document.querySelector("#payroll-table-body"),
   financialTableCount: document.querySelector("#financial-table-count"),
@@ -137,6 +141,7 @@ function normalizeBudget(payload) {
   const groups = payload?.budget?.byDaycareMonth || payload?.byDaycareMonth || [];
   return (Array.isArray(groups) ? groups : []).map((group) => {
     const capacityValue = group.capacity ?? group.childCapacity ?? group.childrenCapacity ?? group.maxChildren;
+    const calculatedCosts = Array.isArray(group.calculatedCosts) ? group.calculatedCosts : [];
     return {
       unit: safeText(group.daycare),
       month: safeText(group.month, ""),
@@ -153,6 +158,10 @@ function normalizeBudget(payload) {
       hasBudgetRevenue: valueExists(group.expectedRevenue),
       budgetCosts: safeNumber(group.totalBudgetCosts),
       hasBudgetCosts: valueExists(group.totalBudgetCosts),
+      calculatedCosts: calculatedCosts.map((cost) => ({
+        category: safeText(cost.category || cost.detail || cost.name, "ללא סעיף"),
+        amount: safeNumber(cost.total ?? cost.amount ?? cost.cost),
+      })).filter((cost) => cost.category),
     };
   }).filter((group) => group.unit && group.month);
 }
@@ -259,6 +268,57 @@ function latestMonthValue(rows, key = "month") {
   })[0];
 }
 
+function parseMonth(value) {
+  const text = clean(value);
+  const match = text.match(/^(\d{1,2})[./-](\d{4})$/);
+  if (match) return { month: Number(match[1]), year: Number(match[2]), hasYear: true, index: Number(match[2]) * 12 + Number(match[1]) };
+  const number = Number(text);
+  if (Number.isFinite(number) && number >= 1 && number <= 12) return { month: number, year: 0, hasYear: false, index: number };
+  return null;
+}
+
+function compareMonths(a, b) {
+  const parsedA = parseMonth(a);
+  const parsedB = parseMonth(b);
+  if (parsedA && parsedB) return parsedA.index - parsedB.index;
+  return String(a).localeCompare(String(b), "he", { numeric: true });
+}
+
+function selectedMonthsLabel() {
+  if (state.months.includes("all")) return "כל החודשים";
+  if (state.months.length === 1) return state.months[0];
+  return numberFormatter.format(state.months.length) + " חודשים";
+}
+
+function selectedUnitsLabel() {
+  if (state.units.includes("all")) return "כל היחידות";
+  if (state.units.length === 1) return state.units[0];
+  return numberFormatter.format(state.units.length) + " יחידות";
+}
+
+function schoolYearRangeMonths(allMonths) {
+  const months = state.months.includes("all") ? allMonths : state.months;
+  const parsed = months.map(parseMonth).filter(Boolean).sort((a, b) => a.index - b.index);
+  const end = parsed[parsed.length - 1];
+  if (!end) return new Set(months);
+  return new Set(allMonths.filter((month) => {
+    const parsedMonth = parseMonth(month);
+    if (!parsedMonth) return months.includes(month);
+    if (end.hasYear && parsedMonth.hasYear) {
+      const startYear = end.month >= 9 ? end.year : end.year - 1;
+      const start = startYear * 12 + 9;
+      return parsedMonth.index >= start && parsedMonth.index <= end.index;
+    }
+    if (end.month >= 9) return parsedMonth.month >= 9 && parsedMonth.month <= end.month;
+    return parsedMonth.month >= 9 || parsedMonth.month <= end.month;
+  }));
+}
+
+function selectedValues(select) {
+  const values = Array.from(select.selectedOptions || []).map((item) => item.value);
+  return values.length ? values : ["all"];
+}
+
 function unitType(unit, data) {
   const inBudgetOrPayroll = data.budgetGroups.some((row) => row.unit === unit) || data.payrollGroups.some((row) => row.unit === unit);
   return inBudgetOrPayroll ? "daycare" : "other";
@@ -275,9 +335,9 @@ function filteredData() {
     employees: dashboardData.employees,
   };
   const allUnits = unique([...base.budgetGroups.map((row) => row.unit), ...base.payrollGroups.map((row) => row.unit), ...base.allocationGroups.map((row) => row.unit)]);
-  const allowedUnits = allUnits.filter((unit) => (state.unit === "all" || unit === state.unit) && (state.unitType === "all" || unitType(unit, base) === state.unitType));
+  const allowedUnits = allUnits.filter((unit) => (state.units.includes("all") || state.units.includes(unit)) && (state.unitType === "all" || unitType(unit, base) === state.unitType));
   const hasUnit = (row) => allowedUnits.includes(row.unit);
-  const hasMonth = (row) => state.month === "all" || row.month === state.month;
+  const hasMonth = (row) => state.months.includes("all") || state.months.includes(row.month);
   return {
     budgetGroups: base.budgetGroups.filter((row) => hasUnit(row) && hasMonth(row)),
     payrollGroups: base.payrollGroups.filter((row) => hasUnit(row) && hasMonth(row)),
@@ -295,8 +355,10 @@ function buildUnitRows(data) {
     const budget = data.budgetGroups.filter((row) => row.unit === unit);
     const payroll = data.payrollGroups.filter((row) => row.unit === unit);
     const allocations = data.allocationGroups.filter((row) => row.unit === unit);
+    const allocationRows = data.allocationRows.filter((row) => row.unit === unit);
     const requiredHours = sum(budget, "requiredHours");
     const payrollHours = sum(payroll, "payrollHours");
+    const budgetUse = budgetUtilization({ budgetGroups: budget, allocationRows }, "all");
     const row = {
       unit,
       type: unitType(unit, dashboardData),
@@ -319,6 +381,10 @@ function buildUnitRows(data) {
       expenses: sum(allocations, "expenses"),
       income: sum(allocations, "income"),
       budgetRevenue: sum(budget, "budgetRevenue"),
+      budgetUsePercent: budgetUse.percent,
+      budgetUseActual: budgetUse.actual,
+      budgetUseBudget: budgetUse.budget,
+      hasBudgetUse: budgetUse.hasBudget || budgetUse.actual > 0,
       issueCount: 0,
       status: "green",
     };
@@ -328,27 +394,28 @@ function buildUnitRows(data) {
 
 function buildIssues(data, unitRows) {
   const issues = [];
-  dashboardData.errors.forEach((message) => issues.push({ category: "data", severity: "yellow", unit: "מערכת", month: state.month, count: 1, label: message }));
+  const periodLabel = selectedMonthsLabel();
+  dashboardData.errors.forEach((message) => issues.push({ category: "data", severity: "yellow", unit: "מערכת", month: periodLabel, count: 1, label: message }));
   const missingUnitRows = dashboardData.unmappedRows.filter((row) => String(row.unmappedReason || "").includes("unit"));
   const missingMonthRows = dashboardData.unmappedRows.filter((row) => String(row.unmappedReason || "").includes("businessMonth"));
   if (missingUnitRows.length) issues.push({ category: "data", severity: "yellow", unit: "לא משויך", month: "כל החודשים", count: missingUnitRows.length, label: "חסר שיוך יחידה" });
   if (missingMonthRows.length) issues.push({ category: "data", severity: "yellow", unit: "לא משויך", month: "כל החודשים", count: missingMonthRows.length, label: "חסר חודש שיוך" });
   if (dashboardData.unmappedRows.length) issues.push({ category: "data", severity: "yellow", unit: "לא משויך", month: "כל החודשים", count: dashboardData.unmappedRows.length, label: "שורות בנק ללא יחידה או חודש" });
   const missingRefs = data.allocationRows.filter((row) => !row.reference && !row.excludedFromCalculations).length;
-  if (missingRefs) issues.push({ category: "data", severity: "yellow", unit: "מספר יחידות", month: state.month, count: missingRefs, label: "חסרה אסמכתא" });
+  if (missingRefs) issues.push({ category: "data", severity: "yellow", unit: "מספר יחידות", month: periodLabel, count: missingRefs, label: "חסרה אסמכתא" });
 
   unitRows.forEach((row) => {
     const hoursDiff = row.payrollHours - row.requiredHours;
     const employeeDiff = row.payrollEmployees - row.requiredEmployees;
-    if (row.type === "daycare" && row.hasBudget && !row.hasCapacity && row.hasChildren) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: state.month, count: 1, label: "חסרה קיבולת" });
-    if (row.type === "daycare" && row.hasCapacity && row.children > row.capacity) issues.push({ category: "operational", severity: "red", unit: row.unit, month: state.month, count: row.children - row.capacity, label: "ילדים מעל קיבולת" });
-    if (row.hasRequiredHours && row.hasPayroll && hoursDiff < 0) issues.push({ category: "operational", severity: "red", unit: row.unit, month: state.month, count: Math.abs(Math.round(hoursDiff)), label: "שעות מטפלות נמוכות מהנדרש" });
-    if (row.hasRequiredHours && row.hasPayroll && hoursDiff > 0) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: state.month, count: Math.round(hoursDiff), label: "שעות מטפלות גבוהות מהנדרש" });
-    if (row.hasRequiredEmployees && row.hasPayroll && employeeDiff < 0) issues.push({ category: "operational", severity: "red", unit: row.unit, month: state.month, count: Math.abs(Math.round(employeeDiff)), label: "מספר מטפלות נמוך מהנדרש" });
-    if (row.hasRequiredEmployees && row.hasPayroll && employeeDiff > 0) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: state.month, count: Math.round(employeeDiff), label: "מספר מטפלות גבוה מהנדרש" });
-    if (row.hasBudget && !row.hasPayroll) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: state.month, count: 1, label: "אין נתוני שכר" });
-    if ((row.hasBudget || row.hasPayroll) && !row.hasAllocations) issues.push({ category: "financial", severity: "yellow", unit: row.unit, month: state.month, count: 1, label: "אין נתוני בנק" });
-    if (row.expenses > 0 && row.type === "other") issues.push({ category: "financial", severity: "yellow", unit: row.unit, month: state.month, count: 1, label: "הוצאות במחלקה שאינה מעון דורשות בדיקה" });
+    if (row.type === "daycare" && row.hasBudget && !row.hasCapacity && row.hasChildren) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: periodLabel, count: 1, label: "חסרה קיבולת" });
+    if (row.type === "daycare" && row.hasCapacity && row.children > row.capacity) issues.push({ category: "operational", severity: "red", unit: row.unit, month: periodLabel, count: row.children - row.capacity, label: "ילדים מעל קיבולת" });
+    if (row.hasRequiredHours && row.hasPayroll && hoursDiff < 0) issues.push({ category: "operational", severity: "red", unit: row.unit, month: periodLabel, count: Math.abs(Math.round(hoursDiff)), label: "שעות מטפלות נמוכות מהנדרש" });
+    if (row.hasRequiredHours && row.hasPayroll && hoursDiff > 0) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: periodLabel, count: Math.round(hoursDiff), label: "שעות מטפלות גבוהות מהנדרש" });
+    if (row.hasRequiredEmployees && row.hasPayroll && employeeDiff < 0) issues.push({ category: "operational", severity: "red", unit: row.unit, month: periodLabel, count: Math.abs(Math.round(employeeDiff)), label: "מספר מטפלות נמוך מהנדרש" });
+    if (row.hasRequiredEmployees && row.hasPayroll && employeeDiff > 0) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: periodLabel, count: Math.round(employeeDiff), label: "מספר מטפלות גבוה מהנדרש" });
+    if (row.hasBudget && !row.hasPayroll) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: periodLabel, count: 1, label: "אין נתוני שכר" });
+    if ((row.hasBudget || row.hasPayroll) && !row.hasAllocations) issues.push({ category: "financial", severity: "yellow", unit: row.unit, month: periodLabel, count: 1, label: "אין נתוני בנק" });
+    if (row.expenses > 0 && row.type === "other") issues.push({ category: "financial", severity: "yellow", unit: row.unit, month: periodLabel, count: 1, label: "הוצאות במחלקה שאינה מעון דורשות בדיקה" });
   });
 
   unitRows.forEach((row) => {
@@ -401,16 +468,25 @@ function severityLabel(severity) {
 }
 
 function renderFilterOptions() {
-  const months = unique([...dashboardData.budgetGroups.map((row) => row.month), ...dashboardData.payrollGroups.map((row) => row.month), ...dashboardData.allocationGroups.map((row) => row.month)]);
+  const months = unique([...dashboardData.budgetGroups.map((row) => row.month), ...dashboardData.payrollGroups.map((row) => row.month), ...dashboardData.allocationGroups.map((row) => row.month)]).sort(compareMonths);
   const units = unique([...dashboardData.budgetGroups.map((row) => row.unit), ...dashboardData.payrollGroups.map((row) => row.unit), ...dashboardData.allocationGroups.map((row) => row.unit)]);
-  if (!months.includes(state.month)) state.month = "all";
-  if (!units.includes(state.unit)) state.unit = "all";
+  const categories = unique([
+    ...dashboardData.budgetGroups.flatMap((row) => row.calculatedCosts.map((cost) => cost.category)),
+    ...dashboardData.allocationRows.map((row) => row.accountingCategory),
+  ]);
+  state.months = state.months.filter((month) => month === "all" || months.includes(month));
+  state.units = state.units.filter((unit) => unit === "all" || units.includes(unit));
+  if (!state.months.length) state.months = ["all"];
+  if (!state.units.length) state.units = ["all"];
+  if (state.category !== "all" && !categories.includes(state.category)) state.category = "all";
   els.monthFilter.innerHTML = option("all", "כל החודשים") + months.map((month) => option(month, month)).join("");
   els.unitFilter.innerHTML = option("all", "כל היחידות") + units.map((unit) => option(unit, unit)).join("");
   els.unitTypeFilter.innerHTML = option("all", "כל הסוגים") + option("daycare", "מעונות") + option("other", "מחלקות / אחר");
-  els.monthFilter.value = state.month;
-  els.unitFilter.value = state.unit;
+  Array.from(els.monthFilter.options).forEach((item) => { item.selected = state.months.includes(item.value); });
+  Array.from(els.unitFilter.options).forEach((item) => { item.selected = state.units.includes(item.value); });
   els.unitTypeFilter.value = state.unitType;
+  els.categoryFilter.innerHTML = option("all", "כל הסעיפים") + categories.map((category) => option(category, category)).join("");
+  els.categoryFilter.value = state.category;
 }
 
 function kpiCard(label, value, sub, tone = "secondary") {
@@ -424,12 +500,103 @@ function coverageTone(coverage, available) {
   return "attention";
 }
 
+function utilizationTone(percent, hasBudget, actual) {
+  if (!hasBudget && actual > 0) return "attention";
+  if (!hasBudget || percent === null) return "secondary";
+  if (percent > 100) return "attention";
+  if (percent >= 90) return "expense";
+  return "balance";
+}
+
+function utilizationLabel(percent, hasBudget, actual) {
+  if (!hasBudget && actual > 0) return "אין תקציב מול הוצאה";
+  if (!hasBudget) return "אין תקציב";
+  if (percent > 100) return "חריגה מהתקציב";
+  if (percent >= 90) return "קרוב לתקציב";
+  return "בתוך התקציב";
+}
+
+function budgetAmountForGroup(group, category = "all") {
+  return group.calculatedCosts
+    .filter((cost) => category === "all" || cost.category === category)
+    .reduce((total, cost) => total + safeNumber(cost.amount), 0);
+}
+
+function budgetUtilization(data, category = "all") {
+  const budget = data.budgetGroups.reduce((total, group) => total + budgetAmountForGroup(group, category), 0);
+  const actual = data.allocationRows
+    .filter((row) => !row.excludedFromCalculations && row.debit > 0 && (category === "all" || row.accountingCategory === category))
+    .reduce((total, row) => total + row.debit, 0);
+  const percent = budget > 0 ? actual / budget * 100 : null;
+  return { budget, actual, percent, hasBudget: budget > 0 };
+}
+
+function filteredDataForMonthSet(monthSet) {
+  const base = {
+    budgetGroups: dashboardData.budgetGroups,
+    payrollGroups: dashboardData.payrollGroups,
+    payrollRows: dashboardData.payrollRows,
+    allocationGroups: dashboardData.allocationGroups,
+    allocationRows: dashboardData.allocationRows,
+    unmappedRows: dashboardData.unmappedRows,
+    employees: dashboardData.employees,
+  };
+  const allUnits = unique([...base.budgetGroups.map((row) => row.unit), ...base.payrollGroups.map((row) => row.unit), ...base.allocationGroups.map((row) => row.unit)]);
+  const allowedUnits = allUnits.filter((unit) => (state.units.includes("all") || state.units.includes(unit)) && (state.unitType === "all" || unitType(unit, base) === state.unitType));
+  const hasUnit = (row) => allowedUnits.includes(row.unit);
+  const hasMonth = (row) => monthSet.has(row.month);
+  return {
+    budgetGroups: base.budgetGroups.filter((row) => hasUnit(row) && hasMonth(row)),
+    payrollGroups: base.payrollGroups.filter((row) => hasUnit(row) && hasMonth(row)),
+    payrollRows: base.payrollRows.filter((row) => hasUnit(row) && hasMonth(row)),
+    allocationGroups: base.allocationGroups.filter((row) => hasUnit(row) && hasMonth(row)),
+    allocationRows: base.allocationRows.filter((row) => hasUnit(row) && hasMonth(row)),
+    unmappedRows: base.unmappedRows,
+    employees: base.employees,
+    allowedUnits,
+  };
+}
+
+function ytdData() {
+  const allMonths = unique([...dashboardData.budgetGroups.map((row) => row.month), ...dashboardData.payrollGroups.map((row) => row.month), ...dashboardData.allocationRows.map((row) => row.month)]).sort(compareMonths);
+  return filteredDataForMonthSet(schoolYearRangeMonths(allMonths));
+}
+
+function buildFinancialExceptions(data) {
+  const ytd = ytdData();
+  const categories = unique([
+    ...data.budgetGroups.flatMap((row) => row.calculatedCosts.map((cost) => cost.category)),
+    ...data.allocationRows.filter((row) => !row.excludedFromCalculations && row.debit > 0).map((row) => row.accountingCategory),
+  ]);
+  const rows = [];
+  data.allowedUnits.forEach((unit) => {
+    categories.forEach((category) => {
+      const currentData = {
+        budgetGroups: data.budgetGroups.filter((row) => row.unit === unit),
+        allocationRows: data.allocationRows.filter((row) => row.unit === unit),
+      };
+      const ytdUnitData = {
+        budgetGroups: ytd.budgetGroups.filter((row) => row.unit === unit),
+        allocationRows: ytd.allocationRows.filter((row) => row.unit === unit),
+      };
+      const current = budgetUtilization(currentData, category);
+      const sinceSeptember = budgetUtilization(ytdUnitData, category);
+      const tone = utilizationTone(Math.max(current.percent ?? 0, sinceSeptember.percent ?? 0), current.hasBudget || sinceSeptember.hasBudget, current.actual + sinceSeptember.actual);
+      if (tone === "attention" || tone === "expense") rows.push({ unit, category, current, sinceSeptember, tone });
+    });
+  });
+  return rows.sort((a, b) => {
+    const rank = { attention: 0, expense: 1, balance: 2, secondary: 3 };
+    return rank[a.tone] - rank[b.tone] || safeNumber(b.sinceSeptember.percent) - safeNumber(a.sinceSeptember.percent);
+  });
+}
+
 function renderStatus(data, unitRows, issues) {
   const status = statusFromUnits(unitRows, issues);
   els.overallStatusLabel.textContent = statusLabel(status);
   els.overallStatusLabel.className = "status-pill " + status;
   els.lastUpdateLabel.textContent = "עדכון בנק אחרון: " + latestCashDate(dashboardData.allocationRows);
-  els.selectedMonthLabel.textContent = state.month === "all" ? "כל החודשים" : state.month;
+  els.selectedMonthLabel.textContent = selectedMonthsLabel() + " · " + selectedUnitsLabel();
   const hasBudget = hasRows(data.budgetGroups);
   const hasPayroll = hasRows(data.payrollGroups);
   const hasAllocations = hasRows(data.allocationGroups);
@@ -437,13 +604,14 @@ function renderStatus(data, unitRows, issues) {
   const payrollHours = sum(data.payrollGroups, "payrollHours");
   const staffingCoverage = coveragePercent(payrollHours, requiredHours);
   const hasStaffingCoverage = hasBudget && hasPayroll && staffingCoverage !== null;
+  const financialExceptions = buildFinancialExceptions(data);
   const cards = [
     { label: "כיסוי שעות מטפלות", value: formatPercent(staffingCoverage, hasStaffingCoverage), sub: hasStaffingCoverage ? formatNumber(payrollHours) + " / " + formatNumber(requiredHours) + " שעות" : "אין מספיק נתוני תקציב ושכר", tone: coverageTone(staffingCoverage, hasStaffingCoverage) },
     { label: "עלות שכר", value: formatMoney(sum(data.payrollGroups, "payrollCost"), hasPayroll), sub: hasPayroll ? "כל שורות השכר במעון ובחודש" : "אין נתוני שכר", tone: "payroll" },
+    { label: "חריגות תקציב", value: financialExceptions.length ? numberFormatter.format(financialExceptions.length) : "אין", sub: financialExceptions.length ? "סעיפים קרובים או מעל תקציב" : "אין חריגה בתקופה", tone: financialExceptions.some((item) => item.tone === "attention") ? "attention" : financialExceptions.length ? "expense" : "balance" },
     { label: "ילדים", value: formatNumber(sum(data.budgetGroups, "children"), hasBudget), sub: hasBudget ? "לפי נתוני תקציב" : "אין נתוני תקציב", tone: "secondary" },
     { label: "הכנסות", value: formatMoney(sum(data.allocationGroups, "income"), hasAllocations), sub: hasAllocations ? "תנועות זכות בבנק" : "אין נתוני בנק", tone: "income" },
     { label: "הוצאות", value: formatMoney(sum(data.allocationGroups, "expenses"), hasAllocations), sub: hasAllocations ? "תנועות חובה בבנק" : "אין נתוני בנק", tone: "expense" },
-    { label: "חריגות פתוחות", value: issues.length ? numberFormatter.format(issues.length) : "אין", sub: issues.length ? "דורשות החלטה או השלמת נתונים" : "אין חריגות פתוחות", tone: issues.length ? "attention" : "balance" },
   ];
   els.statusGrid.innerHTML = cards.map((card) => kpiCard(card.label, card.value, card.sub, card.tone)).join("");
 }
@@ -514,7 +682,7 @@ function renderUnits(unitRows) {
     els.unitCardGrid.innerHTML = '<p class="empty-state">אין יחידות להצגה במסננים הנוכחיים.</p>';
     return;
   }
-  els.unitCardGrid.innerHTML = sortedRows.map((row) => '<article class="daycare-card management-unit-card status-' + row.status + '"><div class="unit-status-ribbon">' + escapeHtml(statusLabel(row.status)) + '</div><div class="daycare-card-head"><div><h3>' + escapeHtml(row.unit) + '</h3><span>' + escapeHtml(row.type === "daycare" ? "מעון" : "מחלקה / אחר") + '</span></div><strong aria-label="מספר חריגות">' + escapeHtml(row.issueCount ? numberFormatter.format(row.issueCount) : "אין") + '</strong></div><div class="unit-primary-line"><span>' + escapeHtml(row.issueCount ? "דורש טיפול" : "ללא טיפול פתוח") + '</span><b>' + escapeHtml(row.hasRequiredHours && row.hasPayroll ? formatPercent(row.staffingCoverage) + " כיסוי שעות" : "חסר כיסוי שעות") + '</b></div><div class="daycare-metrics financial-metrics"><div><span>שעות מטפלות</span><strong>' + escapeHtml(formatNumber(row.payrollHours, row.hasPayroll)) + '</strong></div><div><span>שעות נדרשות</span><strong>' + escapeHtml(formatNumber(row.requiredHours, row.hasRequiredHours)) + '</strong></div><div><span>שכר</span><strong>' + escapeHtml(formatMoney(row.payrollCost, row.hasPayroll)) + '</strong></div><div><span>ילדים</span><strong>' + escapeHtml(formatNumber(row.children, row.hasBudget)) + '</strong></div><div><span>הוצאות</span><strong>' + escapeHtml(formatMoney(row.expenses, row.hasAllocations)) + '</strong></div><div><span>מטפלות בפועל</span><strong>' + escapeHtml(formatNumber(row.payrollEmployees, row.hasPayroll)) + '</strong></div><div><span>תקן נדרש</span><strong>' + escapeHtml(formatNumber(row.requiredEmployees, row.hasRequiredEmployees)) + '</strong></div></div><div class="budget-note">' + escapeHtml(row.issueCount ? "פתחו את הפעולות והשלימו את הנתון החסר" : "אין חריגות פתוחות ליחידה") + '</div></article>').join("");
+  els.unitCardGrid.innerHTML = sortedRows.map((row) => '<article class="daycare-card management-unit-card status-' + row.status + '"><div class="unit-status-ribbon">' + escapeHtml(statusLabel(row.status)) + '</div><div class="daycare-card-head"><div><h3>' + escapeHtml(row.unit) + '</h3><span>' + escapeHtml(row.type === "daycare" ? "מעון" : "מחלקה / אחר") + '</span></div><strong aria-label="מספר חריגות">' + escapeHtml(row.issueCount ? numberFormatter.format(row.issueCount) : "אין") + '</strong></div><div class="unit-primary-line"><span>' + escapeHtml(row.issueCount ? "דורש טיפול" : "ללא טיפול פתוח") + '</span><b>' + escapeHtml(row.hasRequiredHours && row.hasPayroll ? formatPercent(row.staffingCoverage) + " כיסוי שעות" : "חסר כיסוי שעות") + '</b></div><div class="daycare-metrics financial-metrics"><div><span>שעות מטפלות</span><strong>' + escapeHtml(formatNumber(row.payrollHours, row.hasPayroll)) + '</strong></div><div><span>שעות נדרשות</span><strong>' + escapeHtml(formatNumber(row.requiredHours, row.hasRequiredHours)) + '</strong></div><div><span>שכר</span><strong>' + escapeHtml(formatMoney(row.payrollCost, row.hasPayroll)) + '</strong></div><div><span>ילדים</span><strong>' + escapeHtml(formatNumber(row.children, row.hasBudget)) + '</strong></div><div><span>הוצאות</span><strong>' + escapeHtml(formatMoney(row.expenses, row.hasAllocations)) + '</strong></div><div><span>ניצול תקציב</span><strong>' + escapeHtml(formatPercent(row.budgetUsePercent, row.hasBudgetUse && row.budgetUsePercent !== null)) + '</strong></div><div><span>מטפלות בפועל</span><strong>' + escapeHtml(formatNumber(row.payrollEmployees, row.hasPayroll)) + '</strong></div><div><span>תקן נדרש</span><strong>' + escapeHtml(formatNumber(row.requiredEmployees, row.hasRequiredEmployees)) + '</strong></div></div><div class="budget-note">' + escapeHtml(row.issueCount ? "פתחו את הפעולות והשלימו את הנתון החסר" : "אין חריגות פתוחות ליחידה") + '</div></article>').join("");
 }
 
 function renderIssueList(target, countTarget, issues) {
@@ -704,6 +872,41 @@ function renderActionCenter(issues) {
   els.actionList.innerHTML = actions.length ? actions.slice(0, 6).map((issue) => '<article class="action-row severity-' + issue.severity + '"><span>' + escapeHtml(severityLabel(issue.severity)) + '</span><strong>' + escapeHtml(actionText(issue)) + '</strong><p><b>' + escapeHtml(issue.unit) + '</b><small>' + escapeHtml(issue.month || "כל החודשים") + ' · ' + escapeHtml(numberFormatter.format(issue.count)) + '</small></p></article>').join("") : '<p class="empty-state">אין פעולות ניהול פתוחות במסננים הנוכחיים.</p>';
 }
 
+function utilizationLine(utilization) {
+  const percent = formatPercent(utilization.percent, utilization.percent !== null);
+  return formatMoney(utilization.actual, utilization.actual > 0 || utilization.hasBudget) + " / " + formatMoney(utilization.budget, utilization.hasBudget) + " · " + percent;
+}
+
+function renderFinancialExceptions(data) {
+  const exceptions = buildFinancialExceptions(data);
+  els.financialExceptionCountLabel.textContent = exceptions.length ? numberFormatter.format(exceptions.length) + " חריגות" : "אין חריגות תקציב";
+  els.financialExceptionGrid.innerHTML = exceptions.length ? exceptions.slice(0, 6).map((item) => {
+    const currentLabel = utilizationLabel(item.current.percent, item.current.hasBudget, item.current.actual);
+    const ytdLabel = utilizationLabel(item.sinceSeptember.percent, item.sinceSeptember.hasBudget, item.sinceSeptember.actual);
+    return '<article class="financial-exception-card ' + item.tone + '-exception"><div><span>' + escapeHtml(item.category) + '</span><strong>' + escapeHtml(item.unit) + '</strong></div><dl><div><dt>תקופה נבחרת</dt><dd>' + escapeHtml(utilizationLine(item.current)) + '</dd><small>' + escapeHtml(currentLabel) + '</small></div><div><dt>מתחילת שנת הלימודים</dt><dd>' + escapeHtml(utilizationLine(item.sinceSeptember)) + '</dd><small>' + escapeHtml(ytdLabel) + '</small></div></dl></article>';
+  }).join("") : '<p class="empty-state">אין סעיפי תקציב קרובים לחריגה או מעל התקציב במסננים הנוכחיים.</p>';
+}
+
+function renderBudgetExplorer(data) {
+  const category = state.category;
+  const current = budgetUtilization(data, category);
+  const sinceSeptember = budgetUtilization(ytdData(), category);
+  const selectedCategoryLabel = category === "all" ? "כל הסעיפים" : category;
+  const breakdown = data.allowedUnits.map((unit) => {
+    const unitData = {
+      budgetGroups: data.budgetGroups.filter((row) => row.unit === unit),
+      allocationRows: data.allocationRows.filter((row) => row.unit === unit),
+    };
+    return { unit, utilization: budgetUtilization(unitData, category) };
+  }).filter((row) => row.utilization.actual > 0 || row.utilization.budget > 0).sort((a, b) => safeNumber(b.utilization.percent) - safeNumber(a.utilization.percent));
+  els.budgetExplorerGrid.innerHTML = '<article class="dashboard-panel budget-utilization-summary"><div class="panel-heading"><h3>' + escapeHtml(selectedCategoryLabel) + '</h3><span>תקופה נבחרת</span></div><div class="budget-utilization-kpis">' +
+    kpiCard("ניצול בתקופה", utilizationLine(current), utilizationLabel(current.percent, current.hasBudget, current.actual), utilizationTone(current.percent, current.hasBudget, current.actual)) +
+    kpiCard("מתחילת שנת הלימודים", utilizationLine(sinceSeptember), utilizationLabel(sinceSeptember.percent, sinceSeptember.hasBudget, sinceSeptember.actual), utilizationTone(sinceSeptember.percent, sinceSeptember.hasBudget, sinceSeptember.actual)) +
+    '</div></article><article class="dashboard-panel budget-breakdown-panel"><div class="panel-heading"><h3>פירוט לפי יחידה</h3><span>' + escapeHtml(breakdown.length ? numberFormatter.format(breakdown.length) + " יחידות" : NO_DATA) + '</span></div><div class="budget-breakdown-list">' +
+    (breakdown.length ? breakdown.map((row) => '<div class="budget-breakdown-row"><strong>' + escapeHtml(row.unit) + '</strong><span>' + escapeHtml(utilizationLine(row.utilization)) + '</span></div>').join("") : '<p class="empty-state">אין נתוני תקציב או הוצאה לסעיף שנבחר.</p>') +
+    '</div></article>';
+}
+
 function renderDashboard() {
   const data = filteredData();
   const unitRows = buildUnitRows(data);
@@ -715,7 +918,9 @@ function renderDashboard() {
   renderOperations(data, issues);
   renderManagementComparisons(unitRows);
   renderActionCenter(issues);
+  renderFinancialExceptions(data);
   renderUnits(unitRows);
+  renderBudgetExplorer(data);
   renderIssues(issues);
   renderInsights(data, issues);
   renderTables(data);
@@ -730,6 +935,8 @@ function renderLoadingState() {
   els.operationalGrid.innerHTML = "";
   els.daycareComparisonGrid.innerHTML = "";
   els.actionList.innerHTML = "";
+  els.financialExceptionGrid.innerHTML = "";
+  els.budgetExplorerGrid.innerHTML = "";
   els.unitCardGrid.innerHTML = '<p class="empty-state">היחידות נטענות...</p>';
   els.dataIssueList.innerHTML = '<p class="empty-state">החריגות נטענות...</p>';
   els.operationalIssueList.innerHTML = '<p class="empty-state">החריגות נטענות...</p>';
@@ -772,9 +979,10 @@ async function loadDashboardData() {
 }
 
 function bindEvents() {
-  els.monthFilter.addEventListener("change", (event) => { state.month = event.target.value; renderDashboard(); });
-  els.unitFilter.addEventListener("change", (event) => { state.unit = event.target.value; renderDashboard(); });
+  els.monthFilter.addEventListener("change", (event) => { state.months = selectedValues(event.target); if (state.months.includes("all") && state.months.length > 1) state.months = ["all"]; renderDashboard(); });
+  els.unitFilter.addEventListener("change", (event) => { state.units = selectedValues(event.target); if (state.units.includes("all") && state.units.length > 1) state.units = ["all"]; renderDashboard(); });
   els.unitTypeFilter.addEventListener("change", (event) => { state.unitType = event.target.value; renderDashboard(); });
+  els.categoryFilter.addEventListener("change", (event) => { state.category = event.target.value; renderDashboard(); });
   els.tableSearch.addEventListener("input", (event) => { state.search = event.target.value.trim(); renderDashboard(); });
   els.expenseSort.addEventListener("change", (event) => { state.expenseSort = event.target.value; renderDashboard(); });
   els.payrollSort.addEventListener("change", (event) => { state.payrollSort = event.target.value; renderDashboard(); });

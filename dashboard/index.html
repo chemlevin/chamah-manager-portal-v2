@@ -55,8 +55,8 @@
       </section>
 
       <section class="filter-bar management-filter-bar control-filter-bar" aria-label="מסנני לוח הניהול">
-        <label><span>חודש</span><select id="month-filter"></select></label>
-        <label><span>מעון או מחלקה</span><select id="unit-filter"></select></label>
+        <label><span>חודש / תקופה</span><select id="month-filter" multiple size="4"></select></label>
+        <label><span>מעון או מחלקה</span><select id="unit-filter" multiple size="4"></select></label>
         <label><span>סוג יחידה</span><select id="unit-type-filter"></select></label>
       </section>
 
@@ -75,7 +75,7 @@
         <div class="section-title-row compact-title-row">
           <div>
             <p class="eyebrow">פעולה לפני פירוט</p>
-            <h2 id="action-title">פעולות הבוקר</h2>
+            <h2 id="action-title">איפה צריך להתערב</h2>
           </div>
           <span class="section-chip" id="action-count-label">נטען</span>
         </div>
@@ -84,15 +84,37 @@
         </div>
       </section>
 
+      <section class="dashboard-section financial-exceptions-section" aria-labelledby="financial-exceptions-title">
+        <div class="section-title-row compact-title-row">
+          <div>
+            <p class="eyebrow">ניצול תקציב</p>
+            <h2 id="financial-exceptions-title">חריגות תקציב וכספים</h2>
+          </div>
+          <span class="section-chip" id="financial-exception-count-label">נטען</span>
+        </div>
+        <div class="financial-exception-grid" id="financial-exception-grid"></div>
+      </section>
+
       <section class="dashboard-section unit-section" aria-labelledby="units-title">
         <div class="section-title-row compact-title-row">
           <div>
             <p class="eyebrow">מעונות בפעולה</p>
-            <h2 id="units-title">איפה צריך להתערב</h2>
+            <h2 id="units-title">מעונות ומחלקות</h2>
           </div>
           <span id="unit-count-label" class="section-chip"></span>
         </div>
         <div class="daycare-card-grid management-unit-grid" id="unit-card-grid"></div>
+      </section>
+
+      <section class="dashboard-section budget-explorer-section" aria-labelledby="budget-explorer-title">
+        <div class="section-title-row compact-title-row">
+          <div>
+            <p class="eyebrow">פירוט תקציבי</p>
+            <h2 id="budget-explorer-title">בדיקת סעיף תקציב</h2>
+          </div>
+          <label class="category-filter"><span>סעיף</span><select id="category-filter"></select></label>
+        </div>
+        <div class="budget-explorer-grid" id="budget-explorer-grid"></div>
       </section>
 
       <section class="dashboard-section issues-section" aria-labelledby="issues-title">

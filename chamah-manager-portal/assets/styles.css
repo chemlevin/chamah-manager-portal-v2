@@ -4854,3 +4854,179 @@ details.employee-detail-section > div {
     flex-direction: column;
   }
 }
+
+/* Management dashboard phase 3: work controls and budget utilization */
+.management-dashboard-v2 .control-filter-bar {
+  grid-template-columns: 1.15fr 1.15fr .7fr;
+  align-items: stretch;
+}
+
+.management-dashboard-v2 .control-filter-bar select[multiple] {
+  min-height: 112px;
+  padding: 8px;
+}
+
+.management-dashboard-v2 .control-filter-bar select[multiple] option {
+  min-height: 28px;
+  padding: 5px 8px;
+  border-radius: 6px;
+}
+
+.financial-exceptions-section,
+.budget-explorer-section {
+  display: grid;
+  gap: 14px;
+}
+
+.financial-exception-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.financial-exception-card {
+  min-height: 194px;
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 12px 28px rgba(47, 65, 61, .08);
+}
+
+.financial-exception-card > div {
+  display: grid;
+  gap: 5px;
+}
+
+.financial-exception-card span,
+.budget-breakdown-row span,
+.category-filter span {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.financial-exception-card strong {
+  color: var(--ink);
+  font-size: 1.3rem;
+}
+
+.financial-exception-card dl {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.financial-exception-card dl div {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid rgba(223, 229, 225, .86);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .76);
+}
+
+.financial-exception-card dt {
+  color: var(--muted);
+  font-size: .84rem;
+  font-weight: 900;
+}
+
+.financial-exception-card dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.05rem;
+  font-weight: 950;
+}
+
+.financial-exception-card small {
+  color: var(--muted);
+  font-weight: 850;
+}
+
+.financial-exception-card.attention-exception {
+  border-color: rgba(173, 73, 63, .42);
+  background: linear-gradient(180deg, rgba(255, 238, 235, .96), rgba(255, 255, 255, .94));
+}
+
+.financial-exception-card.expense-exception {
+  border-color: rgba(209, 149, 47, .42);
+  background: linear-gradient(180deg, rgba(255, 248, 232, .96), rgba(255, 255, 255, .94));
+}
+
+.category-filter {
+  min-width: 240px;
+  display: grid;
+  gap: 7px;
+}
+
+.budget-explorer-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, .72fr);
+  gap: 14px;
+}
+
+.budget-utilization-summary,
+.budget-breakdown-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.budget-utilization-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.budget-utilization-kpis .management-kpi {
+  min-height: 148px;
+}
+
+.budget-breakdown-list {
+  display: grid;
+  gap: 8px;
+}
+
+.budget-breakdown-row {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 12px;
+  border: 1px solid rgba(223, 229, 225, .9);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .88);
+}
+
+.budget-breakdown-row strong {
+  color: var(--ink);
+}
+
+@media (max-width: 1240px) {
+  .financial-exception-grid,
+  .budget-explorer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 840px) {
+  .management-dashboard-v2 .control-filter-bar,
+  .financial-exception-grid,
+  .budget-explorer-grid,
+  .budget-utilization-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .category-filter {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .budget-breakdown-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+}
