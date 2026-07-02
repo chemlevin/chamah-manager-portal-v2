@@ -18,6 +18,10 @@
       "use": "@vercel/node"
     },
     {
+      "src": "api/allocations.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
@@ -41,6 +45,10 @@
     {
       "src": "/api/payroll",
       "dest": "/api/payroll.js"
+    },
+    {
+      "src": "/api/allocations",
+      "dest": "/api/allocations.js"
     },
     {
       "handle": "filesystem"

@@ -9,6 +9,10 @@ function daycareMonthKey(daycare, month) {
   return [cleanRuleValue(daycare), cleanRuleValue(month)].join(DAYCARE_MONTH_KEY_SEPARATOR);
 }
 
+function unitMonthKey(unit, month) {
+  return [cleanRuleValue(unit), cleanRuleValue(month)].join(DAYCARE_MONTH_KEY_SEPARATOR);
+}
+
 const BUSINESS_RULES = Object.freeze({
   budgetGrain: Object.freeze({
     name: 'Budget grain',
@@ -42,6 +46,22 @@ const BUSINESS_RULES = Object.freeze({
     editability: 'Configurable later; fixed in UI now',
     riskLevel: 'High',
   }),
+  allocationsGrain: Object.freeze({
+    name: 'Allocations grain',
+    value: 'organizational unit + business month',
+    description: 'Allocated bank movements are grouped by organizational unit and business allocation month.',
+    affectedModules: Object.freeze(['BANKS', 'TRANSACTIONS', 'Dashboard', 'Reports', 'Comparison']),
+    editability: 'Fixed business rule',
+    riskLevel: 'High',
+  }),
+  unitMonthKey: Object.freeze({
+    name: 'Unit-month merge key',
+    value: 'unit|month',
+    description: 'Shared merge key for organizational-unit month data sets.',
+    affectedModules: Object.freeze(['BANKS', 'TRANSACTIONS', 'Dashboard', 'Reports', 'Comparison']),
+    editability: 'Fixed integration contract',
+    riskLevel: 'Medium',
+  }),
 });
 
 module.exports = {
@@ -51,4 +71,5 @@ module.exports = {
   averageEmployeeMonthlyHours: DEFAULT_AVERAGE_EMPLOYEE_MONTHLY_HOURS,
   cleanRuleValue,
   daycareMonthKey,
+  unitMonthKey,
 };

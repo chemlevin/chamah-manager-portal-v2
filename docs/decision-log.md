@@ -29,3 +29,27 @@ Future options:
 - Generate `rules/rules.json` from `config/business-rules.js`.
 - Add validation around editable rules before any UI editing is allowed.
 - Centralize more aliases only when shared by multiple modules.
+
+
+## 2026-07-02 - Add organizational units and allocations foundation
+
+Decision: introduce organizational units and treat BANKS as an allocation ledger.
+
+Reason:
+
+- Bank rows may be split across multiple business allocation targets.
+- The same ?????? can appear more than once and must not be deduplicated.
+- Reporting needs business allocation month and organizational unit, not only raw cash date.
+
+Implemented now:
+
+- Added `config/organizational-units.js` with unit types and current examples.
+- Added `unitMonthKey(unit, month)` to the shared business rules layer.
+- Added `api/allocations-engine.js` and `api/allocations.js`.
+- Added focused allocation tests.
+
+Constraints:
+
+- Unit examples are metadata only and are not used to restrict parser output.
+- Budget and Payroll behavior remain unchanged.
+- Final profit/loss is intentionally not calculated in this layer.

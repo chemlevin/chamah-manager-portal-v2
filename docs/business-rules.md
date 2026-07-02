@@ -61,3 +61,18 @@ Current Google Sheets data is test data only. It may validate parsing, grouping,
 The `/rules` page is read-only and administrator-facing. It documents current rules from `rules.json`.
 
 The runtime source of shared engine rules is `config/business-rules.js`. Future work may generate the UI data from the central module or move both behind a controlled rules service.
+
+
+## Allocations ledger
+
+BANKS is treated as an allocation ledger. Each row is an allocation row, not necessarily a unique bank transaction.
+
+The same ?????? may appear multiple times and must not be deduplicated.
+
+Allocation reporting grain is:
+
+`organizational unit + business month`
+
+The shared helper is `unitMonthKey(unit, month)`, which returns `unit|month`.
+
+Do not calculate final profit/loss in the allocations layer. It prepares allocated cash movement totals for later comparison and reporting.
