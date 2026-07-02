@@ -204,6 +204,54 @@
         </div>
       </section>
     </main>
+    <div class="explain-overlay" id="explain-overlay" hidden>
+      <section class="explain-modal" role="dialog" aria-modal="true" aria-labelledby="explain-title">
+        <button class="explain-close" type="button" data-close-explain aria-label="סגור">×</button>
+        <p class="eyebrow">הסבר מספר</p>
+        <h2 id="explain-title"></h2>
+        <dl class="explain-summary-grid">
+          <div><dt>ערך מוצג</dt><dd id="explain-value"></dd></div>
+          <div><dt>טווח</dt><dd id="explain-scope"></dd></div>
+          <div><dt>מקור</dt><dd id="explain-source"></dd></div>
+          <div><dt>סך לבדיקה</dt><dd id="explain-total"></dd></div>
+        </dl>
+        <div class="explain-rule">
+          <h3>כלל חישוב</h3>
+          <p id="explain-rule"></p>
+        </div>
+        <div class="explain-rule">
+          <h3>סיכום</h3>
+          <p id="explain-text"></p>
+        </div>
+        <div class="explain-actions">
+          <button class="secondary-button compact-action" type="button" id="show-source-rows">שורות מקור</button>
+          <button class="secondary-button compact-action" type="button" id="copy-explain-summary">העתק סיכום</button>
+          <button class="print-button compact-action" type="button" id="export-explain-csv">יצוא CSV</button>
+          <button class="primary-button compact-action" type="button" data-close-explain>סגור</button>
+        </div>
+      </section>
+    </div>
+
+    <aside class="source-drawer" id="source-drawer" hidden aria-labelledby="source-drawer-title">
+      <div class="source-drawer-head">
+        <div>
+          <p class="eyebrow">שורות מקור</p>
+          <h2 id="source-drawer-title"></h2>
+          <small id="source-drawer-meta"></small>
+        </div>
+        <button class="explain-close" type="button" data-close-source aria-label="סגור">×</button>
+      </div>
+      <div class="source-drawer-actions">
+        <button class="secondary-button compact-action" type="button" id="copy-source-table">העתק טבלה</button>
+        <button class="print-button compact-action" type="button" id="export-source-csv">יצוא CSV</button>
+      </div>
+      <div class="source-table-wrap">
+        <table class="source-table">
+          <thead id="source-table-head"></thead>
+          <tbody id="source-table-body"></tbody>
+        </table>
+      </div>
+    </aside>
     <script src="script.js"></script>
     <script src="../assets/navigation.js"></script>
   </body>
