@@ -28,6 +28,10 @@ const dashboardData = { budgetGroups: [], payrollGroups: [], payrollRows: [], al
 const els = {
   monthFilter: document.querySelector("#month-filter"),
   unitFilter: document.querySelector("#unit-filter"),
+  monthPillList: document.querySelector("#month-pill-list"),
+  unitPillList: document.querySelector("#unit-pill-list"),
+  monthFilterSummary: document.querySelector("#month-filter-summary"),
+  unitFilterSummary: document.querySelector("#unit-filter-summary"),
   unitTypeFilter: document.querySelector("#unit-type-filter"),
   selectedMonthLabel: document.querySelector("#selected-month-label"),
   overallStatusLabel: document.querySelector("#overall-status-label"),
@@ -319,6 +323,24 @@ function selectedValues(select) {
   return values.length ? values : ["all"];
 }
 
+function toggleSelection(values, value) {
+  if (value === "all") return ["all"];
+  const current = values.includes("all") ? [] : [...values];
+  const next = current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
+  return next.length ? next : ["all"];
+}
+
+function filterPill(value, label, selected, group) {
+  return '<button class="filter-pill' + (selected ? ' selected' : '') + '" type="button" data-filter-group="' + group + '" data-value="' + escapeHtml(value) + '" aria-pressed="' + (selected ? 'true' : 'false') + '">' + escapeHtml(label) + '</button>';
+}
+
+function renderFilterPills(months, units) {
+  els.monthFilterSummary.textContent = selectedMonthsLabel();
+  els.unitFilterSummary.textContent = selectedUnitsLabel();
+  els.monthPillList.innerHTML = filterPill("all", "כל החודשים", state.months.includes("all"), "months") + months.map((month) => filterPill(month, month, state.months.includes(month), "months")).join("");
+  els.unitPillList.innerHTML = filterPill("all", "כל היחידות", state.units.includes("all"), "units") + units.map((unit) => filterPill(unit, unit, state.units.includes(unit), "units")).join("");
+}
+
 function unitType(unit, data) {
   const inBudgetOrPayroll = data.budgetGroups.some((row) => row.unit === unit) || data.payrollGroups.some((row) => row.unit === unit);
   return inBudgetOrPayroll ? "daycare" : "other";
@@ -487,6 +509,7 @@ function renderFilterOptions() {
   els.unitTypeFilter.value = state.unitType;
   els.categoryFilter.innerHTML = option("all", "כל הסעיפים") + categories.map((category) => option(category, category)).join("");
   els.categoryFilter.value = state.category;
+  renderFilterPills(months, units);
 }
 
 function kpiCard(label, value, sub, tone = "secondary") {
@@ -908,6 +931,7 @@ function renderBudgetExplorer(data) {
 }
 
 function renderDashboard() {
+  renderFilterOptions();
   const data = filteredData();
   const unitRows = buildUnitRows(data);
   const issues = buildIssues(data, unitRows);
@@ -981,6 +1005,18 @@ async function loadDashboardData() {
 function bindEvents() {
   els.monthFilter.addEventListener("change", (event) => { state.months = selectedValues(event.target); if (state.months.includes("all") && state.months.length > 1) state.months = ["all"]; renderDashboard(); });
   els.unitFilter.addEventListener("change", (event) => { state.units = selectedValues(event.target); if (state.units.includes("all") && state.units.length > 1) state.units = ["all"]; renderDashboard(); });
+  els.monthPillList.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-filter-group]");
+    if (!button) return;
+    state.months = toggleSelection(state.months, button.dataset.value);
+    renderDashboard();
+  });
+  els.unitPillList.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-filter-group]");
+    if (!button) return;
+    state.units = toggleSelection(state.units, button.dataset.value);
+    renderDashboard();
+  });
   els.unitTypeFilter.addEventListener("change", (event) => { state.unitType = event.target.value; renderDashboard(); });
   els.categoryFilter.addEventListener("change", (event) => { state.category = event.target.value; renderDashboard(); });
   els.tableSearch.addEventListener("input", (event) => { state.search = event.target.value.trim(); renderDashboard(); });

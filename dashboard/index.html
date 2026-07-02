@@ -55,8 +55,16 @@
       </section>
 
       <section class="filter-bar management-filter-bar control-filter-bar" aria-label="מסנני לוח הניהול">
-        <label><span>חודש / תקופה</span><select id="month-filter" multiple size="4"></select></label>
-        <label><span>מעון או מחלקה</span><select id="unit-filter" multiple size="4"></select></label>
+        <div class="pill-filter-group">
+          <div class="filter-group-head"><span>חודש / תקופה</span><small id="month-filter-summary">כל החודשים</small></div>
+          <div class="filter-pill-list" id="month-pill-list"></div>
+          <select class="sr-only-select" id="month-filter" multiple aria-label="חודש / תקופה"></select>
+        </div>
+        <div class="pill-filter-group">
+          <div class="filter-group-head"><span>מעון או מחלקה</span><small id="unit-filter-summary">כל היחידות</small></div>
+          <div class="filter-pill-list" id="unit-pill-list"></div>
+          <select class="sr-only-select" id="unit-filter" multiple aria-label="מעון או מחלקה"></select>
+        </div>
         <label><span>סוג יחידה</span><select id="unit-type-filter"></select></label>
       </section>
 
