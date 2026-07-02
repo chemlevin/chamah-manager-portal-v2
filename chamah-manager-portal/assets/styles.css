@@ -3869,3 +3869,362 @@ details.employee-detail-section > div {
     padding: 10px;
   }
 }
+
+/* First real management dashboard */
+.management-dashboard {
+  width: min(1360px, 100%);
+  gap: 16px;
+}
+
+.management-dashboard .management-hero {
+  align-items: center;
+  min-height: 172px;
+  border-color: rgba(68, 118, 108, .22);
+  background: linear-gradient(180deg, rgba(248, 251, 249, .96), rgba(255, 255, 255, .92));
+}
+
+.management-dashboard .management-hero h1 {
+  max-width: 760px;
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  letter-spacing: 0;
+}
+
+.management-dashboard .management-hero .subtitle {
+  max-width: 780px;
+  color: var(--muted);
+}
+
+.management-status-card {
+  display: grid;
+  gap: 8px;
+  min-width: 230px;
+}
+
+.management-status-card small {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.status-pill,
+.management-status-card strong.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  width: fit-content;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 1rem;
+  font-weight: 950;
+}
+
+.status-pill.green { color: #245a48; background: rgba(219, 240, 229, .94); }
+.status-pill.yellow { color: #805c22; background: rgba(255, 244, 214, .96); }
+.status-pill.red { color: #963f35; background: rgba(255, 233, 229, .96); }
+
+.management-filter-bar {
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+}
+
+.management-status-grid,
+.management-summary-grid,
+.management-comparison-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.management-status-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.management-summary-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.management-comparison-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.management-dashboard .cashflow-kpi {
+  min-height: 122px;
+}
+
+.management-dashboard .cashflow-kpi strong {
+  font-size: clamp(1.55rem, 2.4vw, 2.45rem);
+}
+
+.comparison-card {
+  min-height: 126px;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  border-color: rgba(68, 118, 108, .2);
+}
+
+.comparison-card span {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.comparison-card strong {
+  color: var(--brand-dark);
+  font-size: clamp(1.7rem, 3vw, 2.45rem);
+  line-height: 1;
+}
+
+.comparison-card p {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 850;
+}
+
+.management-unit-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.management-unit-card.status-green {
+  border-color: rgba(68, 118, 108, .22);
+}
+
+.management-unit-card.status-yellow {
+  border-color: rgba(224, 174, 92, .38);
+  background: rgba(255, 248, 232, .86);
+}
+
+.management-unit-card.status-red {
+  border-color: rgba(173, 73, 63, .34);
+  background: rgba(255, 238, 235, .9);
+}
+
+.management-unit-card .daycare-card-head > strong {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .9);
+}
+
+.management-issues-layout {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.issue-panel {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.issue-list {
+  display: grid;
+  gap: 9px;
+}
+
+.issue-row {
+  min-height: 86px;
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .88);
+}
+
+.issue-row span {
+  width: fit-content;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: .78rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.issue-row strong {
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.issue-row p {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.issue-row.severity-green span { color: #245a48; background: rgba(219, 240, 229, .94); }
+.issue-row.severity-yellow span { color: #805c22; background: rgba(255, 244, 214, .96); }
+.issue-row.severity-red span { color: #963f35; background: rgba(255, 233, 229, .96); }
+.issue-row.severity-yellow { border-color: rgba(224, 174, 92, .3); }
+.issue-row.severity-red { border-color: rgba(173, 73, 63, .3); }
+
+.management-insight-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.management-detail-section .data-table-grid {
+  grid-template-columns: 1.1fr .9fr;
+}
+
+@media (max-width: 1180px) {
+  .management-status-grid,
+  .management-summary-grid,
+  .management-unit-grid,
+  .management-insight-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .management-issues-layout,
+  .management-comparison-grid,
+  .management-detail-section .data-table-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .management-dashboard {
+    padding: 10px;
+  }
+  .management-dashboard .management-hero,
+  .management-filter-bar,
+  .management-status-grid,
+  .management-summary-grid,
+  .management-unit-grid,
+  .management-insight-grid {
+    grid-template-columns: 1fr;
+  }
+  .management-dashboard .management-hero h1 {
+    font-size: clamp(1.65rem, 8vw, 2.25rem);
+  }
+  .management-dashboard .cashflow-kpi,
+  .comparison-card {
+    min-height: 104px;
+  }
+}
+
+/* Management gap layer */
+.management-freshness-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.management-quality-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.management-daycare-comparison-grid,
+.action-list {
+  display: grid;
+  gap: 12px;
+}
+
+.management-daycare-comparison-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.daycare-comparison-card {
+  display: grid;
+  gap: 12px;
+}
+
+.comparison-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.comparison-tile {
+  min-height: 96px;
+  display: grid;
+  gap: 6px;
+  align-content: center;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .9);
+}
+
+.comparison-tile span,
+.comparison-tile small {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.comparison-tile strong {
+  color: var(--brand-dark);
+  font-size: 1.35rem;
+}
+
+.comparison-tile.severity-green { border-color: rgba(68, 118, 108, .24); background: rgba(239, 248, 244, .9); }
+.comparison-tile.severity-yellow { border-color: rgba(224, 174, 92, .34); background: rgba(255, 248, 232, .92); }
+.comparison-tile.severity-red { border-color: rgba(173, 73, 63, .34); background: rgba(255, 238, 235, .94); }
+
+.action-center-panel {
+  padding: 14px;
+}
+
+.action-row {
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .9);
+}
+
+.action-row span {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: .78rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.action-row strong {
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.action-row p {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 850;
+  text-align: end;
+}
+
+.action-row.severity-green span { color: #245a48; background: rgba(219, 240, 229, .94); }
+.action-row.severity-yellow span { color: #805c22; background: rgba(255, 244, 214, .96); }
+.action-row.severity-red span { color: #963f35; background: rgba(255, 233, 229, .96); }
+.action-row.severity-yellow { border-color: rgba(224, 174, 92, .32); }
+.action-row.severity-red { border-color: rgba(173, 73, 63, .32); }
+
+@media (max-width: 1180px) {
+  .management-freshness-grid,
+  .management-quality-grid,
+  .management-daycare-comparison-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .comparison-tile-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .management-freshness-grid,
+  .management-quality-grid,
+  .management-daycare-comparison-grid,
+  .action-row {
+    grid-template-columns: 1fr;
+  }
+  .action-row p {
+    text-align: start;
+  }
+}

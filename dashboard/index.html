@@ -1,157 +1,201 @@
-<!doctype html>
-<html lang="he" dir="rtl">
+﻿<!doctype html>
+<html lang="en" dir="ltr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>דשבורד תזרים - פורטל מנהלות חמ״ה</title>
+    <title>Management Dashboard - Chamah Manager Portal</title>
     <link rel="stylesheet" href="../assets/styles.css" />
   </head>
   <body>
-    <main class="portal-shell executive-dashboard ceo-dashboard cashflow-dashboard">
-      <header class="global-nav" aria-label="ניווט ראשי">
-        <a class="global-brand" href="../" aria-label="עמוד הבית של פורטל מנהלות חמ״ה">
-          <img src="../assets/chamah-logo.svg" alt="חמ״ה" />
-          <span>פורטל מנהלות חמ״ה</span>
+    <main class="portal-shell executive-dashboard management-dashboard">
+      <header class="global-nav" aria-label="Main navigation">
+        <a class="global-brand" href="../" aria-label="Chamah manager portal home">
+          <img src="../assets/chamah-logo.svg" alt="Chamah" />
+          <span>Chamah Manager Portal</span>
         </a>
         <input class="nav-toggle" id="nav-toggle" type="checkbox" aria-hidden="true" />
-        <label class="hamburger-button" for="nav-toggle" aria-label="פתיחת תפריט" role="button"><span></span><span></span><span></span></label>
-        <nav class="desktop-nav" aria-label="ניווט עמודים">
-          <a class="global-nav-item " href="../"><span class="nav-icon" aria-hidden="true">🏠</span><span>בית</span></a>
-          <a class="global-nav-item " href="../calculators/"><span class="nav-icon" aria-hidden="true">🧮</span><span>מחשבונים</span></a>
-          <a class="global-nav-item " href="../employees/"><span class="nav-icon" aria-hidden="true">👥</span><span>צוות ורישוי</span></a>
-          <a class="global-nav-item current" href="../dashboard/"><span class="nav-icon" aria-hidden="true">📊</span><span>דשבורד</span></a>
-          <a class="global-nav-item " href="../maintenance/"><span class="nav-icon" aria-hidden="true">🔧</span><span>תחזוקה</span></a>
-          <a class="global-nav-item " href="../tasks/"><span class="nav-icon" aria-hidden="true">✅</span><span>משימות</span></a>
+        <label class="hamburger-button" for="nav-toggle" aria-label="Open menu" role="button"><span></span><span></span><span></span></label>
+        <nav class="desktop-nav" aria-label="Pages">
+          <a class="global-nav-item" href="../"><span>Home</span></a>
+          <a class="global-nav-item" href="../calculators/"><span>Calculators</span></a>
+          <a class="global-nav-item" href="../employees/"><span>Employees</span></a>
+          <a class="global-nav-item current" href="../dashboard/"><span>Dashboard</span></a>
+          <a class="global-nav-item" href="../maintenance/"><span>Maintenance</span></a>
+          <a class="global-nav-item" href="../tasks/"><span>Tasks</span></a>
         </nav>
         <label class="nav-backdrop" for="nav-toggle" aria-hidden="true"></label>
-        <aside class="mobile-drawer" aria-label="תפריט מובייל">
+        <aside class="mobile-drawer" aria-label="Mobile menu">
           <div class="drawer-brand">
-            <img src="../assets/chamah-logo.svg" alt="חמ״ה" />
-            <strong>פורטל מנהלות חמ״ה</strong>
+            <img src="../assets/chamah-logo.svg" alt="Chamah" />
+            <strong>Chamah Manager Portal</strong>
           </div>
-          <nav class="mobile-drawer-nav" aria-label="ניווט מובייל">
-          <a class="global-nav-item " href="../"><span class="nav-icon" aria-hidden="true">🏠</span><span>בית</span></a>
-          <a class="global-nav-item " href="../calculators/"><span class="nav-icon" aria-hidden="true">🧮</span><span>מחשבונים</span></a>
-          <a class="global-nav-item " href="../employees/"><span class="nav-icon" aria-hidden="true">👥</span><span>צוות ורישוי</span></a>
-          <a class="global-nav-item current" href="../dashboard/"><span class="nav-icon" aria-hidden="true">📊</span><span>דשבורד</span></a>
-          <a class="global-nav-item " href="../maintenance/"><span class="nav-icon" aria-hidden="true">🔧</span><span>תחזוקה</span></a>
-          <a class="global-nav-item " href="../tasks/"><span class="nav-icon" aria-hidden="true">✅</span><span>משימות</span></a>
+          <nav class="mobile-drawer-nav" aria-label="Mobile pages">
+            <a class="global-nav-item" href="../"><span>Home</span></a>
+            <a class="global-nav-item" href="../calculators/"><span>Calculators</span></a>
+            <a class="global-nav-item" href="../employees/"><span>Employees</span></a>
+            <a class="global-nav-item current" href="../dashboard/"><span>Dashboard</span></a>
+            <a class="global-nav-item" href="../maintenance/"><span>Maintenance</span></a>
+            <a class="global-nav-item" href="../tasks/"><span>Tasks</span></a>
           </nav>
-          <small class="drawer-version">גרסה 1.0</small>
+          <small class="drawer-version">Version 1.0</small>
         </aside>
       </header>
 
-      <section class="dashboard-hero compact-hero cashflow-hero" aria-labelledby="dashboard-title">
+      <section class="dashboard-hero management-hero" aria-labelledby="dashboard-title">
         <div>
-          <p class="eyebrow">דשבורד מנכ״ל</p>
-          <h1 id="dashboard-title">כמה נכנס, כמה יצא, ומה היתרה?</h1>
-          <p class="subtitle">נתונים לדוגמה עד חיבור Google Sheets. תמונת תזרים חודשית בראש, עם פירוט מעונות, שכר, הוצאות ואיכות נתונים להמשך בדיקה.</p>
+          <p class="eyebrow">Management control center</p>
+          <h1 id="dashboard-title">Organization health in one screen</h1>
+          <p class="subtitle">A quick management view of operations, staffing, financial movement and missing data. No final profit or loss is calculated here.</p>
         </div>
-        <div class="dashboard-period" aria-label="תקופה נבחרת">
-          <span>חודש נבחר</span>
-          <strong id="selected-month-label">כל החודשים</strong>
+        <div class="dashboard-period management-status-card" aria-label="Organization status">
+          <span>Overall status</span>
+          <strong id="overall-status-label">Loading</strong>
+          <small id="last-update-label">Last update: loading</small>
         </div>
       </section>
 
-      <section class="filter-bar" aria-label="מסננים כלליים">
-        <label><span>חודש</span><select id="month-filter"></select></label>
-        <label><span>מחלקה / מעון</span><select id="department-filter"></select></label>
-        <label><span>הגדרה</span><select id="category-filter"></select></label>
+      <section class="filter-bar management-filter-bar" aria-label="Dashboard filters">
+        <label><span>Month</span><select id="month-filter"></select></label>
+        <label><span>Organizational unit</span><select id="unit-filter"></select></label>
+        <label><span>Unit type</span><select id="unit-type-filter"></select></label>
       </section>
 
-      <section class="dashboard-section cashflow-summary" aria-labelledby="cashflow-title">
+      <section class="dashboard-section organization-status-section" aria-labelledby="status-title">
         <div class="section-title-row compact-title-row">
           <div>
-            <p class="eyebrow">תזרים חודשי</p>
-            <h2 id="cashflow-title">סיכום כניסות ויציאות</h2>
+            <p class="eyebrow">Section 1</p>
+            <h2 id="status-title">Organization status</h2>
           </div>
-          <span class="section-chip">תקציב לא הוגדר</span>
+          <span class="section-chip" id="selected-month-label">All months</span>
         </div>
-        <div class="kpi-grid cashflow-kpi-grid" id="cashflow-kpi-grid" aria-label="סיכום תזרים חודשי"></div>
+        <div class="management-status-grid" id="organization-status-grid"></div>
       </section>
 
-      <section class="dashboard-section daycare-overview" aria-labelledby="daycare-title">
+
+      <section class="dashboard-section data-freshness-section" aria-labelledby="freshness-title">
         <div class="section-title-row compact-title-row">
           <div>
-            <p class="eyebrow">מצב מעונות / מחלקות</p>
-            <h2 id="daycare-title">הכנסות, יציאות ויתרה לפי מעון</h2>
+            <p class="eyebrow">Management layer</p>
+            <h2 id="freshness-title">Data freshness</h2>
           </div>
-          <span id="daycare-count-label" class="section-chip"></span>
+          <span class="section-chip" id="freshness-status-chip">Loading</span>
         </div>
-        <div class="daycare-card-grid financial-status-grid" id="daycare-card-grid"></div>
+        <div class="management-status-grid management-freshness-grid" id="data-freshness-grid"></div>
       </section>
 
-      <section class="dashboard-section financial-section reduced-section" aria-labelledby="financial-title">
+      <section class="dashboard-section data-quality-section" aria-labelledby="quality-title">
         <div class="section-title-row compact-title-row">
           <div>
-            <p class="eyebrow">פירוק הוצאות</p>
-            <h2 id="financial-title">לפי מעון, הגדרה ופירוט</h2>
+            <p class="eyebrow">Management layer</p>
+            <h2 id="quality-title">Data quality</h2>
           </div>
-          <span id="expense-count-label" class="section-chip"></span>
+          <span class="section-chip" id="data-quality-status-chip">Loading</span>
         </div>
-        <div class="dashboard-panels">
-          <article class="dashboard-panel chart-panel"><div class="panel-heading"><h3>הוצאות לפי מעון</h3><span>₪</span></div><div class="bar-chart" id="department-expense-chart"></div></article>
-          <article class="dashboard-panel chart-panel"><div class="panel-heading"><h3>הוצאות לפי הגדרה</h3><span>₪</span></div><div class="bar-chart" id="category-expense-chart"></div></article>
-          <article class="dashboard-panel chart-panel"><div class="panel-heading"><h3>הוצאות לפי פירוט</h3><span>₪</span></div><div class="bar-chart" id="detail-expense-chart"></div></article>
-        </div>
+        <div class="kpi-grid management-quality-grid" id="data-quality-grid"></div>
       </section>
-
-      <section class="dashboard-section payroll-section reduced-section" aria-labelledby="payroll-title">
+      <section class="dashboard-section organization-summary-section" aria-labelledby="summary-title">
         <div class="section-title-row compact-title-row">
           <div>
-            <p class="eyebrow">ניתוח שכר</p>
-            <h2 id="payroll-title">שכר, שעות ועובדים</h2>
+            <p class="eyebrow">Section 2</p>
+            <h2 id="summary-title">Organization summary</h2>
           </div>
-          <span id="payroll-count-label" class="section-chip"></span>
+          <span class="section-chip muted-chip">No profit/loss calculation</span>
         </div>
-        <div class="dashboard-panels payroll-analysis-grid">
-          <article class="dashboard-panel chart-panel"><div class="panel-heading"><h3>שכר לפי מעון</h3><span>₪</span></div><div class="bar-chart" id="payroll-daycare-chart"></div></article>
-          <article class="dashboard-panel chart-panel"><div class="panel-heading"><h3>שכר לפי כיתה</h3><span>₪</span></div><div class="bar-chart" id="payroll-class-chart"></div></article>
-          <article class="dashboard-panel chart-panel"><div class="panel-heading"><h3>שעות לפי מעון</h3><span>שעות</span></div><div class="bar-chart metric-chart" id="hours-daycare-chart"></div></article>
-        </div>
+        <div class="kpi-grid management-summary-grid" id="organization-summary-grid"></div>
       </section>
 
-      <section class="dashboard-section executive-alert-section reduced-section" aria-labelledby="alerts-title">
+      <section class="dashboard-section operational-section" aria-labelledby="operations-title">
         <div class="section-title-row compact-title-row">
           <div>
-            <p class="eyebrow">תובנות הנהלה</p>
-            <h2 id="alerts-title">חריגות, מגמות וסעיפים בולטים</h2>
+            <p class="eyebrow">Section 3</p>
+            <h2 id="operations-title">Operational status</h2>
           </div>
-          <span class="section-chip muted-chip">ללא התראות תקציב</span>
+          <span class="section-chip" id="operational-status-chip">Loading</span>
         </div>
-        <div class="executive-alert-grid" id="executive-alert-grid"></div>
+        <div class="management-comparison-grid" id="operational-comparison-grid"></div>
       </section>
 
-      <section class="dashboard-section reduced-section" aria-labelledby="quality-title">
+
+      <section class="dashboard-section management-comparison-section" aria-labelledby="comparison-title">
         <div class="section-title-row compact-title-row">
           <div>
-            <p class="eyebrow">איכות נתונים</p>
-            <h2 id="quality-title">בדיקות שלמות נתונים</h2>
+            <p class="eyebrow">Management layer</p>
+            <h2 id="comparison-title">Daycare management comparisons</h2>
           </div>
+          <span class="section-chip" id="comparison-count-label">Loading</span>
         </div>
-        <div class="warning-grid" id="warning-grid"></div>
+        <div class="management-daycare-comparison-grid" id="daycare-comparison-grid"></div>
       </section>
 
-      <section class="dashboard-section tables-section reduced-section" aria-labelledby="tables-title">
+      <section class="dashboard-section action-center-section" aria-labelledby="action-title">
         <div class="section-title-row compact-title-row">
           <div>
-            <p class="eyebrow">טבלאות מפורטות</p>
-            <h2 id="tables-title">כספים ושכר</h2>
+            <p class="eyebrow">Management actionability</p>
+            <h2 id="action-title">Action Center</h2>
+          </div>
+          <span class="section-chip" id="action-count-label">Loading</span>
+        </div>
+        <div class="dashboard-panel action-center-panel">
+          <div class="action-list" id="action-list"></div>
+        </div>
+      </section>
+      <section class="dashboard-section unit-section" aria-labelledby="units-title">
+        <div class="section-title-row compact-title-row">
+          <div>
+            <p class="eyebrow">Section 4</p>
+            <h2 id="units-title">Units needing attention</h2>
+          </div>
+          <span id="unit-count-label" class="section-chip"></span>
+        </div>
+        <div class="daycare-card-grid management-unit-grid" id="unit-card-grid"></div>
+      </section>
+
+      <section class="dashboard-section issues-section" aria-labelledby="issues-title">
+        <div class="section-title-row compact-title-row">
+          <div>
+            <p class="eyebrow">Section 5</p>
+            <h2 id="issues-title">Issue details</h2>
+          </div>
+          <span id="issue-count-label" class="section-chip"></span>
+        </div>
+        <div class="management-issues-layout">
+          <article class="dashboard-panel issue-panel"><div class="panel-heading"><h3>Data issues</h3><span id="data-issue-count"></span></div><div class="issue-list" id="data-issue-list"></div></article>
+          <article class="dashboard-panel issue-panel"><div class="panel-heading"><h3>Operational issues</h3><span id="operational-issue-count"></span></div><div class="issue-list" id="operational-issue-list"></div></article>
+          <article class="dashboard-panel issue-panel"><div class="panel-heading"><h3>Financial issues</h3><span id="financial-issue-count"></span></div><div class="issue-list" id="financial-issue-list"></div></article>
+        </div>
+      </section>
+
+      <section class="dashboard-section insights-section" aria-labelledby="insights-title">
+        <div class="section-title-row compact-title-row">
+          <div>
+            <p class="eyebrow">Section 6</p>
+            <h2 id="insights-title">Insights</h2>
+          </div>
+          <span class="section-chip muted-chip">Rules can evolve</span>
+        </div>
+        <div class="executive-alert-grid management-insight-grid" id="insight-grid"></div>
+      </section>
+
+      <section class="dashboard-section management-detail-section" aria-labelledby="details-title">
+        <div class="section-title-row compact-title-row">
+          <div>
+            <p class="eyebrow">Management drilldown</p>
+            <h2 id="details-title">Supporting details</h2>
           </div>
         </div>
         <div class="table-tools">
-          <label><span>חיפוש</span><input id="table-search" type="search" placeholder="חיפוש לפי עובד, פירוט, מעון או הגדרה" /></label>
-          <label><span>מיון כספים</span><select id="expense-sort"><option value="amount-desc">סכום גבוה לנמוך</option><option value="amount-asc">סכום נמוך לגבוה</option><option value="month-desc">חודש אחרון</option></select></label>
-          <label><span>מיון שכר</span><select id="payroll-sort"><option value="cost-desc">עלות גבוהה לנמוך</option><option value="cost-asc">עלות נמוכה לגבוה</option><option value="hours-desc">שעות גבוה לנמוך</option></select></label>
+          <label><span>Search</span><input id="table-search" type="search" placeholder="Search unit, month, employee or issue" /></label>
+          <label><span>Financial sort</span><select id="expense-sort"><option value="amount-desc">Amount high to low</option><option value="amount-asc">Amount low to high</option><option value="month-desc">Latest month</option></select></label>
+          <label><span>Payroll sort</span><select id="payroll-sort"><option value="cost-desc">Cost high to low</option><option value="cost-asc">Cost low to high</option><option value="hours-desc">Hours high to low</option></select></label>
         </div>
         <div class="data-table-grid">
           <article class="dashboard-panel data-table-panel">
-            <div class="panel-heading"><h3>כספים</h3><span id="financial-table-count"></span></div>
-            <div class="dashboard-table-wrap"><table class="dashboard-table"><thead><tr><th>סוג</th><th>סכום</th><th>הגדרה</th><th>מחלקה / מעון</th><th>חודש</th><th>פירוט</th></tr></thead><tbody id="financial-table-body"></tbody></table></div>
+            <div class="panel-heading"><h3>Bank movements</h3><span id="financial-table-count"></span></div>
+            <div class="dashboard-table-wrap"><table class="dashboard-table"><thead><tr><th>Type</th><th>Amount</th><th>Definition</th><th>Unit</th><th>Month</th><th>Details</th></tr></thead><tbody id="financial-table-body"></tbody></table></div>
           </article>
           <article class="dashboard-panel data-table-panel">
-            <div class="panel-heading"><h3>שכר</h3><span id="payroll-table-count"></span></div>
-            <div class="dashboard-table-wrap"><table class="dashboard-table"><thead><tr><th>עובד</th><th>מעון</th><th>כיתה</th><th>שעות</th><th>עלות</th></tr></thead><tbody id="payroll-table-body"></tbody></table></div>
+            <div class="panel-heading"><h3>Payroll rows</h3><span id="payroll-table-count"></span></div>
+            <div class="dashboard-table-wrap"><table class="dashboard-table"><thead><tr><th>Employee</th><th>Unit</th><th>Class</th><th>Hours</th><th>Cost</th></tr></thead><tbody id="payroll-table-body"></tbody></table></div>
           </article>
         </div>
       </section>
@@ -160,3 +204,4 @@
     <script src="../assets/navigation.js"></script>
   </body>
 </html>
+
