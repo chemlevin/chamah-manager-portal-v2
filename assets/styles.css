@@ -4206,6 +4206,259 @@ details.employee-detail-section > div {
 .action-row.severity-yellow { border-color: rgba(224, 174, 92, .32); }
 .action-row.severity-red { border-color: rgba(173, 73, 63, .32); }
 
+.dashboard-table tr.excluded-row td {
+  color: var(--muted);
+  background: rgba(246, 248, 247, .84);
+}
+
+.dashboard-table tr.excluded-row td:first-child {
+  color: #805c22;
+  font-weight: 900;
+}
+
+/* Dashboard UX pass */
+.management-dashboard {
+  gap: 18px;
+}
+
+.management-dashboard .dashboard-section {
+  display: grid;
+  gap: 12px;
+}
+
+.management-dashboard .management-hero {
+  min-height: 190px;
+  padding: 34px 38px;
+  border-color: rgba(68, 118, 108, .3);
+  box-shadow: 0 26px 70px rgba(47, 65, 61, .14);
+}
+
+.management-dashboard .management-hero h1 {
+  max-width: 900px;
+  font-size: clamp(2.35rem, 4.6vw, 3.75rem);
+}
+
+.management-dashboard .management-hero .subtitle {
+  max-width: 900px;
+  font-size: 1.08rem;
+  font-weight: 760;
+}
+
+.management-status-card {
+  min-width: 250px;
+  padding: 18px 20px;
+}
+
+.status-pill,
+.management-status-card strong.status-pill {
+  min-height: 46px;
+  padding-inline: 18px;
+  font-size: 1.08rem;
+}
+
+.management-status-grid {
+  grid-template-columns: 1.2fr 1.1fr repeat(3, minmax(0, .9fr));
+}
+
+.management-summary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.management-quality-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.management-dashboard .management-kpi {
+  min-height: 148px;
+  padding: 20px;
+  align-items: center;
+  border-width: 1.5px;
+}
+
+.management-dashboard .management-kpi strong {
+  font-size: clamp(1.7rem, 2.7vw, 2.6rem);
+  line-height: 1.04;
+}
+
+.management-dashboard .management-status-grid .management-kpi:first-child,
+.management-dashboard .management-status-grid .management-kpi:nth-child(4),
+.management-dashboard .management-summary-grid .management-kpi:first-child,
+.management-dashboard .management-summary-grid .management-kpi:nth-child(3) {
+  min-height: 168px;
+}
+
+.management-dashboard .attention-kpi,
+.management-dashboard .expense-kpi {
+  border-color: rgba(173, 73, 63, .32);
+  background: linear-gradient(180deg, rgba(255, 238, 235, .97), rgba(255, 255, 255, .93));
+}
+
+.management-dashboard .attention-kpi strong,
+.management-dashboard .expense-kpi strong {
+  color: #963f35;
+}
+
+.management-dashboard .balance-kpi {
+  border-color: rgba(68, 118, 108, .28);
+  background: linear-gradient(180deg, rgba(229, 240, 236, .9), rgba(255, 255, 255, .94));
+}
+
+.management-dashboard .balance-kpi strong,
+.management-dashboard .income-kpi strong {
+  color: var(--brand-dark);
+}
+
+.priority-section {
+  margin-top: 4px;
+}
+
+.action-center-panel {
+  border-color: rgba(68, 118, 108, .22);
+  background: linear-gradient(180deg, rgba(248, 251, 249, .98), rgba(255, 255, 255, .94));
+}
+
+.action-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.action-row {
+  min-height: 94px;
+  grid-template-columns: auto minmax(0, 1fr) minmax(130px, auto);
+  border-width: 1.5px;
+  box-shadow: 0 12px 28px rgba(47, 65, 61, .08);
+}
+
+.action-row strong {
+  font-size: 1.08rem;
+}
+
+.action-row p {
+  display: grid;
+  gap: 4px;
+}
+
+.action-row p b {
+  color: var(--ink);
+  font-size: .95rem;
+}
+
+.action-row p small {
+  color: var(--muted);
+  font-weight: 850;
+}
+
+.management-unit-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.management-unit-card {
+  position: relative;
+  overflow: hidden;
+  padding-top: 18px;
+  border-width: 1.5px;
+}
+
+.unit-status-ribbon {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  min-height: 8px;
+  color: transparent;
+  font-size: 0;
+}
+
+.management-unit-card.status-green .unit-status-ribbon { background: #44766c; }
+.management-unit-card.status-yellow .unit-status-ribbon { background: #d1952f; }
+.management-unit-card.status-red .unit-status-ribbon { background: #ad493f; }
+
+.management-unit-card.status-yellow,
+.management-unit-card.status-red {
+  box-shadow: 0 18px 42px rgba(47, 65, 61, .12);
+}
+
+.management-unit-card.status-red {
+  border-color: rgba(173, 73, 63, .48);
+}
+
+.management-unit-card.status-yellow {
+  border-color: rgba(209, 149, 47, .48);
+}
+
+.unit-primary-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 10px 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(246, 248, 247, .9);
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.unit-primary-line b {
+  color: var(--brand-dark);
+  font-size: .9rem;
+}
+
+.management-unit-card.status-yellow .unit-primary-line b,
+.management-unit-card.status-red .unit-primary-line b {
+  color: #963f35;
+}
+
+.management-unit-card .daycare-metrics {
+  gap: 8px;
+}
+
+.management-unit-card .daycare-metrics div {
+  min-height: 68px;
+  border-radius: 8px;
+}
+
+.management-issues-layout {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.issue-row {
+  min-height: 96px;
+  border-width: 1.5px;
+}
+
+.issue-row strong {
+  font-size: 1.05rem;
+}
+
+.management-insight-grid {
+  grid-template-columns: 1.15fr repeat(2, minmax(0, .925fr));
+}
+
+.management-insight {
+  min-height: 132px;
+}
+
+.management-insight.primary-insight {
+  border-color: rgba(68, 118, 108, .28);
+  background: linear-gradient(180deg, rgba(229, 240, 236, .9), rgba(255, 255, 255, .94));
+}
+
+.management-insight.primary-insight span,
+.management-insight.primary-insight strong {
+  color: var(--brand-dark);
+}
+
+.comparison-card {
+  border-width: 1.5px;
+}
+
+.comparison-tile {
+  min-height: 112px;
+}
+
+.comparison-tile strong {
+  font-size: clamp(1.25rem, 2vw, 1.7rem);
+}
+
 @media (max-width: 1180px) {
   .management-freshness-grid,
   .management-quality-grid,
@@ -4215,16 +4468,52 @@ details.employee-detail-section > div {
   .comparison-tile-grid {
     grid-template-columns: 1fr;
   }
+  .management-status-grid,
+  .management-summary-grid,
+  .management-unit-grid,
+  .action-list,
+  .management-insight-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
   .management-freshness-grid,
   .management-quality-grid,
   .management-daycare-comparison-grid,
+  .management-status-grid,
+  .management-summary-grid,
+  .management-unit-grid,
+  .action-list,
+  .management-insight-grid,
   .action-row {
     grid-template-columns: 1fr;
   }
+  .management-dashboard .management-hero {
+    padding: 18px;
+    min-height: auto;
+  }
+  .management-dashboard .management-hero h1 {
+    font-size: clamp(1.85rem, 9vw, 2.55rem);
+  }
+  .management-dashboard .management-kpi,
+  .management-dashboard .management-status-grid .management-kpi:first-child,
+  .management-dashboard .management-status-grid .management-kpi:nth-child(4),
+  .management-dashboard .management-summary-grid .management-kpi:first-child,
+  .management-dashboard .management-summary-grid .management-kpi:nth-child(3) {
+    min-height: 112px;
+    padding: 14px;
+  }
+  .management-dashboard .management-kpi strong {
+    font-size: clamp(1.35rem, 7vw, 1.95rem);
+  }
+  .action-row {
+    min-height: 88px;
+  }
   .action-row p {
     text-align: start;
+  }
+  .management-unit-card .daycare-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

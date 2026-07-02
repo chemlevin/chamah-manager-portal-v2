@@ -1,4 +1,4 @@
-﻿const API_ENDPOINTS = {
+const API_ENDPOINTS = {
   budget: "/api/budget",
   payroll: "/api/payroll",
   allocations: "/api/allocations",
@@ -14,10 +14,14 @@ const STATUS_THRESHOLDS = {
   employeeRedGap: 2,
 };
 
+const EXCLUDED_ACCOUNTING_CATEGORY = "חריג לא לחישוב";
+const NOT_UPDATED = "טרם עודכן";
+const NO_DATA = "אין נתונים";
+
 const moneyFormatter = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
 const numberFormatter = new Intl.NumberFormat("he-IL");
 const state = { month: "all", unit: "all", unitType: "all", search: "", expenseSort: "amount-desc", payrollSort: "cost-desc" };
-const dashboardData = { budgetGroups: [], payrollGroups: [], payrollRows: [], allocationGroups: [], allocationRows: [], unmappedRows: [], employees: [], errors: [] };
+const dashboardData = { budgetGroups: [], payrollGroups: [], payrollRows: [], allocationGroups: [], allocationRows: [], unmappedRows: [], excludedAllocationRows: [], employees: [], errors: [] };
 
 const els = {
   monthFilter: document.querySelector("#month-filter"),
@@ -57,7 +61,7 @@ const els = {
   payrollTableCount: document.querySelector("#payroll-table-count"),
 };
 
-function safeText(value, fallback = "Unmapped") {
+function safeText(value, fallback = "לא משויך") {
   const text = String(value ?? "").trim();
   return text || fallback;
 }
@@ -67,16 +71,32 @@ function safeNumber(value) {
   return Number.isFinite(number) ? number : 0;
 }
 
+function clean(value) {
+  return String(value ?? "").trim();
+}
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
 }
 
 function unique(values) {
-  return [...new Set(values.map((value) => String(value ?? "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "he"));
+  return [...new Set(values.map((value) => clean(value)).filter(Boolean))].sort((a, b) => a.localeCompare(b, "he", { numeric: true }));
 }
 
 function sum(rows, key) {
   return rows.reduce((total, row) => total + safeNumber(row[key]), 0);
+}
+
+function hasRows(rows) {
+  return Array.isArray(rows) && rows.length > 0;
+}
+
+function formatNumber(value, available = true) {
+  return available ? numberFormatter.format(safeNumber(value)) : NO_DATA;
+}
+
+function formatMoney(value, available = true) {
+  return available ? moneyFormatter.format(safeNumber(value)) : NO_DATA;
 }
 
 function option(value, label) {
@@ -89,19 +109,40 @@ async function fetchJson(name, url) {
   return response.json();
 }
 
+function valueExists(value) {
+  return value !== undefined && value !== null && clean(value) !== "";
+}
+
+function accountingCategory(row) {
+  return safeText(row.accountingCategory || row.category || row.detail || row.details || row.raw?.["פירוט"], "");
+}
+
+function isExcludedAllocation(row) {
+  return accountingCategory(row) === EXCLUDED_ACCOUNTING_CATEGORY;
+}
+
 function normalizeBudget(payload) {
   const groups = payload?.budget?.byDaycareMonth || payload?.byDaycareMonth || [];
-  return (Array.isArray(groups) ? groups : []).map((group) => ({
-    unit: safeText(group.daycare),
-    month: safeText(group.month, ""),
-    children: safeNumber(group.children),
-    capacity: safeNumber(group.capacity ?? group.childCapacity ?? group.childrenCapacity ?? group.maxChildren),
-    requiredHours: safeNumber(group.requiredHours || group.totalRequiredHours),
-    requiredEmployees: safeNumber(group.requiredEmployeeHeadcount),
-    requiredStaff: safeNumber(group.requiredStaff),
-    budgetRevenue: safeNumber(group.expectedRevenue),
-    budgetCosts: safeNumber(group.totalBudgetCosts),
-  })).filter((group) => group.unit && group.month);
+  return (Array.isArray(groups) ? groups : []).map((group) => {
+    const capacityValue = group.capacity ?? group.childCapacity ?? group.childrenCapacity ?? group.maxChildren;
+    return {
+      unit: safeText(group.daycare),
+      month: safeText(group.month, ""),
+      children: safeNumber(group.children),
+      hasChildren: valueExists(group.children),
+      capacity: valueExists(capacityValue) ? safeNumber(capacityValue) : null,
+      hasCapacity: valueExists(capacityValue),
+      requiredHours: safeNumber(group.requiredHours || group.totalRequiredHours),
+      hasRequiredHours: valueExists(group.requiredHours || group.totalRequiredHours),
+      requiredEmployees: safeNumber(group.requiredEmployeeHeadcount),
+      hasRequiredEmployees: valueExists(group.requiredEmployeeHeadcount),
+      requiredStaff: safeNumber(group.requiredStaff),
+      budgetRevenue: safeNumber(group.expectedRevenue),
+      hasBudgetRevenue: valueExists(group.expectedRevenue),
+      budgetCosts: safeNumber(group.totalBudgetCosts),
+      hasBudgetCosts: valueExists(group.totalBudgetCosts),
+    };
+  }).filter((group) => group.unit && group.month);
 }
 
 function normalizePayroll(payload) {
@@ -119,9 +160,9 @@ function normalizePayroll(payload) {
       byClass: Array.isArray(group.byClass) ? group.byClass : [],
     })).filter((group) => group.unit && group.month),
     rows: rows.map((row) => ({
-      employee: safeText(row.employee, "Unknown employee"),
+      employee: safeText(row.employee, "לא צוין עובד"),
       unit: safeText(row.daycare),
-      className: safeText(row.classroom, "Unmapped class"),
+      className: safeText(row.classroom, "לא שויך לכיתה"),
       month: safeText(row.month, ""),
       cost: safeNumber(row.totalPayrollCost ?? row.total),
       hours: safeNumber(row.totalPayrollHours),
@@ -129,30 +170,46 @@ function normalizePayroll(payload) {
   };
 }
 
+function normalizeAllocationRows(payload) {
+  const allocations = payload?.allocations || payload || {};
+  const rows = Array.isArray(payload?.rows) ? payload.rows : allocations.rows;
+  return (Array.isArray(rows) ? rows : []).map((row) => ({
+    reference: safeText(row.reference, ""),
+    cashDate: safeText(row.cashDate, ""),
+    month: safeText(row.businessMonth, ""),
+    unit: safeText(row.unit),
+    debit: safeNumber(row.debit),
+    credit: safeNumber(row.credit),
+    definition: safeText(row.definition, "לא סווג"),
+    accountingCategory: accountingCategory(row),
+    notes: safeText(row.notes, ""),
+    excludedFromCalculations: isExcludedAllocation(row),
+  })).filter((row) => row.unit && row.month);
+}
+
+function groupAllocationRows(rows) {
+  const map = new Map();
+  rows.filter((row) => !row.excludedFromCalculations).forEach((row) => {
+    const key = row.unit + "|" + row.month;
+    if (!map.has(key)) map.set(key, { unit: row.unit, month: row.month, expenses: 0, income: 0, rowCount: 0 });
+    const group = map.get(key);
+    group.expenses += row.debit;
+    group.income += row.credit;
+    group.rowCount += 1;
+  });
+  return [...map.values()].sort((a, b) => (a.unit + a.month).localeCompare(b.unit + b.month, "he", { numeric: true }));
+}
+
 function normalizeAllocations(payload) {
   const allocations = payload?.allocations || payload || {};
-  const groups = Array.isArray(payload?.byUnitMonth) ? payload.byUnitMonth : allocations.byUnitMonth;
-  const rows = Array.isArray(payload?.rows) ? payload.rows : allocations.rows;
+  const rows = normalizeAllocationRows(payload);
   const unmappedRows = Array.isArray(payload?.unmappedRows) ? payload.unmappedRows : allocations.unmappedRows;
+  const visibleUnmappedRows = (Array.isArray(unmappedRows) ? unmappedRows : []).filter((row) => !isExcludedAllocation(row));
   return {
-    groups: (Array.isArray(groups) ? groups : []).map((group) => ({
-      unit: safeText(group.unit),
-      month: safeText(group.businessMonth, ""),
-      expenses: safeNumber(group.debit),
-      income: safeNumber(group.credit),
-      rowCount: safeNumber(group.rowCount),
-    })).filter((group) => group.unit && group.month),
-    rows: (Array.isArray(rows) ? rows : []).map((row) => ({
-      reference: safeText(row.reference, ""),
-      cashDate: safeText(row.cashDate, ""),
-      month: safeText(row.businessMonth, ""),
-      unit: safeText(row.unit),
-      debit: safeNumber(row.debit),
-      credit: safeNumber(row.credit),
-      definition: safeText(row.definition, "Unclassified"),
-      notes: safeText(row.notes, ""),
-    })).filter((row) => row.unit && row.month),
-    unmappedRows: Array.isArray(unmappedRows) ? unmappedRows : [],
+    groups: groupAllocationRows(rows),
+    rows,
+    excludedRows: rows.filter((row) => row.excludedFromCalculations),
+    unmappedRows: visibleUnmappedRows,
   };
 }
 
@@ -161,7 +218,7 @@ function normalizeEmployees(payload) {
 }
 
 function parseDateValue(value) {
-  const text = String(value || "").trim();
+  const text = clean(value);
   if (!text) return null;
   const direct = new Date(text);
   if (!Number.isNaN(direct.getTime())) return direct;
@@ -174,7 +231,18 @@ function parseDateValue(value) {
 
 function latestCashDate(rows) {
   const dates = rows.map((row) => parseDateValue(row.cashDate)).filter(Boolean).sort((a, b) => b - a);
-  return dates[0] ? dates[0].toLocaleDateString("he-IL") : "No bank date";
+  return dates[0] ? dates[0].toLocaleDateString("he-IL") : NOT_UPDATED;
+}
+
+function latestMonthValue(rows, key = "month") {
+  const values = unique(rows.map((row) => row[key]));
+  if (!values.length) return NOT_UPDATED;
+  return values.sort((a, b) => {
+    const aNum = Number(a);
+    const bNum = Number(b);
+    if (Number.isFinite(aNum) && Number.isFinite(bNum)) return bNum - aNum;
+    return String(b).localeCompare(String(a), "he", { numeric: true });
+  })[0];
 }
 
 function unitType(unit, data) {
@@ -216,11 +284,18 @@ function buildUnitRows(data) {
     const row = {
       unit,
       type: unitType(unit, dashboardData),
+      hasBudget: hasRows(budget),
+      hasPayroll: hasRows(payroll),
+      hasAllocations: hasRows(allocations),
       children: sum(budget, "children"),
-      capacity: sum(budget, "capacity"),
+      hasChildren: budget.some((item) => item.hasChildren),
+      capacity: budget.some((item) => item.hasCapacity) ? sum(budget.filter((item) => item.hasCapacity), "capacity") : null,
+      hasCapacity: budget.some((item) => item.hasCapacity),
       requiredHours: sum(budget, "requiredHours"),
+      hasRequiredHours: budget.some((item) => item.hasRequiredHours),
       payrollHours: sum(payroll, "payrollHours"),
       requiredEmployees: sum(budget, "requiredEmployees"),
+      hasRequiredEmployees: budget.some((item) => item.hasRequiredEmployees),
       payrollEmployees: sum(payroll, "employeeCount"),
       payrollCost: sum(payroll, "payrollCost"),
       expenses: sum(allocations, "expenses"),
@@ -235,27 +310,27 @@ function buildUnitRows(data) {
 
 function buildIssues(data, unitRows) {
   const issues = [];
-  dashboardData.errors.forEach((message) => issues.push({ category: "data", severity: "red", unit: "System", month: state.month, count: 1, label: message }));
+  dashboardData.errors.forEach((message) => issues.push({ category: "data", severity: "yellow", unit: "מערכת", month: state.month, count: 1, label: message }));
   const missingUnitRows = dashboardData.unmappedRows.filter((row) => String(row.unmappedReason || "").includes("unit"));
   const missingMonthRows = dashboardData.unmappedRows.filter((row) => String(row.unmappedReason || "").includes("businessMonth"));
-  if (missingUnitRows.length) issues.push({ category: "data", severity: "red", unit: "Unmapped", month: "All", count: missingUnitRows.length, label: "Missing unit" });
-  if (missingMonthRows.length) issues.push({ category: "data", severity: "red", unit: "Unmapped", month: "All", count: missingMonthRows.length, label: "Missing month" });
-  if (dashboardData.unmappedRows.length) issues.push({ category: "data", severity: "yellow", unit: "Unmapped", month: "All", count: dashboardData.unmappedRows.length, label: "Rows missing unit or month" });
-  const missingRefs = data.allocationRows.filter((row) => !row.reference).length;
-  if (missingRefs) issues.push({ category: "data", severity: "yellow", unit: "Multiple", month: state.month, count: missingRefs, label: "Missing references" });
+  if (missingUnitRows.length) issues.push({ category: "data", severity: "yellow", unit: "לא משויך", month: "כל החודשים", count: missingUnitRows.length, label: "חסר שיוך יחידה" });
+  if (missingMonthRows.length) issues.push({ category: "data", severity: "yellow", unit: "לא משויך", month: "כל החודשים", count: missingMonthRows.length, label: "חסר חודש שיוך" });
+  if (dashboardData.unmappedRows.length) issues.push({ category: "data", severity: "yellow", unit: "לא משויך", month: "כל החודשים", count: dashboardData.unmappedRows.length, label: "שורות בנק ללא יחידה או חודש" });
+  const missingRefs = data.allocationRows.filter((row) => !row.reference && !row.excludedFromCalculations).length;
+  if (missingRefs) issues.push({ category: "data", severity: "yellow", unit: "מספר יחידות", month: state.month, count: missingRefs, label: "חסרה אסמכתא" });
 
   unitRows.forEach((row) => {
     const hoursDiff = row.payrollHours - row.requiredHours;
     const employeeDiff = row.payrollEmployees - row.requiredEmployees;
-    if (row.type === "daycare" && !row.capacity && row.children > 0) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: state.month, count: 1, label: "Capacity missing" });
-    if (row.type === "daycare" && row.capacity > 0 && row.children > row.capacity) issues.push({ category: "operational", severity: "red", unit: row.unit, month: state.month, count: row.children - row.capacity, label: "Children over capacity" });
-    if (row.requiredHours > 0 && hoursDiff < 0) issues.push({ category: "operational", severity: "red", unit: row.unit, month: state.month, count: Math.abs(Math.round(hoursDiff)), label: "Payroll hours below required hours" });
-    if (row.requiredHours > 0 && hoursDiff > 0) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: state.month, count: Math.round(hoursDiff), label: "Payroll hours above required hours" });
-    if (row.requiredEmployees > 0 && employeeDiff < 0) issues.push({ category: "operational", severity: "red", unit: row.unit, month: state.month, count: Math.abs(Math.round(employeeDiff)), label: "Employee count below required" });
-    if (row.requiredEmployees > 0 && employeeDiff > 0) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: state.month, count: Math.round(employeeDiff), label: "Employee count above required" });
-    if (row.children === 0 && (row.requiredHours > 0 || row.payrollCost > 0)) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: state.month, count: 1, label: "Child count missing for active unit" });
-    if ((row.budgetRevenue > 0 || row.payrollCost > 0) && row.expenses === 0 && row.income === 0) issues.push({ category: "financial", severity: "yellow", unit: row.unit, month: state.month, count: 1, label: "No allocations found" });
-    if (row.expenses > 0 && row.type === "other") issues.push({ category: "financial", severity: "yellow", unit: row.unit, month: state.month, count: 1, label: "Non-daycare expenses require review" });
+    if (row.type === "daycare" && row.hasBudget && !row.hasCapacity && row.hasChildren) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: state.month, count: 1, label: "חסרה קיבולת" });
+    if (row.type === "daycare" && row.hasCapacity && row.children > row.capacity) issues.push({ category: "operational", severity: "red", unit: row.unit, month: state.month, count: row.children - row.capacity, label: "ילדים מעל קיבולת" });
+    if (row.hasRequiredHours && row.hasPayroll && hoursDiff < 0) issues.push({ category: "operational", severity: "red", unit: row.unit, month: state.month, count: Math.abs(Math.round(hoursDiff)), label: "שעות שכר נמוכות מהנדרש" });
+    if (row.hasRequiredHours && row.hasPayroll && hoursDiff > 0) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: state.month, count: Math.round(hoursDiff), label: "שעות שכר גבוהות מהנדרש" });
+    if (row.hasRequiredEmployees && row.hasPayroll && employeeDiff < 0) issues.push({ category: "operational", severity: "red", unit: row.unit, month: state.month, count: Math.abs(Math.round(employeeDiff)), label: "מספר עובדים נמוך מהנדרש" });
+    if (row.hasRequiredEmployees && row.hasPayroll && employeeDiff > 0) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: state.month, count: Math.round(employeeDiff), label: "מספר עובדים גבוה מהנדרש" });
+    if (row.hasBudget && !row.hasPayroll) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: state.month, count: 1, label: "אין נתוני שכר" });
+    if ((row.hasBudget || row.hasPayroll) && !row.hasAllocations) issues.push({ category: "financial", severity: "yellow", unit: row.unit, month: state.month, count: 1, label: "אין נתוני בנק" });
+    if (row.expenses > 0 && row.type === "other") issues.push({ category: "financial", severity: "yellow", unit: row.unit, month: state.month, count: 1, label: "הוצאות במחלקה שאינה מעון דורשות בדיקה" });
   });
 
   unitRows.forEach((row) => {
@@ -272,7 +347,11 @@ function statusFromIssues(issues) {
 }
 
 function statusLabel(status) {
-  return status === "red" ? "Needs action" : status === "yellow" ? "Review needed" : "Healthy";
+  return status === "red" ? "דורש טיפול" : status === "yellow" ? "דורש בדיקה" : "תקין";
+}
+
+function severityLabel(severity) {
+  return severity === "red" ? "דחוף" : severity === "yellow" ? "בדיקה" : "תקין";
 }
 
 function renderFilterOptions() {
@@ -280,87 +359,103 @@ function renderFilterOptions() {
   const units = unique([...dashboardData.budgetGroups.map((row) => row.unit), ...dashboardData.payrollGroups.map((row) => row.unit), ...dashboardData.allocationGroups.map((row) => row.unit)]);
   if (!months.includes(state.month)) state.month = "all";
   if (!units.includes(state.unit)) state.unit = "all";
-  els.monthFilter.innerHTML = option("all", "All months") + months.map((month) => option(month, month)).join("");
-  els.unitFilter.innerHTML = option("all", "All units") + units.map((unit) => option(unit, unit)).join("");
-  els.unitTypeFilter.innerHTML = option("all", "All types") + option("daycare", "Daycare") + option("other", "Other / unclassified");
+  els.monthFilter.innerHTML = option("all", "כל החודשים") + months.map((month) => option(month, month)).join("");
+  els.unitFilter.innerHTML = option("all", "כל היחידות") + units.map((unit) => option(unit, unit)).join("");
+  els.unitTypeFilter.innerHTML = option("all", "כל הסוגים") + option("daycare", "מעונות") + option("other", "מחלקות / אחר");
   els.monthFilter.value = state.month;
   els.unitFilter.value = state.unit;
   els.unitTypeFilter.value = state.unitType;
 }
 
 function kpiCard(label, value, sub, tone = "secondary") {
-  return '<article class="kpi-card cashflow-kpi ' + tone + '-kpi"><span class="kpi-icon" aria-hidden="true">' + escapeHtml(label.slice(0, 1)) + '</span><div><p>' + escapeHtml(label) + '</p><strong>' + escapeHtml(value) + '</strong><span>' + escapeHtml(sub) + '</span></div></article>';
+  return '<article class="kpi-card cashflow-kpi management-kpi ' + tone + '-kpi"><span class="kpi-icon" aria-hidden="true">' + escapeHtml(label.slice(0, 1)) + '</span><div><p>' + escapeHtml(label) + '</p><strong>' + escapeHtml(value) + '</strong><span>' + escapeHtml(sub) + '</span></div></article>';
 }
 
 function renderStatus(data, unitRows, issues) {
   const status = statusFromIssues(issues);
   els.overallStatusLabel.textContent = statusLabel(status);
   els.overallStatusLabel.className = "status-pill " + status;
-  els.lastUpdateLabel.textContent = "Last bank update: " + latestCashDate(dashboardData.allocationRows);
-  els.selectedMonthLabel.textContent = state.month === "all" ? "All months" : state.month;
+  els.lastUpdateLabel.textContent = "עדכון בנק אחרון: " + latestCashDate(dashboardData.allocationRows);
+  els.selectedMonthLabel.textContent = state.month === "all" ? "כל החודשים" : state.month;
   const cards = [
-    { label: "Selected month", value: state.month === "all" ? "All" : state.month, sub: "Current management view", tone: "secondary" },
-    { label: "Last update", value: latestCashDate(dashboardData.allocationRows), sub: "Latest bank movement date", tone: "secondary" },
-    { label: "Active units", value: numberFormatter.format(unitRows.length), sub: "Units in current filters", tone: "income" },
-    { label: "Open issues", value: numberFormatter.format(issues.length), sub: "Data, operations and finance", tone: issues.length ? "attention" : "balance" },
-    { label: "Status", value: statusLabel(status), sub: "Based on current open issues", tone: status === "red" ? "attention" : status === "yellow" ? "expense" : "balance" },
+    { label: "חודש מוצג", value: state.month === "all" ? "כל החודשים" : state.month, sub: "תצוגה ניהולית נוכחית", tone: "secondary" },
+    { label: "עדכון בנק אחרון", value: latestCashDate(dashboardData.allocationRows), sub: "לפי תאריך תנועת בנק", tone: latestCashDate(dashboardData.allocationRows) === NOT_UPDATED ? "attention" : "balance" },
+    { label: "יחידות פעילות", value: formatNumber(unitRows.length, unitRows.length > 0), sub: "יחידות במסננים הנוכחיים", tone: "income" },
+    { label: "חריגות פתוחות", value: issues.length ? numberFormatter.format(issues.length) : "אין", sub: issues.length ? "נתונים, תפעול וכספים" : "אין חריגות פתוחות", tone: issues.length ? "attention" : "balance" },
+    { label: "מצב", value: statusLabel(status), sub: "לפי החריגות הפתוחות", tone: status === "red" ? "attention" : status === "yellow" ? "expense" : "balance" },
   ];
   els.statusGrid.innerHTML = cards.map((card) => kpiCard(card.label, card.value, card.sub, card.tone)).join("");
 }
 
 function renderSummary(data) {
+  const hasBudget = hasRows(data.budgetGroups);
+  const hasPayroll = hasRows(data.payrollGroups);
+  const hasAllocations = hasRows(data.allocationGroups);
   const employeeCount = dashboardData.employees.length || sum(data.payrollGroups, "employeeCount");
+  const hasEmployees = dashboardData.employees.length > 0 || hasPayroll;
   const cards = [
-    { label: "Budget revenue", value: moneyFormatter.format(sum(data.budgetGroups, "budgetRevenue")), sub: "Budget by daycare and month", tone: "income" },
-    { label: "Payroll costs", value: moneyFormatter.format(sum(data.payrollGroups, "payrollCost")), sub: "Payroll by daycare and month", tone: "payroll" },
-    { label: "Allocation expenses", value: moneyFormatter.format(sum(data.allocationGroups, "expenses")), sub: "Bank debit allocations", tone: "expense" },
-    { label: "Allocation income", value: moneyFormatter.format(sum(data.allocationGroups, "income")), sub: "Bank credit allocations", tone: "income" },
-    { label: "Employees", value: numberFormatter.format(employeeCount), sub: dashboardData.employees.length ? "Employees API" : "Payroll groups", tone: "secondary" },
-    { label: "Children", value: numberFormatter.format(sum(data.budgetGroups, "children")), sub: "Budget children count", tone: "secondary" },
+    { label: "תקציב מתוכנן", value: formatMoney(sum(data.budgetGroups, "budgetRevenue"), hasBudget), sub: hasBudget ? "לפי תקציב מעון וחודש" : "אין נתוני תקציב", tone: "income" },
+    { label: "שכר", value: formatMoney(sum(data.payrollGroups, "payrollCost"), hasPayroll), sub: hasPayroll ? "נתוני שכר תפעוליים" : "אין נתוני שכר", tone: "payroll" },
+    { label: "הוצאות", value: formatMoney(sum(data.allocationGroups, "expenses"), hasAllocations), sub: hasAllocations ? "תנועות חובה בבנק" : "אין נתוני בנק", tone: "expense" },
+    { label: "הכנסות", value: formatMoney(sum(data.allocationGroups, "income"), hasAllocations), sub: hasAllocations ? "תנועות זכות בבנק" : "אין נתוני בנק", tone: "income" },
+    { label: "עובדים", value: formatNumber(employeeCount, hasEmployees), sub: dashboardData.employees.length ? "מתוך נתוני עובדים" : hasPayroll ? "מתוך נתוני שכר" : "אין נתוני עובדים", tone: "secondary" },
+    { label: "ילדים", value: formatNumber(sum(data.budgetGroups, "children"), hasBudget), sub: hasBudget ? "מתוך נתוני תקציב" : "אין נתוני תקציב", tone: "secondary" },
   ];
   els.summaryGrid.innerHTML = cards.map((card) => kpiCard(card.label, card.value, card.sub, card.tone)).join("");
 }
 
-function comparisonCard(label, actual, expected, unitLabel) {
-  const diff = safeNumber(actual) - safeNumber(expected);
-  const diffText = diff === 0 ? "No difference" : (diff > 0 ? "+" : "") + numberFormatter.format(diff) + " " + unitLabel;
-  return '<article class="dashboard-panel comparison-card"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(numberFormatter.format(actual)) + ' / ' + escapeHtml(numberFormatter.format(expected)) + '</strong><p>' + escapeHtml(diffText) + '</p></article>';
+function comparisonCard(label, actual, expected, actualAvailable, expectedAvailable, unitLabel) {
+  const actualText = formatNumber(actual, actualAvailable);
+  const expectedText = formatNumber(expected, expectedAvailable);
+  let diffText = "אין מספיק נתונים להשוואה";
+  if (actualAvailable && expectedAvailable) {
+    const diff = safeNumber(actual) - safeNumber(expected);
+    diffText = diff === 0 ? "ללא פער" : (diff > 0 ? "+" : "") + numberFormatter.format(diff) + " " + unitLabel;
+  }
+  return '<article class="dashboard-panel comparison-card"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(actualText) + ' / ' + escapeHtml(expectedText) + '</strong><p>' + escapeHtml(diffText) + '</p></article>';
 }
 
 function renderOperations(data, issues) {
+  const hasBudget = hasRows(data.budgetGroups);
+  const hasPayroll = hasRows(data.payrollGroups);
   const children = sum(data.budgetGroups, "children");
   const requiredHours = sum(data.budgetGroups, "requiredHours");
   const payrollHours = sum(data.payrollGroups, "payrollHours");
   const requiredEmployees = sum(data.budgetGroups, "requiredEmployees");
   const payrollEmployees = sum(data.payrollGroups, "employeeCount");
   const operationalIssues = issues.filter((issue) => issue.category === "operational");
-  els.operationalStatusChip.textContent = operationalIssues.length ? numberFormatter.format(operationalIssues.length) + " items" : "No open items";
+  els.operationalStatusChip.textContent = operationalIssues.length ? numberFormatter.format(operationalIssues.length) + " פריטים" : "אין פריטים פתוחים";
   els.operationalGrid.innerHTML = [
-    comparisonCard("Children counted", children, children, "children"),
-    comparisonCard("Payroll hours vs required", payrollHours, requiredHours, "hours"),
-    comparisonCard("Employees vs required", payrollEmployees, requiredEmployees, "employees"),
+    comparisonCard("ילדים בפועל", children, children, hasBudget, hasBudget, "ילדים"),
+    comparisonCard("שעות שכר מול נדרש", payrollHours, requiredHours, hasPayroll, hasBudget, "שעות"),
+    comparisonCard("עובדים מול נדרש", payrollEmployees, requiredEmployees, hasPayroll, hasBudget, "עובדים"),
   ].join("");
 }
 
 function renderUnits(unitRows) {
-  els.unitCountLabel.textContent = numberFormatter.format(unitRows.length) + " units";
-  if (!unitRows.length) {
-    els.unitCardGrid.innerHTML = '<p class="empty-state">No units match the current filters.</p>';
+  const sortedRows = [...unitRows].sort((a, b) => {
+    const rank = { red: 0, yellow: 1, green: 2 };
+    return rank[a.status] - rank[b.status] || b.issueCount - a.issueCount || a.unit.localeCompare(b.unit, "he");
+  });
+  const attentionCount = sortedRows.filter((row) => row.status !== "green").length;
+  els.unitCountLabel.textContent = unitRows.length ? (attentionCount ? numberFormatter.format(attentionCount) + " דורשות תשומת לב" : "הכל תקין") : NO_DATA;
+  if (!sortedRows.length) {
+    els.unitCardGrid.innerHTML = '<p class="empty-state">אין יחידות להצגה במסננים הנוכחיים.</p>';
     return;
   }
-  els.unitCardGrid.innerHTML = unitRows.map((row) => '<article class="daycare-card management-unit-card status-' + row.status + '"><div class="daycare-card-head"><div><h3>' + escapeHtml(row.unit) + '</h3><span>' + escapeHtml(row.type) + ' / ' + escapeHtml(statusLabel(row.status)) + '</span></div><strong>' + escapeHtml(numberFormatter.format(row.issueCount)) + '</strong></div><div class="daycare-metrics financial-metrics"><div><span>Children</span><strong>' + escapeHtml(numberFormatter.format(row.children)) + '</strong></div><div><span>Payroll</span><strong>' + escapeHtml(moneyFormatter.format(row.payrollCost)) + '</strong></div><div><span>Expenses</span><strong>' + escapeHtml(moneyFormatter.format(row.expenses)) + '</strong></div><div><span>Hours</span><strong>' + escapeHtml(numberFormatter.format(row.payrollHours)) + '</strong></div><div><span>Employees</span><strong>' + escapeHtml(numberFormatter.format(row.payrollEmployees)) + '</strong></div><div><span>Required</span><strong>' + escapeHtml(numberFormatter.format(row.requiredEmployees)) + '</strong></div></div><div class="budget-note">Prepared for future alerts and comparisons.</div></article>').join("");
+  els.unitCardGrid.innerHTML = sortedRows.map((row) => '<article class="daycare-card management-unit-card status-' + row.status + '"><div class="unit-status-ribbon">' + escapeHtml(statusLabel(row.status)) + '</div><div class="daycare-card-head"><div><h3>' + escapeHtml(row.unit) + '</h3><span>' + escapeHtml(row.type === "daycare" ? "מעון" : "מחלקה / אחר") + '</span></div><strong aria-label="מספר חריגות">' + escapeHtml(row.issueCount ? numberFormatter.format(row.issueCount) : "אין") + '</strong></div><div class="unit-primary-line"><span>' + escapeHtml(row.issueCount ? "דורש טיפול" : "ללא טיפול פתוח") + '</span><b>' + escapeHtml(row.hasAllocations ? "בנק מעודכן" : "אין נתוני בנק") + '</b></div><div class="daycare-metrics financial-metrics"><div><span>ילדים</span><strong>' + escapeHtml(formatNumber(row.children, row.hasBudget)) + '</strong></div><div><span>שכר</span><strong>' + escapeHtml(formatMoney(row.payrollCost, row.hasPayroll)) + '</strong></div><div><span>הוצאות</span><strong>' + escapeHtml(formatMoney(row.expenses, row.hasAllocations)) + '</strong></div><div><span>שעות</span><strong>' + escapeHtml(formatNumber(row.payrollHours, row.hasPayroll)) + '</strong></div><div><span>עובדים</span><strong>' + escapeHtml(formatNumber(row.payrollEmployees, row.hasPayroll)) + '</strong></div><div><span>נדרש</span><strong>' + escapeHtml(formatNumber(row.requiredEmployees, row.hasRequiredEmployees)) + '</strong></div></div><div class="budget-note">' + escapeHtml(row.issueCount ? "פתחו את הפעולות והשלימו את הנתון החסר" : "אין חריגות פתוחות ליחידה") + '</div></article>').join("");
 }
 
 function renderIssueList(target, countTarget, issues) {
-  countTarget.textContent = numberFormatter.format(issues.length);
-  target.innerHTML = issues.length ? issues.map((issue) => '<article class="issue-row severity-' + issue.severity + '"><span>' + escapeHtml(issue.severity) + '</span><strong>' + escapeHtml(issue.label) + '</strong><p>' + escapeHtml(issue.unit) + ' | ' + escapeHtml(issue.month || "All") + ' | ' + escapeHtml(numberFormatter.format(issue.count)) + '</p></article>').join("") : '<p class="empty-state">No issues in this category.</p>';
+  countTarget.textContent = issues.length ? numberFormatter.format(issues.length) : "אין";
+  target.innerHTML = issues.length ? issues.map((issue) => '<article class="issue-row severity-' + issue.severity + '"><span>' + escapeHtml(severityLabel(issue.severity)) + '</span><strong>' + escapeHtml(actionText(issue)) + '</strong><p>' + escapeHtml(issue.label) + ' · ' + escapeHtml(issue.unit) + ' · ' + escapeHtml(issue.month || "כל החודשים") + ' · ' + escapeHtml(numberFormatter.format(issue.count)) + '</p></article>').join("") : '<p class="empty-state">אין חריגות בקטגוריה זו.</p>';
 }
 
 function renderIssues(issues) {
   const dataIssues = issues.filter((issue) => issue.category === "data");
   const operationalIssues = issues.filter((issue) => issue.category === "operational");
   const financialIssues = issues.filter((issue) => issue.category === "financial");
-  els.issueCountLabel.textContent = numberFormatter.format(issues.length) + " open issues";
+  els.issueCountLabel.textContent = issues.length ? numberFormatter.format(issues.length) + " חריגות פתוחות" : "אין חריגות פתוחות";
   renderIssueList(els.dataIssueList, els.dataIssueCount, dataIssues);
   renderIssueList(els.operationalIssueList, els.operationalIssueCount, operationalIssues);
   renderIssueList(els.financialIssueList, els.financialIssueCount, financialIssues);
@@ -368,25 +463,32 @@ function renderIssues(issues) {
 
 function renderInsights(data, issues) {
   const insights = [];
+  const hasBudget = hasRows(data.budgetGroups);
+  const hasPayroll = hasRows(data.payrollGroups);
   const requiredHours = sum(data.budgetGroups, "requiredHours");
   const payrollHours = sum(data.payrollGroups, "payrollHours");
   const requiredEmployees = sum(data.budgetGroups, "requiredEmployees");
   const payrollEmployees = sum(data.payrollGroups, "employeeCount");
-  if (requiredHours > 0 && payrollHours > requiredHours) insights.push(["Payroll hours exceed required hours", numberFormatter.format(payrollHours - requiredHours) + " hours above required"]);
-  if (requiredHours > 0 && payrollHours < requiredHours) insights.push(["Payroll hours below required hours", numberFormatter.format(requiredHours - payrollHours) + " hours missing"]);
-  if (requiredEmployees > 0 && payrollEmployees > requiredEmployees) insights.push(["Staffing exceeds requirement", numberFormatter.format(payrollEmployees - requiredEmployees) + " employees above required"]);
-  if (requiredEmployees > 0 && payrollEmployees < requiredEmployees) insights.push(["Staffing below requirement", numberFormatter.format(requiredEmployees - payrollEmployees) + " employees missing"]);
-  if (dashboardData.unmappedRows.length) insights.push(["Missing allocations detected", numberFormatter.format(dashboardData.unmappedRows.length) + " rows need unit or month"]);
-  if (!insights.length && issues.length) insights.push(["Open issues require review", numberFormatter.format(issues.length) + " items are listed in the issues center."]);
-  if (!insights.length && !issues.length) insights.push(["No immediate action detected", "Current filters show no open issues."]);
-  els.insightGrid.innerHTML = insights.map(([title, detail]) => '<article class="executive-alert"><span>Insight</span><strong>' + escapeHtml(title) + '</strong><p>' + escapeHtml(detail) + '</p></article>').join("");
+  if (!hasBudget) insights.push(["אין נתוני תקציב", "לא ניתן להשוות ילדים, שעות נדרשות או תקן עובדים."]);
+  if (!hasPayroll) insights.push(["אין נתוני שכר", "לא ניתן להשוות שעות שכר או כמות עובדים בפועל."]);
+  if (!hasRows(data.allocationGroups)) insights.push(["אין נתוני בנק", "לא ניתן להציג הוצאות והכנסות בפועל."]);
+  if (hasBudget && hasPayroll && payrollHours > requiredHours) insights.push(["שעות שכר מעל הנדרש", numberFormatter.format(payrollHours - requiredHours) + " שעות מעל התקן"]);
+  if (hasBudget && hasPayroll && payrollHours < requiredHours) insights.push(["שעות שכר מתחת לנדרש", numberFormatter.format(requiredHours - payrollHours) + " שעות חסרות"]);
+  if (hasBudget && hasPayroll && payrollEmployees > requiredEmployees) insights.push(["כמות עובדים מעל הנדרש", numberFormatter.format(payrollEmployees - requiredEmployees) + " עובדים מעל התקן"]);
+  if (hasBudget && hasPayroll && payrollEmployees < requiredEmployees) insights.push(["כמות עובדים מתחת לנדרש", numberFormatter.format(requiredEmployees - payrollEmployees) + " עובדים חסרים"]);
+  if (dashboardData.unmappedRows.length) insights.push(["תנועות בנק לא משויכות", numberFormatter.format(dashboardData.unmappedRows.length) + " שורות דורשות יחידה או חודש"]);
+  if (!insights.length && issues.length) insights.push(["יש חריגות לבדיקה", numberFormatter.format(issues.length) + " פריטים מופיעים במרכז החריגות."]);
+  if (!insights.length && !issues.length) insights.push(["אין פעולה מיידית", "המסננים הנוכחיים לא מציגים חריגות פתוחות."]);
+  els.insightGrid.innerHTML = insights.map(([title, detail], index) => '<article class="executive-alert management-insight ' + (index === 0 ? 'primary-insight' : '') + '"><span>תובנה ניהולית</span><strong>' + escapeHtml(title) + '</strong><p>' + escapeHtml(detail) + '</p></article>').join("");
 }
 
 function financialRows(allocationRows) {
   const rows = [];
   allocationRows.forEach((row) => {
-    if (row.credit) rows.push({ type: "Income", amount: row.credit, category: row.definition, unit: row.unit, month: row.month, details: row.notes || row.reference || row.cashDate });
-    if (row.debit) rows.push({ type: "Expense", amount: row.debit, category: row.definition, unit: row.unit, month: row.month, details: row.notes || row.reference || row.cashDate });
+    const details = row.notes || row.reference || row.cashDate;
+    const category = row.accountingCategory || row.definition;
+    if (row.credit) rows.push({ type: "הכנסה", amount: row.credit, category, unit: row.unit, month: row.month, details, excluded: row.excludedFromCalculations });
+    if (row.debit) rows.push({ type: "הוצאה", amount: row.debit, category, unit: row.unit, month: row.month, details, excluded: row.excludedFromCalculations });
   });
   return rows;
 }
@@ -398,7 +500,7 @@ function matchesSearch(row) {
 function sortedFinancial(rows) {
   return [...rows].filter(matchesSearch).sort((a, b) => {
     if (state.expenseSort === "amount-asc") return a.amount - b.amount;
-    if (state.expenseSort === "month-desc") return String(b.month).localeCompare(String(a.month));
+    if (state.expenseSort === "month-desc") return String(b.month).localeCompare(String(a.month), "he", { numeric: true });
     return b.amount - a.amount;
   });
 }
@@ -414,126 +516,121 @@ function sortedPayroll(rows) {
 function renderTables(data) {
   const finance = sortedFinancial(financialRows(data.allocationRows));
   const payroll = sortedPayroll(data.payrollRows);
-  els.financialTableCount.textContent = numberFormatter.format(finance.length) + " rows";
-  els.payrollTableCount.textContent = numberFormatter.format(payroll.length) + " rows";
-  els.financialTableBody.innerHTML = finance.map((row) => '<tr><td>' + escapeHtml(row.type) + '</td><td>' + escapeHtml(moneyFormatter.format(row.amount)) + '</td><td>' + escapeHtml(row.category) + '</td><td>' + escapeHtml(row.unit) + '</td><td>' + escapeHtml(row.month) + '</td><td>' + escapeHtml(row.details) + '</td></tr>').join("") || '<tr><td colspan="6">No bank movement rows match the current filters.</td></tr>';
-  els.payrollTableBody.innerHTML = payroll.map((row) => '<tr><td>' + escapeHtml(row.employee) + '</td><td>' + escapeHtml(row.unit) + '</td><td>' + escapeHtml(row.className) + '</td><td>' + escapeHtml(numberFormatter.format(row.hours)) + '</td><td>' + escapeHtml(moneyFormatter.format(row.cost)) + '</td></tr>').join("") || '<tr><td colspan="5">No payroll rows match the current filters.</td></tr>';
+  els.financialTableCount.textContent = finance.length ? numberFormatter.format(finance.length) + " שורות" : "אין נתוני בנק";
+  els.payrollTableCount.textContent = payroll.length ? numberFormatter.format(payroll.length) + " שורות" : "אין נתוני שכר";
+  els.financialTableBody.innerHTML = finance.map((row) => '<tr class="' + (row.excluded ? 'excluded-row' : '') + '"><td>' + escapeHtml(row.excluded ? row.type + " - לא לחישוב" : row.type) + '</td><td>' + escapeHtml(moneyFormatter.format(row.amount)) + '</td><td>' + escapeHtml(row.category || NO_DATA) + '</td><td>' + escapeHtml(row.unit) + '</td><td>' + escapeHtml(row.month) + '</td><td>' + escapeHtml(row.details) + '</td></tr>').join("") || '<tr><td colspan="6">אין נתוני בנק להצגה במסננים הנוכחיים.</td></tr>';
+  els.payrollTableBody.innerHTML = payroll.map((row) => '<tr><td>' + escapeHtml(row.employee) + '</td><td>' + escapeHtml(row.unit) + '</td><td>' + escapeHtml(row.className) + '</td><td>' + escapeHtml(numberFormatter.format(row.hours)) + '</td><td>' + escapeHtml(moneyFormatter.format(row.cost)) + '</td></tr>').join("") || '<tr><td colspan="5">אין נתוני שכר להצגה במסננים הנוכחיים.</td></tr>';
 }
 
-
-function latestMonthValue(rows, key = "month") {
-  const values = unique(rows.map((row) => row[key]));
-  if (!values.length) return "No data";
-  return values.sort((a, b) => {
-    const aNum = Number(a);
-    const bNum = Number(b);
-    if (Number.isFinite(aNum) && Number.isFinite(bNum)) return bNum - aNum;
-    return String(b).localeCompare(String(a), "he", { numeric: true });
-  })[0];
-}
-
-function allocationQuality(data) {
-  const mapped = dashboardData.allocationRows.length;
+function allocationQuality() {
+  const mapped = dashboardData.allocationRows.filter((row) => !row.excludedFromCalculations).length;
   const unmapped = dashboardData.unmappedRows.length;
   const total = mapped + unmapped;
-  const percentage = total ? Math.round((mapped / total) * 100) : 0;
+  const percentage = total ? Math.round((mapped / total) * 100) : null;
   return { total, mapped, unmapped, percentage };
 }
 
 function toneForDataQuality(percentage, total) {
-  if (!total) return "attention";
+  if (!total || percentage === null) return "attention";
   if (percentage < STATUS_THRESHOLDS.dataQualityRedBelow) return "attention";
   if (percentage < STATUS_THRESHOLDS.dataQualityYellowBelow) return "expense";
   return "balance";
 }
 
-function gapStatus(actual, required, type) {
-  if (!required) return { severity: "yellow", label: "Missing target", diff: 0 };
+function gapStatus(actual, required, actualAvailable, requiredAvailable, type) {
+  if (!actualAvailable || !requiredAvailable) return { severity: "yellow", label: "חסר נתון", diff: null };
   const diff = actual - required;
   if (type === "hours") {
+    if (!required) return { severity: "yellow", label: "אין יעד שעות", diff: null };
     const percent = Math.abs(diff) / required * 100;
-    if (percent >= STATUS_THRESHOLDS.hoursRedPercent) return { severity: "red", label: diff < 0 ? "Shortage" : "Excess", diff };
-    if (percent >= STATUS_THRESHOLDS.hoursYellowPercent) return { severity: "yellow", label: diff < 0 ? "Low" : "High", diff };
-    return { severity: "green", label: "Aligned", diff };
+    if (percent >= STATUS_THRESHOLDS.hoursRedPercent) return { severity: "red", label: diff < 0 ? "חוסר" : "עודף", diff };
+    if (percent >= STATUS_THRESHOLDS.hoursYellowPercent) return { severity: "yellow", label: diff < 0 ? "נמוך" : "גבוה", diff };
+    return { severity: "green", label: "תואם", diff };
   }
+  if (!required) return { severity: "yellow", label: "אין יעד עובדים", diff: null };
   const gap = Math.abs(diff);
-  if (gap >= STATUS_THRESHOLDS.employeeRedGap) return { severity: "red", label: diff < 0 ? "Shortage" : "Excess", diff };
-  if (gap >= STATUS_THRESHOLDS.employeeYellowGap) return { severity: "yellow", label: diff < 0 ? "Low" : "High", diff };
-  return { severity: "green", label: "Aligned", diff };
+  if (gap >= STATUS_THRESHOLDS.employeeRedGap) return { severity: "red", label: diff < 0 ? "חוסר" : "עודף", diff };
+  if (gap >= STATUS_THRESHOLDS.employeeYellowGap) return { severity: "yellow", label: diff < 0 ? "נמוך" : "גבוה", diff };
+  return { severity: "green", label: "תואם", diff };
 }
 
-function capacityStatus(children, capacity) {
-  if (!capacity) return { severity: "yellow", label: "Capacity missing", diff: 0 };
+function capacityStatus(children, capacity, hasChildren, hasCapacity) {
+  if (!hasChildren || !hasCapacity) return { severity: "yellow", label: "חסר נתון", diff: null };
   const diff = children - capacity;
-  if (diff > 0) return { severity: "red", label: "Over capacity", diff };
-  return { severity: "green", label: "Within capacity", diff };
+  if (diff > 0) return { severity: "red", label: "מעל קיבולת", diff };
+  return { severity: "green", label: "בתוך קיבולת", diff };
 }
 
 function renderDataFreshness() {
   const banksDate = latestCashDate(dashboardData.allocationRows);
   const payrollMonth = latestMonthValue(dashboardData.payrollGroups);
   const budgetMonth = latestMonthValue(dashboardData.budgetGroups);
-  const hasAll = banksDate !== "No bank date" && payrollMonth !== "No data" && budgetMonth !== "No data";
-  els.freshnessStatusChip.textContent = hasAll ? "Current data loaded" : "Missing data";
+  const hasAll = banksDate !== NOT_UPDATED && payrollMonth !== NOT_UPDATED && budgetMonth !== NOT_UPDATED;
+  els.freshnessStatusChip.textContent = hasAll ? "נתונים קיימים" : "חסרים נתונים";
   els.freshnessGrid.innerHTML = [
-    { label: "Last BANKS date", value: banksDate, sub: "Latest bank movement date", tone: banksDate === "No bank date" ? "attention" : "balance" },
-    { label: "Last PAYROLL month", value: payrollMonth, sub: "Latest payroll group month", tone: payrollMonth === "No data" ? "attention" : "balance" },
-    { label: "Last BUDGET month", value: budgetMonth, sub: "Latest budget group month", tone: budgetMonth === "No data" ? "attention" : "balance" },
+    { label: "תאריך בנק אחרון", value: banksDate, sub: banksDate === NOT_UPDATED ? "אין נתוני בנק" : "לפי תאריך תנועת בנק", tone: banksDate === NOT_UPDATED ? "attention" : "balance" },
+    { label: "חודש שכר אחרון", value: payrollMonth, sub: payrollMonth === NOT_UPDATED ? "אין נתוני שכר" : "לפי קבוצות שכר", tone: payrollMonth === NOT_UPDATED ? "attention" : "balance" },
+    { label: "חודש תקציב אחרון", value: budgetMonth, sub: budgetMonth === NOT_UPDATED ? "אין נתוני תקציב" : "לפי קבוצות תקציב", tone: budgetMonth === NOT_UPDATED ? "attention" : "balance" },
   ].map((card) => kpiCard(card.label, card.value, card.sub, card.tone)).join("");
 }
 
-function renderDataQuality(data) {
-  const quality = allocationQuality(data);
+function renderDataQuality() {
+  const quality = allocationQuality();
   const tone = toneForDataQuality(quality.percentage, quality.total);
-  els.dataQualityStatusChip.textContent = quality.total ? quality.percentage + "% mapped" : "No allocation rows";
+  els.dataQualityStatusChip.textContent = quality.total ? quality.percentage + "% משויך" : "אין נתוני בנק";
   els.dataQualityGrid.innerHTML = [
-    { label: "Allocation rows", value: numberFormatter.format(quality.total), sub: "Mapped plus unmapped", tone: "secondary" },
-    { label: "Mapped rows", value: numberFormatter.format(quality.mapped), sub: "Rows with unit and month", tone: "balance" },
-    { label: "Unmapped rows", value: numberFormatter.format(quality.unmapped), sub: "Rows missing unit or month", tone: quality.unmapped ? "attention" : "balance" },
-    { label: "Data quality", value: quality.percentage + "%", sub: "Mapped allocation rows", tone },
+    { label: "שורות בנק", value: formatNumber(quality.total, quality.total > 0), sub: quality.total ? "משויכות ולא משויכות" : "אין נתוני בנק", tone: "secondary" },
+    { label: "שורות משויכות", value: formatNumber(quality.mapped, quality.total > 0), sub: "עם יחידה וחודש", tone: "balance" },
+    { label: "שורות לא משויכות", value: quality.total ? (quality.unmapped ? numberFormatter.format(quality.unmapped) : "אין") : NO_DATA, sub: quality.unmapped ? "חסר יחידה או חודש" : "אין שורות לא משויכות", tone: quality.unmapped ? "attention" : "balance" },
+    { label: "איכות נתונים", value: quality.percentage === null ? NO_DATA : quality.percentage + "%", sub: "שורות בנק משויכות", tone },
   ].map((card) => kpiCard(card.label, card.value, card.sub, card.tone)).join("");
 }
 
-function comparisonTile(label, actual, target, status, unitLabel) {
-  const targetText = target ? numberFormatter.format(target) : "Missing";
-  const diffText = target ? ((status.diff > 0 ? "+" : "") + numberFormatter.format(status.diff) + " " + unitLabel) : "Target not configured";
-  return '<div class="comparison-tile severity-' + status.severity + '"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(numberFormatter.format(actual)) + ' / ' + escapeHtml(targetText) + '</strong><small>' + escapeHtml(status.label + ' | ' + diffText) + '</small></div>';
+function comparisonTile(label, actual, target, status, actualAvailable, targetAvailable, unitLabel) {
+  const targetText = formatNumber(target, targetAvailable);
+  const actualText = formatNumber(actual, actualAvailable);
+  const diffText = status.diff === null ? "אין מספיק נתונים" : (status.diff > 0 ? "+" : "") + numberFormatter.format(status.diff) + " " + unitLabel;
+  return '<div class="comparison-tile severity-' + status.severity + '"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(actualText) + ' / ' + escapeHtml(targetText) + '</strong><small>' + escapeHtml(status.label + ' | ' + diffText) + '</small></div>';
 }
 
 function renderManagementComparisons(unitRows) {
   const daycareRows = unitRows.filter((row) => row.type === "daycare");
-  els.comparisonCountLabel.textContent = numberFormatter.format(daycareRows.length) + " daycares";
+  els.comparisonCountLabel.textContent = daycareRows.length ? numberFormatter.format(daycareRows.length) + " מעונות" : NO_DATA;
   if (!daycareRows.length) {
-    els.daycareComparisonGrid.innerHTML = '<p class="empty-state">No daycare comparison data matches the current filters.</p>';
+    els.daycareComparisonGrid.innerHTML = '<p class="empty-state">אין נתוני מעונות להשוואה במסננים הנוכחיים.</p>';
     return;
   }
   els.daycareComparisonGrid.innerHTML = daycareRows.map((row) => {
-    const cap = capacityStatus(row.children, row.capacity);
-    const hours = gapStatus(row.payrollHours, row.requiredHours, "hours");
-    const employees = gapStatus(row.payrollEmployees, row.requiredEmployees, "employees");
+    const cap = capacityStatus(row.children, row.capacity, row.hasChildren, row.hasCapacity);
+    const hours = gapStatus(row.payrollHours, row.requiredHours, row.hasPayroll, row.hasRequiredHours, "hours");
+    const employees = gapStatus(row.payrollEmployees, row.requiredEmployees, row.hasPayroll, row.hasRequiredEmployees, "employees");
     return '<article class="dashboard-panel daycare-comparison-card"><div class="panel-heading"><h3>' + escapeHtml(row.unit) + '</h3><span>' + escapeHtml(statusLabel(row.status)) + '</span></div><div class="comparison-tile-grid">' +
-      comparisonTile("Children vs capacity", row.children, row.capacity, cap, "children") +
-      comparisonTile("Payroll hours", row.payrollHours, row.requiredHours, hours, "hours") +
-      comparisonTile("Employees", row.payrollEmployees, row.requiredEmployees, employees, "employees") +
+      comparisonTile("ילדים מול קיבולת", row.children, row.capacity, cap, row.hasChildren, row.hasCapacity, "ילדים") +
+      comparisonTile("שעות שכר מול נדרש", row.payrollHours, row.requiredHours, hours, row.hasPayroll, row.hasRequiredHours, "שעות") +
+      comparisonTile("עובדים מול נדרש", row.payrollEmployees, row.requiredEmployees, employees, row.hasPayroll, row.hasRequiredEmployees, "עובדים") +
       '</div></article>';
   }).join("");
 }
 
 function actionText(issue) {
-  if (issue.label.includes("Missing unit")) return "Assign missing unit";
-  if (issue.label.includes("Missing month")) return "Assign missing month";
-  if (issue.label.includes("Rows missing")) return "Map unmapped transactions";
-  if (issue.label.includes("hours")) return "Review staffing hours";
-  if (issue.label.includes("Employee")) return "Review employee staffing";
-  if (issue.label.includes("Capacity")) return "Add or review capacity";
+  if (issue.label.includes("יחידה")) return "לשייך יחידה חסרה";
+  if (issue.label.includes("חודש")) return "לשייך חודש חסר";
+  if (issue.label.includes("בנק")) return "לבדוק תנועות בנק";
+  if (issue.label.includes("שעות")) return "לבדוק שעות שכר";
+  if (issue.label.includes("עובדים")) return "לבדוק תקינת עובדים";
+  if (issue.label.includes("קיבולת")) return "לעדכן או לבדוק קיבולת";
   return issue.label;
 }
 
 function renderActionCenter(issues) {
-  const actions = issues.filter((issue) => ["data", "operational"].includes(issue.category));
-  els.actionCountLabel.textContent = numberFormatter.format(actions.length) + " actions";
-  els.actionList.innerHTML = actions.length ? actions.map((issue) => '<article class="action-row severity-' + issue.severity + '"><span>' + escapeHtml(issue.severity) + '</span><strong>' + escapeHtml(actionText(issue)) + '</strong><p>' + escapeHtml(issue.unit) + ' | ' + escapeHtml(issue.month || "All") + ' | ' + escapeHtml(numberFormatter.format(issue.count)) + '</p></article>').join("") : '<p class="empty-state">No management actions in the current filters.</p>';
+  const severityRank = { red: 0, yellow: 1, green: 2 };
+  const actions = issues
+    .filter((issue) => ["data", "operational"].includes(issue.category))
+    .sort((a, b) => severityRank[a.severity] - severityRank[b.severity] || String(a.unit).localeCompare(String(b.unit), "he"));
+  els.actionCountLabel.textContent = actions.length ? numberFormatter.format(actions.length) + " פעולות" : "אין פעולות פתוחות";
+  els.actionList.innerHTML = actions.length ? actions.map((issue) => '<article class="action-row severity-' + issue.severity + '"><span>' + escapeHtml(severityLabel(issue.severity)) + '</span><strong>' + escapeHtml(actionText(issue)) + '</strong><p><b>' + escapeHtml(issue.unit) + '</b><small>' + escapeHtml(issue.month || "כל החודשים") + ' · ' + escapeHtml(numberFormatter.format(issue.count)) + '</small></p></article>').join("") : '<p class="empty-state">אין פעולות ניהול פתוחות במסננים הנוכחיים.</p>';
 }
+
 function renderDashboard() {
   const data = filteredData();
   const unitRows = buildUnitRows(data);
@@ -552,18 +649,19 @@ function renderDashboard() {
 }
 
 function renderLoadingState() {
-  els.statusGrid.innerHTML = '<p class="empty-state">Loading management dashboard...</p>';
-  els.summaryGrid.innerHTML = '';
-  els.freshnessGrid.innerHTML = '';
-  els.dataQualityGrid.innerHTML = '';
-  els.operationalGrid.innerHTML = '';
-  els.daycareComparisonGrid.innerHTML = '';
-  els.actionList.innerHTML = '';
-  els.unitCardGrid.innerHTML = '<p class="empty-state">Loading units...</p>';
-  els.dataIssueList.innerHTML = '<p class="empty-state">Loading issues...</p>';
-  els.operationalIssueList.innerHTML = '<p class="empty-state">Loading issues...</p>';
-  els.financialIssueList.innerHTML = '<p class="empty-state">Loading issues...</p>';
-  els.insightGrid.innerHTML = '<p class="empty-state">Loading insights...</p>';
+  els.overallStatusLabel.textContent = "נטען";
+  els.statusGrid.innerHTML = '<p class="empty-state">לוח הניהול נטען...</p>';
+  els.summaryGrid.innerHTML = "";
+  els.freshnessGrid.innerHTML = "";
+  els.dataQualityGrid.innerHTML = "";
+  els.operationalGrid.innerHTML = "";
+  els.daycareComparisonGrid.innerHTML = "";
+  els.actionList.innerHTML = "";
+  els.unitCardGrid.innerHTML = '<p class="empty-state">היחידות נטענות...</p>';
+  els.dataIssueList.innerHTML = '<p class="empty-state">החריגות נטענות...</p>';
+  els.operationalIssueList.innerHTML = '<p class="empty-state">החריגות נטענות...</p>';
+  els.financialIssueList.innerHTML = '<p class="empty-state">החריגות נטענות...</p>';
+  els.insightGrid.innerHTML = '<p class="empty-state">התובנות נטענות...</p>';
 }
 
 async function loadDashboardData() {
@@ -577,23 +675,24 @@ async function loadDashboardData() {
   dashboardData.errors = [];
 
   if (requests[0].status === "fulfilled") dashboardData.budgetGroups = normalizeBudget(requests[0].value);
-  else { dashboardData.budgetGroups = []; dashboardData.errors.push("Budget data unavailable"); }
+  else { dashboardData.budgetGroups = []; dashboardData.errors.push("אין נתוני תקציב"); }
 
   if (requests[1].status === "fulfilled") {
     const payroll = normalizePayroll(requests[1].value);
     dashboardData.payrollGroups = payroll.groups;
     dashboardData.payrollRows = payroll.rows;
-  } else { dashboardData.payrollGroups = []; dashboardData.payrollRows = []; dashboardData.errors.push("Payroll data unavailable"); }
+  } else { dashboardData.payrollGroups = []; dashboardData.payrollRows = []; dashboardData.errors.push("אין נתוני שכר"); }
 
   if (requests[2].status === "fulfilled") {
     const allocations = normalizeAllocations(requests[2].value);
     dashboardData.allocationGroups = allocations.groups;
     dashboardData.allocationRows = allocations.rows;
     dashboardData.unmappedRows = allocations.unmappedRows;
-  } else { dashboardData.allocationGroups = []; dashboardData.allocationRows = []; dashboardData.unmappedRows = []; dashboardData.errors.push("Allocation data unavailable"); }
+    dashboardData.excludedAllocationRows = allocations.excludedRows;
+  } else { dashboardData.allocationGroups = []; dashboardData.allocationRows = []; dashboardData.unmappedRows = []; dashboardData.excludedAllocationRows = []; dashboardData.errors.push("אין נתוני בנק"); }
 
   if (requests[3].status === "fulfilled") dashboardData.employees = normalizeEmployees(requests[3].value);
-  else { dashboardData.employees = []; dashboardData.errors.push("Employee data unavailable"); }
+  else { dashboardData.employees = []; dashboardData.errors.push("אין נתוני עובדים"); }
 
   renderFilterOptions();
   renderDashboard();
@@ -610,14 +709,3 @@ function bindEvents() {
 
 bindEvents();
 loadDashboardData();
-
-
-
-
-
-
-
-
-
-
-
