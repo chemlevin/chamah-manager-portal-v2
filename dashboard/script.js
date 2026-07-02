@@ -132,8 +132,8 @@ function normalizeBudget(payload) {
       hasChildren: valueExists(group.children),
       capacity: valueExists(capacityValue) ? safeNumber(capacityValue) : null,
       hasCapacity: valueExists(capacityValue),
-      requiredHours: safeNumber(group.requiredHours || group.totalRequiredHours),
-      hasRequiredHours: valueExists(group.requiredHours || group.totalRequiredHours),
+      requiredHours: safeNumber(group.requiredHours),
+      hasRequiredHours: valueExists(group.requiredHours),
       requiredEmployees: safeNumber(group.requiredEmployeeHeadcount),
       hasRequiredEmployees: valueExists(group.requiredEmployeeHeadcount),
       requiredStaff: safeNumber(group.requiredStaff),
@@ -327,10 +327,10 @@ function buildIssues(data, unitRows) {
     const employeeDiff = row.payrollEmployees - row.requiredEmployees;
     if (row.type === "daycare" && row.hasBudget && !row.hasCapacity && row.hasChildren) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: state.month, count: 1, label: "חסרה קיבולת" });
     if (row.type === "daycare" && row.hasCapacity && row.children > row.capacity) issues.push({ category: "operational", severity: "red", unit: row.unit, month: state.month, count: row.children - row.capacity, label: "ילדים מעל קיבולת" });
-    if (row.hasRequiredHours && row.hasPayroll && hoursDiff < 0) issues.push({ category: "operational", severity: "red", unit: row.unit, month: state.month, count: Math.abs(Math.round(hoursDiff)), label: "שעות שכר נמוכות מהנדרש" });
-    if (row.hasRequiredHours && row.hasPayroll && hoursDiff > 0) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: state.month, count: Math.round(hoursDiff), label: "שעות שכר גבוהות מהנדרש" });
-    if (row.hasRequiredEmployees && row.hasPayroll && employeeDiff < 0) issues.push({ category: "operational", severity: "red", unit: row.unit, month: state.month, count: Math.abs(Math.round(employeeDiff)), label: "מספר עובדים נמוך מהנדרש" });
-    if (row.hasRequiredEmployees && row.hasPayroll && employeeDiff > 0) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: state.month, count: Math.round(employeeDiff), label: "מספר עובדים גבוה מהנדרש" });
+    if (row.hasRequiredHours && row.hasPayroll && hoursDiff < 0) issues.push({ category: "operational", severity: "red", unit: row.unit, month: state.month, count: Math.abs(Math.round(hoursDiff)), label: "שעות מטפלות נמוכות מהנדרש" });
+    if (row.hasRequiredHours && row.hasPayroll && hoursDiff > 0) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: state.month, count: Math.round(hoursDiff), label: "שעות מטפלות גבוהות מהנדרש" });
+    if (row.hasRequiredEmployees && row.hasPayroll && employeeDiff < 0) issues.push({ category: "operational", severity: "red", unit: row.unit, month: state.month, count: Math.abs(Math.round(employeeDiff)), label: "מספר מטפלות נמוך מהנדרש" });
+    if (row.hasRequiredEmployees && row.hasPayroll && employeeDiff > 0) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: state.month, count: Math.round(employeeDiff), label: "מספר מטפלות גבוה מהנדרש" });
     if (row.hasBudget && !row.hasPayroll) issues.push({ category: "operational", severity: "yellow", unit: row.unit, month: state.month, count: 1, label: "אין נתוני שכר" });
     if ((row.hasBudget || row.hasPayroll) && !row.hasAllocations) issues.push({ category: "financial", severity: "yellow", unit: row.unit, month: state.month, count: 1, label: "אין נתוני בנק" });
     if (row.expenses > 0 && row.type === "other") issues.push({ category: "financial", severity: "yellow", unit: row.unit, month: state.month, count: 1, label: "הוצאות במחלקה שאינה מעון דורשות בדיקה" });
@@ -425,13 +425,13 @@ function renderOperations(data, issues) {
   const requiredHours = sum(data.budgetGroups, "requiredHours");
   const payrollHours = sum(data.payrollGroups, "payrollHours");
   const requiredEmployees = sum(data.budgetGroups, "requiredEmployees");
-  const payrollEmployees = sum(data.payrollGroups, "employeeCount");
+  const payrollEmployees = sum(data.payrollGroups, "staffingEmployeeCount");
   const operationalIssues = issues.filter((issue) => issue.category === "operational");
   els.operationalStatusChip.textContent = operationalIssues.length ? numberFormatter.format(operationalIssues.length) + " פריטים" : "אין פריטים פתוחים";
   els.operationalGrid.innerHTML = [
     comparisonCard("ילדים בפועל", children, children, hasBudget, hasBudget, "ילדים"),
-    comparisonCard("שעות שכר מול נדרש", payrollHours, requiredHours, hasPayroll, hasBudget, "שעות"),
-    comparisonCard("עובדים מול נדרש", payrollEmployees, requiredEmployees, hasPayroll, hasBudget, "עובדים"),
+    comparisonCard("שעות מטפלות מול נדרש", payrollHours, requiredHours, hasPayroll, hasBudget, "שעות"),
+    comparisonCard("מטפלות בפועל מול תקן נדרש", payrollEmployees, requiredEmployees, hasPayroll, hasBudget, "מטפלות"),
   ].join("");
 }
 
@@ -446,7 +446,7 @@ function renderUnits(unitRows) {
     els.unitCardGrid.innerHTML = '<p class="empty-state">אין יחידות להצגה במסננים הנוכחיים.</p>';
     return;
   }
-  els.unitCardGrid.innerHTML = sortedRows.map((row) => '<article class="daycare-card management-unit-card status-' + row.status + '"><div class="unit-status-ribbon">' + escapeHtml(statusLabel(row.status)) + '</div><div class="daycare-card-head"><div><h3>' + escapeHtml(row.unit) + '</h3><span>' + escapeHtml(row.type === "daycare" ? "מעון" : "מחלקה / אחר") + '</span></div><strong aria-label="מספר חריגות">' + escapeHtml(row.issueCount ? numberFormatter.format(row.issueCount) : "אין") + '</strong></div><div class="unit-primary-line"><span>' + escapeHtml(row.issueCount ? "דורש טיפול" : "ללא טיפול פתוח") + '</span><b>' + escapeHtml(row.hasAllocations ? "בנק מעודכן" : "אין נתוני בנק") + '</b></div><div class="daycare-metrics financial-metrics"><div><span>ילדים</span><strong>' + escapeHtml(formatNumber(row.children, row.hasBudget)) + '</strong></div><div><span>שכר</span><strong>' + escapeHtml(formatMoney(row.payrollCost, row.hasPayroll)) + '</strong></div><div><span>הוצאות</span><strong>' + escapeHtml(formatMoney(row.expenses, row.hasAllocations)) + '</strong></div><div><span>שעות</span><strong>' + escapeHtml(formatNumber(row.payrollHours, row.hasPayroll)) + '</strong></div><div><span>עובדים</span><strong>' + escapeHtml(formatNumber(row.payrollEmployees, row.hasPayroll)) + '</strong></div><div><span>נדרש</span><strong>' + escapeHtml(formatNumber(row.requiredEmployees, row.hasRequiredEmployees)) + '</strong></div></div><div class="budget-note">' + escapeHtml(row.issueCount ? "פתחו את הפעולות והשלימו את הנתון החסר" : "אין חריגות פתוחות ליחידה") + '</div></article>').join("");
+  els.unitCardGrid.innerHTML = sortedRows.map((row) => '<article class="daycare-card management-unit-card status-' + row.status + '"><div class="unit-status-ribbon">' + escapeHtml(statusLabel(row.status)) + '</div><div class="daycare-card-head"><div><h3>' + escapeHtml(row.unit) + '</h3><span>' + escapeHtml(row.type === "daycare" ? "מעון" : "מחלקה / אחר") + '</span></div><strong aria-label="מספר חריגות">' + escapeHtml(row.issueCount ? numberFormatter.format(row.issueCount) : "אין") + '</strong></div><div class="unit-primary-line"><span>' + escapeHtml(row.issueCount ? "דורש טיפול" : "ללא טיפול פתוח") + '</span><b>' + escapeHtml(row.hasAllocations ? "בנק מעודכן" : "אין נתוני בנק") + '</b></div><div class="daycare-metrics financial-metrics"><div><span>ילדים</span><strong>' + escapeHtml(formatNumber(row.children, row.hasBudget)) + '</strong></div><div><span>שכר</span><strong>' + escapeHtml(formatMoney(row.payrollCost, row.hasPayroll)) + '</strong></div><div><span>הוצאות</span><strong>' + escapeHtml(formatMoney(row.expenses, row.hasAllocations)) + '</strong></div><div><span>שעות מטפלות</span><strong>' + escapeHtml(formatNumber(row.payrollHours, row.hasPayroll)) + '</strong></div><div><span>מטפלות בפועל</span><strong>' + escapeHtml(formatNumber(row.payrollEmployees, row.hasPayroll)) + '</strong></div><div><span>תקן נדרש</span><strong>' + escapeHtml(formatNumber(row.requiredEmployees, row.hasRequiredEmployees)) + '</strong></div></div><div class="budget-note">' + escapeHtml(row.issueCount ? "פתחו את הפעולות והשלימו את הנתון החסר" : "אין חריגות פתוחות ליחידה") + '</div></article>').join("");
 }
 
 function renderIssueList(target, countTarget, issues) {
@@ -471,14 +471,14 @@ function renderInsights(data, issues) {
   const requiredHours = sum(data.budgetGroups, "requiredHours");
   const payrollHours = sum(data.payrollGroups, "payrollHours");
   const requiredEmployees = sum(data.budgetGroups, "requiredEmployees");
-  const payrollEmployees = sum(data.payrollGroups, "employeeCount");
+  const payrollEmployees = sum(data.payrollGroups, "staffingEmployeeCount");
   if (!hasBudget) insights.push(["אין נתוני תקציב", "לא ניתן להשוות ילדים, שעות נדרשות או תקן עובדים."]);
-  if (!hasPayroll) insights.push(["אין נתוני שכר", "לא ניתן להשוות שעות שכר או כמות עובדים בפועל."]);
+  if (!hasPayroll) insights.push(["אין נתוני שכר", "לא ניתן להשוות שעות מטפלות או כמות מטפלות בפועל."]);
   if (!hasRows(data.allocationGroups)) insights.push(["אין נתוני בנק", "לא ניתן להציג הוצאות והכנסות בפועל."]);
-  if (hasBudget && hasPayroll && payrollHours > requiredHours) insights.push(["שעות שכר מעל הנדרש", numberFormatter.format(payrollHours - requiredHours) + " שעות מעל התקן"]);
-  if (hasBudget && hasPayroll && payrollHours < requiredHours) insights.push(["שעות שכר מתחת לנדרש", numberFormatter.format(requiredHours - payrollHours) + " שעות חסרות"]);
-  if (hasBudget && hasPayroll && payrollEmployees > requiredEmployees) insights.push(["כמות עובדים מעל הנדרש", numberFormatter.format(payrollEmployees - requiredEmployees) + " עובדים מעל התקן"]);
-  if (hasBudget && hasPayroll && payrollEmployees < requiredEmployees) insights.push(["כמות עובדים מתחת לנדרש", numberFormatter.format(requiredEmployees - payrollEmployees) + " עובדים חסרים"]);
+  if (hasBudget && hasPayroll && payrollHours > requiredHours) insights.push(["שעות מטפלות מעל הנדרש", numberFormatter.format(payrollHours - requiredHours) + " שעות מעל התקן"]);
+  if (hasBudget && hasPayroll && payrollHours < requiredHours) insights.push(["שעות מטפלות מתחת לנדרש", numberFormatter.format(requiredHours - payrollHours) + " שעות חסרות"]);
+  if (hasBudget && hasPayroll && payrollEmployees > requiredEmployees) insights.push(["כמות מטפלות מעל הנדרש", numberFormatter.format(payrollEmployees - requiredEmployees) + " מטפלות מעל התקן"]);
+  if (hasBudget && hasPayroll && payrollEmployees < requiredEmployees) insights.push(["כמות מטפלות מתחת לנדרש", numberFormatter.format(requiredEmployees - payrollEmployees) + " מטפלות חסרות"]);
   if (dashboardData.unmappedRows.length) insights.push(["תנועות בנק לא משויכות", numberFormatter.format(dashboardData.unmappedRows.length) + " שורות דורשות יחידה או חודש"]);
   if (!insights.length && issues.length) insights.push(["יש חריגות לבדיקה", numberFormatter.format(issues.length) + " פריטים מופיעים במרכז החריגות."]);
   if (!insights.length && !issues.length) insights.push(["אין פעולה מיידית", "המסננים הנוכחיים לא מציגים חריגות פתוחות."]);
@@ -609,8 +609,8 @@ function renderManagementComparisons(unitRows) {
     const employees = gapStatus(row.payrollEmployees, row.requiredEmployees, row.hasPayroll, row.hasRequiredEmployees, "employees");
     return '<article class="dashboard-panel daycare-comparison-card"><div class="panel-heading"><h3>' + escapeHtml(row.unit) + '</h3><span>' + escapeHtml(statusLabel(row.status)) + '</span></div><div class="comparison-tile-grid">' +
       comparisonTile("ילדים מול קיבולת", row.children, row.capacity, cap, row.hasChildren, row.hasCapacity, "ילדים") +
-      comparisonTile("שעות שכר מול נדרש", row.payrollHours, row.requiredHours, hours, row.hasPayroll, row.hasRequiredHours, "שעות") +
-      comparisonTile("עובדים מול נדרש", row.payrollEmployees, row.requiredEmployees, employees, row.hasPayroll, row.hasRequiredEmployees, "עובדים") +
+      comparisonTile("שעות מטפלות מול נדרש", row.payrollHours, row.requiredHours, hours, row.hasPayroll, row.hasRequiredHours, "שעות") +
+      comparisonTile("מטפלות בפועל מול תקן נדרש", row.payrollEmployees, row.requiredEmployees, employees, row.hasPayroll, row.hasRequiredEmployees, "מטפלות") +
       '</div></article>';
   }).join("");
 }
@@ -619,8 +619,8 @@ function actionText(issue) {
   if (issue.label.includes("יחידה")) return "לשייך יחידה חסרה";
   if (issue.label.includes("חודש")) return "לשייך חודש חסר";
   if (issue.label.includes("בנק")) return "לבדוק תנועות בנק";
-  if (issue.label.includes("שעות")) return "לבדוק שעות שכר";
-  if (issue.label.includes("עובדים")) return "לבדוק תקינת עובדים";
+  if (issue.label.includes("שעות")) return "לבדוק שעות מטפלות";
+  if (issue.label.includes("מטפלות") || issue.label.includes("עובדים")) return "לבדוק תקינת מטפלות";
   if (issue.label.includes("קיבולת")) return "לעדכן או לבדוק קיבולת";
   return issue.label;
 }

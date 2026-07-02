@@ -122,7 +122,7 @@ function summarizeBudget(budgetInput, issues) {
     }
 
     const children = numberValue(group.children);
-    const requiredHours = numberValue(group.totalRequiredHours || group.requiredHours);
+    const requiredHours = numberValue(group.requiredHours);
     const requiredEmployees = numberValue(group.requiredEmployeeHeadcount);
     const revenue = numberValue(group.expectedRevenue);
     const costs = numberValue(group.totalBudgetCosts);

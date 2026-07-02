@@ -10,7 +10,8 @@ const budget = {
       daycare: 'אשקלון',
       month: '1',
       children: 20,
-      totalRequiredHours: 320,
+      requiredHours: 320,
+      totalRequiredHours: 400,
       requiredEmployeeHeadcount: 2,
       expectedRevenue: 50000,
       totalBudgetCosts: 18000,
@@ -144,6 +145,40 @@ test('summarizes daycare, class, age group, and staffing comparisons', () => {
   expect(ashkelon.payrollEmployees).toBe(2);
   expect(infants.children).toBe(8);
   expect(classA.children).toBe(20);
+});
+
+test('uses regulatory required hours and staffing-only payroll values for comparisons', () => {
+  const result = buildManagementIntelligence({
+    budget: {
+      byDaycareMonth: [{
+        daycare: 'אשקלון',
+        month: '09/2026',
+        requiredHours: 3075,
+        totalRequiredHours: 3280,
+        requiredEmployeeHeadcount: 19.5,
+      }],
+    },
+    payroll: {
+      byDaycareMonth: [{
+        daycare: 'אשקלון',
+        month: '09/2026',
+        employeeCount: 15,
+        staffingEmployeeCount: 14,
+        totalPayrollHours: 1080,
+        staffingPayrollHours: 1015,
+        totalPayrollCost: 108523.63,
+      }],
+    },
+    allocations: {},
+    employees: {},
+  });
+
+  const ashkelon = result.comparisons.daycareMonth.find((group) => group.daycare === 'אשקלון');
+  expect(ashkelon.requiredHours).toBe(3075);
+  expect(ashkelon.payrollHours).toBe(1015);
+  expect(ashkelon.hoursDifference).toBe(-2060);
+  expect(ashkelon.requiredEmployees).toBe(19.5);
+  expect(ashkelon.payrollEmployees).toBe(14);
 });
 
 test('reports allocation data quality and unmapped allocation issues', () => {
