@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="he" dir="rtl">
   <head>
     <meta charset="UTF-8" />
@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="../assets/styles.css" />
   </head>
   <body>
-    <main class="portal-shell executive-dashboard management-dashboard">
+    <main class="portal-shell executive-dashboard management-dashboard management-dashboard-v2">
       <header class="global-nav" aria-label="ניווט ראשי">
         <a class="global-brand" href="../" aria-label="עמוד הבית של מערכת הניהול">
           <img src="../assets/chamah-logo.svg" alt="Chamah" />
@@ -41,29 +41,29 @@
         </aside>
       </header>
 
-      <section class="dashboard-hero management-hero" aria-labelledby="dashboard-title">
+      <section class="dashboard-hero management-hero control-room-hero" aria-labelledby="dashboard-title">
         <div>
-          <p class="eyebrow">מרכז בקרה ניהולי</p>
-          <h1 id="dashboard-title">מצב הארגון במסך אחד</h1>
-          <p class="subtitle">תמונת מצב יומית של פעילות, כוח אדם, תנועות בנק ונתונים חסרים. אין כאן חישוב רווח והפסד סופי.</p>
+          <p class="eyebrow">מרכז שליטה ניהולי</p>
+          <h1 id="dashboard-title">מה דורש טיפול עכשיו?</h1>
+          <p class="subtitle">מצב תפעולי יומי לפי שעות מטפלות, שכר, ילדים ותנועות בנק. המטרה: להבין בתוך שניות איפה צריך להתערב.</p>
         </div>
         <div class="dashboard-period management-status-card" aria-label="מצב הארגון">
-          <span>מצב כללי</span>
+          <span>מצב הארגון</span>
           <strong id="overall-status-label">נטען</strong>
           <small id="last-update-label">עדכון אחרון: נטען</small>
         </div>
       </section>
 
-      <section class="filter-bar management-filter-bar" aria-label="מסנני לוח הניהול">
+      <section class="filter-bar management-filter-bar control-filter-bar" aria-label="מסנני לוח הניהול">
         <label><span>חודש</span><select id="month-filter"></select></label>
         <label><span>מעון או מחלקה</span><select id="unit-filter"></select></label>
         <label><span>סוג יחידה</span><select id="unit-type-filter"></select></label>
       </section>
 
-      <section class="dashboard-section organization-status-section" aria-labelledby="status-title">
+      <section class="dashboard-section organization-status-section control-room-section" aria-labelledby="status-title">
         <div class="section-title-row compact-title-row">
           <div>
-            <p class="eyebrow">תמונת מצב</p>
+            <p class="eyebrow">בריאות ארגונית</p>
             <h2 id="status-title">מצב הארגון</h2>
           </div>
           <span class="section-chip" id="selected-month-label">כל החודשים</span>
@@ -71,34 +71,11 @@
         <div class="management-status-grid" id="organization-status-grid"></div>
       </section>
 
-
-      <section class="dashboard-section data-freshness-section" aria-labelledby="freshness-title">
-        <div class="section-title-row compact-title-row">
-          <div>
-            <p class="eyebrow">עדכניות נתונים</p>
-            <h2 id="freshness-title">מועד עדכון הנתונים</h2>
-          </div>
-          <span class="section-chip" id="freshness-status-chip">נטען</span>
-        </div>
-        <div class="management-status-grid management-freshness-grid" id="data-freshness-grid"></div>
-      </section>
-
-      <section class="dashboard-section data-quality-section" aria-labelledby="quality-title">
-        <div class="section-title-row compact-title-row">
-          <div>
-            <p class="eyebrow">איכות נתונים</p>
-            <h2 id="quality-title">שלמות נתוני בנק</h2>
-          </div>
-          <span class="section-chip" id="data-quality-status-chip">נטען</span>
-        </div>
-        <div class="kpi-grid management-quality-grid" id="data-quality-grid"></div>
-      </section>
-
       <section class="dashboard-section action-center-section priority-section" aria-labelledby="action-title">
         <div class="section-title-row compact-title-row">
           <div>
-            <p class="eyebrow">מה דורש טיפול</p>
-            <h2 id="action-title">פעולות להיום</h2>
+            <p class="eyebrow">פעולה לפני פירוט</p>
+            <h2 id="action-title">פעולות הבוקר</h2>
           </div>
           <span class="section-chip" id="action-count-label">נטען</span>
         </div>
@@ -107,45 +84,11 @@
         </div>
       </section>
 
-      <section class="dashboard-section organization-summary-section" aria-labelledby="summary-title">
-        <div class="section-title-row compact-title-row">
-          <div>
-            <p class="eyebrow">סיכום</p>
-            <h2 id="summary-title">סיכום ארגוני</h2>
-          </div>
-          <span class="section-chip muted-chip">ללא חישוב רווח והפסד</span>
-        </div>
-        <div class="kpi-grid management-summary-grid" id="organization-summary-grid"></div>
-      </section>
-
-      <section class="dashboard-section operational-section" aria-labelledby="operations-title">
-        <div class="section-title-row compact-title-row">
-          <div>
-            <p class="eyebrow">תפעול</p>
-            <h2 id="operations-title">מצב תפעולי</h2>
-          </div>
-          <span class="section-chip" id="operational-status-chip">נטען</span>
-        </div>
-        <div class="management-comparison-grid" id="operational-comparison-grid"></div>
-      </section>
-
-
-      <section class="dashboard-section management-comparison-section" aria-labelledby="comparison-title">
-        <div class="section-title-row compact-title-row">
-          <div>
-            <p class="eyebrow">השוואות ניהול</p>
-            <h2 id="comparison-title">השוואות לפי מעון</h2>
-          </div>
-          <span class="section-chip" id="comparison-count-label">נטען</span>
-        </div>
-        <div class="management-daycare-comparison-grid" id="daycare-comparison-grid"></div>
-      </section>
-
       <section class="dashboard-section unit-section" aria-labelledby="units-title">
         <div class="section-title-row compact-title-row">
           <div>
-            <p class="eyebrow">יחידות</p>
-            <h2 id="units-title">מעונות ומחלקות</h2>
+            <p class="eyebrow">מעונות בפעולה</p>
+            <h2 id="units-title">איפה צריך להתערב</h2>
           </div>
           <span id="unit-count-label" class="section-chip"></span>
         </div>
@@ -155,14 +98,14 @@
       <section class="dashboard-section issues-section" aria-labelledby="issues-title">
         <div class="section-title-row compact-title-row">
           <div>
-            <p class="eyebrow">חריגות</p>
+            <p class="eyebrow">בעיות בלבד</p>
             <h2 id="issues-title">מרכז חריגות</h2>
           </div>
           <span id="issue-count-label" class="section-chip"></span>
         </div>
         <div class="management-issues-layout">
-          <article class="dashboard-panel issue-panel"><div class="panel-heading"><h3>חריגות נתונים</h3><span id="data-issue-count"></span></div><div class="issue-list" id="data-issue-list"></div></article>
           <article class="dashboard-panel issue-panel"><div class="panel-heading"><h3>חריגות תפעול</h3><span id="operational-issue-count"></span></div><div class="issue-list" id="operational-issue-list"></div></article>
+          <article class="dashboard-panel issue-panel"><div class="panel-heading"><h3>חריגות נתונים</h3><span id="data-issue-count"></span></div><div class="issue-list" id="data-issue-list"></div></article>
           <article class="dashboard-panel issue-panel"><div class="panel-heading"><h3>חריגות כספיות</h3><span id="financial-issue-count"></span></div><div class="issue-list" id="financial-issue-list"></div></article>
         </div>
       </section>
@@ -170,21 +113,50 @@
       <section class="dashboard-section insights-section" aria-labelledby="insights-title">
         <div class="section-title-row compact-title-row">
           <div>
-            <p class="eyebrow">תובנות</p>
-            <h2 id="insights-title">תובנות</h2>
+            <p class="eyebrow">תובנות קצרות</p>
+            <h2 id="insights-title">מה להבין עכשיו</h2>
           </div>
-          <span class="section-chip muted-chip">כללי הניהול יתפתחו בהמשך</span>
+          <span class="section-chip muted-chip">3-5 תובנות ניהוליות</span>
         </div>
         <div class="executive-alert-grid management-insight-grid" id="insight-grid"></div>
       </section>
 
-      <section class="dashboard-section management-detail-section" aria-labelledby="details-title">
+      <section class="dashboard-section management-detail-section supporting-details-section" aria-labelledby="details-title">
         <div class="section-title-row compact-title-row">
           <div>
-            <p class="eyebrow">פירוט</p>
-            <h2 id="details-title">נתוני עזר</h2>
+            <p class="eyebrow">פירוט תומך</p>
+            <h2 id="details-title">נתוני עזר ובקרה</h2>
           </div>
+          <span class="section-chip muted-chip">לא נקודת הפתיחה לניהול</span>
         </div>
+
+        <div class="supporting-grid">
+          <article class="dashboard-panel supporting-panel" aria-labelledby="operations-title">
+            <div class="panel-heading"><h3 id="operations-title">מצב תפעולי</h3><span id="operational-status-chip">נטען</span></div>
+            <div class="management-comparison-grid" id="operational-comparison-grid"></div>
+          </article>
+
+          <article class="dashboard-panel supporting-panel" aria-labelledby="comparison-title">
+            <div class="panel-heading"><h3 id="comparison-title">השוואות לפי מעון</h3><span id="comparison-count-label">נטען</span></div>
+            <div class="management-daycare-comparison-grid" id="daycare-comparison-grid"></div>
+          </article>
+
+          <article class="dashboard-panel supporting-panel" aria-labelledby="freshness-title">
+            <div class="panel-heading"><h3 id="freshness-title">מועד עדכון הנתונים</h3><span id="freshness-status-chip">נטען</span></div>
+            <div class="management-status-grid management-freshness-grid" id="data-freshness-grid"></div>
+          </article>
+
+          <article class="dashboard-panel supporting-panel" aria-labelledby="quality-title">
+            <div class="panel-heading"><h3 id="quality-title">שלמות נתוני בנק</h3><span id="data-quality-status-chip">נטען</span></div>
+            <div class="kpi-grid management-quality-grid" id="data-quality-grid"></div>
+          </article>
+
+          <article class="dashboard-panel supporting-panel" aria-labelledby="summary-title">
+            <div class="panel-heading"><h3 id="summary-title">סיכום ארגוני</h3><span>ללא רווח והפסד</span></div>
+            <div class="kpi-grid management-summary-grid" id="organization-summary-grid"></div>
+          </article>
+        </div>
+
         <div class="table-tools">
           <label><span>חיפוש</span><input id="table-search" type="search" placeholder="חיפוש יחידה, חודש, עובד או חריגה" /></label>
           <label><span>מיון בנק</span><select id="expense-sort"><option value="amount-desc">סכום גבוה לנמוך</option><option value="amount-asc">סכום נמוך לגבוה</option><option value="month-desc">חודש אחרון</option></select></label>
@@ -206,4 +178,3 @@
     <script src="../assets/navigation.js"></script>
   </body>
 </html>
-

@@ -4531,3 +4531,326 @@ details.employee-detail-section > div {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Management dashboard phase 2: control-room hierarchy */
+.management-dashboard-v2 {
+  width: min(1440px, 100%);
+  gap: 22px;
+}
+
+.management-dashboard-v2 .control-room-hero {
+  min-height: 214px;
+  align-items: center;
+  border-color: rgba(36, 48, 54, .12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .96), rgba(248, 251, 249, .94)),
+    linear-gradient(90deg, rgba(68, 118, 108, .12), rgba(201, 134, 90, .08));
+}
+
+.management-dashboard-v2 .control-room-hero::before {
+  display: none;
+}
+
+.management-dashboard-v2 .control-room-hero h1 {
+  max-width: 920px;
+  color: #1f2c31;
+  font-size: clamp(2.45rem, 4.7vw, 4rem);
+}
+
+.management-dashboard-v2 .control-room-hero .subtitle {
+  max-width: 920px;
+  color: #516269;
+  font-size: 1.08rem;
+}
+
+.management-dashboard-v2 .management-status-card {
+  min-width: 260px;
+  border-color: rgba(68, 118, 108, .26);
+  background: rgba(255, 255, 255, .92);
+}
+
+.management-dashboard-v2 .control-filter-bar {
+  position: sticky;
+  top: 10px;
+  z-index: 5;
+  box-shadow: 0 14px 34px rgba(47, 65, 61, .11);
+}
+
+.management-dashboard-v2 .control-room-section,
+.management-dashboard-v2 .priority-section,
+.management-dashboard-v2 .unit-section,
+.management-dashboard-v2 .issues-section,
+.management-dashboard-v2 .insights-section,
+.management-dashboard-v2 .supporting-details-section {
+  display: grid;
+  gap: 14px;
+}
+
+.management-dashboard-v2 .compact-title-row {
+  margin-top: 2px;
+}
+
+.management-dashboard-v2 .compact-title-row h2 {
+  color: #1f2c31;
+  font-size: clamp(1.45rem, 2.5vw, 2.05rem);
+}
+
+.management-dashboard-v2 .compact-title-row .eyebrow {
+  margin-bottom: 4px;
+  color: var(--brand-dark);
+}
+
+.management-dashboard-v2 .section-chip {
+  border-radius: 8px;
+}
+
+.management-dashboard-v2 .management-status-grid {
+  grid-template-columns: 1.35fr repeat(5, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.management-dashboard-v2 .management-status-grid .management-kpi {
+  min-height: 152px;
+  box-shadow: 0 14px 34px rgba(47, 65, 61, .09);
+}
+
+.management-dashboard-v2 .management-status-grid .management-kpi:first-child {
+  min-height: 214px;
+  align-content: center;
+  border-color: rgba(37, 99, 235, .25);
+  background: linear-gradient(180deg, rgba(239, 246, 255, .96), rgba(255, 255, 255, .96));
+}
+
+.management-dashboard-v2 .management-status-grid .management-kpi:first-child .kpi-icon {
+  width: 52px;
+  height: 52px;
+  color: #1d4ed8;
+  background: rgba(219, 234, 254, .92);
+}
+
+.management-dashboard-v2 .management-status-grid .management-kpi:first-child strong {
+  color: #1d4ed8;
+  font-size: clamp(2.55rem, 4.4vw, 4.35rem);
+}
+
+.management-dashboard-v2 .management-status-grid .management-kpi:first-child p {
+  color: #1d4ed8;
+  font-size: 1rem;
+}
+
+.management-dashboard-v2 .management-kpi strong {
+  overflow-wrap: anywhere;
+}
+
+.management-dashboard-v2 .payroll-kpi {
+  border-color: rgba(127, 96, 0, .22);
+  background: linear-gradient(180deg, rgba(255, 249, 226, .92), rgba(255, 255, 255, .95));
+}
+
+.management-dashboard-v2 .payroll-kpi strong {
+  color: #7b5a12;
+}
+
+.management-dashboard-v2 .income-kpi {
+  border-color: rgba(68, 118, 108, .24);
+  background: linear-gradient(180deg, rgba(239, 248, 244, .95), rgba(255, 255, 255, .95));
+}
+
+.management-dashboard-v2 .secondary-kpi {
+  border-color: rgba(93, 111, 119, .18);
+  background: linear-gradient(180deg, rgba(247, 249, 248, .98), rgba(255, 255, 255, .95));
+}
+
+.management-dashboard-v2 .expense-kpi {
+  border-color: rgba(209, 149, 47, .34);
+  background: linear-gradient(180deg, rgba(255, 248, 232, .96), rgba(255, 255, 255, .94));
+}
+
+.management-dashboard-v2 .attention-kpi {
+  border-color: rgba(173, 73, 63, .4);
+  background: linear-gradient(180deg, rgba(255, 238, 235, .97), rgba(255, 255, 255, .94));
+}
+
+.management-dashboard-v2 .action-center-panel {
+  padding: 16px;
+  border-color: rgba(36, 48, 54, .1);
+  background: rgba(255, 255, 255, .94);
+}
+
+.management-dashboard-v2 .action-list {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.management-dashboard-v2 .action-row {
+  min-height: 118px;
+  grid-template-columns: 1fr;
+  align-content: start;
+  gap: 9px;
+  box-shadow: 0 12px 28px rgba(47, 65, 61, .08);
+}
+
+.management-dashboard-v2 .action-row span {
+  width: fit-content;
+}
+
+.management-dashboard-v2 .action-row strong {
+  font-size: 1.12rem;
+  line-height: 1.35;
+}
+
+.management-dashboard-v2 .action-row p {
+  text-align: start;
+}
+
+.management-dashboard-v2 .management-unit-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.management-dashboard-v2 .management-unit-card {
+  min-height: 312px;
+  box-shadow: 0 14px 34px rgba(47, 65, 61, .09);
+}
+
+.management-dashboard-v2 .management-unit-card.status-red,
+.management-dashboard-v2 .management-unit-card.status-yellow {
+  transform: translateY(-1px);
+}
+
+.management-dashboard-v2 .unit-primary-line {
+  min-height: 58px;
+}
+
+.management-dashboard-v2 .unit-primary-line b {
+  font-size: 1.02rem;
+}
+
+.management-dashboard-v2 .management-unit-card .daycare-metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.management-dashboard-v2 .management-unit-card .daycare-metrics div:first-child,
+.management-dashboard-v2 .management-unit-card .daycare-metrics div:nth-child(2) {
+  min-height: 82px;
+  border-color: rgba(37, 99, 235, .16);
+  background: rgba(239, 246, 255, .68);
+}
+
+.management-dashboard-v2 .management-unit-card .daycare-metrics div:first-child strong,
+.management-dashboard-v2 .management-unit-card .daycare-metrics div:nth-child(2) strong {
+  color: #1d4ed8;
+}
+
+.management-dashboard-v2 .management-issues-layout {
+  grid-template-columns: 1.2fr 1fr 1fr;
+}
+
+.management-dashboard-v2 .issue-panel {
+  box-shadow: 0 12px 28px rgba(47, 65, 61, .08);
+}
+
+.management-dashboard-v2 .issue-row {
+  min-height: 104px;
+  box-shadow: none;
+}
+
+.management-dashboard-v2 .management-insight-grid {
+  grid-template-columns: 1.25fr repeat(2, minmax(0, 1fr));
+}
+
+.management-dashboard-v2 .management-insight {
+  min-height: 144px;
+}
+
+.management-dashboard-v2 .supporting-details-section {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(223, 229, 225, .86);
+}
+
+.management-dashboard-v2 .supporting-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.management-dashboard-v2 .supporting-panel {
+  box-shadow: 0 10px 24px rgba(47, 65, 61, .07);
+}
+
+.management-dashboard-v2 .management-detail-section .data-table-grid {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr);
+}
+
+@media (max-width: 1240px) {
+  .management-dashboard-v2 .management-status-grid,
+  .management-dashboard-v2 .management-unit-grid,
+  .management-dashboard-v2 .action-list,
+  .management-dashboard-v2 .management-insight-grid,
+  .management-dashboard-v2 .management-issues-layout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .management-dashboard-v2 .management-detail-section .data-table-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 840px) {
+  .management-dashboard-v2 {
+    gap: 14px;
+  }
+
+  .management-dashboard-v2 .control-filter-bar {
+    position: static;
+  }
+
+  .management-dashboard-v2 .control-room-hero {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    padding: 18px;
+  }
+
+  .management-dashboard-v2 .control-room-hero h1 {
+    font-size: clamp(1.9rem, 9vw, 2.65rem);
+  }
+
+  .management-dashboard-v2 .management-status-card {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .management-dashboard-v2 .management-status-grid,
+  .management-dashboard-v2 .management-unit-grid,
+  .management-dashboard-v2 .action-list,
+  .management-dashboard-v2 .management-insight-grid,
+  .management-dashboard-v2 .management-issues-layout,
+  .management-dashboard-v2 .management-detail-section .data-table-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .management-dashboard-v2 .management-status-grid .management-kpi,
+  .management-dashboard-v2 .management-status-grid .management-kpi:first-child,
+  .management-dashboard-v2 .management-unit-card,
+  .management-dashboard-v2 .action-row,
+  .management-dashboard-v2 .management-insight {
+    min-height: auto;
+  }
+
+  .management-dashboard-v2 .management-status-grid .management-kpi:first-child strong {
+    font-size: clamp(2.2rem, 12vw, 3.4rem);
+  }
+
+  .management-dashboard-v2 .management-unit-card .daycare-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .management-dashboard-v2 .management-unit-card .daycare-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .management-dashboard-v2 .compact-title-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

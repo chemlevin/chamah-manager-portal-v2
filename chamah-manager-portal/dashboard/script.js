@@ -417,18 +417,33 @@ function kpiCard(label, value, sub, tone = "secondary") {
   return '<article class="kpi-card cashflow-kpi management-kpi ' + tone + '-kpi"><span class="kpi-icon" aria-hidden="true">' + escapeHtml(label.slice(0, 1)) + '</span><div><p>' + escapeHtml(label) + '</p><strong>' + escapeHtml(value) + '</strong><span>' + escapeHtml(sub) + '</span></div></article>';
 }
 
+function coverageTone(coverage, available) {
+  if (!available || coverage === null) return "attention";
+  if (coverage >= STATUS_THRESHOLDS.hoursCoverageGreenAt) return "balance";
+  if (coverage >= STATUS_THRESHOLDS.hoursCoverageYellowAt) return "expense";
+  return "attention";
+}
+
 function renderStatus(data, unitRows, issues) {
   const status = statusFromUnits(unitRows, issues);
   els.overallStatusLabel.textContent = statusLabel(status);
   els.overallStatusLabel.className = "status-pill " + status;
   els.lastUpdateLabel.textContent = "עדכון בנק אחרון: " + latestCashDate(dashboardData.allocationRows);
   els.selectedMonthLabel.textContent = state.month === "all" ? "כל החודשים" : state.month;
+  const hasBudget = hasRows(data.budgetGroups);
+  const hasPayroll = hasRows(data.payrollGroups);
+  const hasAllocations = hasRows(data.allocationGroups);
+  const requiredHours = sum(data.budgetGroups, "requiredHours");
+  const payrollHours = sum(data.payrollGroups, "payrollHours");
+  const staffingCoverage = coveragePercent(payrollHours, requiredHours);
+  const hasStaffingCoverage = hasBudget && hasPayroll && staffingCoverage !== null;
   const cards = [
-    { label: "חודש מוצג", value: state.month === "all" ? "כל החודשים" : state.month, sub: "תצוגה ניהולית נוכחית", tone: "secondary" },
-    { label: "עדכון בנק אחרון", value: latestCashDate(dashboardData.allocationRows), sub: "לפי תאריך תנועת בנק", tone: latestCashDate(dashboardData.allocationRows) === NOT_UPDATED ? "attention" : "balance" },
-    { label: "יחידות פעילות", value: formatNumber(unitRows.length, unitRows.length > 0), sub: "יחידות במסננים הנוכחיים", tone: "income" },
-    { label: "חריגות פתוחות", value: issues.length ? numberFormatter.format(issues.length) : "אין", sub: issues.length ? "נתונים, תפעול וכספים" : "אין חריגות פתוחות", tone: issues.length ? "attention" : "balance" },
-    { label: "מצב", value: statusLabel(status), sub: "לפי החריגות הפתוחות", tone: status === "red" ? "attention" : status === "yellow" ? "expense" : "balance" },
+    { label: "כיסוי שעות מטפלות", value: formatPercent(staffingCoverage, hasStaffingCoverage), sub: hasStaffingCoverage ? formatNumber(payrollHours) + " / " + formatNumber(requiredHours) + " שעות" : "אין מספיק נתוני תקציב ושכר", tone: coverageTone(staffingCoverage, hasStaffingCoverage) },
+    { label: "עלות שכר", value: formatMoney(sum(data.payrollGroups, "payrollCost"), hasPayroll), sub: hasPayroll ? "כל שורות השכר במעון ובחודש" : "אין נתוני שכר", tone: "payroll" },
+    { label: "ילדים", value: formatNumber(sum(data.budgetGroups, "children"), hasBudget), sub: hasBudget ? "לפי נתוני תקציב" : "אין נתוני תקציב", tone: "secondary" },
+    { label: "הכנסות", value: formatMoney(sum(data.allocationGroups, "income"), hasAllocations), sub: hasAllocations ? "תנועות זכות בבנק" : "אין נתוני בנק", tone: "income" },
+    { label: "הוצאות", value: formatMoney(sum(data.allocationGroups, "expenses"), hasAllocations), sub: hasAllocations ? "תנועות חובה בבנק" : "אין נתוני בנק", tone: "expense" },
+    { label: "חריגות פתוחות", value: issues.length ? numberFormatter.format(issues.length) : "אין", sub: issues.length ? "דורשות החלטה או השלמת נתונים" : "אין חריגות פתוחות", tone: issues.length ? "attention" : "balance" },
   ];
   els.statusGrid.innerHTML = cards.map((card) => kpiCard(card.label, card.value, card.sub, card.tone)).join("");
 }
@@ -523,6 +538,7 @@ function renderInsights(data, issues) {
   const hasPayroll = hasRows(data.payrollGroups);
   const requiredHours = sum(data.budgetGroups, "requiredHours");
   const payrollHours = sum(data.payrollGroups, "payrollHours");
+  const hoursCoverage = coveragePercent(payrollHours, requiredHours);
   const requiredEmployees = sum(data.budgetGroups, "requiredEmployees");
   const payrollEmployees = sum(data.payrollGroups, "staffingEmployeeCount");
   if (!hasBudget) insights.push(["אין נתוני תקציב", "לא ניתן להשוות ילדים, שעות נדרשות או תקן עובדים."]);
@@ -535,7 +551,7 @@ function renderInsights(data, issues) {
   if (dashboardData.unmappedRows.length) insights.push(["תנועות בנק לא משויכות", numberFormatter.format(dashboardData.unmappedRows.length) + " שורות דורשות יחידה או חודש"]);
   if (!insights.length && issues.length) insights.push(["יש חריגות לבדיקה", numberFormatter.format(issues.length) + " פריטים מופיעים במרכז החריגות."]);
   if (!insights.length && !issues.length) insights.push(["אין פעולה מיידית", "המסננים הנוכחיים לא מציגים חריגות פתוחות."]);
-  els.insightGrid.innerHTML = insights.map(([title, detail], index) => '<article class="executive-alert management-insight ' + (index === 0 ? 'primary-insight' : '') + '"><span>תובנה ניהולית</span><strong>' + escapeHtml(title) + '</strong><p>' + escapeHtml(detail) + '</p></article>').join("");
+  els.insightGrid.innerHTML = insights.slice(0, 5).map(([title, detail], index) => '<article class="executive-alert management-insight ' + (index === 0 ? 'primary-insight' : '') + '"><span>תובנה ניהולית</span><strong>' + escapeHtml(title) + '</strong><p>' + escapeHtml(detail) + '</p></article>').join("");
 }
 
 function financialRows(allocationRows) {
@@ -685,7 +701,7 @@ function renderActionCenter(issues) {
     .filter((issue) => ["data", "operational"].includes(issue.category))
     .sort((a, b) => severityRank[a.severity] - severityRank[b.severity] || String(a.unit).localeCompare(String(b.unit), "he"));
   els.actionCountLabel.textContent = actions.length ? numberFormatter.format(actions.length) + " פעולות" : "אין פעולות פתוחות";
-  els.actionList.innerHTML = actions.length ? actions.map((issue) => '<article class="action-row severity-' + issue.severity + '"><span>' + escapeHtml(severityLabel(issue.severity)) + '</span><strong>' + escapeHtml(actionText(issue)) + '</strong><p><b>' + escapeHtml(issue.unit) + '</b><small>' + escapeHtml(issue.month || "כל החודשים") + ' · ' + escapeHtml(numberFormatter.format(issue.count)) + '</small></p></article>').join("") : '<p class="empty-state">אין פעולות ניהול פתוחות במסננים הנוכחיים.</p>';
+  els.actionList.innerHTML = actions.length ? actions.slice(0, 6).map((issue) => '<article class="action-row severity-' + issue.severity + '"><span>' + escapeHtml(severityLabel(issue.severity)) + '</span><strong>' + escapeHtml(actionText(issue)) + '</strong><p><b>' + escapeHtml(issue.unit) + '</b><small>' + escapeHtml(issue.month || "כל החודשים") + ' · ' + escapeHtml(numberFormatter.format(issue.count)) + '</small></p></article>').join("") : '<p class="empty-state">אין פעולות ניהול פתוחות במסננים הנוכחיים.</p>';
 }
 
 function renderDashboard() {
