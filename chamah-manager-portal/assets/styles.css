@@ -6269,6 +6269,87 @@ details.employee-detail-section > div {
   min-height: 32px;
 }
 
+.management-dashboard-v2 .organization-status-section .management-kpi {
+  height: 78px;
+  min-height: 78px;
+  padding: 6px 7px;
+  overflow: hidden;
+}
+
+.management-dashboard-v2 .period-summary-section .management-kpi,
+.management-dashboard-v2 .school-year-section .management-kpi {
+  height: 94px;
+  min-height: 94px;
+  padding: 7px 8px;
+  overflow: hidden;
+}
+
+.management-dashboard-v2 .management-kpi p {
+  margin-bottom: 2px;
+  font-size: .66rem;
+  line-height: 1.08;
+}
+
+.management-dashboard-v2 .management-kpi strong,
+.management-dashboard-v2 .management-status-grid .management-kpi strong,
+.management-dashboard-v2 .period-summary-section .management-kpi strong,
+.management-dashboard-v2 .school-year-section .management-kpi strong,
+.management-dashboard-v2 .organization-status-section .management-kpi strong {
+  font-size: clamp(.86rem, 1.12vw, 1.05rem);
+  line-height: 1.03;
+}
+
+.management-dashboard-v2 .management-kpi span:not(.kpi-icon) {
+  margin-top: 3px;
+  font-size: .56rem;
+  line-height: 1.16;
+}
+
+.management-dashboard-v2 .kpi-icon,
+.management-dashboard-v2 .management-status-grid .management-kpi:first-child .kpi-icon {
+  width: 20px;
+  height: 20px;
+  font-size: .58rem;
+}
+
+.management-dashboard-v2 .management-unit-card.compact-unit-card {
+  height: 128px;
+  max-height: 128px;
+  overflow: hidden;
+}
+
+.compact-unit-head h3 {
+  font-size: .8rem;
+}
+
+.compact-unit-head b {
+  font-size: .86rem;
+}
+
+.compact-unit-head span {
+  min-height: 17px;
+  font-size: .54rem;
+}
+
+.compact-unit-card .unit-status-list.compressed div {
+  min-height: 14px;
+}
+
+.compact-unit-card .unit-status-list.compressed dt {
+  font-size: .5rem;
+}
+
+.compact-unit-card .unit-status-list.compressed dd {
+  font-size: .58rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.management-dashboard-v2 .compact-unit-head span {
+  white-space: nowrap;
+}
+
 @media (max-width: 640px) {
   .compact-unit-head {
     grid-template-columns: minmax(0, 1fr) auto;
@@ -6341,6 +6422,38 @@ details.employee-detail-section > div {
   .management-dashboard-v2 .management-status-grid .management-kpi:first-child {
     min-height: 76px;
   }
+}
+
+/* Final execution pass: hard cap dashboard card heights after legacy nth-child rules. */
+.management-dashboard.management-dashboard-v2 .organization-status-section .management-status-grid .management-kpi,
+.management-dashboard.management-dashboard-v2 .organization-status-section .management-status-grid .management-kpi:first-child,
+.management-dashboard.management-dashboard-v2 .organization-status-section .management-status-grid .management-kpi:nth-child(4) {
+  height: 78px !important;
+  min-height: 78px !important;
+  max-height: 78px !important;
+}
+
+.management-dashboard.management-dashboard-v2 .period-summary-section .management-status-grid .management-kpi,
+.management-dashboard.management-dashboard-v2 .period-summary-section .management-status-grid .management-kpi:first-child,
+.management-dashboard.management-dashboard-v2 .period-summary-section .management-status-grid .management-kpi:nth-child(4),
+.management-dashboard.management-dashboard-v2 .school-year-section .management-status-grid .management-kpi,
+.management-dashboard.management-dashboard-v2 .school-year-section .management-status-grid .management-kpi:first-child,
+.management-dashboard.management-dashboard-v2 .school-year-section .management-status-grid .management-kpi:nth-child(4) {
+  height: 94px !important;
+  min-height: 94px !important;
+  max-height: 94px !important;
+}
+
+.management-dashboard.management-dashboard-v2 .management-unit-card.compact-unit-card {
+  height: 128px !important;
+  min-height: 128px !important;
+  max-height: 128px !important;
+}
+
+.management-dashboard.management-dashboard-v2 .management-kpi .explain-trigger {
+  min-height: 16px;
+  padding: 1px 5px;
+  font-size: .54rem;
 }
 
 .explain-overlay {

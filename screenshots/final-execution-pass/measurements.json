@@ -1,0 +1,92 @@
+{
+  "desktop": {
+    "fileName": "dashboard-final-execution-desktop.png",
+    "errors": [],
+    "result": {
+      "organizationHealth": [
+        78,
+        78,
+        78,
+        78,
+        78,
+        78
+      ],
+      "currentPeriod": [
+        94,
+        94,
+        94,
+        94,
+        94,
+        94
+      ],
+      "schoolYear": [
+        94,
+        94,
+        94,
+        94
+      ],
+      "unitCards": [
+        128,
+        128,
+        128
+      ],
+      "unitRowsHaveClasses": true,
+      "unitRowsHaveBudget": true,
+      "topOrder": [
+        "dashboard-hero management-hero control-room-hero",
+        "מסנני לוח הניהול",
+        "מצב הארגון",
+        "תקופה נבחרת",
+        "מתחילת השנה",
+        "סינון סעיף תקציבי",
+        "פירוט תקציבי",
+        "מעונות ומחלקות"
+      ]
+    }
+  },
+  "mobile": {
+    "fileName": "dashboard-final-execution-mobile.png",
+    "errors": [],
+    "result": {
+      "organizationHealth": [
+        78,
+        78,
+        78,
+        78,
+        78,
+        78
+      ],
+      "currentPeriod": [
+        94,
+        94,
+        94,
+        94,
+        94,
+        94
+      ],
+      "schoolYear": [
+        94,
+        94,
+        94,
+        94
+      ],
+      "unitCards": [
+        128,
+        128,
+        128
+      ],
+      "unitRowsHaveClasses": true,
+      "unitRowsHaveBudget": true,
+      "topOrder": [
+        "dashboard-hero management-hero control-room-hero",
+        "מסנני לוח הניהול",
+        "מצב הארגון",
+        "תקופה נבחרת",
+        "מתחילת השנה",
+        "סינון סעיף תקציבי",
+        "פירוט תקציבי",
+        "מעונות ומחלקות"
+      ]
+    }
+  }
+}

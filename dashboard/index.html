@@ -65,7 +65,6 @@
           <div class="filter-pill-list" id="unit-pill-list"></div>
           <select class="sr-only-select" id="unit-filter" multiple aria-label="מעון או מחלקה"></select>
         </div>
-        <label><span>סעיף תקציב</span><select id="category-filter"></select></label>
       </section>
 
       <section class="dashboard-section organization-status-section control-room-section" aria-labelledby="status-title">
@@ -101,15 +100,30 @@
         <div class="management-status-grid compact-kpi-grid" id="school-year-grid"></div>
       </section>
 
-      <section class="dashboard-section bank-control-section" aria-labelledby="bank-control-title">
+      <section class="filter-bar management-filter-bar budget-category-filter-section" aria-label="סינון סעיף תקציבי">
+        <label><span>סינון סעיף תקציבי</span><select id="category-filter"></select></label>
+      </section>
+
+      <section class="dashboard-section budget-explorer-section" aria-labelledby="budget-explorer-title">
         <div class="section-title-row compact-title-row">
           <div>
-            <p class="eyebrow">בקרה יומית</p>
-            <h2 id="bank-control-title">שיוך בנקים והנהלת חשבונות</h2>
+            <p class="eyebrow">פירוט תקציבי</p>
+            <h2 id="budget-explorer-title">פירוט תקציבי</h2>
           </div>
-          <span class="section-chip" id="bank-control-label">נטען</span>
+          <span class="section-chip" id="budget-category-label">כל הסעיפים</span>
         </div>
-        <div class="bank-control-grid" id="bank-control-grid"></div>
+        <div class="budget-explorer-grid" id="budget-explorer-grid"></div>
+      </section>
+
+      <section class="dashboard-section unit-section" aria-labelledby="units-title">
+        <div class="section-title-row compact-title-row">
+          <div>
+            <p class="eyebrow">מעונות בפעולה</p>
+            <h2 id="units-title">מעונות ומחלקות</h2>
+          </div>
+          <span id="unit-count-label" class="section-chip"></span>
+        </div>
+        <div class="daycare-card-grid management-unit-grid" id="unit-card-grid"></div>
       </section>
 
       <details class="dashboard-section financial-exceptions-section management-collapsible" aria-labelledby="financial-exceptions-title">
@@ -123,26 +137,15 @@
         <div class="financial-exception-grid" id="financial-exception-grid"></div>
       </details>
 
-      <section class="dashboard-section unit-section" aria-labelledby="units-title">
-        <div class="section-title-row compact-title-row">
-          <div>
-            <p class="eyebrow">מעונות בפעולה</p>
-            <h2 id="units-title">מעונות ומחלקות</h2>
-          </div>
-          <span id="unit-count-label" class="section-chip"></span>
-        </div>
-        <div class="daycare-card-grid management-unit-grid" id="unit-card-grid"></div>
-      </section>
-
-      <details class="dashboard-section budget-explorer-section management-collapsible" aria-labelledby="budget-explorer-title">
+      <details class="dashboard-section bank-control-section management-collapsible" aria-labelledby="bank-control-title">
         <summary class="section-title-row compact-title-row">
           <div>
-            <p class="eyebrow">פירוט תקציבי</p>
-            <h2 id="budget-explorer-title">פירוט תקציבי</h2>
+            <p class="eyebrow">בקרה יומית</p>
+            <h2 id="bank-control-title">שיוך בנקים והנהלת חשבונות</h2>
           </div>
-          <span class="section-chip" id="budget-category-label">כל הסעיפים</span>
+          <span class="section-chip" id="bank-control-label">נטען</span>
         </summary>
-        <div class="budget-explorer-grid" id="budget-explorer-grid"></div>
+        <div class="bank-control-grid" id="bank-control-grid"></div>
       </details>
 
       <details class="dashboard-section action-center-section priority-section management-collapsible" id="action-section">
