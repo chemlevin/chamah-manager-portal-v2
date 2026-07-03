@@ -6238,19 +6238,31 @@ details.employee-detail-section > div {
 }
 
 .compact-unit-card .unit-status-list.compressed div {
-  min-height: 22px;
+  min-height: 17px;
   grid-template-columns: 38px minmax(0, 1fr);
-  padding: 2px 5px;
-  border-radius: 8px;
+  padding: 1px 4px;
+  border-radius: 7px;
 }
 
 .compact-unit-card .unit-status-list.compressed dt {
-  font-size: .58rem;
+  font-size: .54rem;
 }
 
 .compact-unit-card .unit-status-list.compressed dd {
-  font-size: .7rem;
+  font-size: .64rem;
   line-height: 1.06;
+}
+
+.management-dashboard-v2 .management-unit-card.compact-unit-card {
+  padding: 5px 6px;
+}
+
+.compact-unit-head {
+  margin-bottom: 2px;
+}
+
+.compact-unit-card .unit-status-list.compressed {
+  gap: 1px;
 }
 
 .budget-category-card summary {
