@@ -6087,6 +6087,88 @@ details.employee-detail-section > div {
   margin: 0 10px 10px;
 }
 
+.budget-category-card {
+  border: 1px solid rgba(223, 229, 225, .84);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .68);
+  overflow: hidden;
+}
+
+.budget-category-card + .budget-category-card {
+  margin-top: 6px;
+}
+
+.budget-category-card summary {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.budget-category-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.budget-category-card summary strong {
+  color: var(--ink);
+  font-size: .9rem;
+}
+
+.budget-category-card summary span {
+  color: var(--muted);
+  font-size: .76rem;
+  font-weight: 900;
+}
+
+.budget-category-card.attention-budget-category {
+  border-color: rgba(173, 73, 63, .32);
+  background: rgba(255, 238, 235, .72);
+}
+
+.budget-category-card.expense-budget-category {
+  border-color: rgba(209, 149, 47, .32);
+  background: rgba(255, 248, 232, .76);
+}
+
+.budget-category-card.balance-budget-category {
+  border-color: rgba(68, 118, 108, .22);
+}
+
+.budget-category-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 0 8px 8px;
+}
+
+.budget-category-metrics div {
+  display: grid;
+  gap: 3px;
+  padding: 7px;
+  border: 1px solid rgba(223, 229, 225, .68);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .62);
+}
+
+.budget-category-metrics b {
+  color: var(--ink);
+  font-size: .78rem;
+}
+
+.budget-category-metrics span {
+  color: var(--muted);
+  font-size: .7rem;
+  font-weight: 800;
+}
+
+.budget-category-card .budget-breakdown-list {
+  padding: 0 8px 8px;
+}
+
 .management-dashboard-v2 .management-status-grid .management-kpi,
 .management-dashboard-v2 .management-status-grid .management-kpi:first-child,
 .management-dashboard-v2 .management-kpi {
@@ -6100,6 +6182,79 @@ details.employee-detail-section > div {
 .management-dashboard-v2 .management-unit-card .unit-primary-line,
 .management-dashboard-v2 .management-unit-card .daycare-card-head {
   display: none;
+}
+
+.management-dashboard-v2 .period-summary-section,
+.management-dashboard-v2 .school-year-section,
+.management-dashboard-v2 .unit-section {
+  gap: 5px;
+}
+
+.management-dashboard-v2 .management-status-grid .management-kpi,
+.management-dashboard-v2 .management-status-grid .management-kpi:first-child,
+.management-dashboard-v2 .management-kpi {
+  min-height: 70px;
+  padding: 8px 9px;
+}
+
+.management-dashboard-v2 .management-kpi strong,
+.management-dashboard-v2 .management-status-grid .management-kpi strong {
+  font-size: clamp(.98rem, 1.45vw, 1.26rem);
+}
+
+.management-dashboard-v2 .management-kpi span:not(.kpi-icon) {
+  margin-top: 4px;
+  line-height: 1.25;
+}
+
+.management-dashboard-v2 .management-unit-grid {
+  gap: 7px;
+}
+
+.management-dashboard-v2 .management-unit-card.compact-unit-card {
+  padding: 7px;
+}
+
+.compact-unit-head {
+  margin-bottom: 4px;
+}
+
+.compact-unit-head h3 {
+  font-size: .9rem;
+}
+
+.compact-unit-head b {
+  font-size: 1rem;
+}
+
+.compact-unit-head span {
+  min-height: 19px;
+  padding: 0 6px;
+  font-size: .6rem;
+}
+
+.compact-unit-card .unit-status-list.compressed {
+  gap: 2px;
+}
+
+.compact-unit-card .unit-status-list.compressed div {
+  min-height: 22px;
+  grid-template-columns: 38px minmax(0, 1fr);
+  padding: 2px 5px;
+  border-radius: 8px;
+}
+
+.compact-unit-card .unit-status-list.compressed dt {
+  font-size: .58rem;
+}
+
+.compact-unit-card .unit-status-list.compressed dd {
+  font-size: .7rem;
+  line-height: 1.06;
+}
+
+.budget-category-card summary {
+  min-height: 32px;
 }
 
 @media (max-width: 640px) {

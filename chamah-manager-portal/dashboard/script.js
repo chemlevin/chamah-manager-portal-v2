@@ -646,6 +646,30 @@ function budgetUtilization(data, category = "all") {
   return { budget, actual, percent, hasBudget: budget > 0 };
 }
 
+function incomeBudget(data) {
+  return sum(data.budgetGroups, "budgetRevenue");
+}
+
+function expenseBudget(data) {
+  return data.budgetGroups.reduce((total, group) => total + budgetAmountForGroup(group, "all"), 0);
+}
+
+function actualBudgetLine(actual, budget, actualAvailable = true) {
+  if (budget > 0) return formatMoney(actual, actualAvailable) + " / " + formatMoney(budget);
+  return formatMoney(actual, actualAvailable) + " · לא הוגדר תקציב";
+}
+
+function staffingGapLine(actual, required, actualAvailable, requiredAvailable) {
+  if (!actualAvailable || !requiredAvailable || safeNumber(required) <= 0) return "אין נתון להשוואת שעות";
+  const diff = safeNumber(actual) - safeNumber(required);
+  if (diff === 0) return "בדיוק לפי התקן";
+  return (diff > 0 ? "עודף " : "חסר ") + numberFormatter.format(Math.abs(diff)) + " שעות";
+}
+
+function budgetScopeLabel(scope) {
+  return scope === "year" ? "מתוך תקציב מצטבר" : "מתוך תקציב חודשי";
+}
+
 function filteredDataForMonthSet(monthSet) {
   const base = {
     budgetGroups: dashboardData.budgetGroups,
@@ -872,13 +896,15 @@ function renderStatus(data, unitRows, issues) {
   const staffingWarning = unitRows.filter((row) => hoursCoverageStatus(row) === "yellow").length;
   const staffingHealthy = unitRows.filter((row) => hoursCoverageStatus(row) === "green").length;
   const balance = sum(data.allocationGroups, "income") - sum(data.allocationGroups, "expenses");
+  const financePositive = unitRows.filter((row) => row.hasAllocations && row.income - row.expenses >= 0).length;
+  const financeNegative = unitRows.filter((row) => row.hasAllocations && row.income - row.expenses < 0).length;
   const missingDocs = data.allocationRows.filter((row) => clean(row.accountingStatus).includes("חסר")).length;
   const waitingDocs = data.allocationRows.filter((row) => clean(row.accountingStatus).includes("מחכה")).length;
   const sentDocs = data.allocationRows.filter((row) => clean(row.accountingStatus).includes("נשלח")).length;
   const cards = [
     { label: "תפעול", value: numberFormatter.format(healthyUnits) + " תקינים", sub: numberFormatter.format(warningUnits) + " דורש טיפול · " + numberFormatter.format(criticalUnits) + " קריטי", tone: criticalUnits ? "attention" : warningUnits ? "expense" : "balance", metricId: "" },
     { label: "שעות", value: numberFormatter.format(staffingHealthy) + " תקינים", sub: numberFormatter.format(staffingWarning) + " לבדיקה · " + numberFormatter.format(staffingCritical) + " קריטי · " + formatPercent(staffingCoverage, hasStaffingCoverage), tone: staffingCritical ? "attention" : staffingWarning ? "expense" : "balance", metricId: "staffing-coverage" },
-    { label: "כספים", value: balance < 0 ? "בגרעון" : hasAllocations ? "בעודף" : NO_DATA, sub: hasAllocations ? formatMoney(balance) + " יתרה" : "אין נתוני בנק", tone: balanceTone(balance, hasAllocations), metricId: balance < 0 ? "expenses" : "income" },
+    { label: "כספים", value: numberFormatter.format(financePositive) + " בעודף", sub: numberFormatter.format(financeNegative) + " בגרעון · " + (hasAllocations ? formatMoney(balance) + " יתרה" : "אין נתוני בנק"), tone: financeNegative ? "attention" : financePositive ? "balance" : "secondary", metricId: balance < 0 ? "expenses" : "income" },
     { label: "תקציב", value: financialExceptions.length ? numberFormatter.format(financialExceptions.length) + " חריגות" : "תקין", sub: financialExceptions.length ? "סעיפים דורשים בדיקה" : "אין חריגה בתקופה", tone: financialExceptions.some((item) => item.tone === "attention") ? "attention" : financialExceptions.length ? "expense" : "balance", metricId: "financial-exceptions" },
     { label: "הנה\"ח", value: numberFormatter.format(sentDocs) + " נשלח", sub: numberFormatter.format(waitingDocs) + " מחכה · " + numberFormatter.format(missingDocs) + " חסר", tone: missingDocs ? "attention" : waitingDocs ? "expense" : "balance", metricId: "" },
     { label: "שכר", value: hasPayroll ? "עודכן" : NO_DATA, sub: hasPayroll ? formatMoney(sum(data.payrollGroups, "payrollCost")) + " PAYROLL" : "אין נתוני שכר", tone: "payroll", metricId: "salary-cost" },
@@ -943,11 +969,6 @@ function renderOperations(data, issues) {
 }
 
 function renderUnits(unitRows) {
-  if (!state.units.includes("all") && state.units.length === 1) {
-    els.unitCountLabel.textContent = "יחידה אחת נבחרה";
-    els.unitCardGrid.innerHTML = '<p class="empty-state">נבחרה יחידה אחת. פרטי היחידה מוצגים בסיכומי התקופה, התקציב והבקרה.</p>';
-    return;
-  }
   const sortedRows = [...unitRows].sort((a, b) => {
     const rank = { red: 0, yellow: 1, green: 2 };
     return rank[a.status] - rank[b.status] || b.issueCount - a.issueCount || a.unit.localeCompare(b.unit, "he");
@@ -1172,6 +1193,8 @@ function balanceTone(balance, available) {
 function periodTotals(data) {
   const income = sum(data.allocationGroups, "income");
   const expenses = sum(data.allocationGroups, "expenses");
+  const incomePlan = incomeBudget(data);
+  const expensePlan = expenseBudget(data);
   const salary = sum(data.payrollGroups, "payrollCost");
   const requiredHours = sum(data.budgetGroups, "requiredHours");
   const payrollHours = sum(data.payrollGroups, "payrollHours");
@@ -1179,6 +1202,8 @@ function periodTotals(data) {
   return {
     income,
     expenses,
+    incomePlan,
+    expensePlan,
     balance: income - expenses,
     salary,
     payrollHours,
@@ -1196,11 +1221,11 @@ function renderPeriodSummary(data) {
   els.currentPeriodLabel.textContent = selectedMonthsLabel();
   const budgetText = totals.utilization.hasBudget ? formatPercent(totals.utilization.percent) : "לא הוגדר תקציב";
   const cards = [
-    { label: "הכנסות", value: formatMoney(totals.income, totals.hasAllocations), sub: "תנועות זכות בבנק", tone: "income", metricId: "income" },
-    { label: "הוצאות", value: formatMoney(totals.expenses, totals.hasAllocations), sub: "תנועות חובה בבנק", tone: "expense", metricId: "expenses" },
+    { label: "הכנסות", value: actualBudgetLine(totals.income, totals.incomePlan, totals.hasAllocations), sub: budgetScopeLabel("month"), tone: "income", metricId: "income" },
+    { label: "הוצאות", value: actualBudgetLine(totals.expenses, totals.expensePlan, totals.hasAllocations), sub: budgetScopeLabel("month"), tone: "expense", metricId: "expenses" },
     { label: "יתרה", value: formatMoney(totals.balance, totals.hasAllocations), sub: "הכנסות פחות הוצאות", tone: balanceTone(totals.balance, totals.hasAllocations) },
+    { label: "שעות מטפלות", value: formatNumber(totals.payrollHours, totals.hasPayroll) + " / " + formatNumber(totals.requiredHours, totals.hasBudget), sub: formatPercent(totals.coverage, totals.hasPayroll && totals.hasBudget) + " · " + staffingGapLine(totals.payrollHours, totals.requiredHours, totals.hasPayroll, totals.hasBudget), tone: coverageTone(totals.coverage, totals.hasPayroll && totals.hasBudget), metricId: "staffing-coverage" },
     { label: "שכר", value: formatMoney(totals.salary, totals.hasPayroll), sub: "PAYROLL, לא BANKS", tone: "payroll", metricId: "salary-cost" },
-    { label: "כיסוי שעות", value: formatPercent(totals.coverage, totals.hasPayroll && totals.hasBudget), sub: formatNumber(totals.payrollHours, totals.hasPayroll) + " / " + formatNumber(totals.requiredHours, totals.hasBudget), tone: coverageTone(totals.coverage, totals.hasPayroll && totals.hasBudget), metricId: "staffing-coverage" },
     { label: "תקציב", value: budgetText, sub: totals.utilization.hasBudget ? utilizationLine(totals.utilization) : "לא הוגדר תקציב", tone: utilizationTone(totals.utilization.percent, totals.utilization.hasBudget, totals.utilization.actual), metricId: "budget-utilization" },
   ];
   els.currentPeriodGrid.innerHTML = cards.map((card) => kpiCard(card.label, card.value, card.sub, card.tone, card.metricId)).join("");
@@ -1211,10 +1236,9 @@ function renderSchoolYearSummary() {
   const totals = periodTotals(data);
   const budgetText = totals.utilization.hasBudget ? formatPercent(totals.utilization.percent) : "לא הוגדר תקציב";
   const cards = [
-    { label: "הכנסות", value: formatMoney(totals.income, totals.hasAllocations), sub: "מתחילת שנת הלימודים", tone: "income", metricId: "income" },
-    { label: "הוצאות", value: formatMoney(totals.expenses, totals.hasAllocations), sub: "מתחילת שנת הלימודים", tone: "expense", metricId: "expenses" },
+    { label: "הכנסות", value: actualBudgetLine(totals.income, totals.incomePlan, totals.hasAllocations), sub: budgetScopeLabel("year"), tone: "income", metricId: "income" },
+    { label: "הוצאות", value: actualBudgetLine(totals.expenses, totals.expensePlan, totals.hasAllocations), sub: budgetScopeLabel("year"), tone: "expense", metricId: "expenses" },
     { label: "יתרה", value: formatMoney(totals.balance, totals.hasAllocations), sub: "הכנסות פחות הוצאות", tone: balanceTone(totals.balance, totals.hasAllocations) },
-    { label: "שכר", value: formatMoney(totals.salary, totals.hasPayroll), sub: "PAYROLL מתחילת השנה", tone: "payroll", metricId: "salary-cost" },
     { label: "תקציב", value: budgetText, sub: totals.utilization.hasBudget ? utilizationLine(totals.utilization) : "לא הוגדר תקציב", tone: utilizationTone(totals.utilization.percent, totals.utilization.hasBudget, totals.utilization.actual), metricId: "budget-utilization" },
   ];
   els.schoolYearGrid.innerHTML = cards.map((card) => kpiCard(card.label, card.value, card.sub, card.tone, card.metricId)).join("");
@@ -1246,23 +1270,31 @@ function renderFinancialExceptions(data) {
 }
 
 function renderBudgetExplorer(data) {
-  const category = state.category;
-  const current = budgetUtilization(data, category);
-  const sinceSeptember = budgetUtilization(ytdData(), category);
-  const selectedCategoryLabel = category === "all" ? "כל הסעיפים" : category;
-  const breakdown = data.allowedUnits.map((unit) => {
-    const unitData = {
-      budgetGroups: data.budgetGroups.filter((row) => row.unit === unit),
-      allocationRows: data.allocationRows.filter((row) => row.unit === unit),
-    };
-    return { unit, utilization: budgetUtilization(unitData, category) };
-  }).filter((row) => row.utilization.actual > 0 || row.utilization.budget > 0).sort((a, b) => safeNumber(b.utilization.percent) - safeNumber(a.utilization.percent));
-  els.budgetExplorerGrid.innerHTML = '<article class="dashboard-panel budget-utilization-summary"><div class="panel-heading"><h3>' + escapeHtml(selectedCategoryLabel) + '</h3><span>תקופה נבחרת</span></div><div class="budget-utilization-kpis">' +
-    kpiCard("ניצול בתקופה", utilizationLine(current), utilizationLabel(current.percent, current.hasBudget, current.actual), utilizationTone(current.percent, current.hasBudget, current.actual), "budget-utilization") +
-    kpiCard("מתחילת שנת הלימודים", utilizationLine(sinceSeptember), utilizationLabel(sinceSeptember.percent, sinceSeptember.hasBudget, sinceSeptember.actual), utilizationTone(sinceSeptember.percent, sinceSeptember.hasBudget, sinceSeptember.actual), "budget-utilization") +
-    '</div></article><article class="dashboard-panel budget-breakdown-panel"><div class="panel-heading"><h3>פירוט לפי יחידה</h3><span>' + escapeHtml(breakdown.length ? numberFormatter.format(breakdown.length) + " יחידות" : NO_DATA) + '</span></div><div class="budget-breakdown-list">' +
-    (breakdown.length ? breakdown.map((row) => '<div class="budget-breakdown-row"><strong>' + escapeHtml(row.unit) + '</strong><span>' + escapeHtml(utilizationLine(row.utilization)) + '</span></div>').join("") : '<p class="empty-state">אין נתוני תקציב או הוצאה לסעיף שנבחר.</p>') +
-    '</div></article>';
+  const ytd = ytdData();
+  const allCategories = unique([
+    ...data.budgetGroups.flatMap((row) => row.calculatedCosts.map((cost) => cost.category)),
+    ...data.allocationRows.filter((row) => !row.excludedFromCalculations && row.debit > 0).map((row) => row.accountingCategory),
+  ]);
+  const categories = state.category === "all" ? allCategories : allCategories.filter((category) => category === state.category);
+  if (!categories.length) {
+    els.budgetExplorerGrid.innerHTML = '<p class="empty-state">אין סעיפי תקציב להצגה במסננים הנוכחיים.</p>';
+    return;
+  }
+  els.budgetExplorerGrid.innerHTML = categories.map((category) => {
+    const current = budgetUtilization(data, category);
+    const sinceSeptember = budgetUtilization(ytd, category);
+    const units = data.allowedUnits.map((unit) => {
+      const unitData = {
+        budgetGroups: data.budgetGroups.filter((row) => row.unit === unit),
+        allocationRows: data.allocationRows.filter((row) => row.unit === unit),
+      };
+      return { unit, utilization: budgetUtilization(unitData, category) };
+    }).filter((row) => row.utilization.actual > 0 || row.utilization.budget > 0);
+    const tone = utilizationTone(Math.max(current.percent ?? 0, sinceSeptember.percent ?? 0), current.hasBudget || sinceSeptember.hasBudget, current.actual + sinceSeptember.actual);
+    return '<details class="budget-category-card ' + tone + '-budget-category"><summary><strong>' + escapeHtml(category) + '</strong><span>' + escapeHtml(current.hasBudget ? formatPercent(current.percent) + " ניצול" : "לא הוגדר תקציב") + '</span></summary><div class="budget-category-metrics"><div><b>חודש</b><span>' + escapeHtml(formatMoney(current.actual, current.actual > 0 || current.hasBudget)) + ' / ' + escapeHtml(current.hasBudget ? formatMoney(current.budget) : "לא הוגדר תקציב") + '</span><span>' + escapeHtml(current.hasBudget ? formatPercent(current.percent) + " מתוך תקציב" : "אין אחוז ניצול") + '</span></div><div><b>שנה</b><span>' + escapeHtml(formatMoney(sinceSeptember.actual, sinceSeptember.actual > 0 || sinceSeptember.hasBudget)) + ' / ' + escapeHtml(sinceSeptember.hasBudget ? formatMoney(sinceSeptember.budget) : "לא הוגדר תקציב") + '</span><span>' + escapeHtml(sinceSeptember.hasBudget ? formatPercent(sinceSeptember.percent) + " מתוך תקציב מצטבר" : "אין אחוז ניצול") + '</span></div></div><div class="budget-breakdown-list">' +
+      (units.length ? units.map((row) => '<div class="budget-breakdown-row"><strong>' + escapeHtml(row.unit) + '</strong><span>' + escapeHtml(utilizationLine(row.utilization)) + '</span></div>').join("") : '<p class="empty-state">אין נתוני יחידות לסעיף זה.</p>') +
+      '</div></details>';
+  }).join("");
 }
 
 function renderSourceRows(explanation) {
