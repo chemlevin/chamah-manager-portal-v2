@@ -71,6 +71,8 @@ const els = {
   financialExceptionCountLabel: document.querySelector("#financial-exception-count-label"),
   financialExceptionGrid: document.querySelector("#financial-exception-grid"),
   budgetExplorerGrid: document.querySelector("#budget-explorer-grid"),
+  budgetCategoryAuditCount: document.querySelector("#budget-category-audit-count"),
+  budgetCategoryAuditBody: document.querySelector("#budget-category-audit-body"),
   explainOverlay: document.querySelector("#explain-overlay"),
   explainTitle: document.querySelector("#explain-title"),
   explainValue: document.querySelector("#explain-value"),
@@ -258,6 +260,15 @@ function normalizeBudget(payload) {
       calculatedCosts: calculatedCosts.map((cost) => ({
         category: safeText(cost.category || cost.detail || cost.name, "ללא סעיף"),
         amount: safeNumber(cost.total ?? cost.amount ?? cost.cost),
+        ruleAmount: safeNumber(cost.amount ?? cost.rate ?? cost.cost),
+        basis: safeText(cost.basis, ""),
+        additionalBasis: safeText(cost.additionalBasis, ""),
+        period: safeText(cost.period, ""),
+        quantity: safeNumber(cost.quantity),
+        additionalQuantity: safeNumber(cost.additionalQuantity),
+        divisor: safeNumber(cost.divisor || 1),
+        sourceDaycare: safeText(cost.sourceDaycare, ""),
+        sourceMonth: safeText(cost.sourceMonth, ""),
         month: safeText(group.month, ""),
         unit: safeText(group.daycare),
       })).filter((cost) => cost.category),
@@ -723,6 +734,25 @@ function expenseBudget(data) {
   return data.budgetGroups.reduce((total, group) => total + budgetAmountForGroup(group, "all"), 0);
 }
 
+function trueFinancialResult(income, expenses, payrollCost) {
+  return safeNumber(income) - safeNumber(expenses) - safeNumber(payrollCost);
+}
+
+function financialResultLabel(value) {
+  return safeNumber(value) >= 0 ? "עודף" : "גרעון";
+}
+
+function actualIncomeUtilization(expenses, payrollCost, income) {
+  const actualIncome = safeNumber(income);
+  const actualCost = safeNumber(expenses) + safeNumber(payrollCost);
+  return {
+    actualIncome,
+    actualCost,
+    percent: actualIncome > 0 ? actualCost / actualIncome * 100 : null,
+    hasIncome: actualIncome > 0,
+  };
+}
+
 function actualBudgetLine(actual, budget, actualAvailable = true) {
   if (budget > 0) return formatMoney(actual, actualAvailable) + " / " + formatMoney(budget);
   return formatMoney(actual, actualAvailable) + " · לא הוגדר תקציב";
@@ -844,6 +874,13 @@ function bankSourceRows(data, type) {
     }));
 }
 
+function actualFinancialSourceRows(data) {
+  const incomeRows = bankSourceRows(data, "income").map((row) => ({ ...row, rowType: "הכנסה בפועל", source: "BANKS > זכות" }));
+  const expenseRows = bankSourceRows(data, "expenses").map((row) => ({ ...row, rowType: "הוצאה בפועל", source: "BANKS > חובה" }));
+  const payrollRows = payrollSourceRows(data, false).map((row) => ({ ...row, rowType: "שכר בפועל", source: "PAYROLL", category: "שכר" }));
+  return [...incomeRows, ...expenseRows, ...payrollRows];
+}
+
 function budgetUtilizationRows(data, category = state.category) {
   const budgetRows = data.budgetGroups.flatMap((group) => group.calculatedCosts
     .filter((cost) => category === "all" || cost.category === category)
@@ -877,6 +914,108 @@ function budgetUtilizationRows(data, category = state.category) {
     rawAmount: row.payrollCost,
   }));
   return [...budgetRows, ...actualRows, ...payrollRows];
+}
+
+function calculationMethodFromCost(cost) {
+  const basis = clean(cost.basis).toLowerCase();
+  const additionalBasis = clean(cost.additionalBasis);
+  const divisor = safeNumber(cost.divisor || 1);
+  if (additionalBasis || divisor !== 1) return "formula";
+  if (["fixed", "קבוע"].includes(basis)) return "fixed";
+  if (["fixed/monthly", "monthly", "חודשי", "קבוע חודשי"].includes(basis)) return "monthly";
+  if (["children", "child", "kids", "ילדים", "ילד", "כמות ילדים"].includes(basis)) return "per_child";
+  if (["hourly", "hours", "hour", "שעות", "שעתי"].includes(basis)) return "per_hour";
+  if (["staff", "team", "positions", "תקנים", "צוות", "משרות"].includes(basis)) return "staffing_standard";
+  if (["classrooms", "classroom", "classes", "כיתות", "כיתה", "work days", "work_days", "days", "ימי עבודה", "ימי פעילות"].includes(basis)) return "quantity";
+  return "unknown";
+}
+
+function problemForBudgetCategory(row) {
+  if (row.appearsInActual === "yes" && row.appearsInBudget === "no") return "missing_budget";
+  if (row.appearsInBudget === "yes" && safeNumber(row.budgetAmountRaw) === 0) return "zero_budget";
+  if (row.appearsInBudget === "yes" && row.appearsInActual === "no") return "missing_actual";
+  if (row.appearsInBudget === "yes" && row.calculationMethod === "unknown") return "unknown_calculation";
+  if (!row.budgetSource && !row.actualSource) return "source_mismatch";
+  return "none";
+}
+
+function buildBudgetCategoryAuditRows(data) {
+  const map = new Map();
+  function ensure(categoryName) {
+    const key = clean(categoryName) || "ללא סעיף";
+    if (!map.has(key)) {
+      map.set(key, {
+        categoryName: key,
+        categoryType: "other",
+        appearsInBudget: "no",
+        appearsInActual: "no",
+        budgetSource: "",
+        actualSource: "",
+        budgetAmountRaw: 0,
+        actualAmountRaw: 0,
+        calculationMethod: "unknown",
+        calculationFieldsUsed: "",
+        monthLogic: "מסונן לפי month של קבוצת התקציב / עבור חודש בביצוע",
+        departmentLogic: "מסונן לפי daycare בתקציב / עבור מחלקה בביצוע",
+        problem: "none",
+      });
+    }
+    return map.get(key);
+  }
+
+  data.budgetGroups.forEach((group) => {
+    group.calculatedCosts.forEach((cost) => {
+      const row = ensure(cost.category);
+      const method = calculationMethodFromCost(cost);
+      row.appearsInBudget = "yes";
+      row.budgetSource = "BUDGET > COST_RULES / calculatedCosts";
+      row.budgetAmountRaw += safeNumber(cost.amount);
+      if (row.calculationMethod === "unknown" || method === "formula") row.calculationMethod = method;
+      row.calculationFieldsUsed = unique([
+        row.calculationFieldsUsed,
+        "basis=" + (cost.basis || "empty"),
+        "additionalBasis=" + (cost.additionalBasis || "empty"),
+        "quantity=" + safeNumber(cost.quantity),
+        "additionalQuantity=" + safeNumber(cost.additionalQuantity),
+        "amount=" + safeNumber(cost.ruleAmount),
+        "divisor=" + safeNumber(cost.divisor || 1),
+      ]).join(" | ");
+      if (method === "staffing_standard") row.categoryType = "staff";
+      if (row.categoryType === "other" && row.appearsInActual === "yes") row.categoryType = "expense";
+    });
+  });
+
+  data.allocationRows
+    .filter((row) => !row.excludedFromCalculations && row.debit > 0)
+    .forEach((item) => {
+      const row = ensure(item.accountingCategory || "ללא סעיף");
+      row.appearsInActual = "yes";
+      row.actualSource = "BANKS > פירוט";
+      row.actualAmountRaw += safeNumber(item.debit);
+      if (row.categoryType === "other") row.categoryType = "expense";
+    });
+
+  if (hasRows(data.payrollGroups)) {
+    const row = ensure("שכר");
+    row.categoryType = "payroll";
+    row.appearsInActual = "yes";
+    row.actualSource = "PAYROLL";
+    row.actualAmountRaw += sum(data.payrollGroups, "payrollCost");
+    if (row.calculationMethod === "unknown" && row.appearsInBudget === "no") row.calculationMethod = "unknown";
+  }
+
+  return [...map.values()].map((row) => {
+    const problem = problemForBudgetCategory(row);
+    return {
+      ...row,
+      budgetAmount: moneyFormatter.format(row.budgetAmountRaw),
+      actualAmount: moneyFormatter.format(row.actualAmountRaw),
+      problem,
+    };
+  }).sort((a, b) => {
+    const rank = { missing_budget: 0, zero_budget: 1, unknown_calculation: 2, source_mismatch: 3, missing_actual: 4, none: 5 };
+    return rank[a.problem] - rank[b.problem] || a.categoryName.localeCompare(b.categoryName, "he", { numeric: true });
+  });
 }
 
 function budgetDeviationRows(data, category = state.category) {
@@ -970,6 +1109,11 @@ function buildExplanation(metricId) {
     { key: "utilization", label: "ניצול" }, { key: "budgetRule", label: "כלל תקציב" },
     { key: "bankRows", label: "שורות BANKS" }, { key: "budgetRows", label: "שורות BUDGET" },
   ];
+  const actualFinancialColumns = [
+    { key: "rowType", label: "סוג" }, { key: "source", label: "מקור" }, { key: "month", label: "חודש" },
+    { key: "unit", label: "יחידה" }, { key: "category", label: "סעיף" }, { key: "amount", label: "סכום" },
+    { key: "description", label: "פירוט" },
+  ];
 
   if (metricId === "staffing-coverage") {
     const rows = payrollSourceRows(data, true);
@@ -1000,8 +1144,15 @@ function buildExplanation(metricId) {
     return baseExplanation(metricId, type === "income" ? "הכנסות" : "הוצאות", formatMoney(total, rows.length > 0), "BANKS", type === "income" ? "שורות BANKS עם זכות עבור המסננים שנבחרו." : "שורות BANKS עם חובה עבור המסננים שנבחרו. חריג לא לחישוב לא נכלל.", rows.length + " שורות בנק נכללו.", formatMoney(total, rows.length > 0), rows, bankColumns);
   }
   if (metricId === "budget-utilization") {
-    const rows = budgetDeviationRows(data, state.category);
-    return baseExplanation(metricId, "ניצול תקציב - " + selectedCategory, utilizationLine(budgetUse), "BUDGET + BANKS", "BUDGET calculatedCosts מושווה מול הוצאות BANKS לפי פירוט/accountingCategory. אם אין שורת תקציב תוצג הודעה שלא נמצא מקור תקציב ברור.", rows.length + " סעיפי תקציב ובפועל זמינים לבדיקה.", utilizationLine(budgetUse), rows, budgetDeviationColumns);
+    const totals = periodTotals(data);
+    const rows = actualFinancialSourceRows(data);
+    const display = totals.incomeUtilization.hasIncome ? formatPercent(totals.incomeUtilization.percent) : "אין נתוני הכנסה";
+    return baseExplanation(metricId, "ניצול תקציב", display, "BANKS + PAYROLL", "הוצאות בפועל ושכר בפועל מתוך הכנסות בפועל.", rows.length + " שורות הכנסה, הוצאה ושכר זמינות לבדיקה.", display, rows, actualFinancialColumns);
+  }
+  if (metricId === "true-financial-result") {
+    const totals = periodTotals(data);
+    const rows = actualFinancialSourceRows(data);
+    return baseExplanation(metricId, "תוצאה כספית בפועל", formatMoney(totals.financialResult, totals.hasAllocations || totals.hasPayroll), "BANKS + PAYROLL", "הכנסות בפועל פחות הוצאות בפועל פחות עלות שכר בפועל.", rows.length + " שורות הכנסה, הוצאה ושכר זמינות לבדיקה.", financialResultLabel(totals.financialResult) + " · " + formatMoney(totals.financialResult, totals.hasAllocations || totals.hasPayroll), rows, actualFinancialColumns);
   }
   if (metricId === "financial-exceptions") {
     const exceptions = buildFinancialExceptions(data);
@@ -1026,7 +1177,7 @@ function renderStatus(data, unitRows, issues) {
   els.overallStatusLabel.textContent = statusLabel(status);
   els.overallStatusLabel.className = "status-pill " + status;
   els.lastUpdateLabel.textContent = "עדכון בנק אחרון: " + latestCashDate(dashboardData.allocationRows);
-  els.selectedMonthLabel.textContent = selectedMonthsLabel() + " · " + selectedUnitsLabel();
+  if (els.selectedMonthLabel) els.selectedMonthLabel.textContent = selectedMonthsLabel() + " · " + selectedUnitsLabel();
   const financialExceptions = buildFinancialExceptions(data);
   const healthyUnits = unitRows.filter((row) => row.status === "green").length;
   const warningUnits = unitRows.filter((row) => row.status === "yellow").length;
@@ -1046,7 +1197,8 @@ function renderStatus(data, unitRows, issues) {
     { label: "הנה\"ח", value: accountingIssues ? numberFormatter.format(accountingIssues) + " לטיפול" : "תקין", sub: numberFormatter.format(sentDocs) + " נשלח · " + numberFormatter.format(waitingDocs) + " מחכה · " + numberFormatter.format(missingDocs) + " חסר", tone: missingDocs ? "attention" : waitingDocs ? "expense" : "balance", metricId: "" },
     { label: "שעות", value: (staffingWarning + staffingCritical) ? numberFormatter.format(staffingWarning + staffingCritical) + " לטיפול" : "תקין", sub: numberFormatter.format(staffingHealthy) + " תקינים · " + numberFormatter.format(staffingWarning) + " אזהרה · " + numberFormatter.format(staffingCritical) + " קריטי", tone: staffingCritical ? "attention" : staffingWarning ? "expense" : "balance", metricId: "staffing-coverage" },
   ];
-  els.statusGrid.innerHTML = cards.map((card) => kpiCard(card.label, card.value, card.sub, card.tone, card.metricId)).join("");
+  if (els.statusGrid) els.statusGrid.innerHTML = cards.map((card) => kpiCard(card.label, card.value, card.sub, card.tone, card.metricId)).join("");
+  return cards;
 }
 
 function renderSummary(data) {
@@ -1337,12 +1489,16 @@ function periodTotals(data) {
   const requiredHours = sum(data.budgetGroups, "requiredHours");
   const payrollHours = sum(data.payrollGroups, "payrollHours");
   const utilization = budgetUtilization(data, state.category);
+  const financialResult = trueFinancialResult(income, expenses, salary);
+  const incomeUtilization = actualIncomeUtilization(expenses, salary, income);
   return {
     income,
     expenses,
     incomePlan,
     expensePlan,
     balance: income - expenses,
+    financialResult,
+    incomeUtilization,
     salary,
     payrollHours,
     requiredHours,
@@ -1354,19 +1510,21 @@ function periodTotals(data) {
   };
 }
 
-function renderPeriodSummary(data) {
+function renderPeriodSummary(data, statusCards = []) {
   const totals = periodTotals(data);
   const monthly = monthlyDataForDisplay();
   const monthlyTotals = periodTotals(monthly.data);
   els.currentPeriodLabel.textContent = selectedMonthsLabel();
-  const budgetText = totals.utilization.hasBudget ? formatPercent(totals.utilization.percent) : "לא הוגדר תקציב";
+  const utilizationText = totals.incomeUtilization.hasIncome ? formatPercent(totals.incomeUtilization.percent) : "אין נתוני הכנסה";
+  const statusSummaryCards = statusCards.filter((card) => ["דורשים טיפול", "קריטיים", "שעות"].includes(card.label));
   const cards = [
+    ...statusSummaryCards,
     { label: "הכנסות", value: actualBudgetLine(totals.income, totals.incomePlan, totals.hasAllocations), sub: budgetScopeLabel("month"), tone: "income", metricId: "income" },
     { label: "הוצאות", value: actualBudgetLine(totals.expenses, totals.expensePlan, totals.hasAllocations), sub: budgetScopeLabel("month"), tone: "expense", metricId: "expenses" },
-    { label: "יתרה", value: formatMoney(totals.balance, totals.hasAllocations), sub: "הכנסות פחות הוצאות", tone: balanceTone(totals.balance, totals.hasAllocations) },
+    { label: "תוצאה כספית בפועל", value: formatMoney(totals.financialResult, totals.hasAllocations || totals.hasPayroll), sub: financialResultLabel(totals.financialResult) + " · הכנסות בפועל פחות הוצאות בפועל פחות עלות שכר בפועל", tone: balanceTone(totals.financialResult, totals.hasAllocations || totals.hasPayroll), metricId: "true-financial-result" },
     { label: "שעות מטפלות", value: formatNumber(monthlyTotals.payrollHours, monthlyTotals.hasPayroll) + " / " + formatNumber(monthlyTotals.requiredHours, monthlyTotals.hasBudget), sub: monthly.month + " · " + formatPercent(monthlyTotals.coverage, monthlyTotals.hasPayroll && monthlyTotals.hasBudget) + " · " + staffingGapLine(monthlyTotals.payrollHours, monthlyTotals.requiredHours, monthlyTotals.hasPayroll, monthlyTotals.hasBudget), tone: coverageTone(monthlyTotals.coverage, monthlyTotals.hasPayroll && monthlyTotals.hasBudget), metricId: "staffing-coverage" },
     { label: "שכר", value: formatMoney(totals.salary, totals.hasPayroll), sub: "PAYROLL, לא BANKS", tone: "payroll", metricId: "salary-cost" },
-    { label: "תקציב", value: budgetText, sub: totals.utilization.hasBudget ? utilizationLine(totals.utilization) : "לא הוגדר תקציב", tone: utilizationTone(totals.utilization.percent, totals.utilization.hasBudget, totals.utilization.actual), metricId: "budget-utilization" },
+    { label: "ניצול תקציב", value: utilizationText, sub: totals.incomeUtilization.hasIncome ? "הוצאות בפועל ושכר בפועל מתוך הכנסות בפועל" : "אין נתוני הכנסה", tone: utilizationTone(totals.incomeUtilization.percent, totals.incomeUtilization.hasIncome, totals.incomeUtilization.actualCost), metricId: "budget-utilization" },
   ];
   els.currentPeriodGrid.innerHTML = cards.map((card) => kpiCard(card.label, card.value, card.sub, card.tone, card.metricId)).join("");
 }
@@ -1374,12 +1532,12 @@ function renderPeriodSummary(data) {
 function renderSchoolYearSummary() {
   const data = ytdData();
   const totals = periodTotals(data);
-  const budgetText = totals.utilization.hasBudget ? formatPercent(totals.utilization.percent) : "לא הוגדר תקציב";
+  const utilizationText = totals.incomeUtilization.hasIncome ? formatPercent(totals.incomeUtilization.percent) : "אין נתוני הכנסה";
   const cards = [
     { label: "הכנסות", value: actualBudgetLine(totals.income, totals.incomePlan, totals.hasAllocations), sub: budgetScopeLabel("year"), tone: "income", metricId: "income" },
     { label: "הוצאות", value: actualBudgetLine(totals.expenses, totals.expensePlan, totals.hasAllocations), sub: budgetScopeLabel("year"), tone: "expense", metricId: "expenses" },
-    { label: "יתרה", value: formatMoney(totals.balance, totals.hasAllocations), sub: "הכנסות פחות הוצאות", tone: balanceTone(totals.balance, totals.hasAllocations) },
-    { label: "תקציב", value: budgetText, sub: totals.utilization.hasBudget ? utilizationLine(totals.utilization) : "לא הוגדר תקציב", tone: utilizationTone(totals.utilization.percent, totals.utilization.hasBudget, totals.utilization.actual), metricId: "budget-utilization" },
+    { label: "תוצאה כספית בפועל", value: formatMoney(totals.financialResult, totals.hasAllocations || totals.hasPayroll), sub: financialResultLabel(totals.financialResult) + " · הכנסות בפועל פחות הוצאות בפועל פחות עלות שכר בפועל", tone: balanceTone(totals.financialResult, totals.hasAllocations || totals.hasPayroll), metricId: "true-financial-result" },
+    { label: "ניצול תקציב", value: utilizationText, sub: totals.incomeUtilization.hasIncome ? "הוצאות בפועל ושכר בפועל מתוך הכנסות בפועל" : "אין נתוני הכנסה", tone: utilizationTone(totals.incomeUtilization.percent, totals.incomeUtilization.hasIncome, totals.incomeUtilization.actualCost), metricId: "budget-utilization" },
   ];
   els.schoolYearGrid.innerHTML = cards.map((card) => kpiCard(card.label, card.value, card.sub, card.tone, card.metricId)).join("");
 }
@@ -1407,6 +1565,37 @@ function renderFinancialExceptions(data) {
     const ytdLabel = utilizationLabel(item.sinceSeptember.percent, item.sinceSeptember.hasBudget, item.sinceSeptember.actual);
     return '<article class="financial-exception-card ' + item.tone + '-exception"><div><span>' + escapeHtml(item.category) + '</span><strong>' + escapeHtml(item.unit) + '</strong>' + explainButton("financial-exceptions") + '</div><dl><div><dt>תקופה נבחרת</dt><dd>' + escapeHtml(utilizationLine(item.current)) + '</dd><small>' + escapeHtml(currentLabel) + '</small></div><div><dt>מתחילת שנת הלימודים</dt><dd>' + escapeHtml(utilizationLine(item.sinceSeptember)) + '</dd><small>' + escapeHtml(ytdLabel) + '</small></div></dl></article>';
   }).join("") : '<p class="empty-state">אין סעיפי תקציב קרובים לחריגה או מעל התקציב במסננים הנוכחיים.</p>';
+}
+
+function budgetAuditProblemLabel(problem) {
+  const labels = {
+    none: "אין",
+    missing_budget: "חסר תקציב",
+    missing_actual: "אין ביצוע",
+    zero_budget: "תקציב אפס",
+    unknown_calculation: "חישוב לא ידוע",
+    source_mismatch: "פער מקור",
+  };
+  return labels[problem] || problem;
+}
+
+function renderBudgetCategoryAudit(data) {
+  if (!els.budgetCategoryAuditBody) return;
+  const rows = buildBudgetCategoryAuditRows(data);
+  window.dashboardBudgetCategoryAudit = rows;
+  const problemCount = rows.filter((row) => row.problem !== "none").length;
+  if (els.budgetCategoryAuditCount) {
+    els.budgetCategoryAuditCount.textContent = rows.length ? numberFormatter.format(rows.length) + " סעיפים · " + numberFormatter.format(problemCount) + " לבדיקה" : "אין סעיפים";
+  }
+  els.budgetCategoryAuditBody.innerHTML = rows.length ? rows.map((row) => (
+    '<tr class="budget-audit-problem-' + escapeHtml(row.problem) + '">' +
+      '<td>' + escapeHtml(row.categoryName) + '</td>' +
+      '<td>' + escapeHtml(row.appearsInBudget === "yes" ? "כן" : "לא") + '</td>' +
+      '<td>' + escapeHtml(row.appearsInActual === "yes" ? "כן" : "לא") + '</td>' +
+      '<td>' + escapeHtml(row.calculationMethod) + '</td>' +
+      '<td>' + escapeHtml(budgetAuditProblemLabel(row.problem)) + '</td>' +
+    '</tr>'
+  )).join("") : '<tr><td colspan="5">אין סעיפי תקציב או ביצוע להצגה במסננים הנוכחיים.</td></tr>';
 }
 
 function renderBudgetExplorer(data) {
@@ -1480,8 +1669,8 @@ function renderDashboard() {
   const data = filteredData();
   const unitRows = buildUnitRows(data);
   const issues = buildIssues(data, unitRows);
-  renderStatus(data, unitRows, issues);
-  renderPeriodSummary(data);
+  const statusCards = renderStatus(data, unitRows, issues);
+  renderPeriodSummary(data, statusCards);
   renderSchoolYearSummary();
   renderBankControl(data);
   renderDataFreshness();
@@ -1493,6 +1682,7 @@ function renderDashboard() {
   renderFinancialExceptions(data);
   renderUnits(unitRows);
   renderBudgetExplorer(data);
+  renderBudgetCategoryAudit(data);
   renderIssues(issues);
   renderInsights(data, issues);
   renderTables(data);
@@ -1512,6 +1702,8 @@ function renderLoadingState() {
   els.actionList.innerHTML = "";
   els.financialExceptionGrid.innerHTML = "";
   els.budgetExplorerGrid.innerHTML = "";
+  if (els.budgetCategoryAuditBody) els.budgetCategoryAuditBody.innerHTML = '<tr><td colspan="5">בדיקת סעיפי התקציב נטענת...</td></tr>';
+  if (els.budgetCategoryAuditCount) els.budgetCategoryAuditCount.textContent = "נטען";
   els.unitCardGrid.innerHTML = '<p class="empty-state">היחידות נטענות...</p>';
   els.dataIssueList.innerHTML = '<p class="empty-state">החריגות נטענות...</p>';
   els.operationalIssueList.innerHTML = '<p class="empty-state">החריגות נטענות...</p>';

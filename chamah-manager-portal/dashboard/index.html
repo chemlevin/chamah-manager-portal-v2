@@ -67,22 +67,11 @@
         </div>
       </section>
 
-      <section class="dashboard-section organization-status-section control-room-section" aria-labelledby="status-title">
-        <div class="section-title-row compact-title-row">
-          <div>
-            <p class="eyebrow">בריאות ארגונית</p>
-            <h2 id="status-title">מצב הארגון</h2>
-          </div>
-          <span class="section-chip" id="selected-month-label">כל החודשים</span>
-        </div>
-        <div class="management-status-grid" id="organization-status-grid"></div>
-      </section>
-
       <section class="dashboard-section period-summary-section" aria-labelledby="current-period-title">
         <div class="section-title-row compact-title-row">
           <div>
             <p class="eyebrow">מצב כספי</p>
-            <h2 id="current-period-title">תקופה נבחרת</h2>
+            <h2 id="current-period-title">מצב הארגון והתקופה הנבחרת</h2>
           </div>
           <span class="section-chip" id="current-period-label">נטען</span>
         </div>
@@ -113,6 +102,30 @@
           <span class="section-chip" id="budget-category-label">כל הסעיפים</span>
         </div>
         <div class="budget-explorer-grid" id="budget-explorer-grid"></div>
+      </section>
+
+      <section class="dashboard-section budget-category-audit-section" aria-labelledby="budget-category-audit-title">
+        <div class="section-title-row compact-title-row">
+          <div>
+            <p class="eyebrow">בקרת מקור תקציב</p>
+            <h2 id="budget-category-audit-title">בדיקת סעיפי תקציב</h2>
+          </div>
+          <span class="section-chip" id="budget-category-audit-count">נטען</span>
+        </div>
+        <div class="dashboard-table-wrap budget-category-audit-wrap">
+          <table class="dashboard-table budget-category-audit-table">
+            <thead>
+              <tr>
+                <th>סעיף</th>
+                <th>קיים בתקציב</th>
+                <th>קיים בביצוע</th>
+                <th>שיטת חישוב</th>
+                <th>בעיה</th>
+              </tr>
+            </thead>
+            <tbody id="budget-category-audit-body"></tbody>
+          </table>
+        </div>
       </section>
 
       <section class="dashboard-section unit-section" aria-labelledby="units-title">

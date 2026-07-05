@@ -6624,6 +6624,34 @@ details.employee-detail-section > div {
   background: rgba(255, 255, 255, .96);
 }
 
+.budget-category-audit-section {
+  display: grid;
+  gap: 8px;
+}
+
+.budget-category-audit-wrap {
+  margin-top: 0;
+}
+
+.budget-category-audit-table td:last-child {
+  font-weight: 900;
+}
+
+.budget-audit-problem-missing_budget td:last-child,
+.budget-audit-problem-zero_budget td:last-child,
+.budget-audit-problem-source_mismatch td:last-child {
+  color: #b91c1c;
+}
+
+.budget-audit-problem-unknown_calculation td:last-child,
+.budget-audit-problem-missing_actual td:last-child {
+  color: #a16207;
+}
+
+.budget-audit-problem-none td:last-child {
+  color: #15803d;
+}
+
 @media (max-width: 640px) {
   .explain-overlay {
     align-items: end;
