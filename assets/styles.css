@@ -6825,6 +6825,18 @@ details.employee-detail-section > div {
 
 
 /* Dedicated accounting page */
+.accounting-refresh-card {
+  gap: 8px;
+}
+.accounting-refresh-button {
+  width: 100%;
+  min-height: 38px;
+  padding-inline: 12px;
+}
+.accounting-refresh-button:disabled {
+  cursor: progress;
+  opacity: .72;
+}
 .accounting-page .accounting-filter-bar {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }

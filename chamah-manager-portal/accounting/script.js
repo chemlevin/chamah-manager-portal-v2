@@ -1,4 +1,5 @@
 const API_ENDPOINT = '/api/allocations';
+const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const CALENDAR_MONTHS = ['01/2026', '02/2026', '03/2026', '04/2026', '05/2026', '06/2026', '07/2026', '08/2026', '09/2026', '10/2026', '11/2026', '12/2026', '01/2027', '02/2027', '03/2027', '04/2027', '05/2027', '06/2027', '07/2027', '08/2027', '09/2027', '10/2027', '11/2027', '12/2027'];
 const BANKS = [
   { account: '3328007', unit: 'מחנה' },
@@ -20,12 +21,13 @@ const EXPLANATIONS = {
 };
 const moneyFormatter = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 });
 const numberFormatter = new Intl.NumberFormat('he-IL');
-const state = { bank: 'all', month: 'all', status: 'all', rows: [] };
+const state = { bank: 'all', month: 'all', status: 'all', rows: [], isRefreshing: false, refreshTimer: null };
 const els = {
   bankFilter: document.querySelector('#bank-filter'),
   monthFilter: document.querySelector('#month-filter'),
   statusFilter: document.querySelector('#status-filter'),
   lastUpdate: document.querySelector('#accounting-last-update'),
+  refreshData: document.querySelector('#refresh-accounting-data'),
   monthlyLabel: document.querySelector('#monthly-label'),
   monthlyGrid: document.querySelector('#monthly-grid'),
   amountGrid: document.querySelector('#amount-grid'),
@@ -199,7 +201,12 @@ function renderFilters() {
   els.statusFilter.value = state.status;
 }
 function displayBusinessMonth(row) { return row.businessMonth || 'לא שויך לחודש'; }
-function renderAll() { renderFilters(); renderKpis(); renderDaycareOverview(); renderSourceTable(); }
+function syncRefreshButton() {
+  if (!els.refreshData) return;
+  els.refreshData.disabled = state.isRefreshing;
+  els.refreshData.textContent = state.isRefreshing ? 'מרענן נתונים...' : 'רענן נתונים';
+}
+function renderAll() { renderFilters(); syncRefreshButton(); renderKpis(); renderDaycareOverview(); renderSourceTable(); }
 function csvEscape(value) { const text = String(value ?? ''); return /[",\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text; }
 function sourceCsv() {
   const columns = ['חשבון', 'מעון', 'תאריך', 'תיאור תנועה', 'אסמכתא', 'סכום', 'הגדרה', 'עבור חודש', 'הנה"ח', 'הערות'];
@@ -225,33 +232,78 @@ function openExplanation(metricId) {
   els.explainTotal.textContent = numberFormatter.format(rowsForBankAndMonth(state.month).length) + ' שורות';
   els.explainRule.textContent = EXPLANATIONS[metricId] || 'לפי שורות BANKS במסננים הנוכחיים.';
   els.explainText.textContent = EXPLANATIONS[metricId] || '';
+  els.explainOverlay.dataset.metricId = metricId;
   els.explainOverlay.hidden = false;
+}
+function captureUiState() {
+  return {
+    bank: state.bank,
+    month: state.month,
+    status: state.status,
+    explanationOpen: Boolean(els.explainOverlay && !els.explainOverlay.hidden),
+    explanationMetric: els.explainOverlay && !els.explainOverlay.hidden ? els.explainOverlay.dataset.metricId || '' : '',
+  };
+}
+function restoreUiState(snapshot) {
+  if (!snapshot) return;
+  state.bank = snapshot.bank || 'all';
+  state.month = snapshot.month || 'all';
+  state.status = snapshot.status || 'all';
+}
+function markSuccessfulRefresh() {
+  els.lastUpdate.textContent = 'עודכן לאחרונה: ' + new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+}
+async function fetchAccountingRows() {
+  const response = await fetch(API_ENDPOINT, { headers: { Accept: 'application/json' } });
+  if (!response.ok) throw new Error('Allocations returned ' + response.status);
+  return normalizePayload(await response.json());
+}
+async function refreshAccountingData() {
+  if (state.isRefreshing) return;
+  const snapshot = captureUiState();
+  state.isRefreshing = true;
+  syncRefreshButton();
+  try {
+    state.rows = await fetchAccountingRows();
+    restoreUiState(snapshot);
+    markSuccessfulRefresh();
+    renderAll();
+    if (snapshot.explanationOpen && snapshot.explanationMetric) openExplanation(snapshot.explanationMetric);
+  } finally {
+    state.isRefreshing = false;
+    syncRefreshButton();
+  }
 }
 async function loadAccountingData() {
   renderFilters();
-  const response = await fetch(API_ENDPOINT, { headers: { Accept: 'application/json' } });
-  if (!response.ok) throw new Error('Allocations returned ' + response.status);
-  const payload = await response.json();
-  state.rows = normalizePayload(payload);
-  const latest = state.rows.map((row) => parseIsraeliBankDate(row.cashDate)).filter(Boolean).sort((a, b) => b - a)[0];
-  els.lastUpdate.textContent = 'עדכון אחרון: ' + (latest ? latest.toLocaleDateString('he-IL') : 'אין תאריך');
-  renderAll();
+  await refreshAccountingData();
+}
+function scheduleAutoRefresh() {
+  window.clearInterval(state.refreshTimer);
+  state.refreshTimer = window.setInterval(() => {
+    refreshAccountingData().catch((error) => console.error(error));
+  }, REFRESH_INTERVAL_MS);
 }
 function bindEvents() {
   els.bankFilter.addEventListener('change', (event) => { state.bank = event.target.value; renderAll(); });
   els.monthFilter.addEventListener('change', (event) => { state.month = event.target.value; renderAll(); });
   els.statusFilter.addEventListener('change', (event) => { state.status = event.target.value; renderAll(); });
+  if (els.refreshData) els.refreshData.addEventListener('click', () => { refreshAccountingData().catch((error) => console.error(error)); });
   els.copySourceTable.addEventListener('click', () => copyText(sourceCsv()));
   els.exportSourceCsv.addEventListener('click', downloadCsv);
   document.addEventListener('click', (event) => {
     const explain = event.target.closest('[data-explain]');
     if (explain) openExplanation(explain.dataset.explain);
-    if (event.target.closest('[data-close-explain]') || event.target === els.explainOverlay) els.explainOverlay.hidden = true;
+    if (event.target.closest('[data-close-explain]') || event.target === els.explainOverlay) { els.explainOverlay.hidden = true; els.explainOverlay.dataset.metricId = ''; }
   });
 }
 bindEvents();
+scheduleAutoRefresh();
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) refreshAccountingData().catch((error) => console.error(error));
+});
 loadAccountingData().catch((error) => {
-  els.lastUpdate.textContent = 'עדכון אחרון: שגיאה';
+  els.lastUpdate.textContent = 'עודכן לאחרונה: שגיאה';
   els.monthlyGrid.innerHTML = '<p class="empty-state">לא ניתן לטעון כרגע את נתוני BANKS.</p>';
   console.error(error);
 });
