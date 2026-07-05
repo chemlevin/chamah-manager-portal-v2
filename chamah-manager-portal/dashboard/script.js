@@ -1690,8 +1690,8 @@ function renderDashboard() {
 
 function renderLoadingState() {
   els.overallStatusLabel.textContent = "נטען";
-  els.statusGrid.innerHTML = '<p class="empty-state">לוח הניהול נטען...</p>';
-  els.currentPeriodGrid.innerHTML = "";
+  if (els.statusGrid) els.statusGrid.innerHTML = '<p class="empty-state">לוח הניהול נטען...</p>';
+  els.currentPeriodGrid.innerHTML = '<p class="empty-state">לוח הניהול נטען...</p>';
   els.schoolYearGrid.innerHTML = "";
   els.bankControlGrid.innerHTML = "";
   els.summaryGrid.innerHTML = "";
