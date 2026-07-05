@@ -1488,6 +1488,9 @@ function periodTotals(data) {
   const salary = sum(data.payrollGroups, "payrollCost");
   const requiredHours = sum(data.budgetGroups, "requiredHours");
   const payrollHours = sum(data.payrollGroups, "payrollHours");
+  const actualStaff = staffCountForData(data);
+  const requiredStaff = sum(data.budgetGroups, "requiredEmployees");
+  const children = sum(data.budgetGroups, "children");
   const utilization = budgetUtilization(data, state.category);
   const financialResult = trueFinancialResult(income, expenses, salary);
   const incomeUtilization = actualIncomeUtilization(expenses, salary, income);
@@ -1503,11 +1506,36 @@ function periodTotals(data) {
     payrollHours,
     requiredHours,
     coverage: coveragePercent(payrollHours, requiredHours),
+    actualStaff,
+    requiredStaff,
+    children,
     utilization,
     hasAllocations: hasRows(data.allocationGroups),
     hasPayroll: hasRows(data.payrollGroups),
     hasBudget: hasRows(data.budgetGroups),
+    hasRequiredStaff: data.budgetGroups.some((item) => item.hasRequiredEmployees),
+    hasChildren: data.budgetGroups.some((item) => item.hasChildren),
   };
+}
+
+function staffCountForData(data) {
+  const employeeNames = unique((data.payrollRows || [])
+    .map((row) => row.employee)
+    .filter((employee) => clean(employee) && clean(employee) !== "לא צוין עובד"));
+  if (employeeNames.length) return { count: employeeNames.length, hasActual: true, source: "payrollRows.employee" };
+  const groupedCount = sum(data.payrollGroups, "employeeCount");
+  return { count: groupedCount, hasActual: hasRows(data.payrollGroups) && groupedCount > 0, source: "payrollGroups.employeeCount" };
+}
+
+function staffCountLine(totals) {
+  if (!totals.actualStaff.hasActual) return "אין נתון צוות בפועל";
+  return formatNumber(totals.actualStaff.count) + " / " + formatNumber(totals.requiredStaff, totals.hasRequiredStaff);
+}
+
+function staffCountSub(totals) {
+  if (!totals.actualStaff.hasActual && totals.hasRequiredStaff) return "תקן נדרש: " + formatNumber(totals.requiredStaff);
+  if (!totals.actualStaff.hasActual) return "אין מזהה עובד אמין בנתוני PAYROLL";
+  return totals.hasRequiredStaff ? "בפועל / תקן נדרש" : "בפועל · אין תקן נדרש";
 }
 
 function renderPeriodSummary(data, statusCards = []) {
@@ -1516,15 +1544,15 @@ function renderPeriodSummary(data, statusCards = []) {
   const monthlyTotals = periodTotals(monthly.data);
   els.currentPeriodLabel.textContent = selectedMonthsLabel();
   const utilizationText = totals.incomeUtilization.hasIncome ? formatPercent(totals.incomeUtilization.percent) : "אין נתוני הכנסה";
-  const statusSummaryCards = statusCards.filter((card) => ["דורשים טיפול", "קריטיים", "שעות"].includes(card.label));
   const cards = [
-    ...statusSummaryCards,
     { label: "הכנסות", value: actualBudgetLine(totals.income, totals.incomePlan, totals.hasAllocations), sub: budgetScopeLabel("month"), tone: "income", metricId: "income" },
     { label: "הוצאות", value: actualBudgetLine(totals.expenses, totals.expensePlan, totals.hasAllocations), sub: budgetScopeLabel("month"), tone: "expense", metricId: "expenses" },
-    { label: "תוצאה כספית בפועל", value: formatMoney(totals.financialResult, totals.hasAllocations || totals.hasPayroll), sub: financialResultLabel(totals.financialResult) + " · הכנסות בפועל פחות הוצאות בפועל פחות עלות שכר בפועל", tone: balanceTone(totals.financialResult, totals.hasAllocations || totals.hasPayroll), metricId: "true-financial-result" },
-    { label: "שעות מטפלות", value: formatNumber(monthlyTotals.payrollHours, monthlyTotals.hasPayroll) + " / " + formatNumber(monthlyTotals.requiredHours, monthlyTotals.hasBudget), sub: monthly.month + " · " + formatPercent(monthlyTotals.coverage, monthlyTotals.hasPayroll && monthlyTotals.hasBudget) + " · " + staffingGapLine(monthlyTotals.payrollHours, monthlyTotals.requiredHours, monthlyTotals.hasPayroll, monthlyTotals.hasBudget), tone: coverageTone(monthlyTotals.coverage, monthlyTotals.hasPayroll && monthlyTotals.hasBudget), metricId: "staffing-coverage" },
     { label: "שכר", value: formatMoney(totals.salary, totals.hasPayroll), sub: "PAYROLL, לא BANKS", tone: "payroll", metricId: "salary-cost" },
+    { label: "תוצאה כספית בפועל", value: formatMoney(totals.financialResult, totals.hasAllocations || totals.hasPayroll), sub: financialResultLabel(totals.financialResult) + " · הכנסות בפועל פחות הוצאות בפועל פחות עלות שכר בפועל", tone: balanceTone(totals.financialResult, totals.hasAllocations || totals.hasPayroll), metricId: "true-financial-result" },
     { label: "ניצול תקציב", value: utilizationText, sub: totals.incomeUtilization.hasIncome ? "הוצאות בפועל ושכר בפועל מתוך הכנסות בפועל" : "אין נתוני הכנסה", tone: utilizationTone(totals.incomeUtilization.percent, totals.incomeUtilization.hasIncome, totals.incomeUtilization.actualCost), metricId: "budget-utilization" },
+    { label: "שעות מטפלות", value: formatNumber(monthlyTotals.payrollHours, monthlyTotals.hasPayroll) + " / " + formatNumber(monthlyTotals.requiredHours, monthlyTotals.hasBudget), sub: monthly.month + " · " + formatPercent(monthlyTotals.coverage, monthlyTotals.hasPayroll && monthlyTotals.hasBudget) + " · " + staffingGapLine(monthlyTotals.payrollHours, monthlyTotals.requiredHours, monthlyTotals.hasPayroll, monthlyTotals.hasBudget), tone: coverageTone(monthlyTotals.coverage, monthlyTotals.hasPayroll && monthlyTotals.hasBudget), metricId: "staffing-coverage" },
+    { label: "כמות צוות", value: staffCountLine(totals), sub: staffCountSub(totals), tone: totals.actualStaff.hasActual ? "payroll" : "attention", metricId: "staff-count" },
+    { label: "כמות ילדים", value: formatNumber(totals.children, totals.hasChildren), sub: totals.hasChildren ? "לפי נתוני BUDGET במסננים שנבחרו" : "אין נתוני ילדים", tone: "children", metricId: "children-count" },
   ];
   els.currentPeriodGrid.innerHTML = cards.map((card) => kpiCard(card.label, card.value, card.sub, card.tone, card.metricId)).join("");
 }

@@ -6450,6 +6450,50 @@ details.employee-detail-section > div {
   max-height: 128px !important;
 }
 
+.management-dashboard.management-dashboard-v2 .management-unit-card.compact-unit-card {
+  height: 166px !important;
+  min-height: 166px !important;
+  max-height: 166px !important;
+  padding: 10px 11px !important;
+}
+
+.management-dashboard.management-dashboard-v2 .compact-unit-head {
+  gap: 9px;
+  margin-bottom: 6px;
+}
+
+.management-dashboard.management-dashboard-v2 .compact-unit-head h3 {
+  font-size: .96rem;
+}
+
+.management-dashboard.management-dashboard-v2 .compact-unit-head b {
+  font-size: 1.14rem;
+}
+
+.management-dashboard.management-dashboard-v2 .compact-unit-head span {
+  min-height: 21px;
+  font-size: .63rem;
+}
+
+.management-dashboard.management-dashboard-v2 .compact-unit-card .unit-status-list.compressed {
+  gap: 3px;
+}
+
+.management-dashboard.management-dashboard-v2 .compact-unit-card .unit-status-list.compressed div {
+  min-height: 21px;
+  grid-template-columns: 50px minmax(0, 1fr);
+  padding: 3px 6px;
+}
+
+.management-dashboard.management-dashboard-v2 .compact-unit-card .unit-status-list.compressed dt {
+  font-size: .6rem;
+}
+
+.management-dashboard.management-dashboard-v2 .compact-unit-card .unit-status-list.compressed dd {
+  font-size: .72rem;
+  line-height: 1.12;
+}
+
 .management-dashboard.management-dashboard-v2 .management-kpi .explain-trigger {
   min-height: 16px;
   padding: 1px 5px;
