@@ -98,8 +98,13 @@ function normalizePayload(payload) {
   const rows = [...(Array.isArray(payload.rows) ? payload.rows : []), ...(Array.isArray(payload.unmappedRows) ? payload.unmappedRows : [])];
   return rows.map(normalizeRow).filter((row) => row.businessMonth || row.cashDate || row.account || row.reference);
 }
+function accountingMonthFromDate(row) {
+  const date = parseIsraeliBankDate(row.cashDate);
+  if (!date) return '';
+  return String(date.getUTCMonth() + 1).padStart(2, '0') + '/' + date.getUTCFullYear();
+}
 function rowsForBankAndMonth(month) {
-  return state.rows.filter((row) => (state.bank === 'all' || row.unit === state.bank) && (month === 'all' || row.businessMonth === month));
+  return state.rows.filter((row) => (state.bank === 'all' || row.unit === state.bank) && (month === 'all' || accountingMonthFromDate(row) === month));
 }
 function parseMonthValue(month) {
   const match = clean(month).match(/^(\d{2})\/(\d{4})$/);
@@ -117,7 +122,7 @@ function ytdMonths() {
 function ytdRows() {
   if (state.month === 'all') return state.rows.filter((row) => state.bank === 'all' || row.unit === state.bank);
   const months = new Set(ytdMonths());
-  return state.rows.filter((row) => (state.bank === 'all' || row.unit === state.bank) && months.has(row.businessMonth));
+  return state.rows.filter((row) => (state.bank === 'all' || row.unit === state.bank) && months.has(accountingMonthFromDate(row)));
 }
 function bankDateTime(value) { return parseIsraeliBankDate(value)?.getTime() ?? Number.NEGATIVE_INFINITY; }
 function sourceRows() {
