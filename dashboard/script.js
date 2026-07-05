@@ -23,7 +23,7 @@ const NO_DATA = "אין נתונים";
 const moneyFormatter = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
 const numberFormatter = new Intl.NumberFormat("he-IL");
 const state = { months: ["all"], units: ["all"], unitType: "all", category: "all", search: "", expenseSort: "amount-desc", payrollSort: "cost-desc" };
-const dashboardData = { budgetGroups: [], payrollGroups: [], payrollRows: [], allocationGroups: [], allocationRows: [], unmappedRows: [], excludedAllocationRows: [], employees: [], errors: [] };
+const dashboardData = { budgetGroups: [], budgetRules: [], payrollGroups: [], payrollRows: [], allocationGroups: [], allocationRows: [], unmappedRows: [], excludedAllocationRows: [], employees: [], errors: [] };
 
 const els = {
   monthFilter: document.querySelector("#month-filter"),
@@ -234,9 +234,46 @@ function isBankSalaryRow(row) {
   return clean(row.definition).includes("שכר") || accountingCategory(row).includes("שכר");
 }
 
+function truthyRuleValue(value, fallback = true) {
+  const text = clean(value).toLowerCase();
+  if (!text) return fallback;
+  return ["כן", "yes", "true", "1", "y"].includes(text);
+}
+
+function ruleValue(row, names) {
+  const keys = Object.keys(row || {});
+  const normalizedNames = names.map((name) => clean(name).replace(/\s+/g, " ").toLowerCase());
+  const key = keys.find((candidate) => normalizedNames.includes(clean(candidate).replace(/\s+/g, " ").toLowerCase()));
+  return key ? safeText(row[key], "") : "";
+}
+
+function normalizeBudgetRules(payload) {
+  const rules = payload?.tables?.COST_RULES || payload?.costRules || [];
+  return (Array.isArray(rules) ? rules : []).map((rule) => {
+    const category = ruleValue(rule, ["סעיף תקציבי", "category", "name", "סעיף", "קטגוריה"]);
+    const requiresBudget = truthyRuleValue(ruleValue(rule, ["דורש תקציב", "requiresBudget"]), false);
+    const showOnDashboard = truthyRuleValue(ruleValue(rule, ["להציג באתר", "showOnDashboard", "display"]), false);
+    const budgetSource = ruleValue(rule, ["מקור חישוב התקציב", "מקור חישוב תקציב", "budgetSource"]).toUpperCase();
+    const actualSource = ruleValue(rule, ["מקור הביצוע בפועל", "מקור הביצוע", "actualSource"]).toUpperCase();
+    return {
+      category,
+      basis: ruleValue(rule, ["בסיס לחישוב", "basis"]),
+      additionalBasis: ruleValue(rule, ["בסיס נוסף", "additionalBasis"]),
+      amount: safeNumber(ruleValue(rule, ["ערך", "amount", "rate"])),
+      period: ruleValue(rule, ["תקופה", "period"]),
+      divisor: safeNumber(ruleValue(rule, ["חלוקה", "divisor"]) || 1) || 1,
+      daycare: ruleValue(rule, ["מעון חריג", "daycare", "department"]),
+      requiresBudget,
+      showOnDashboard,
+      budgetSource,
+      actualSource,
+    };
+  }).filter((rule) => rule.category);
+}
+
 function normalizeBudget(payload) {
   const groups = payload?.budget?.byDaycareMonth || payload?.byDaycareMonth || [];
-  return (Array.isArray(groups) ? groups : []).map((group) => {
+  const normalizedGroups = (Array.isArray(groups) ? groups : []).map((group) => {
     const capacityValue = group.capacity ?? group.childCapacity ?? group.childrenCapacity ?? group.maxChildren;
     const calculatedCosts = Array.isArray(group.calculatedCosts) ? group.calculatedCosts : [];
     return {
@@ -274,6 +311,7 @@ function normalizeBudget(payload) {
       })).filter((cost) => cost.category),
     };
   }).filter((group) => group.unit && group.month);
+  return { groups: normalizedGroups, rules: normalizeBudgetRules(payload) };
 }
 
 function normalizePayroll(payload) {
@@ -484,6 +522,7 @@ function unitType(unit, data) {
 function filteredData() {
   const base = {
     budgetGroups: dashboardData.budgetGroups,
+    budgetRules: dashboardData.budgetRules,
     payrollGroups: dashboardData.payrollGroups,
     payrollRows: dashboardData.payrollRows,
     allocationGroups: dashboardData.allocationGroups,
@@ -497,6 +536,7 @@ function filteredData() {
   const hasMonth = (row) => state.months.includes("all") || state.months.includes(row.month);
   return {
     budgetGroups: base.budgetGroups.filter((row) => hasUnit(row) && hasMonth(row)),
+    budgetRules: base.budgetRules,
     payrollGroups: base.payrollGroups.filter((row) => hasUnit(row) && hasMonth(row)),
     payrollRows: base.payrollRows.filter((row) => hasUnit(row) && hasMonth(row)),
     allocationGroups: base.allocationGroups.filter((row) => hasUnit(row) && hasMonth(row)),
@@ -511,14 +551,16 @@ function buildUnitRows(data) {
   return data.allowedUnits.map((unit) => {
     const budget = data.budgetGroups.filter((row) => row.unit === unit);
     const payroll = data.payrollGroups.filter((row) => row.unit === unit);
+    const payrollRows = data.payrollRows.filter((row) => row.unit === unit);
     const allocations = data.allocationGroups.filter((row) => row.unit === unit);
     const allocationRows = data.allocationRows.filter((row) => row.unit === unit);
     const requiredHours = sum(budget, "requiredHours");
     const payrollHours = sum(payroll, "payrollHours");
-    const budgetUse = budgetUtilization({ budgetGroups: budget, allocationRows, payrollGroups: payroll }, "all");
+    const budgetUse = budgetUtilization({ budgetGroups: budget, allocationRows, payrollGroups: payroll, payrollRows }, "all");
     const monthly = monthlyDataForDisplay().data;
     const monthlyBudget = monthly.budgetGroups.filter((row) => row.unit === unit);
     const monthlyPayroll = monthly.payrollGroups.filter((row) => row.unit === unit);
+    const monthlyPayrollRows = monthly.payrollRows.filter((row) => row.unit === unit);
     const monthlyAllocations = monthly.allocationGroups.filter((row) => row.unit === unit);
     const monthlyAllocationRows = monthly.allocationRows.filter((row) => row.unit === unit);
     const monthlyChildren = monthlyBudget.reduce((value, row) => value + safeNumber(row.children), 0);
@@ -526,7 +568,7 @@ function buildUnitRows(data) {
     const monthlyCapacity = monthlyBudget.some((item) => item.hasCapacity) ? sum(monthlyBudget.filter((item) => item.hasCapacity), "capacity") : null;
     const monthlyRequiredHours = sum(monthlyBudget, "requiredHours");
     const monthlyPayrollHours = sum(monthlyPayroll, "payrollHours");
-    const monthlyBudgetUse = budgetUtilization({ budgetGroups: monthlyBudget, allocationRows: monthlyAllocationRows, payrollGroups: monthlyPayroll }, "all");
+    const monthlyBudgetUse = budgetUtilization({ budgetGroups: monthlyBudget, allocationRows: monthlyAllocationRows, payrollGroups: monthlyPayroll, payrollRows: monthlyPayrollRows }, "all");
     const row = {
       unit,
       type: unitType(unit, dashboardData),
@@ -656,11 +698,7 @@ function severityLabel(severity) {
 function renderFilterOptions() {
   const months = unique([...dashboardData.budgetGroups.map((row) => row.month), ...dashboardData.payrollGroups.map((row) => row.month), ...dashboardData.allocationGroups.map((row) => row.month)]).sort(compareMonths);
   const units = unique([...dashboardData.budgetGroups.map((row) => row.unit), ...dashboardData.payrollGroups.map((row) => row.unit), ...dashboardData.allocationGroups.map((row) => row.unit)]);
-  const categories = unique([
-    ...dashboardData.budgetGroups.flatMap((row) => row.calculatedCosts.map((cost) => cost.category)),
-    ...dashboardData.allocationRows.map((row) => row.accountingCategory),
-    ...(dashboardData.payrollGroups.length ? ["שכר"] : []),
-  ]);
+  const categories = visibleBudgetCategories();
   state.months = state.months.filter((month) => month === "all" || months.includes(month));
   state.units = state.units.filter((unit) => unit === "all" || units.includes(unit));
   if (!state.months.length) state.months = ["all"];
@@ -710,20 +748,58 @@ function utilizationLabel(percent, hasBudget, actual) {
 }
 
 function budgetAmountForGroup(group, category = "all") {
+  if (category !== "all" && !budgetCategoryRequiresBudget(category)) return 0;
   return group.calculatedCosts
-    .filter((cost) => category === "all" || cost.category === category)
+    .filter((cost) => category === "all" ? budgetCategoryVisible(cost.category) && budgetCategoryRequiresBudget(cost.category) : cost.category === category)
     .reduce((total, cost) => total + safeNumber(cost.amount), 0);
+}
+
+function ruleSourcesForCategory(category, sourceField) {
+  return unique(dashboardData.budgetRules
+    .filter((rule) => rule.showOnDashboard && (category === "all" || rule.category === category))
+    .map((rule) => rule[sourceField]));
+}
+
+function budgetRulesForCategory(category = "all") {
+  return dashboardData.budgetRules.filter((rule) => rule.showOnDashboard && (category === "all" || rule.category === category));
+}
+
+function budgetCategoryVisible(category) {
+  return budgetRulesForCategory(category).length > 0;
+}
+
+function budgetCategoryRequiresBudget(category) {
+  const rules = budgetRulesForCategory(category);
+  return rules.some((rule) => rule.requiresBudget);
+}
+
+function visibleBudgetCategories() {
+  return unique(dashboardData.budgetRules.filter((rule) => rule.showOnDashboard).map((rule) => rule.category));
+}
+
+function payrollActualForCategory(data, category = "all") {
+  const categories = category === "all" ? visibleBudgetCategories().filter((item) => ruleSourcesForCategory(item, "actualSource").includes("PAYROLL")) : [category];
+  return (data.payrollRows || [])
+    .filter((row) => categories.includes(row.className))
+    .reduce((total, row) => total + safeNumber(row.cost), 0);
+}
+
+function bankActualForCategory(data, category = "all") {
+  const categories = category === "all" ? visibleBudgetCategories().filter((item) => ruleSourcesForCategory(item, "actualSource").includes("BANKS")) : [category];
+  return data.allocationRows
+    .filter((row) => !row.excludedFromCalculations && row.debit > 0 && categories.includes(row.accountingCategory))
+    .reduce((total, row) => total + row.debit, 0);
 }
 
 function budgetUtilization(data, category = "all") {
   const budget = data.budgetGroups.reduce((total, group) => total + budgetAmountForGroup(group, category), 0);
-  const bankExpenses = data.allocationRows
-    .filter((row) => !row.excludedFromCalculations && row.debit > 0 && (category === "all" || row.accountingCategory === category))
-    .reduce((total, row) => total + row.debit, 0);
-  const payrollSalary = category === "all" || category === "שכר" ? sum(data.payrollGroups || [], "payrollCost") : 0;
+  const actualSources = ruleSourcesForCategory(category, "actualSource");
+  const bankExpenses = actualSources.includes("BANKS") ? bankActualForCategory(data, category) : 0;
+  const payrollSalary = actualSources.includes("PAYROLL") ? payrollActualForCategory(data, category) : 0;
   const actual = bankExpenses + payrollSalary;
   const percent = budget > 0 ? actual / budget * 100 : null;
-  return { budget, actual, percent, hasBudget: budget > 0 };
+  const requiresBudget = category === "all" ? budgetRulesForCategory("all").some((rule) => rule.requiresBudget) : budgetCategoryRequiresBudget(category);
+  return { budget, actual, percent, hasBudget: requiresBudget && budget > 0, requiresBudget };
 }
 
 function incomeBudget(data) {
@@ -772,6 +848,7 @@ function budgetScopeLabel(scope) {
 function filteredDataForMonthSet(monthSet) {
   const base = {
     budgetGroups: dashboardData.budgetGroups,
+    budgetRules: dashboardData.budgetRules,
     payrollGroups: dashboardData.payrollGroups,
     payrollRows: dashboardData.payrollRows,
     allocationGroups: dashboardData.allocationGroups,
@@ -785,6 +862,7 @@ function filteredDataForMonthSet(monthSet) {
   const hasMonth = (row) => monthSet.has(row.month);
   return {
     budgetGroups: base.budgetGroups.filter((row) => hasUnit(row) && hasMonth(row)),
+    budgetRules: base.budgetRules,
     payrollGroups: base.payrollGroups.filter((row) => hasUnit(row) && hasMonth(row)),
     payrollRows: base.payrollRows.filter((row) => hasUnit(row) && hasMonth(row)),
     allocationGroups: base.allocationGroups.filter((row) => hasUnit(row) && hasMonth(row)),
@@ -802,11 +880,7 @@ function ytdData() {
 
 function buildFinancialExceptions(data) {
   const ytd = ytdData();
-  const categories = unique([
-    ...data.budgetGroups.flatMap((row) => row.calculatedCosts.map((cost) => cost.category)),
-    ...data.allocationRows.filter((row) => !row.excludedFromCalculations && row.debit > 0).map((row) => row.accountingCategory),
-    ...(data.payrollGroups.length ? ["שכר"] : []),
-  ]);
+  const categories = visibleBudgetCategories();
   const rows = [];
   data.allowedUnits.forEach((unit) => {
     categories.forEach((category) => {
@@ -814,14 +888,17 @@ function buildFinancialExceptions(data) {
         budgetGroups: data.budgetGroups.filter((row) => row.unit === unit),
         allocationRows: data.allocationRows.filter((row) => row.unit === unit),
         payrollGroups: data.payrollGroups.filter((row) => row.unit === unit),
+        payrollRows: data.payrollRows.filter((row) => row.unit === unit),
       };
       const ytdUnitData = {
         budgetGroups: ytd.budgetGroups.filter((row) => row.unit === unit),
         allocationRows: ytd.allocationRows.filter((row) => row.unit === unit),
         payrollGroups: ytd.payrollGroups.filter((row) => row.unit === unit),
+        payrollRows: ytd.payrollRows.filter((row) => row.unit === unit),
       };
       const current = budgetUtilization(currentData, category);
       const sinceSeptember = budgetUtilization(ytdUnitData, category);
+      if (!current.requiresBudget && !sinceSeptember.requiresBudget) return;
       const tone = utilizationTone(Math.max(current.percent ?? 0, sinceSeptember.percent ?? 0), current.hasBudget || sinceSeptember.hasBudget, current.actual + sinceSeptember.actual);
       if (tone === "attention" || tone === "expense") rows.push({ unit, category, current, sinceSeptember, tone });
     });
@@ -883,7 +960,7 @@ function actualFinancialSourceRows(data) {
 
 function budgetUtilizationRows(data, category = state.category) {
   const budgetRows = data.budgetGroups.flatMap((group) => group.calculatedCosts
-    .filter((cost) => category === "all" || cost.category === category)
+    .filter((cost) => budgetCategoryVisible(cost.category) && budgetCategoryRequiresBudget(cost.category) && (category === "all" || cost.category === category))
     .map((cost) => ({
       rowType: "תקציב",
       month: group.month,
@@ -894,7 +971,7 @@ function budgetUtilizationRows(data, category = state.category) {
       rawAmount: cost.amount,
     })));
   const actualRows = data.allocationRows
-    .filter((row) => !row.excludedFromCalculations && row.debit > 0 && (category === "all" || row.accountingCategory === category))
+    .filter((row) => !row.excludedFromCalculations && row.debit > 0 && ruleSourcesForCategory(row.accountingCategory, "actualSource").includes("BANKS") && (category === "all" || row.accountingCategory === category))
     .map((row) => ({
       rowType: "בפועל",
       month: row.month,
@@ -904,14 +981,16 @@ function budgetUtilizationRows(data, category = state.category) {
       description: row.notes || row.reference || row.cashDate,
       rawAmount: row.debit,
     }));
-  const payrollRows = (category === "all" || category === "שכר" ? data.payrollGroups || [] : []).map((row) => ({
+  const payrollRows = data.payrollRows
+    .filter((row) => ruleSourcesForCategory(row.className, "actualSource").includes("PAYROLL") && (category === "all" || row.className === category))
+    .map((row) => ({
     rowType: "בפועל",
     month: row.month,
     unit: row.unit,
-    category: "שכר",
-    amount: moneyFormatter.format(row.payrollCost),
-    description: "PAYROLL salary cost",
-    rawAmount: row.payrollCost,
+    category: row.className,
+    amount: moneyFormatter.format(row.cost),
+    description: row.employee || "PAYROLL salary cost",
+    rawAmount: row.cost,
   }));
   return [...budgetRows, ...actualRows, ...payrollRows];
 }
@@ -931,6 +1010,8 @@ function calculationMethodFromCost(cost) {
 }
 
 function problemForBudgetCategory(row) {
+  if (!row.showOnDashboard) return "hidden";
+  if (!row.requiresBudget) return "none";
   if (row.appearsInActual === "yes" && row.appearsInBudget === "no") return "missing_budget";
   if (row.appearsInBudget === "yes" && safeNumber(row.budgetAmountRaw) === 0) return "zero_budget";
   if (row.appearsInBudget === "yes" && row.appearsInActual === "no") return "missing_actual";
@@ -941,7 +1022,7 @@ function problemForBudgetCategory(row) {
 
 function buildBudgetCategoryAuditRows(data) {
   const map = new Map();
-  function ensure(categoryName) {
+  function ensure(categoryName, rule = null) {
     const key = clean(categoryName) || "ללא סעיף";
     if (!map.has(key)) {
       map.set(key, {
@@ -951,6 +1032,8 @@ function buildBudgetCategoryAuditRows(data) {
         appearsInActual: "no",
         budgetSource: "",
         actualSource: "",
+        requiresBudget: false,
+        showOnDashboard: true,
         budgetAmountRaw: 0,
         actualAmountRaw: 0,
         calculationMethod: "unknown",
@@ -960,15 +1043,26 @@ function buildBudgetCategoryAuditRows(data) {
         problem: "none",
       });
     }
-    return map.get(key);
+    const row = map.get(key);
+    if (rule) {
+      row.requiresBudget = row.requiresBudget || rule.requiresBudget;
+      row.showOnDashboard = row.showOnDashboard && rule.showOnDashboard;
+      row.budgetSource = unique([row.budgetSource, rule.budgetSource].filter(Boolean)).join(", ");
+      row.actualSource = unique([row.actualSource, rule.actualSource].filter(Boolean)).join(", ");
+      row.appearsInBudget = row.requiresBudget ? "yes" : "no";
+      if (rule.actualSource === "PAYROLL") row.categoryType = "payroll";
+      if (rule.actualSource === "BANKS" && row.categoryType === "other") row.categoryType = "expense";
+    }
+    return row;
   }
+
+  budgetRulesForCategory("all").forEach((rule) => ensure(rule.category, rule));
 
   data.budgetGroups.forEach((group) => {
     group.calculatedCosts.forEach((cost) => {
+      if (!budgetCategoryVisible(cost.category) || !budgetCategoryRequiresBudget(cost.category)) return;
       const row = ensure(cost.category);
       const method = calculationMethodFromCost(cost);
-      row.appearsInBudget = "yes";
-      row.budgetSource = "BUDGET > COST_RULES / calculatedCosts";
       row.budgetAmountRaw += safeNumber(cost.amount);
       if (row.calculationMethod === "unknown" || method === "formula") row.calculationMethod = method;
       row.calculationFieldsUsed = unique([
@@ -986,25 +1080,24 @@ function buildBudgetCategoryAuditRows(data) {
   });
 
   data.allocationRows
-    .filter((row) => !row.excludedFromCalculations && row.debit > 0)
+    .filter((row) => !row.excludedFromCalculations && row.debit > 0 && ruleSourcesForCategory(row.accountingCategory, "actualSource").includes("BANKS"))
     .forEach((item) => {
       const row = ensure(item.accountingCategory || "ללא סעיף");
       row.appearsInActual = "yes";
-      row.actualSource = "BANKS > פירוט";
       row.actualAmountRaw += safeNumber(item.debit);
       if (row.categoryType === "other") row.categoryType = "expense";
     });
 
-  if (hasRows(data.payrollGroups)) {
-    const row = ensure("שכר");
-    row.categoryType = "payroll";
-    row.appearsInActual = "yes";
-    row.actualSource = "PAYROLL";
-    row.actualAmountRaw += sum(data.payrollGroups, "payrollCost");
-    if (row.calculationMethod === "unknown" && row.appearsInBudget === "no") row.calculationMethod = "unknown";
-  }
+  data.payrollRows
+    .filter((row) => ruleSourcesForCategory(row.className, "actualSource").includes("PAYROLL"))
+    .forEach((item) => {
+      const row = ensure(item.className);
+      row.categoryType = "payroll";
+      row.appearsInActual = "yes";
+      row.actualAmountRaw += safeNumber(item.cost);
+    });
 
-  return [...map.values()].map((row) => {
+  return [...map.values()].filter((row) => row.showOnDashboard).map((row) => {
     const problem = problemForBudgetCategory(row);
     return {
       ...row,
@@ -1013,7 +1106,7 @@ function buildBudgetCategoryAuditRows(data) {
       problem,
     };
   }).sort((a, b) => {
-    const rank = { missing_budget: 0, zero_budget: 1, unknown_calculation: 2, source_mismatch: 3, missing_actual: 4, none: 5 };
+    const rank = { missing_budget: 0, zero_budget: 1, unknown_calculation: 2, source_mismatch: 3, missing_actual: 4, none: 5, hidden: 6 };
     return rank[a.problem] - rank[b.problem] || a.categoryName.localeCompare(b.categoryName, "he", { numeric: true });
   });
 }
@@ -1037,7 +1130,7 @@ function budgetDeviationRows(data, category = state.category) {
   };
   data.budgetGroups.forEach((group) => {
     group.calculatedCosts
-      .filter((cost) => category === "all" || cost.category === category)
+      .filter((cost) => budgetCategoryVisible(cost.category) && budgetCategoryRequiresBudget(cost.category) && (category === "all" || cost.category === category))
       .forEach((cost) => {
         const row = ensure(group.unit, group.month, cost.category);
         row.budgetRaw += safeNumber(cost.amount);
@@ -1045,19 +1138,19 @@ function budgetDeviationRows(data, category = state.category) {
       });
   });
   data.allocationRows
-    .filter((row) => !row.excludedFromCalculations && row.debit > 0 && (category === "all" || row.accountingCategory === category))
+    .filter((row) => !row.excludedFromCalculations && row.debit > 0 && ruleSourcesForCategory(row.accountingCategory, "actualSource").includes("BANKS") && (category === "all" || row.accountingCategory === category))
     .forEach((bankRow) => {
       const row = ensure(bankRow.unit, bankRow.month, bankRow.accountingCategory);
       row.actualRaw += safeNumber(bankRow.debit);
       row.bankSources.push(bankRow.reference || bankRow.cashDate || bankRow.notes || "BANKS row");
     });
-  if (category === "all" || category === "שכר") {
-    (data.payrollGroups || []).forEach((payrollRow) => {
-      const row = ensure(payrollRow.unit, payrollRow.month, "שכר");
-      row.actualRaw += safeNumber(payrollRow.payrollCost);
-      row.bankSources.push("PAYROLL salary cost");
+  data.payrollRows
+    .filter((row) => ruleSourcesForCategory(row.className, "actualSource").includes("PAYROLL") && (category === "all" || row.className === category))
+    .forEach((payrollRow) => {
+      const row = ensure(payrollRow.unit, payrollRow.month, payrollRow.className);
+      row.actualRaw += safeNumber(payrollRow.cost);
+      row.bankSources.push(payrollRow.employee || "PAYROLL salary cost");
     });
-  }
   return [...rowsByKey.values()].map((row) => {
     const difference = row.actualRaw - row.budgetRaw;
     const hasBudget = row.budgetRaw > 0;
@@ -1468,9 +1561,25 @@ function renderActionCenter(issues) {
 }
 
 function utilizationLine(utilization) {
+  if (!utilization.requiresBudget) return formatMoney(utilization.actual, utilization.actual > 0) + " · לא נדרש תקציב";
   if (!utilization.hasBudget) return formatMoney(utilization.actual, utilization.actual > 0) + " · לא הוגדר תקציב";
   const percent = formatPercent(utilization.percent, utilization.percent !== null);
   return formatMoney(utilization.actual, utilization.actual > 0 || utilization.hasBudget) + " / " + formatMoney(utilization.budget, utilization.hasBudget) + " · " + percent;
+}
+
+function budgetCategorySummaryLabel(utilization) {
+  if (!utilization.requiresBudget) return "ביצוע בלבד";
+  return utilization.hasBudget ? formatPercent(utilization.percent) + " ניצול" : "לא הוגדר תקציב";
+}
+
+function budgetCategoryBudgetText(utilization) {
+  if (!utilization.requiresBudget) return "לא נדרש תקציב";
+  return utilization.hasBudget ? formatMoney(utilization.budget) : "לא הוגדר תקציב";
+}
+
+function budgetCategoryPercentText(utilization, periodLabel) {
+  if (!utilization.requiresBudget) return "סעיף ביצוע בלבד";
+  return utilization.hasBudget ? formatPercent(utilization.percent) + " מתוך " + periodLabel : "אין אחוז ניצול";
 }
 
 function balanceTone(balance, available) {
@@ -1603,6 +1712,7 @@ function budgetAuditProblemLabel(problem) {
     zero_budget: "תקציב אפס",
     unknown_calculation: "חישוב לא ידוע",
     source_mismatch: "פער מקור",
+    hidden: "מוסתר",
   };
   return labels[problem] || problem;
 }
@@ -1629,11 +1739,7 @@ function renderBudgetCategoryAudit(data) {
 function renderBudgetExplorer(data) {
   const monthly = monthlyDataForDisplay().data;
   const ytd = ytdData();
-  const allCategories = unique([
-    ...data.budgetGroups.flatMap((row) => row.calculatedCosts.map((cost) => cost.category)),
-    ...data.allocationRows.filter((row) => !row.excludedFromCalculations && row.debit > 0).map((row) => row.accountingCategory),
-    ...(data.payrollGroups.length ? ["שכר"] : []),
-  ]);
+  const allCategories = visibleBudgetCategories();
   const categories = state.category === "all" ? allCategories : allCategories.filter((category) => category === state.category);
   if (!categories.length) {
     els.budgetExplorerGrid.innerHTML = '<p class="empty-state">אין סעיפי תקציב להצגה במסננים הנוכחיים.</p>';
@@ -1647,11 +1753,12 @@ function renderBudgetExplorer(data) {
         budgetGroups: monthly.budgetGroups.filter((row) => row.unit === unit),
         allocationRows: monthly.allocationRows.filter((row) => row.unit === unit),
         payrollGroups: monthly.payrollGroups.filter((row) => row.unit === unit),
+        payrollRows: monthly.payrollRows.filter((row) => row.unit === unit),
       };
       return { unit, utilization: budgetUtilization(unitData, category) };
     }).filter((row) => row.utilization.actual > 0 || row.utilization.budget > 0);
     const tone = utilizationTone(Math.max(current.percent ?? 0, sinceSeptember.percent ?? 0), current.hasBudget || sinceSeptember.hasBudget, current.actual + sinceSeptember.actual);
-    return '<details class="budget-category-card ' + tone + '-budget-category"><summary><strong>' + escapeHtml(category) + '</strong><span>' + escapeHtml(current.hasBudget ? formatPercent(current.percent) + " ניצול" : "לא הוגדר תקציב") + '</span></summary><div class="budget-category-metrics"><div><b>חודש</b><span>' + escapeHtml(formatMoney(current.actual, current.actual > 0 || current.hasBudget)) + ' / ' + escapeHtml(current.hasBudget ? formatMoney(current.budget) : "לא הוגדר תקציב") + '</span><span>' + escapeHtml(current.hasBudget ? formatPercent(current.percent) + " מתוך תקציב" : "אין אחוז ניצול") + '</span></div><div><b>שנה</b><span>' + escapeHtml(formatMoney(sinceSeptember.actual, sinceSeptember.actual > 0 || sinceSeptember.hasBudget)) + ' / ' + escapeHtml(sinceSeptember.hasBudget ? formatMoney(sinceSeptember.budget) : "לא הוגדר תקציב") + '</span><span>' + escapeHtml(sinceSeptember.hasBudget ? formatPercent(sinceSeptember.percent) + " מתוך תקציב מצטבר" : "אין אחוז ניצול") + '</span></div></div><div class="budget-breakdown-list">' +
+    return '<details class="budget-category-card ' + tone + '-budget-category"><summary><strong>' + escapeHtml(category) + '</strong><span>' + escapeHtml(budgetCategorySummaryLabel(current)) + '</span></summary><div class="budget-category-metrics"><div><b>חודש</b><span>' + escapeHtml(formatMoney(current.actual, current.actual > 0 || current.hasBudget)) + ' / ' + escapeHtml(budgetCategoryBudgetText(current)) + '</span><span>' + escapeHtml(budgetCategoryPercentText(current, "תקציב")) + '</span></div><div><b>שנה</b><span>' + escapeHtml(formatMoney(sinceSeptember.actual, sinceSeptember.actual > 0 || sinceSeptember.hasBudget)) + ' / ' + escapeHtml(budgetCategoryBudgetText(sinceSeptember)) + '</span><span>' + escapeHtml(budgetCategoryPercentText(sinceSeptember, "תקציב מצטבר")) + '</span></div></div><div class="budget-breakdown-list">' +
       (units.length ? units.map((row) => '<div class="budget-breakdown-row"><strong>' + escapeHtml(row.unit) + '</strong><span>' + escapeHtml(utilizationLine(row.utilization)) + '</span></div>').join("") : '<p class="empty-state">אין נתוני יחידות לסעיף זה.</p>') +
       '</div></details>';
   }).join("");
@@ -1749,8 +1856,11 @@ async function loadDashboardData() {
   ]);
   dashboardData.errors = [];
 
-  if (requests[0].status === "fulfilled") dashboardData.budgetGroups = normalizeBudget(requests[0].value);
-  else { dashboardData.budgetGroups = []; dashboardData.errors.push("אין נתוני תקציב"); }
+  if (requests[0].status === "fulfilled") {
+    const budget = normalizeBudget(requests[0].value);
+    dashboardData.budgetGroups = budget.groups;
+    dashboardData.budgetRules = budget.rules;
+  } else { dashboardData.budgetGroups = []; dashboardData.budgetRules = []; dashboardData.errors.push("אין נתוני תקציב"); }
 
   if (requests[1].status === "fulfilled") {
     const payroll = normalizePayroll(requests[1].value);

@@ -434,6 +434,7 @@ function buildDaycareMonthContexts(classroomStaffing = [], fixedStaff = [], mont
         requiredEmployeeHeadcount: 0,
         fixedStaffPositions: 0,
         fixedStaffHours: 0,
+        fixedStaff: [],
         totalRequiredHours: 0,
         workDays: monthRule.workDays || 0,
         standardHours: monthRule.standardHours || 0,
@@ -462,6 +463,7 @@ function buildDaycareMonthContexts(classroomStaffing = [], fixedStaff = [], mont
     const item = ensure(staff.daycare, staff.month);
     item.fixedStaffPositions += staff.positions || 0;
     item.fixedStaffHours += staff.requiredHours || 0;
+    item.fixedStaff.push(staff);
     item.totalRequiredHours = item.requiredHours + item.fixedStaffHours;
   }
 
@@ -473,11 +475,11 @@ function isChildrenBasis(basis) {
 }
 
 function isClassroomsBasis(basis) {
-  return ['classrooms', 'classroom', 'classes', 'כיתות', 'כיתה'].includes(basis);
+  return ['classrooms', 'classroom', 'classes', 'כיתות', 'כיתה', 'כמות כיתות'].includes(basis);
 }
 
 function isStaffBasis(basis) {
-  return ['staff', 'team', 'positions', 'תקנים', 'צוות', 'משרות'].includes(basis);
+  return ['staff', 'team', 'positions', 'תקנים', 'צוות', 'משרות', 'כמות צוות'].includes(basis);
 }
 
 function isWorkDaysBasis(basis) {
@@ -554,6 +556,27 @@ function calculateCostRulesForDaycareMonth(costRuleRows = [], contexts = []) {
 
   for (const context of contexts) {
     for (const rule of selectedRulesForContext(rules, context)) {
+      const fixedStaffForRole = (context.fixedStaff || []).filter((staff) => normalizeKey(staff.role) === normalizeKey(rule.category));
+      if (fixedStaffForRole.length && !rule.basis && !rule.amount) {
+        const quantity = fixedStaffForRole.reduce((sum, staff) => sum + (staff.positions || 0), 0);
+        const total = fixedStaffForRole.reduce((sum, staff) => sum + ((staff.positions || 0) * (staff.amount || 0)), 0);
+        const additionalQuantity = 1;
+        const amount = quantity ? total / quantity : 0;
+        costs.push({
+          ...rule,
+          daycare: context.daycare,
+          month: context.month,
+          sourceDaycare: rule.daycare,
+          sourceMonth: rule.month,
+          basis: 'fixed',
+          quantity,
+          additionalQuantity,
+          amount,
+          divisor: 1,
+          total,
+        });
+        continue;
+      }
       const quantity = basisQuantityForContext(rule.basis, context);
       const additionalQuantity = rule.additionalBasis ? basisQuantityForContext(rule.additionalBasis, context) : 1;
       const total = (quantity * additionalQuantity * rule.amount) / rule.divisor;

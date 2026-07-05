@@ -122,6 +122,65 @@ test.describe('budget calculation engine', () => {
     expect(machaneSep.totalRequiredHours).toBe(1365 + 182);
   });
 
+  test('calculates Hebrew classroom and staff quantity cost bases', () => {
+    const rows = [
+      ['TABLE: OCCUPANCY'],
+      ['מעון', 'חודש', 'כיתה 1', 'כמות ילדים', 'כיתה 2', 'כמות ילדים 2'],
+      ['מחנה', '09/2026', 'תינוק', '10', 'פעוט', '16'],
+      ['TABLE: STAFFING'],
+      ['כיתה', 'כמות צוות לילד', 'שכר לימוד'],
+      ['תינוק', '5', '3936'],
+      ['פעוט', '8', '2917'],
+      ['TABLE: MONTH_HOURS'],
+      ['חודש', 'שעות תקן', 'ימי עבודה'],
+      ['09/2026', '182', '22'],
+      ['TABLE: FIXED_STAFF'],
+      ['מעון', 'חודש', 'תפקיד 1', 'כמות 1', 'עלות 1'],
+      ['מחנה', '09/2026', 'מנהלת', '1', '11000'],
+      ['TABLE: COST_RULES'],
+      ['סעיף תקציבי', 'בסיס לחישוב', 'ערך', 'חלוקה'],
+      ['חשמל', 'כמות כיתות', '9000', '12'],
+      ['גיבוש לצוות', 'כמות צוות', '2880', '12'],
+    ];
+
+    const model = engine.calculateBudgetModel(engine.parseBudgetTables(rows));
+    const machaneSep = model.byDaycareMonth.find((row) => row.daycare === 'מחנה' && row.month === '09/2026');
+    const electricity = machaneSep.calculatedCosts.find((cost) => cost.category === 'חשמל');
+    const staffEvent = machaneSep.calculatedCosts.find((cost) => cost.category === 'גיבוש לצוות');
+
+    expect(electricity).toEqual(expect.objectContaining({ quantity: 2, total: 2 * 9000 / 12 }));
+    expect(staffEvent).toEqual(expect.objectContaining({ quantity: 4 + 1, total: (4 + 1) * 2880 / 12 }));
+  });
+
+  test('calculates fixed staff role budgets from FIXED_STAFF quantity times cost', () => {
+    const rows = [
+      ['TABLE: OCCUPANCY'],
+      ['מעון', 'חודש', 'כיתה 1', 'כמות ילדים'],
+      ['אשקלון', '09/2026', 'תינוק', '10'],
+      ['TABLE: STAFFING'],
+      ['כיתה', 'כמות צוות לילד', 'שכר לימוד'],
+      ['תינוק', '5', '3936'],
+      ['TABLE: MONTH_HOURS'],
+      ['חודש', 'שעות תקן', 'ימי עבודה'],
+      ['09/2026', '205', '26'],
+      ['TABLE: FIXED_STAFF'],
+      ['חודש', 'מעון', 'תפקיד 1', 'כמות 1', 'עלות 1', 'תפקיד 2', 'כמות 2', 'עלות 2', 'תפקיד 3', 'כמות 3', 'עלות 3'],
+      ['09/2026', 'אשקלון', 'מנהלת', '1', '12000', 'מטבח', '2', '150', 'מדריכה', '1', '900'],
+      ['TABLE: COST_RULES'],
+      ['סעיף תקציבי', 'בסיס לחישוב', 'ערך'],
+      ['מנהלת', '', ''],
+      ['מטבח', '', ''],
+      ['מדריכה', '', ''],
+    ];
+
+    const model = engine.calculateBudgetModel(engine.parseBudgetTables(rows));
+    const ashkelonSep = model.byDaycareMonth.find((row) => row.daycare === 'אשקלון' && row.month === '09/2026');
+
+    expect(ashkelonSep.calculatedCosts.find((cost) => cost.category === 'מנהלת')).toEqual(expect.objectContaining({ basis: 'fixed', quantity: 1, amount: 12000, total: 12000 }));
+    expect(ashkelonSep.calculatedCosts.find((cost) => cost.category === 'מטבח')).toEqual(expect.objectContaining({ basis: 'fixed', quantity: 2, amount: 150, total: 300 }));
+    expect(ashkelonSep.calculatedCosts.find((cost) => cost.category === 'מדריכה')).toEqual(expect.objectContaining({ basis: 'fixed', quantity: 1, amount: 900, total: 900 }));
+  });
+
   test('partial COST_RULES does not fail and calculates only existing categories', () => {
     const rows = finalBusinessRows().filter((row) => row[0] !== 'חשמל');
     const model = engine.calculateBudgetModel(engine.parseBudgetTables(rows));
