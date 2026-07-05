@@ -6104,7 +6104,7 @@ details.employee-detail-section > div {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 7px 10px;
+  padding: 6px 10px;
   cursor: pointer;
   list-style: none;
 }
@@ -6115,13 +6115,59 @@ details.employee-detail-section > div {
 
 .budget-category-card summary strong {
   color: var(--ink);
-  font-size: .9rem;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.15;
 }
 
-.budget-category-card summary span {
+.budget-category-card summary > span {
   color: var(--muted);
-  font-size: .76rem;
-  font-weight: 900;
+}
+
+.budget-category-snapshot {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 0;
+  max-width: 60%;
+  line-height: 1.05;
+  text-align: center;
+}
+
+.budget-category-snapshot .budget-category-utilization-label {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.budget-category-snapshot .budget-category-utilization-value {
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.budget-category-snapshot .budget-category-divider {
+  width: 100%;
+  border-top: 1px dashed rgba(71, 85, 80, .28);
+  margin: 2px 0;
+}
+
+.budget-category-snapshot .budget-category-amounts {
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.budget-category-snapshot .budget-category-amount-labels {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 400;
+  white-space: nowrap;
 }
 
 .budget-category-card.attention-budget-category {
@@ -6282,6 +6328,25 @@ details.employee-detail-section > div {
   min-height: 94px;
   padding: 7px 8px;
   overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .budget-category-card summary strong {
+    font-size: 11px;
+  }
+
+  .budget-category-snapshot .budget-category-utilization-label {
+    font-size: 8px;
+  }
+
+  .budget-category-snapshot .budget-category-utilization-value,
+  .budget-category-snapshot .budget-category-amounts {
+    font-size: 10px;
+  }
+
+  .budget-category-snapshot .budget-category-amount-labels {
+    font-size: 7px;
+  }
 }
 
 .management-dashboard-v2 .management-kpi p {
