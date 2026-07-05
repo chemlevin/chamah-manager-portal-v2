@@ -1,13 +1,7 @@
 const API_ENDPOINT = '/api/allocations';
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const CALENDAR_MONTHS = ['01/2026', '02/2026', '03/2026', '04/2026', '05/2026', '06/2026', '07/2026', '08/2026', '09/2026', '10/2026', '11/2026', '12/2026', '01/2027', '02/2027', '03/2027', '04/2027', '05/2027', '06/2027', '07/2027', '08/2027', '09/2027', '10/2027', '11/2027', '12/2027'];
-const BANKS = [
-  { account: '3328007', unit: 'מחנה' },
-  { account: '25990063', unit: 'מרכזי' },
-  { account: '3903880', unit: 'אשקלון' },
-  { account: '902331', unit: 'סניף' },
-  { account: '912327', unit: 'נאות' },
-];
+const UNASSIGNED_UNIT = 'לא שויך';
 const SENT_STATUS = 'נשלח להנה"ח';
 const STATUS_VALUES = ['ממתין לשליחה', SENT_STATUS, 'חסר מסמכים', 'פעולה ללא אסמכתא'];
 const EXPLANATIONS = {
@@ -59,7 +53,6 @@ function rawValue(raw, names) {
   const key = keys.find((candidate) => normalized.includes(clean(candidate).replace(/\s+/g, ' ').toLowerCase()));
   return key ? clean(raw[key]) : '';
 }
-function bankByAccount(account) { return BANKS.find((bank) => bank.account === clean(account)); }
 function parseIsraeliBankDate(value) {
   const text = clean(value);
   if (!text) return null;
@@ -74,15 +67,15 @@ function parseIsraeliBankDate(value) {
 }
 function normalizeRow(row, fallbackIndex) {
   const raw = row.raw || {};
-  const account = rawValue(raw, ['חשבון', 'מספר חשבון', 'account', 'bank account']);
-  const mapped = bankByAccount(account);
+  const account = rawValue(raw, ['חשבון', 'account']);
+  const unit = clean(account);
   const debit = safeNumber(row.debit);
   const credit = safeNumber(row.credit);
   const amountRaw = rawValue(raw, ['סכום', 'amount']);
   return {
     rowIndex: row.rowIndex || fallbackIndex + 2,
-    account,
-    unit: mapped?.unit || clean(row.unit) || 'לא משויך',
+    account: unit || UNASSIGNED_UNIT,
+    unit: unit || UNASSIGNED_UNIT,
     cashDate: clean(row.cashDate || rawValue(raw, ['תאריך', 'תאריך בנק', 'תאריך פעולה'])),
     description: rawValue(raw, ['תיאור תנועה', 'תיאור', 'description']) || clean(row.accountingCategory),
     reference: clean(row.reference || rawValue(raw, ['אסמכתא', 'מספר אסמכתא'])),
@@ -91,6 +84,7 @@ function normalizeRow(row, fallbackIndex) {
     debit,
     credit,
     definition: clean(row.definition || rawValue(raw, ['הגדרה'])),
+    department: rawValue(raw, ['עבור מחלקה', 'מחלקה', 'department']),
     businessMonth: clean(row.businessMonth || rawValue(raw, ['עבור חודש', 'חודש', 'חודש שיוך'])),
     accountingStatus: clean(row.accountingStatus || rawValue(raw, ['הנה"ח', 'הנהח', 'סטטוס הנה"ח'])),
     notes: clean(row.notes || rawValue(raw, ['הערות'])),
@@ -104,6 +98,15 @@ function accountingMonthFromDate(row) {
   const date = parseIsraeliBankDate(row.cashDate);
   if (!date) return '';
   return String(date.getUTCMonth() + 1).padStart(2, '0') + '/' + date.getUTCFullYear();
+}
+function accountOptions() {
+  const values = [];
+  state.rows.forEach((row) => {
+    const unit = clean(row.unit) || UNASSIGNED_UNIT;
+    if (!values.includes(unit)) values.push(unit);
+  });
+  if (state.bank !== 'all' && state.bank && !values.includes(state.bank)) values.push(state.bank);
+  return values;
 }
 function rowsForBankAndMonth(month) {
   return state.rows.filter((row) => (state.bank === 'all' || row.unit === state.bank) && (month === 'all' || accountingMonthFromDate(row) === month));
@@ -170,7 +173,7 @@ function renderKpis() {
 }
 function renderDaycareOverview() {
   const rows = ytdRows();
-  const units = state.bank === 'all' ? BANKS.map((bank) => bank.unit) : [state.bank];
+  const units = state.bank === 'all' ? accountOptions().filter((unit) => rows.some((row) => row.unit === unit)) : [state.bank];
   els.daycareCountLabel.textContent = numberFormatter.format(units.length) + ' מעונות';
   els.daycareGrid.innerHTML = units.map((unit) => {
     const unitRows = rows.filter((row) => row.unit === unit);
@@ -190,10 +193,10 @@ function renderDaycareOverview() {
 function renderSourceTable() {
   const rows = sourceRows();
   els.sourceCountLabel.textContent = rows.length ? numberFormatter.format(rows.length) + ' שורות' : 'אין שורות';
-  els.sourceTableBody.innerHTML = rows.length ? rows.map((row) => '<tr><td data-label="חשבון">' + escapeHtml(row.account) + '</td><td data-label="מעון">' + escapeHtml(row.unit) + '</td><td data-label="תאריך">' + escapeHtml(row.cashDate) + '</td><td data-label="תיאור תנועה">' + escapeHtml(row.description) + '</td><td data-label="אסמכתא">' + escapeHtml(row.reference) + '</td><td data-label="סכום">' + escapeHtml(row.amount) + '</td><td data-label="הגדרה">' + escapeHtml(row.definition) + '</td><td data-label="עבור חודש">' + escapeHtml(displayBusinessMonth(row)) + '</td><td data-label="הנה&quot;ח">' + escapeHtml(row.accountingStatus) + '</td><td data-label="הערות">' + escapeHtml(row.notes) + '</td></tr>').join('') : '<tr><td colspan="10">אין שורות BANKS להצגה במסננים הנוכחיים.</td></tr>';
+  els.sourceTableBody.innerHTML = rows.length ? rows.map((row) => '<tr><td data-label="חשבון">' + escapeHtml(row.account) + '</td><td data-label="תאריך">' + escapeHtml(row.cashDate) + '</td><td data-label="תיאור תנועה">' + escapeHtml(row.description) + '</td><td data-label="אסמכתא">' + escapeHtml(row.reference) + '</td><td data-label="סכום">' + escapeHtml(row.amount) + '</td><td data-label="הגדרה">' + escapeHtml(row.definition) + '</td><td data-label="עבור מחלקה">' + escapeHtml(row.department) + '</td><td data-label="עבור חודש">' + escapeHtml(displayBusinessMonth(row)) + '</td><td data-label="הנה&quot;ח">' + escapeHtml(row.accountingStatus) + '</td><td data-label="הערות">' + escapeHtml(row.notes) + '</td></tr>').join('') : '<tr><td colspan="10">אין שורות BANKS להצגה במסננים הנוכחיים.</td></tr>';
 }
 function renderFilters() {
-  els.bankFilter.innerHTML = option('all', 'הכל') + BANKS.map((bank) => option(bank.unit, bank.unit)).join('');
+  els.bankFilter.innerHTML = option('all', 'הכל') + accountOptions().map((unit) => option(unit, unit)).join('');
   els.monthFilter.innerHTML = option('all', 'הכל') + CALENDAR_MONTHS.map((month) => option(month, month)).join('');
   els.statusFilter.innerHTML = option('all', 'הכל') + option('__empty', 'ללא סטטוס') + STATUS_VALUES.map((status) => option(status, status)).join('');
   els.bankFilter.value = state.bank;
@@ -209,8 +212,8 @@ function syncRefreshButton() {
 function renderAll() { renderFilters(); syncRefreshButton(); renderKpis(); renderDaycareOverview(); renderSourceTable(); }
 function csvEscape(value) { const text = String(value ?? ''); return /[",\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text; }
 function sourceCsv() {
-  const columns = ['חשבון', 'מעון', 'תאריך', 'תיאור תנועה', 'אסמכתא', 'סכום', 'הגדרה', 'עבור חודש', 'הנה"ח', 'הערות'];
-  const rows = sourceRows().map((row) => [row.account, row.unit, row.cashDate, row.description, row.reference, row.amount, row.definition, displayBusinessMonth(row), row.accountingStatus, row.notes]);
+  const columns = ['חשבון', 'תאריך', 'תיאור תנועה', 'אסמכתא', 'סכום', 'הגדרה', 'עבור מחלקה', 'עבור חודש', 'הנה"ח', 'הערות'];
+  const rows = sourceRows().map((row) => [row.account, row.cashDate, row.description, row.reference, row.amount, row.definition, row.department, displayBusinessMonth(row), row.accountingStatus, row.notes]);
   return [columns, ...rows].map((line) => line.map(csvEscape).join(',')).join('\n');
 }
 async function copyText(text) {

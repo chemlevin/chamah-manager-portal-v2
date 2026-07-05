@@ -41,12 +41,12 @@
       </header>
 
       <section class="dashboard-hero management-hero control-room-hero" aria-labelledby="accounting-title">
-        <div><p class="eyebrow">BANKS</p><h1 id="accounting-title">הנה"ח</h1><p class="subtitle">בקרת שורות בנק לפי מעון, חודש שיוך וסטטוס הנה"ח.</p></div>
+        <div><p class="eyebrow">BANKS</p><h1 id="accounting-title">הנה"ח</h1><p class="subtitle">בקרת שורות בנק לפי חשבון, חודש שיוך וסטטוס הנה"ח.</p></div>
         <div class="dashboard-period management-status-card accounting-refresh-card" aria-label="מקור נתונים"><span>מקור נתונים</span><strong>BANKS</strong><small id="accounting-last-update">עודכן לאחרונה: נטען</small><button class="secondary-button compact-action accounting-refresh-button" type="button" id="refresh-accounting-data">רענן נתונים</button></div>
       </section>
 
       <section class="filter-bar management-filter-bar control-filter-bar accounting-filter-bar" aria-label="מסנני הנהח">
-        <label><span>בנק</span><select id="bank-filter"></select></label>
+        <label><span>חשבון</span><select id="bank-filter"></select></label>
         <label><span>חודש</span><select id="month-filter"></select></label>
         <label><span>סטטוס</span><select id="status-filter"></select></label>
       </section>
@@ -63,14 +63,14 @@
       </section>
 
       <section class="dashboard-section unit-section" aria-labelledby="daycare-overview-title">
-        <div class="section-title-row compact-title-row"><div><p class="eyebrow">מעונות</p><h2 id="daycare-overview-title">סקירת טיפול לפי מעון</h2></div><span class="section-chip" id="daycare-count-label">נטען</span></div>
+        <div class="section-title-row compact-title-row"><div><p class="eyebrow">חשבונות</p><h2 id="daycare-overview-title">סקירת טיפול לפי חשבון</h2></div><span class="section-chip" id="daycare-count-label">נטען</span></div>
         <div class="daycare-card-grid management-unit-grid accounting-daycare-grid" id="daycare-grid"></div>
       </section>
 
       <section class="dashboard-section supporting-details-section" aria-labelledby="source-title">
         <div class="section-title-row compact-title-row"><div><p class="eyebrow">שורות מקור</p><h2 id="source-title">שורות BANKS</h2></div><span class="section-chip" id="source-count-label">נטען</span></div>
         <div class="source-drawer-actions accounting-table-actions"><button class="secondary-button compact-action" type="button" id="copy-source-table">העתק טבלה</button><button class="print-button compact-action" type="button" id="export-source-csv">יצוא CSV</button></div>
-        <div class="dashboard-table-wrap accounting-source-wrap"><table class="dashboard-table accounting-source-table"><thead><tr><th>חשבון</th><th>מעון</th><th>תאריך</th><th>תיאור תנועה</th><th>אסמכתא</th><th>סכום</th><th>הגדרה</th><th>עבור חודש</th><th>הנה"ח</th><th>הערות</th></tr></thead><tbody id="source-table-body"></tbody></table></div>
+        <div class="dashboard-table-wrap accounting-source-wrap"><table class="dashboard-table accounting-source-table"><thead><tr><th>חשבון</th><th>תאריך</th><th>תיאור תנועה</th><th>אסמכתא</th><th>סכום</th><th>הגדרה</th><th>עבור מחלקה</th><th>עבור חודש</th><th>הנה"ח</th><th>הערות</th></tr></thead><tbody id="source-table-body"></tbody></table></div>
       </section>
     </main>
 
