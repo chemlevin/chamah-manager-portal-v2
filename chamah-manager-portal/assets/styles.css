@@ -6822,3 +6822,103 @@ details.employee-detail-section > div {
     font-weight: 900;
   }
 }
+
+
+/* Dedicated accounting page */
+.accounting-page .accounting-filter-bar {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.accounting-page-link {
+  width: fit-content;
+  margin: 0 10px 10px;
+}
+
+.accounting-link-section {
+  display: grid;
+  gap: 8px;
+}
+
+.accounting-kpi-grid,
+.accounting-amount-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.accounting-amount-grid {
+  margin-top: 8px;
+}
+
+.accounting-daycare-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.accounting-daycare-card .unit-status-list.compressed div {
+  grid-template-columns: minmax(74px, .55fr) minmax(0, 1fr);
+}
+
+.accounting-table-actions {
+  margin-bottom: 8px;
+}
+
+.accounting-source-wrap {
+  overflow-x: auto;
+}
+
+.accounting-source-table {
+  min-width: 1120px;
+}
+
+.accounting-source-table th,
+.accounting-source-table td {
+  white-space: nowrap;
+}
+
+@media (max-width: 980px) {
+  .accounting-daycare-grid,
+  .accounting-kpi-grid,
+  .accounting-amount-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .accounting-page .accounting-filter-bar,
+  .accounting-daycare-grid,
+  .accounting-kpi-grid,
+  .accounting-amount-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .accounting-source-table {
+    min-width: 0;
+  }
+
+  .accounting-source-table thead {
+    display: none;
+  }
+
+  .accounting-source-table,
+  .accounting-source-table tbody,
+  .accounting-source-table tr,
+  .accounting-source-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .accounting-source-table tr {
+    border-bottom: 1px solid rgba(223, 229, 225, .92);
+  }
+
+  .accounting-source-table td {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    white-space: normal;
+  }
+
+  .accounting-source-table td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-weight: 900;
+  }
+}
