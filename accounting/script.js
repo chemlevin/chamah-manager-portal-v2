@@ -58,16 +58,17 @@ function rawValue(raw, names) {
   return key ? clean(raw[key]) : '';
 }
 function bankByAccount(account) { return BANKS.find((bank) => bank.account === clean(account)); }
-function parseDateValue(value) {
+function parseIsraeliBankDate(value) {
   const text = clean(value);
   if (!text) return null;
-  const direct = new Date(text);
-  if (!Number.isNaN(direct.getTime())) return direct;
-  const match = text.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})$/);
+  const match = text.match(/^(\d{1,2})[/.](\d{1,2})[/.](\d{4})$/);
   if (!match) return null;
-  const year = Number(match[3].length === 2 ? '20' + match[3] : match[3]);
-  const date = new Date(year, Number(match[2]) - 1, Number(match[1]));
-  return Number.isNaN(date.getTime()) ? null : date;
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return date;
 }
 function normalizeRow(row, fallbackIndex) {
   const raw = row.raw || {};
@@ -118,8 +119,9 @@ function ytdRows() {
   const months = new Set(ytdMonths());
   return state.rows.filter((row) => (state.bank === 'all' || row.unit === state.bank) && months.has(row.businessMonth));
 }
+function bankDateTime(value) { return parseIsraeliBankDate(value)?.getTime() ?? Number.NEGATIVE_INFINITY; }
 function sourceRows() {
-  return rowsForBankAndMonth(state.month).filter((row) => state.status === 'all' || (state.status === '__empty' ? !row.accountingStatus : row.accountingStatus === state.status)).sort((a, b) => (parseDateValue(b.cashDate)?.getTime() || 0) - (parseDateValue(a.cashDate)?.getTime() || 0));
+  return rowsForBankAndMonth(state.month).filter((row) => state.status === 'all' || (state.status === '__empty' ? !row.accountingStatus : row.accountingStatus === state.status)).sort((a, b) => bankDateTime(b.cashDate) - bankDateTime(a.cashDate));
 }
 function metrics(rows) {
   const countStatus = (status) => rows.filter((row) => row.accountingStatus === status).length;
@@ -226,7 +228,7 @@ async function loadAccountingData() {
   if (!response.ok) throw new Error('Allocations returned ' + response.status);
   const payload = await response.json();
   state.rows = normalizePayload(payload);
-  const latest = state.rows.map((row) => parseDateValue(row.cashDate)).filter(Boolean).sort((a, b) => b - a)[0];
+  const latest = state.rows.map((row) => parseIsraeliBankDate(row.cashDate)).filter(Boolean).sort((a, b) => b - a)[0];
   els.lastUpdate.textContent = 'עדכון אחרון: ' + (latest ? latest.toLocaleDateString('he-IL') : 'אין תאריך');
   renderAll();
 }
