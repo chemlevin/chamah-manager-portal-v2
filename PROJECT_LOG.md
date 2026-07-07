@@ -313,6 +313,7 @@ Objective: Create permanent AI/developer project memory and implementation histo
 Files changed:
 
 - `AGENTS.md`
+- `tests/salary.spec.mjs`
 - `PROJECT_LOG.md`
 
 Technical decisions:
@@ -395,6 +396,37 @@ Tests:
 - `npm run build` passed.
 - `npx playwright test salary.spec.mjs` passed with 8 tests.
 - `node --check dashboard\script.js` passed.
+
+Remaining issues:
+
+- None known.
+
+## 2026-07-07 - Salary Tooltip and Print Layout Refinement
+
+Objective: Improve the Salary Calculator certificate tooltip display and make printed salary estimates include input details before calculation results.
+
+Files changed:
+
+- `assets/styles.css`
+- `chamah-manager-portal/assets/styles.css`
+- `tests/salary.spec.mjs`
+- `PROJECT_LOG.md`
+
+Technical decisions:
+
+- Kept the existing tooltip markup and refined the shared CSS so the tooltip opens compactly inside the certificate field instead of overlaying nearby controls.
+- Added salary-specific print CSS after the salary styles so input details print before results while interactive controls remain hidden.
+- Added focused Salary Calculator QA coverage for tooltip geometry and print ordering.
+- Left Salary Calculator JavaScript, calculations, APIs, and business logic unchanged.
+
+Business decisions:
+
+- None. This is a presentation-only refinement.
+
+Tests:
+
+- `npm run build` passed.
+- `npx playwright test salary.spec.mjs` passed with 16 tests.
 
 Remaining issues:
 

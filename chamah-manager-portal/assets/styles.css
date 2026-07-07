@@ -48,12 +48,12 @@ h1 { margin: 0; font-size: clamp(1.85rem, 4vw, 3.35rem); line-height: 1.08; lett
 .choice-group { margin: 0; padding: 0; border: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .certificate-choice { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .choice-group legend { grid-column: 1 / -1; padding: 0; }
-.field-help-label { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; }
-.info-tooltip { position: relative; display: inline-flex; align-items: center; }
-.info-tooltip-trigger { width: 24px; min-width: 24px; height: 24px; min-height: 24px; display: inline-grid; place-items: center; padding: 0; border-radius: 50%; border: 1px solid rgba(68, 118, 108, .22); background: var(--brand-soft); color: var(--brand-dark); font-size: .86rem; line-height: 1; box-shadow: none; }
+.field-help-label { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 7px; max-width: 100%; width: fit-content; }
+.info-tooltip { display: contents; }
+.info-tooltip-trigger { width: 22px; min-width: 22px; height: 22px; min-height: 22px; display: inline-grid; place-items: center; padding: 0; border-radius: 50%; border: 1px solid rgba(68, 118, 108, .22); background: var(--brand-soft); color: var(--brand-dark); font-size: .78rem; line-height: 1; box-shadow: none; }
 .info-tooltip-trigger:hover, .info-tooltip-trigger:focus { transform: none; background: #fff; box-shadow: 0 0 0 3px rgba(68, 118, 108, .14); }
-.info-tooltip-content { position: absolute; z-index: 30; inset-inline-end: 0; inset-block-end: calc(100% + 8px); inline-size: min(290px, calc(100vw - 40px)); padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); box-shadow: 0 16px 34px rgba(31, 42, 37, .16); font-size: .82rem; line-height: 1.55; font-weight: 700; text-align: right; visibility: hidden; opacity: 0; pointer-events: none; transition: opacity .16s ease, visibility .16s ease; }
-.info-tooltip:hover .info-tooltip-content, .info-tooltip:focus-within .info-tooltip-content { visibility: visible; opacity: 1; }
+.info-tooltip-content { flex: 0 0 100%; inline-size: min(340px, 100%); max-height: 0; margin-top: 0; padding: 0 10px; overflow: hidden; border: 1px solid transparent; border-radius: 8px; background: #fff; color: var(--ink); box-shadow: none; font-size: .78rem; line-height: 1.45; font-weight: 700; text-align: right; visibility: hidden; opacity: 0; pointer-events: none; transition: max-height .16s ease, margin .16s ease, padding .16s ease, opacity .16s ease, visibility .16s ease; }
+.field-help-label:hover .info-tooltip-content, .field-help-label:focus-within .info-tooltip-content { max-height: 190px; margin-top: 2px; padding: 8px 10px; border-color: var(--line); box-shadow: 0 8px 18px rgba(31, 42, 37, .08); visibility: visible; opacity: 1; }
 input, select { width: 100%; min-height: 48px; border: 1px solid var(--line); border-radius: 8px; padding: 11px 13px; background: #fbfcfb; color: var(--ink); outline: none; transition: border-color .2s ease, box-shadow .2s ease, background .2s ease; }
 input:focus, select:focus { border-color: var(--brand); background: #fff; box-shadow: 0 0 0 4px rgba(68, 118, 108, .16); }
 .choice-group label { min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfb; cursor: pointer; text-align: center; }
@@ -485,6 +485,39 @@ button:hover { transform: translateY(-1px); }
   }
 }
 
+
+/* Salary print layout */
+
+@media print {
+  @page { margin: 12mm; }
+  body { background: #fff; }
+  .salary-app { max-width: none; padding: 0; }
+  .salary-screen { display: flex; flex-direction: column; gap: 10px; }
+  .salary-intro, .salary-app .topbar, .salary-actions, .info-tooltip-trigger, .info-tooltip-content { display: none; }
+  .salary-form-panel { display: block; order: 1; padding: 0 0 10px; border: 0; background: #fff; box-shadow: none; }
+  .salary-form-panel::before { content: "פרטי החישוב"; display: block; margin-bottom: 8px; color: #173f35; font-size: 14pt; font-weight: 900; }
+  .salary-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 16px; }
+  .salary-field-grid .field, .salary-field-grid .choice-group { break-inside: avoid; gap: 3px; }
+  .salary-field-grid .field span, .salary-field-grid .choice-group legend { color: #1f2a25; font-size: 9.5pt; font-weight: 800; }
+  .salary-field-grid input, .salary-field-grid select { min-height: auto; padding: 1px 0 3px; border: 0; border-bottom: 1px solid #d8dfdb; border-radius: 0; background: #fff; color: #111; box-shadow: none; font-size: 10.5pt; font-weight: 800; }
+  .salary-field-grid input::placeholder { color: transparent; }
+  .salary-field-grid .choice-group { grid-template-columns: repeat(3, auto); align-items: start; }
+  .salary-field-grid .choice-group label { min-height: auto; justify-content: flex-start; padding: 0; border: 0; background: transparent; font-size: 10.5pt; }
+  .salary-field-grid .choice-group label:has(input[type="radio"]:not(:checked)) { display: none; }
+  .salary-field-grid .choice-group input { width: 12px; min-height: 12px; }
+  .salary-results { display: grid; order: 2; gap: 7px; padding: 10px 0 0; border: 0; background: #fff; box-shadow: none; page-break-inside: avoid; }
+  .salary-results::before { content: "תוצאות החישוב"; display: block; color: #173f35; font-size: 14pt; font-weight: 900; }
+  .salary-hero-result, .net-card, .effective-rate-line, .component-card { padding: 6px 8px; border: 1px solid #d8dfdb; border-radius: 6px; background: #fff; box-shadow: none; }
+  .salary-results .total { color: #173f35; font-size: 24pt; }
+  .net-range-main strong { color: #173f35; font-size: 15pt; }
+  .net-range-note { font-size: 8.5pt; line-height: 1.35; }
+  .effective-rate-line { margin-top: 0; }
+  .component-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .component-card { min-height: auto; break-inside: avoid; }
+  .component-card strong { font-size: 10pt; }
+  .empty-components { display: none; }
+  .salary-note { display: block; order: 3; margin-top: 6px; padding: 6px 0 0; border: 0; background: #fff; color: #555; font-size: 9pt; box-shadow: none; }
+}
 
 /* Executive dashboard phase 1 */
 .executive-dashboard {
