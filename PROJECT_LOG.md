@@ -369,3 +369,33 @@ Remaining issues:
 
 - The relationship between Accounting `חשבון` grouping and allocation-engine `עבור מחלקה` grouping remains an intentional documented conflict/open question.
 - Existing `README.md` remains stale relative to current modules.
+
+## 2026-07-07 - Salary Certificate Help Tooltip
+
+Objective: Add inline guidance for the Salary Calculator certificate/commitment hourly supplement without changing salary calculations.
+
+Files changed:
+
+- `salary/index.html`
+- `chamah-manager-portal/salary/index.html`
+- `assets/styles.css`
+- `chamah-manager-portal/assets/styles.css`
+
+Technical decisions:
+
+- Added a small reusable CSS-only info tooltip using hover and focus states.
+- Kept Salary Calculator JavaScript and payroll calculations unchanged.
+
+Business decisions:
+
+- The UI now clarifies that the certificate/commitment supplement is calculated automatically and base hourly wage should be entered before that supplement.
+
+Tests:
+
+- `npm run build` passed.
+- `npx playwright test salary.spec.mjs` passed with 8 tests.
+- `node --check dashboard\script.js` passed.
+
+Remaining issues:
+
+- None known.

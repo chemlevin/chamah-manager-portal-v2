@@ -48,6 +48,12 @@ h1 { margin: 0; font-size: clamp(1.85rem, 4vw, 3.35rem); line-height: 1.08; lett
 .choice-group { margin: 0; padding: 0; border: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .certificate-choice { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .choice-group legend { grid-column: 1 / -1; padding: 0; }
+.field-help-label { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; }
+.info-tooltip { position: relative; display: inline-flex; align-items: center; }
+.info-tooltip-trigger { width: 24px; min-width: 24px; height: 24px; min-height: 24px; display: inline-grid; place-items: center; padding: 0; border-radius: 50%; border: 1px solid rgba(68, 118, 108, .22); background: var(--brand-soft); color: var(--brand-dark); font-size: .86rem; line-height: 1; box-shadow: none; }
+.info-tooltip-trigger:hover, .info-tooltip-trigger:focus { transform: none; background: #fff; box-shadow: 0 0 0 3px rgba(68, 118, 108, .14); }
+.info-tooltip-content { position: absolute; z-index: 30; inset-inline-end: 0; inset-block-end: calc(100% + 8px); inline-size: min(290px, calc(100vw - 40px)); padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); box-shadow: 0 16px 34px rgba(31, 42, 37, .16); font-size: .82rem; line-height: 1.55; font-weight: 700; text-align: right; visibility: hidden; opacity: 0; pointer-events: none; transition: opacity .16s ease, visibility .16s ease; }
+.info-tooltip:hover .info-tooltip-content, .info-tooltip:focus-within .info-tooltip-content { visibility: visible; opacity: 1; }
 input, select { width: 100%; min-height: 48px; border: 1px solid var(--line); border-radius: 8px; padding: 11px 13px; background: #fbfcfb; color: var(--ink); outline: none; transition: border-color .2s ease, box-shadow .2s ease, background .2s ease; }
 input:focus, select:focus { border-color: var(--brand); background: #fff; box-shadow: 0 0 0 4px rgba(68, 118, 108, .16); }
 .choice-group label { min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfb; cursor: pointer; text-align: center; }

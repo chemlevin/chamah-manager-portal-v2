@@ -107,7 +107,19 @@
             </fieldset>
 
             <fieldset class="choice-group certificate-choice wide-choice">
-              <legend>תעודת מטפלת</legend>
+              <legend class="field-help-label">
+                <span>תעודת מטפלת</span>
+                <span class="info-tooltip">
+                  <button class="info-tooltip-trigger" type="button" aria-label="מידע על תוספת תעודה" aria-describedby="certificate-tooltip">ⓘ</button>
+                  <span class="info-tooltip-content" id="certificate-tooltip" role="tooltip">
+                    תוספת תעודה/התחייבות מחושבת אוטומטית (+2 ₪ לשעה).<br><br>
+                    יש להזין את שכר הבסיס ללא תוספת זו.<br><br>
+                    לדוגמה:<br>
+                    אם השכר בפועל הוא 40 ₪ כולל תעודה,<br>
+                    יש להזין 38 ₪ ולסמן "יש תעודה".
+                  </span>
+                </span>
+              </legend>
               <label><input type="radio" name="certificate" value="certified" checked /><span>יש תעודה</span></label>
               <label><input type="radio" name="certificate" value="committed" /><span>מתחייבת ללמוד</span></label>
               <label><input type="radio" name="certificate" value="none" /><span>אין תעודה</span></label>
