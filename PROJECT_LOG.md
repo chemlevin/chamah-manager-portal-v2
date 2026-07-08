@@ -431,3 +431,52 @@ Tests:
 Remaining issues:
 
 - None known.
+
+## 2026-07-08 - Documentation Repository Structure
+
+Objective: Create an isolated documentation-only folder structure for future architecture planning and business handbook work.
+
+Files changed:
+
+- `docs/README.md`
+- `docs/handbook/README.md`
+- `docs/handbook/calendar-rules.md`
+- `docs/handbook/children-rules.md`
+- `docs/handbook/classroom-rules.md`
+- `docs/handbook/staffing-rules.md`
+- `docs/handbook/roles-rules.md`
+- `docs/handbook/payroll-rules.md`
+- `docs/handbook/tuition-rules.md`
+- `docs/handbook/budgeting-rules.md`
+- `docs/handbook/accounting-rules.md`
+- `docs/handbook/banking-rules.md`
+- `docs/handbook/organization-rules.md`
+- `docs/handbook/reporting-rules.md`
+- `docs/architecture/README.md`
+- `docs/architecture/architecture.md`
+- `docs/architecture/database.md`
+- `docs/architecture/sync.md`
+- `docs/architecture/api.md`
+- `docs/architecture/security.md`
+- `docs/architecture/roadmap.md`
+- `docs/specifications/README.md`
+- `docs/decisions/README.md`
+- `PROJECT_LOG.md`
+
+Technical decisions:
+
+- Added empty documentation templates only.
+- Kept the documentation scaffold isolated under `docs/`.
+- Left existing application code, APIs, runtime configuration, tests, and generated output unchanged.
+
+Business decisions:
+
+- None. This was documentation structure only.
+
+Tests:
+
+- Application validation was not required because this was documentation-only work.
+
+Remaining issues:
+
+- The templates intentionally contain no project-specific business content yet.
