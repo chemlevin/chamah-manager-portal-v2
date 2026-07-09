@@ -204,6 +204,98 @@ Notes:
 
 ---
 
+BR-0059 | Budget Display Group
+
+Rule: A Budget Category may belong to a Display Group.
+
+Rule: Display Group is optional.
+
+Rule: Display Group is used for reporting and presentation only.
+
+Notes:
+- Display Groups allow related Budget Categories to be shown together.
+- Example: Payroll may include Caregiver, Manager, Cook, and Educational Instructor.
+
+---
+
+BR-0060 | Dynamic Budget Calculation
+
+Rule: Budget calculations remain dynamic until the relevant period is locked.
+
+Rule: Changes to source data update budget calculations while the period is unlocked.
+
+Rule: Budget snapshots are created only through an explicit locking action.
+
+Notes:
+- Budget values are not final until locked.
+- Dynamic calculation allows corrections to source data.
+
+---
+
+BR-0061 | Budget Locking
+
+Rule: Budget periods are locked only by an explicit administrative action.
+
+Rule: Budget periods are not locked automatically by date.
+
+Rule: Only the owner/admin may lock or unlock a budget period.
+
+Rule: Unlocking a locked period requires a defined unlock action.
+
+Notes:
+- Educational budget may be locked only after specific approval.
+- Annual CY budget may be locked only after specific approval.
+
+---
+
+BR-0062 | Locked Period Recalculation
+
+Rule: Source data changes do not automatically update locked budget periods.
+
+Rule: A locked period must be unlocked before recalculation.
+
+Rule: After recalculation, the period may be locked again.
+
+Notes:
+- Locked periods preserve approved budget results until intentionally reopened.
+
+---
+
+BR-0063 | Budget Calculation Library
+
+Rule: Budget Calculation Methods are selected from a predefined Calculation Library.
+
+Rule: Budget Categories must use Calculation Methods defined in the Calculation Library.
+
+Rule: Free-form formulas are not allowed by default.
+
+Rule: Calculation Methods may be managed through configuration data.
+
+Notes:
+- The owner/admin may update Calculation Library configuration.
+- New calculation logic should be added through defined configuration, not ad-hoc formulas.
+
+---
+
+BR-0064 | Calculation Transparency
+
+Rule: Every Budget Calculation Method must define:
+- Data Sources.
+- Required Fields.
+- Parameters.
+- Formula Logic.
+- Business Explanation.
+- Technical Explanation.
+
+Rule: Budget calculations must be explainable from stored configuration and source data.
+
+Notes:
+- Business Explanation is for management understanding.
+- Technical Explanation is for developers, API consumers, and AI agents.
+- UI presentation of explanations is a design decision.
+
+---
+
 ## Reference Data
 
 None.
