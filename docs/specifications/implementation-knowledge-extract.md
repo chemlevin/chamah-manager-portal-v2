@@ -1,0 +1,1080 @@
+# Implementation Knowledge Extract
+
+Scope: reverse-engineered from repository code, docs, config, and tests. Excludes generated/output folders.
+
+Status: raw implementation extract, not polished architecture.
+
+## Sources Inspected
+
+- Root/project rules: `AGENTS.md`, `README.md`, `PROJECT_LOG.md`
+- Docs: `docs/`, especially `docs/glossary.md`, `docs/handbook/*.md`, `docs/business-rules.md`, `docs/decision-log.md`, `docs/organizational-units.md`
+- APIs/engines: `api/*.js`
+- Runtime constants: `config/business-rules.js`, `config/organizational-units.js`
+- Pages: `dashboard/`, `accounting/`, `employees/`, `occupancy/`, `salary/`
+- Shared client utilities/styles: `assets/`
+- Tests: `tests/*.mjs`
+- Deployment/config: `package.json`, `vercel.json`, `.env.example`, `scripts/`
+
+## Global Architecture / Data Flow
+
+- App type:
+  - Hebrew RTL static portal plus Vercel serverless APIs.
+  - Source: `AGENTS.md`, `vercel.json`, `scripts/build.mjs`, page folders.
+- Static deployment:
+  - `scripts/build.mjs` copies `chamah-manager-portal/` into `dist/`.
+  - `dist/` is generated output and should not be edited directly.
+- API deployment:
+  - `vercel.json` exposes Node functions:
+    - `/api/employees` -> `api/employees.js`
+    - `/api/budget` -> `api/budget.js`
+    - `/api/budget-test` -> `api/budget-test.js`
+    - `/api/payroll` -> `api/payroll.js`
+    - `/api/allocations` -> `api/allocations.js`
+- Google Sheets flow:
+  - APIs authenticate with Google service-account JWT.
+  - APIs read Sheets ranges.
+  - Engine modules normalize rows and calculate deterministic payloads.
+  - Browser pages fetch `/api/...` JSON and render UI.
+- Shared runtime rules:
+  - Source: `config/business-rules.js`
+  - `DEFAULT_AVERAGE_EMPLOYEE_MONTHLY_HOURS = 160`
+  - `averageEmployeeMonthlyHours = 160`
+  - `DAYCARE_MONTH_KEY_SEPARATOR = "|"`
+  - `daycareMonthKey(daycare, month)` -> trimmed `daycare|month`
+  - `unitMonthKey(unit, month)` -> trimmed `unit|month`
+
+## Google Sheets / API Data Sources
+
+### Shared API Authentication
+
+- Source files: `api/budget.js`, `api/payroll.js`, `api/allocations.js`, `api/employees.js`
+- Credentials:
+  - `GOOGLE_SERVICE_ACCOUNT_EMAIL` or `GOOGLE_CLIENT_EMAIL`
+  - `GOOGLE_PRIVATE_KEY` or `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`
+- Scope:
+  - `https://www.googleapis.com/auth/spreadsheets.readonly`
+- API cache:
+  - `/api/budget`, `/api/payroll`, `/api/allocations`, `/api/employees` set `Cache-Control: no-store`.
+- HTTP method:
+  - GET only; non-GET returns 405.
+
+### Budget API
+
+- Source: `api/budget.js`
+- Endpoint: `/api/budget`
+- Default spreadsheet ID:
+  - `18jel-vx6yR2LvcqxO6cTCAwKiAV8WUz2dQSDEzNB4G0`
+- Sheet ID env order:
+  - `GOOGLE_BUDGET_SHEET_ID`
+  - `GOOGLE_SHEET_ID`
+  - default ID
+- Tab:
+  - `GOOGLE_BUDGET_SHEET_NAME || "BUDGET"`
+- Range:
+  - `${tab}!A:Z`
+- Output:
+  - `{ tables, budget }`
+- Debug flags:
+  - `BUDGET_API_DEBUG`
+  - `DEBUG_BUDGET_API`
+  - query `debug=1` outside production
+- Error codes:
+  - `BUDGET_AUTH_CONFIG_FAILED`
+  - `BUDGET_PARSE_FAILED`
+  - `BUDGET_CALCULATION_FAILED`
+  - `BUDGET_AUTH_FAILED`
+  - `BUDGET_TAB_OR_RANGE_NOT_FOUND`
+  - `BUDGET_SHEETS_LOAD_FAILED`
+
+### Payroll API
+
+- Source: `api/payroll.js`
+- Endpoint: `/api/payroll`
+- Default spreadsheet ID:
+  - same as Budget default.
+- Sheet ID env order:
+  - `GOOGLE_PAYROLL_SHEET_ID`
+  - `GOOGLE_SHEET_ID`
+  - default ID
+- Tab:
+  - `GOOGLE_PAYROLL_SHEET_NAME || "PAYROLL"`
+- Range:
+  - `${tab}!A:Z`
+- Output:
+  - payroll engine result.
+- Debug flags:
+  - `PAYROLL_API_DEBUG`
+  - `DEBUG_PAYROLL_API`
+- Error codes:
+  - `PAYROLL_AUTH_CONFIG_FAILED`
+  - `PAYROLL_PARSE_FAILED`
+  - `PAYROLL_AUTH_FAILED`
+  - `PAYROLL_TAB_OR_RANGE_NOT_FOUND`
+  - `PAYROLL_SHEETS_LOAD_FAILED`
+
+### Allocations API / BANKS
+
+- Source: `api/allocations.js`
+- Endpoint: `/api/allocations`
+- Default spreadsheet ID:
+  - same as Budget default.
+- Sheet ID env order:
+  - `GOOGLE_ALLOCATIONS_SHEET_ID`
+  - `GOOGLE_BANKS_SHEET_ID`
+  - `GOOGLE_SHEET_ID`
+  - default ID
+- Tab:
+  - `GOOGLE_ALLOCATIONS_SHEET_NAME || GOOGLE_BANKS_SHEET_NAME || "BANKS"`
+- Range:
+  - `${tab}!A:Z`
+- Output:
+  - allocations engine result.
+- Debug flags:
+  - `ALLOCATIONS_API_DEBUG`
+  - `DEBUG_ALLOCATIONS_API`
+- Error codes:
+  - `ALLOCATIONS_AUTH_CONFIG_FAILED`
+  - `ALLOCATIONS_PARSE_FAILED`
+  - `ALLOCATIONS_TAB_OR_RANGE_NOT_FOUND`
+  - `ALLOCATIONS_SHEETS_LOAD_FAILED`
+
+### Employees API
+
+- Source: `api/employees.js`
+- Endpoint: `/api/employees`
+- Spreadsheet ID:
+  - hardcoded `18jel-vx6yR2LvcqxO6cTCAwKiAV8WUz2dQSDEzNB4G0`
+- Tab:
+  - hardcoded `עובדים`
+- Range:
+  - `עובדים!A:AF`
+- Output:
+  - `{ rows }` with rows mapped from first row headers.
+- Error code:
+  - `EMPLOYEES_SHEETS_LOAD_FAILED`
+- Note:
+  - `.env.example` documents budget sheet vars, but not all payroll/allocations/employees runtime vars.
+
+## Salary Calculator
+
+- Source:
+  - `salary/index.html`
+  - `salary/script.js`
+  - `tests/salary.spec.mjs`
+- Current behavior:
+  - Estimates gross salary, net salary range, effective hourly value, and salary component breakdown.
+- Inputs:
+  - Local/manual form fields only.
+  - Base hourly wage.
+  - Seniority years.
+  - Monthly hours.
+  - Role selector: `מטפלת`, `מובילה`, `מנהלת`.
+  - Class-management eligibility: yes/no.
+  - Certificate: certified/committed/none.
+  - Degree: yes/no.
+- Data source:
+  - No API.
+  - No Google Sheet.
+  - No config file.
+  - Hardcoded formulas in `salary/script.js`.
+- Formula flow:
+  - Validate wage/seniority/hours.
+  - Base salary = `hourlyWage * monthlyHours`.
+  - Persistence component:
+    - `seniority <= 1` -> `+1/hour`
+    - `seniority <= 4` -> `+2/hour`
+    - `seniority <= 7` -> `+3/hour`
+    - `seniority <= 10` -> `+550/month`
+    - `seniority <= 20` -> `+600/month`
+    - else -> `+700/month`
+  - Seniority component:
+    - `<=2` -> `0/hour`
+    - `<=4` -> `0.5/hour`
+    - `<=9` -> `0.75/hour`
+    - `<=15` -> `1.1/hour`
+    - `<=19` -> `1.6/hour`
+    - `<=24` -> `2.5/hour`
+    - else -> `3/hour`
+  - Class management:
+    - if not eligible -> `0`
+    - if `seniority >= 10` -> `+250/month`
+    - if `seniority >= 1` -> `+1.5/hour`
+    - else -> `0`
+  - Certificate:
+    - `none` -> `0`
+    - otherwise -> `+2/hour`
+  - Degree:
+    - `yes` -> `+1/hour`
+  - Excellence:
+    - always `+250/month`
+  - Gross = base + components.
+  - Effective hourly = gross / monthly hours.
+  - Net range:
+    - minimum = `gross * 0.84`
+    - maximum = `gross * 0.89`
+- Outputs:
+  - Gross salary card.
+  - Net range summary.
+  - Effective hourly.
+  - Total additions.
+  - Component list.
+  - Print layout.
+- Validation/errors:
+  - Invalid, missing, negative wage/seniority, or non-positive hours reset results to zero.
+  - On mobile, after submit, page scrolls to results.
+- Tests:
+  - Empty state renders.
+  - Sample calculation returns nonzero result.
+  - Tooltip geometry.
+  - Print layout.
+- Matching handbook BR IDs:
+  - Related only loosely to roles/payroll docs: BR-0030 to BR-0040.
+- Missing handbook rules:
+  - Salary components, net range assumption, seniority bands, certificate/degree/class-management additions, excellence addition.
+- Conflicts/questions:
+  - Role is collected but not used in salary formula.
+  - These salary formulas are implemented only in code/tests, not current handbook rules.
+
+## Occupancy / Classroom Calculator
+
+- Source:
+  - `occupancy/index.html`
+  - `occupancy/script.js`
+  - `tests/occupancy.spec.mjs`
+- Current behavior:
+  - Calculates classroom capacity, staffing need, required area, tuition income, staff cost, monthly balance, validation, and scenario recommendations.
+- Inputs:
+  - Local/manual form fields.
+  - Class type:
+    - infants
+    - toddlers
+    - older
+    - infants-toddlers
+    - toddlers-older
+  - Actual classroom area.
+  - Children count by age group.
+  - Full mode overrides:
+    - tuition
+    - sqm per child
+    - staffing ratio
+    - staff cost per person
+- Hardcoded reference values:
+  - Source: `occupancy/script.js`
+  - infants:
+    - `sqmPerChild = 2.8`
+    - `ratio = 5`
+    - `tuition = 3936`
+    - `staffCost = 9000`
+    - `maxChildren = 20`
+  - toddlers:
+    - `sqmPerChild = 2.6`
+    - `ratio = 8`
+    - `tuition = 2917`
+    - `staffCost = 9000`
+    - `maxChildren = 27`
+  - older:
+    - `sqmPerChild = 2.2`
+    - `ratio = 10`
+    - `tuition = 2587`
+    - `staffCost = 9000`
+    - `maxChildren = 33`
+- Formula flow:
+  - `requiredSqm = children * sqmPerChild`
+  - `rawStaff = children / ratio`
+  - `requiredStaff = ceil(rawStaff * 2) / 2`
+  - `sqmCapacity = ceil(actualSqm / sqmPerChild)`
+  - `income = children * tuition`
+  - `staffCost = requiredStaff * staffCostPerPerson`
+  - `monthlyBalance = income - staffCost`
+- Mixed classroom validation:
+  - More than 2 active age groups -> invalid.
+  - Infant + older -> invalid.
+  - Infant + toddler -> valid.
+  - Toddler + older -> valid.
+  - Count above age-group max capacity -> invalid.
+- Area behavior:
+  - Area-aware alternatives require `actualSqm > 0`.
+  - Area status:
+    - no required area -> not calculated.
+    - missing actual area -> area required.
+    - actual area >= `floor(requiredSqm)` -> ok.
+    - actual area >= `floor(requiredSqm) * 0.95` -> warning.
+    - otherwise -> danger.
+- Outputs:
+  - Health/status card.
+  - KPI cards: children, staff, area, balance.
+  - Utilization bars.
+  - Micro insights.
+  - Summary grid.
+  - Age breakdown.
+  - Recommendation panel.
+  - Scenario cards.
+  - Copy summary.
+- Tests:
+  - Empty state.
+  - Single-age calculation.
+  - Mixed class calculation.
+  - Missing area hides alternatives.
+  - Filled area returns alternatives.
+  - Ranking prefers valid/profitable scenarios.
+  - Infant + older is not recommended.
+- Matching handbook BR IDs:
+  - BR-0014, BR-0015, BR-0016 to BR-0021, BR-0008 to BR-0013.
+- Conflicts/questions:
+  - Code uses `older`; handbook uses `Preschool`.
+  - Code infant max capacity is `20`; handbook classroom RD says Infant max `22`.
+  - Code area tolerance uses `floor(requiredSqm)` and a 95% warning band; handbook BR-0018 says shortage `<1 m²` allowed and `≥1 m²` not allowed.
+  - Occupancy code uses hardcoded tuition/rules instead of docs/reference-data or Sheets.
+
+## Budget Engine
+
+- Source:
+  - `api/budget.js`
+  - `api/budget-engine.js`
+  - `config/business-rules.js`
+  - `tests/budget-engine.spec.mjs`
+- Current behavior:
+  - Parses dynamic BUDGET sheet table sections.
+  - Calculates classroom staffing, daycare/month aggregation, required hours, fixed staff, costs, and budget coverage.
+- Required sheet tables:
+  - `OCCUPANCY`
+  - `STAFFING`
+  - `MONTH_HOURS`
+  - `FIXED_STAFF`
+  - `COST_RULES`
+- Optional actuals tables for coverage:
+  - `ACTUAL_EXPENSES`
+  - `BANK_TRANSACTIONS`
+  - `BANKS`
+  - `BANK`
+  - `TRANSACTIONS`
+- Table parsing:
+  - Section marker format: `TABLE: NAME`
+  - First meaningful row after marker is header row.
+  - Empty rows skipped.
+  - Duplicate headers normalized.
+  - Numbered duplicate Hebrew classroom/children/age headers are preserved as slots.
+- Important aliases:
+  - daycare: `daycare`, `department`, `branch`, `site`, `מעון`, `מעון חריג`, `מחלקה`, `סניף`, `עבור מחלקה`
+  - month: `month`, `חודש`, `עבור חודש`
+  - classroom: `classroom`, `class`, `כיתה`, `שם כיתה`, `מספר כיתה`, `חדר`, `כיתה בפועל`
+  - age group: `ageGroup`, `age_group`, `age`, `שכבת גיל`, `גיל`, `קבוצת גיל`, `כיתה`
+  - children: `children`, `childCount`, `count`, `ילדים`, `מספר ילדים`, `כמות ילדים`
+  - ratio: `ratio`, `staffRatio`, `תקינה`, `יחס`, `כמות צוות לילד`
+  - tuition: `tuition`, `monthlyTuition`, `שכר לימוד`
+  - standard hours: `standardHours`, `hours`, `monthlyHours`, `שעות חודשיות`, `תקן שעות`, `שעות`, `שעות תקן`
+  - category: `category`, `name`, `סעיף`, `קטגוריה`, `שם`, `סעיף תקציבי`, `הגדרה`, `קטגוריית הוצאה`
+  - basis: `basis`, `calculationBasis`, `בסיס חישוב`, `בסיס לחישוב`, `לפי`
+  - amount: `amount`, `rate`, `cost`, `עלות`, `סכום`, `תעריף`, `ערך`, `עלות 1`
+  - mixed classroom: `mixedClassroom`, `mixed`, `כיתה מעורבת`, `מעורבת`, `סוג כיתה`
+- Formula/order:
+  - Expand occupancy rows into classroom/age rows.
+  - Skip rows without daycare/month/classroom/age group or without children > 0.
+  - Get ratio/tuition from occupancy row or matching STAFFING rule.
+  - Missing staffing ratio throws a calculation error.
+  - `rawStaff = children / ratio`
+  - `requiredStaff = max(ceil(rawStaff * 2) / 2, minimumStaff)`
+  - `expectedRevenue = children * tuition`
+  - Group classroom staffing by daycare/month/classroom.
+  - Aggregate daycare/month staffing:
+    - classroom count
+    - total children
+    - required staff
+    - expected revenue
+  - Monthly required hours:
+    - `requiredHours = requiredStaff * standardHours`
+  - Required employee headcount:
+    - `requiredEmployeeHeadcount = ceil((requiredHours / averageEmployeeMonthlyHours) * 2) / 2`
+    - default average employee monthly hours = `160`
+  - Fixed staff:
+    - uses explicit hours if present.
+    - otherwise `positions * standardHours`.
+  - Costs:
+    - from COST_RULES.
+    - bases include children, classrooms, staff, work days, hourly, fixed.
+    - supports additional basis/divisor/period.
+  - Coverage:
+    - compares actual categories to planned COST_RULE categories.
+    - reports unmapped actual expense categories.
+- Outputs:
+  - `classroomStaffing`
+  - `daycareStaffing`
+  - `monthlyRequiredHours`
+  - `fixedStaff`
+  - `costs`
+  - `byDaycareMonth`
+  - `budgetCoverage`
+- Defaults/fallbacks:
+  - Partial COST_RULES does not fail; only available categories are calculated.
+  - Average monthly hours default to `160`, can be overridden by engine options.
+- Tests:
+  - Dynamic table parsing.
+  - Classroom staffing before aggregation.
+  - Mixed classroom only when explicitly marked mixed.
+  - Expected revenue from children/tuition.
+  - Cost rules using work days and Hebrew bases.
+  - Daycare-specific exception rules do not double count.
+  - Fixed staff separate from classroom staffing.
+  - Required employee headcount separate from required staff.
+  - Partial COST_RULES.
+  - Budget coverage/unmapped actual categories.
+  - Duplicate numbered classroom headers.
+- Matching handbook BR IDs:
+  - BR-0008 to BR-0015.
+  - BR-0022 to BR-0025.
+  - BR-0040 to BR-0046.
+- Conflicts/questions:
+  - Handbook BR-0041 says budget is per SY, Daycare, Classroom; implementation outputs strongest grain as daycare+month, with classroom staffing details.
+  - Handbook BR-0042 says tuition depends on SY, LE, LT, AG; implementation uses tuition from sheet row or STAFFING table and does not enforce SY/LE/LT.
+  - Handbook BR-0044 names Manager/Cook/Educational Instructor; implementation is data-driven through FIXED_STAFF.
+  - Budget engine does not read handbook docs as runtime rules.
+
+## Payroll Engine
+
+- Source:
+  - `api/payroll.js`
+  - `api/payroll-engine.js`
+  - `config/business-rules.js`
+  - `tests/payroll-engine.spec.mjs`
+- Current behavior:
+  - Normalizes payroll rows.
+  - Preserves dynamic numeric cost/hour fields.
+  - Groups payroll by daycare+month.
+  - Separates all payroll cost from staffing-compliance caregiver hours.
+- Inputs:
+  - Google Sheet tab `PAYROLL`.
+  - Dynamic columns with aliases.
+- Identity aliases:
+  - daycare: `daycare`, `department`, `branch`, `site`, `maon`, `מעון`, `מחלקה`, `סניף`, `עבור מחלקה`
+  - month: `month`, `payrollMonth`, `salaryMonth`, `חודש`, `חודש שכר`, `עבור חודש`
+  - employee: `employee`, `employeeName`, `name`, `worker`, `staff`, `שם עובד`, `עובד`, `עובדת`, `שם`
+  - classroom: `classroom`, `class`, `room`, `כיתה`, `שם כיתה`, `חדר`
+- Hours aliases:
+  - `hours`, `payrollHours`, `workHours`, `actualHours`, `standardHours`, `שעות`, `שעות עבודה`, `שעות שכר`, `שעות בפועל`
+- Cost aliases:
+  - `salary`, `payroll`, `pay`, `cost`, `amount`, `gross`, `net`, `base pay`, `bonus`, `deductions`, `reimbursement`, `wage`, `שכר`, `עלות`, `סכום`, `ברוטו`, `נטו`, `בסיס`, `בונוס`, `ניכוי`, `ניכויים`, `החזר`, `תשלום`
+- Staffing-compliance classroom marker:
+  - `מטפלת`
+- Formula/order:
+  - First meaningful row is headers.
+  - Empty rows skipped.
+  - Numeric fields normalized.
+  - Cost fields and hour fields inferred by semantic header aliases.
+  - Rows missing daycare or month are skipped from groups.
+  - Group key uses shared `daycareMonthKey(daycare, month)` for output.
+  - `totalPayrollCost = sum(costFields)`
+  - `totalPayrollHours = sum(hourFields)`
+  - employee count = unique employee names if available, otherwise row count.
+  - `byClass` aggregates class-level payroll.
+  - Staffing compliance uses only rows where classroom exactly equals `מטפלת`.
+- Outputs:
+  - `rows`
+  - `byDaycareMonth`
+  - `byDaycareMonthKey`
+  - group fields include:
+    - daycare
+    - month
+    - employeeCount
+    - rowCount
+    - totalPayrollCost
+    - totalPayrollHours
+    - costFields
+    - hourFields
+    - numericFields
+    - staffingEmployeeCount
+    - staffingPayrollHours
+    - staffingClassroom
+    - byClass
+- Tests:
+  - Shared daycare-month key.
+  - Dynamic row normalization/grouping.
+  - Class-level aggregates.
+  - Staffing-only caregiver separation.
+  - Empty/missing daycare/month rows skipped.
+  - Hebrew dynamic fields and numeric parsing.
+- Matching handbook BR IDs:
+  - BR-0034 to BR-0040.
+- Missing handbook rules:
+  - Exact payroll sheet aliases.
+  - `מטפלת` as staffing-compliance classroom marker.
+  - Payroll group grain daycare+month.
+  - Dynamic cost/hour field preservation.
+
+## Allocations / BANKS Engine
+
+- Source:
+  - `api/allocations.js`
+  - `api/allocations-engine.js`
+  - `config/business-rules.js`
+  - `tests/allocations-engine.spec.mjs`
+- Current behavior:
+  - Treats BANKS rows as allocation ledger rows.
+  - Does not deduplicate by reference.
+  - Groups valid allocation rows by organizational unit + business month.
+- Inputs:
+  - Google Sheet tab `BANKS` by default.
+  - Dynamic columns with aliases.
+- Aliases:
+  - reference: `reference`, `asmachta`, `אסמכתא`, `מספר אסמכתא`
+  - cashDate: `date`, `cashDate`, `bankDate`, `תאריך`, `תאריך בנק`, `תאריך פעולה`
+  - businessMonth: `businessMonth`, `allocationMonth`, `month`, `עבור חודש`, `חודש`, `חודש שיוך`
+  - unit: `unit`, `organizationalUnit`, `department`, `daycare`, `עבור מחלקה`, `מחלקה`, `מעון`, `יחידה`
+  - debit: `debit`, `moneyOut`, `expense`, `חובה`, `יציאה`, `הוצאה`
+  - credit: `credit`, `moneyIn`, `income`, `זכות`, `כניסה`, `הכנסה`
+  - definition: `definition`, `category`, `type`, `הגדרה`, `סוג`, `קטגוריה`
+  - accountingCategory: `accountingCategory`, `accounting category`, `detail`, `details`, `expenseType`, `expense type`, `פירוט`
+  - accountingStatus: `accountingStatus`, `bookkeeping`, `הנה"ח`, `הנהח`, `סטטוס הנהח`, `סטטוס הנה"ח`
+  - notes: `notes`, `comment`, `description`, `הערות`, `תיאור`
+- Formula/order:
+  - First meaningful row is headers.
+  - Empty rows skipped.
+  - Debit/credit normalization handles shekel signs, commas, whitespace, decimals, percent signs, and parentheses.
+  - `netCash = credit - debit`
+  - Valid rows require unit and businessMonth.
+  - Missing unit or businessMonth rows become `unmappedRows`.
+  - Valid rows grouped by `unitMonthKey(unit, businessMonth)`.
+  - Group totals:
+    - debit
+    - credit
+    - netCash
+    - rowCount
+- Outputs:
+  - normalized allocation rows.
+  - grouped by unit+businessMonth.
+  - unmapped rows with reason.
+- Tests:
+  - Allocation ledger does not deduplicate by reference.
+  - `תאריך` is cashDate.
+  - `עבור חודש` is businessMonth.
+  - `פירוט` is accountingCategory.
+  - `הערות` remains notes.
+  - Unknown/missing units handled as unmapped.
+  - Numeric parsing.
+- Matching handbook BR IDs:
+  - No detailed accounting/banking rules currently match.
+- Missing handbook rules:
+  - BANKS ledger semantics.
+  - Allocation row identity.
+  - `תאריך` vs `עבור חודש`.
+  - Debit/credit normalization.
+  - Unmapped allocation policy.
+
+## Accounting Page
+
+- Source:
+  - `accounting/index.html`
+  - `accounting/script.js`
+  - `api/allocations.js`
+  - `api/allocations-engine.js`
+- Current behavior:
+  - Client-side bookkeeping/accounting workflow view over `/api/allocations`.
+  - Uses BANKS source rows and renders filters, KPIs, YTD statistics, source table, copy/export.
+- Inputs:
+  - API endpoint: `/api/allocations`
+  - Payload rows from allocations API.
+  - Local UI filters.
+- Hardcoded values:
+  - Calendar months: `01/2026` through `12/2027`
+  - Unassigned account label: `לא שויך`
+  - Sent status: `נשלח להנה"ח`
+  - Status values:
+    - `ממתין לשליחה`
+    - `נשלח להנה"ח`
+    - `חסר מסמכים`
+    - `פעולה ללא אסמכתא`
+- Grouping/filtering:
+  - Uses raw BANKS `חשבון` field directly as account grouping/filtering source.
+  - Does not infer account names from numeric bank mappings.
+  - Does not use `מעון` for local accounting page grouping.
+  - Month filter uses parsed calendar month from cash date `תאריך`, not business month `עבור חודש`.
+- Date parsing:
+  - Israeli bank date formats:
+    - `DD/MM/YYYY`
+    - `D/M/YYYY`
+    - `DD.MM.YYYY`
+    - `D.M.YYYY`
+  - Invalid/empty dates sort to bottom.
+- Metrics:
+  - total rows.
+  - assigned status count.
+  - unassigned count.
+  - waiting count.
+  - missing documents count.
+  - sent count.
+  - no-reference count.
+  - income = sum credit.
+  - expenses = sum debit.
+  - open amount = sum `credit - debit` for rows not sent.
+- Outputs:
+  - KPI cards.
+  - Amount cards.
+  - YTD grid.
+  - Account overview cards.
+  - Statistics.
+  - Source table.
+  - CSV export / copy.
+- Source table / CSV fields:
+  - `חשבון`
+  - `תאריך`
+  - `תיאור תנועה`
+  - `אסמכתא`
+  - `סכום`
+  - `הגדרה`
+  - `עבור מחלקה`
+  - `עבור חודש`
+  - `הנה"ח`
+  - `הערות`
+- Refresh:
+  - Manual refresh.
+  - Automatic refresh every 5 minutes.
+  - Back/forward-cache refresh on `pageshow` when `event.persisted === true`.
+  - Preserves selected account, month, status, and active explanation modal.
+- Matching handbook BR IDs:
+  - No detailed accounting rules currently present.
+- Conflicts/questions:
+  - Accounting page uses `חשבון`; allocations engine groups by `עבור מחלקה`.
+  - `docs/organizational-units.md` describes `עבור מחלקה` as allocation target.
+  - Need business decision whether these are separate concepts or should converge.
+
+## Employees
+
+- Source:
+  - `api/employees.js`
+  - `employees/index.html`
+  - `employees/script.js`
+  - `assets/date-utils.js`
+  - `tests/employees-kpis.spec.mjs`
+  - `tests/israeli-dates.spec.mjs`
+- Current behavior:
+  - Reads employee rows from Google Sheets.
+  - Renders employee management/filtering/compliance UI.
+  - KPI cards act as filters.
+- Inputs:
+  - API endpoint: `/api/employees`
+  - Employees sheet tab: `עובדים`
+  - Range: `עובדים!A:AF`
+  - Local UI filters.
+- Important sheet field names:
+  - `מספר עובד`
+  - `תעודת זהות`
+  - `שם עובדת`
+  - `תאריך לידה לועזי`
+  - `תאריך לידה עברי`
+  - `טלפון`
+  - `מעון`
+  - `מנהלת ישירה`
+  - `כיתה`
+  - `תפקיד`
+  - `משרה`
+  - `היקף שעות`
+  - `יום ראשון`
+  - `יום שני`
+  - `יום שלישי`
+  - `יום רביעי`
+  - `יום חמישי`
+  - `יום שישי`
+  - `תאריך תחילת עבודה`
+  - `ותק לשכר`
+  - `שנים במערכת`
+  - `תעודת מטפלת`
+  - `סיום לימודים`
+  - `שכר בסיס`
+  - `עזרה ראשונה עד`
+  - `התנהלות בטוחה עד`
+  - `אחראית כיתה`
+  - `סטטוס`
+  - `סוג העסקה`
+  - `מסמכים חסרים`
+  - `הערות`
+  - `עדכון אחרון`
+- Date parsing:
+  - Source: `assets/date-utils.js`
+  - Parses Israeli sheet dates.
+  - Supports separators `/`, `.`, `-`.
+  - Validates real calendar dates.
+  - Does not rely on browser date parsing.
+- Status categories:
+  - active: עובד/עובדת style values.
+  - left: עזבה.
+  - maternity leave: חל"ד / חופשת לידה / לידה.
+  - sick/accident: מחלה / תאונת עבודה / תאונה.
+  - unpaid leave: חל"ת / חופשה ללא תשלום / ללא תשלום.
+  - temporary/other fallback.
+- Compliance logic:
+  - Caregiver certificate:
+    - valid for `יש`.
+    - study/in process for learning/waiting-course style values.
+    - missing for empty/none/in-process values.
+  - First aid:
+    - missing if empty.
+    - expired if date before today.
+    - soon if date within 90 days.
+    - valid otherwise.
+  - Safe conduct:
+    - similar date status.
+    - supports missing/study/expired/soon/valid states.
+- Filters:
+  - Daycare chips.
+  - Extra field/value filter.
+  - Search.
+  - KPI filter.
+- Outputs:
+  - Employee KPI grid.
+  - Filters.
+  - Employee table/list.
+  - Employee detail/insight areas.
+  - Export file named with Hebrew report prefix and current date.
+- Tests:
+  - KPI values update with filtered list.
+  - KPI cards filter employee rows.
+  - Israeli date parsing: valid/missing/invalid dates.
+- Matching handbook BR IDs:
+  - Related to roles/payroll BR-0030 to BR-0040, but employee status/compliance rules are not documented.
+- Missing handbook rules:
+  - Employee statuses.
+  - Compliance date thresholds.
+  - Required trainings/certifications.
+  - Employee sheet schema.
+
+## Dashboard / Management Intelligence
+
+- Source:
+  - `dashboard/index.html`
+  - `dashboard/script.js`
+  - `api/management-engine.js`
+  - `tests/management-engine.spec.mjs`
+  - dashboard visual/responsive tests
+- Current behavior:
+  - Browser dashboard fetches operational APIs directly.
+  - Pure `api/management-engine.js` combines payloads for tested management intelligence behavior.
+- Dashboard API inputs:
+  - `/api/budget`
+  - `/api/payroll`
+  - `/api/allocations`
+  - `/api/employees`
+- Dashboard browser constants:
+  - Data quality red below: `90`
+  - Data quality yellow below: `98`
+  - Hours coverage green at: `95`
+  - Hours coverage yellow at: `75`
+  - Hours yellow percent: `5`
+  - Hours red percent: `15`
+  - Employee yellow gap: `1`
+  - Employee red gap: `2`
+  - Excluded accounting category: `חריג לא לחישוב`
+  - Not updated label: `טרם עודכן`
+  - No data label: `אין נתונים`
+- Browser calculation flow:
+  - Fetch all APIs with `Promise.allSettled`.
+  - Normalize each available payload independently.
+  - Preserve API errors in dashboard data.
+  - Normalize budget groups, payroll groups, allocation groups/rows, employees.
+  - Filter excluded allocation category from visible unmapped rows.
+  - Build unit/month rows by combining budget, payroll, allocations.
+  - Apply filters:
+    - month
+    - unit
+    - unit type
+    - category
+    - search
+    - sort
+  - Derive current period and school-year summaries from selected months.
+- Management engine calculation flow:
+  - Combines budget, payroll, allocations, employees.
+  - Keeps payroll operational cost separate from allocation actual expenses.
+  - Excludes accounting category `חריג לא לחישוב` from financial totals.
+  - Does not use free-text notes as accounting category logic.
+  - Does not invent capacity if budget data lacks explicit capacity fields.
+  - Reports allocation data quality and unmapped allocation issues.
+  - Builds possible report list based on available data.
+- Outputs:
+  - Status KPIs.
+  - Freshness/data quality cards.
+  - Organization summary.
+  - Current period grid.
+  - School year grid.
+  - Bank control cards.
+  - Operational comparison.
+  - Unit cards.
+  - Management comparisons.
+  - Action/issues lists.
+  - Insights.
+  - Financial exceptions.
+  - Budget explorer.
+  - Payroll/source tables.
+  - Explanation modals.
+  - CSV/copy outputs.
+- Tests:
+  - Organization-level intelligence.
+  - Class and age details.
+  - Required hours vs staffing-only payroll.
+  - Allocation quality and unmapped issues.
+  - Excluded accounting category.
+  - Notes are not category logic.
+  - No capacity invention.
+  - Possible reports.
+- Matching handbook BR IDs:
+  - Uses concepts from budget, payroll, staffing, accounting, reporting.
+  - No dedicated dashboard/reporting BRs beyond placeholders.
+- Missing handbook rules:
+  - Dashboard thresholds.
+  - Data quality calculation.
+  - Excluded category behavior.
+  - Management issue severity.
+  - Report availability logic.
+
+## Data Model Assumptions In Code
+
+- Budget model:
+  - Dynamic table sections inside one BUDGET sheet.
+  - Required tables: OCCUPANCY, STAFFING, MONTH_HOURS, FIXED_STAFF, COST_RULES.
+  - Main aggregate grain: daycare + month.
+  - Classroom is calculated before daycare/month aggregation.
+- Payroll model:
+  - One PAYROLL sheet.
+  - Dynamic columns.
+  - Main aggregate grain: daycare + month.
+  - Staffing compliance identified by classroom value `מטפלת`.
+- Allocations model:
+  - BANKS sheet is allocation ledger.
+  - Rows are allocation rows, not unique bank transactions.
+  - Main aggregate grain: organizational unit + business month.
+  - `תאריך` and `עבור חודש` are separate.
+- Accounting page model:
+  - Uses `חשבון` as local account grouping.
+  - Uses calendar month from cash date `תאריך`.
+  - Calendar months are hardcoded for 2026-2027.
+- Employees model:
+  - One employees sheet tab: `עובדים`.
+  - First row is headers.
+  - Hardcoded field names in page code.
+- Occupancy model:
+  - Local/manual model.
+  - Hardcoded age groups and reference values.
+- Salary model:
+  - Local/manual model.
+  - Hardcoded pay component formulas.
+
+## Implemented Business Rules Existing Only In Code
+
+- Salary:
+  - Gross salary components and seniority bands.
+  - Net estimate range 84%-89%.
+  - Excellence addition 250/month.
+  - Role input currently not used in calculation.
+- Occupancy:
+  - `older` group naming.
+  - Infant max capacity 20.
+  - Area status floor/95% warning behavior.
+  - Staff cost default 9000 per staff person.
+  - Scenario ranking behavior.
+- Budget:
+  - Sheet table parser contract.
+  - Dynamic aliases.
+  - Mixed classrooms require explicit mixed marker.
+  - Required employee headcount uses 160 monthly hours default.
+  - Partial COST_RULES allowed.
+  - Actual coverage from optional actuals tables.
+- Payroll:
+  - Dynamic cost/hour field detection.
+  - Rows missing daycare/month skipped.
+  - `מטפלת` classroom marker for staffing compliance.
+- Allocations:
+  - BANKS rows are not deduplicated by reference.
+  - Missing unit/month becomes unmapped.
+  - Debit/credit normalization rules.
+- Accounting:
+  - `חשבון` grouping.
+  - 2026-2027 hardcoded calendar months.
+  - Status values and open amount behavior.
+- Employees:
+  - Status classification.
+  - Training/compliance thresholds.
+  - 90-day soon window.
+- Dashboard:
+  - Status thresholds.
+  - Excluded accounting category.
+  - Data-quality classification.
+
+## Reference Data / Constants In Code
+
+- `config/business-rules.js`
+  - average employee monthly hours = 160.
+  - key separator = `|`.
+- `config/organizational-units.js`
+  - known units: מחנה, נאות, אשקלון, מרכזי, סניף, גנון, משרד, פיתוח.
+  - unit types: daycare, overhead, project.
+- `occupancy/script.js`
+  - sqm, ratio, tuition, staffCost, maxChildren defaults.
+- `salary/script.js`
+  - pay additions and net range constants.
+- `dashboard/script.js`
+  - management thresholds and excluded category.
+- `accounting/script.js`
+  - months 01/2026-12/2027.
+  - accounting statuses.
+- `employees/script.js`
+  - field map, status/compliance classifications, 90-day threshold.
+- API handlers:
+  - default Google Sheet ID.
+  - sheet tab names and env var fallbacks.
+
+## Handbook BR Matching
+
+- Calendar:
+  - BR-0001 and BR-0029 align conceptually with SY/CY distinction.
+  - Implementation uses CY in Accounting month filters; budget/payroll use sheet month strings and do not enforce SY/CY globally.
+- Children:
+  - BR-0002 to BR-0007 are not clearly implemented as child birth-date classification in inspected code.
+  - Occupancy uses age categories but does not classify by birth date.
+- Tuition:
+  - BR-0008 to BR-0013 align with tuition categories/reference data.
+  - Budget and occupancy use tuition values from code/sheet, not from handbook.
+- Staffing:
+  - BR-0014 and BR-0015 align with ratio/rounding concepts.
+  - Budget and occupancy both round staff to half units.
+  - Monthly licensing hours concepts BR-0023 to BR-0025 partially align with Budget MONTH_HOURS and required hours.
+- Classroom:
+  - BR-0016 to BR-0021 align with area/capacity/mixed class/staffing concepts.
+  - Code details differ in places noted above.
+- Roles:
+  - BR-0030 to BR-0033 are not enforced as role master data in code.
+  - Budget FIXED_STAFF can represent roles but is data-driven.
+- Payroll:
+  - BR-0034 to BR-0040 align with employment/headcount concepts.
+  - Payroll implementation has additional sheet/grouping behavior not documented.
+- Budgeting:
+  - BR-0041 to BR-0046 align with budget concepts.
+  - Implementation grain and data source behavior need explicit documentation.
+- Accounting/Banking/Organization/Reporting:
+  - Mostly placeholder or incomplete compared with implemented behavior.
+
+## Conflicts / Accuracy Issues
+
+- `README.md` is stale:
+  - It says only the salary calculator is active.
+  - Code contains active dashboard, accounting, employees, occupancy, budget, payroll, and allocation modules.
+- Occupancy capacity conflict:
+  - Code: Infant max `20`.
+  - Handbook classroom RD: Infant max `22`.
+- Occupancy terminology conflict:
+  - Code/UI uses `older`.
+  - Handbook/glossary use Preschool.
+- Occupancy area tolerance mismatch:
+  - Code uses floor(requiredSqm) plus 95% warning.
+  - Handbook says shortage `<1 m²` allowed, `≥1 m²` not allowed.
+- Budget grain mismatch:
+  - Handbook BR-0041 says SY, Daycare, Classroom.
+  - Implementation aggregate output is daycare+month, with classroom staffing detail.
+- Budget tuition dimension mismatch:
+  - Handbook says SY/LE/LT/AG.
+  - Implementation reads tuition from sheet row or STAFFING table and does not enforce LE/LT/SY dimensions.
+- Accounting allocation concept mismatch:
+  - Accounting page groups by `חשבון`.
+  - Allocations engine groups by `עבור מחלקה` and `עבור חודש`.
+  - `docs/organizational-units.md` emphasizes `עבור מחלקה`.
+- Documentation/runtime split:
+  - Handbook rules are not runtime source of truth.
+  - Many active rules exist only in JavaScript and tests.
+
+## Documentation Gaps
+
+- Google Sheets schemas:
+  - BUDGET tables and aliases.
+  - PAYROLL columns and aliases.
+  - BANKS columns and aliases.
+  - Employees tab schema.
+- API contracts:
+  - Endpoint inputs/outputs.
+  - Error codes.
+  - Env vars.
+  - Cache behavior.
+- Salary rules:
+  - All pay component formulas.
+  - Net range assumption.
+  - Whether role should affect salary.
+- Occupancy rules:
+  - Exact runtime defaults.
+  - Area tolerance algorithm.
+  - Scenario ranking.
+  - Relationship between `older` and Preschool.
+- Budget rules:
+  - Dynamic table grammar.
+  - COST_RULES bases.
+  - Budget coverage.
+  - Actuals table fallback.
+- Payroll rules:
+  - Dynamic fields.
+  - Staffing-compliance marker.
+  - Grouping grain.
+- Allocations/banking rules:
+  - Ledger row semantics.
+  - `תאריך` vs `עבור חודש`.
+  - Unmapped handling.
+  - Debit/credit parsing.
+- Accounting rules:
+  - `חשבון` grouping.
+  - Status values.
+  - Calendar month/YTD logic.
+  - CSV/source table contract.
+- Employees rules:
+  - Status categories.
+  - Compliance thresholds.
+  - Training/certificate logic.
+- Dashboard/reporting rules:
+  - Status thresholds.
+  - Data-quality rules.
+  - Excluded categories.
+  - Possible-report logic.
+
+## Questions For Business Owner
+
+- Should Preschool replace `older` everywhere, or is `older` a separate operational category?
+- Which infant capacity is authoritative: code `20` or handbook `22`?
+- Should occupancy area tolerance follow handbook `<1 m²` logic or current floor/95% behavior?
+- Should Salary role affect calculations?
+- Are Salary formulas official business rules or temporary calculator assumptions?
+- Should Budget enforce SY/LE/LT/AG dimensions, or remain sheet-driven?
+- Is Budget grain officially SY+Daycare+Classroom or daycare+month with classroom detail?
+- Should Accounting group by `חשבון`, by `עבור מחלקה`, or both?
+- Is BANKS meant to be a transaction ledger, allocation ledger, or both?
+- Should employee compliance rules become formal handbook rules?
+- Should dashboard thresholds become formal reporting rules?
+- Should employees API sheet ID/tab become configurable like the other APIs?
+
+## Tests Covering Business Behavior
+
+- Salary:
+  - `tests/salary.spec.mjs`
+- Occupancy:
+  - `tests/occupancy.spec.mjs`
+- Budget:
+  - `tests/budget-engine.spec.mjs`
+- Payroll:
+  - `tests/payroll-engine.spec.mjs`
+- Allocations:
+  - `tests/allocations-engine.spec.mjs`
+- Management dashboard engine:
+  - `tests/management-engine.spec.mjs`
+- Employees:
+  - `tests/employees-kpis.spec.mjs`
+  - `tests/israeli-dates.spec.mjs`
+- UI/responsive/visual behavior:
+  - other Playwright specs under `tests/`
+
+## Minimal Next Documentation Needs
+
+- Keep handbook rules as business-rule reference.
+- Add implementation/API specs for each active data flow:
+  - Budget Sheets/API/engine contract.
+  - Payroll Sheets/API/engine contract.
+  - BANKS/allocations/accounting contract.
+  - Employees Sheets/API/page contract.
+  - Salary calculator formula contract.
+  - Occupancy calculator formula contract.
+  - Dashboard/reporting contract.
+- Add one canonical Google Sheets schema reference.
+- Add one API contract reference.
+- Add one conflict register until business owner decisions are made.
+- Do not move runtime constants into docs; docs should record them and point to code as source until formalized.
+
