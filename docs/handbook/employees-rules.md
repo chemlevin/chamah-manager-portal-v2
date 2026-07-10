@@ -165,6 +165,23 @@ Rule: Data Quality warnings do not block operational work.
 
 Rule: Employee certificate and training warnings are calculated according to configuration.
 
+---
+
+BR-0103 | Employee Seniority
+
+Rule: Employee Seniority is an explicit Employee attribute.
+
+Rule: Seniority must not be calculated automatically from Employment Start Date.
+
+Rule: Previous recognized Seniority may be granted according to organizational policy.
+
+Rule: Employment Start Date and Seniority are independent values.
+
+Notes:
+- Employment Start Date represents the current employment relationship.
+- Seniority may include recognized previous experience.
+- Compensation and benefits that depend on Seniority must use the recorded Seniority value, not Employment Start Date.
+
 ## Reference Data
 
 ## Related Decisions

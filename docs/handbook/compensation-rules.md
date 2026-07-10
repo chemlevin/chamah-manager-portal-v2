@@ -4,7 +4,7 @@
 
 ## Business Rules
 
-BR-0103 | Compensation Factors
+BR-0104 | Compensation Factors
 
 Rule: Compensation Factors are configuration data.
 
@@ -18,7 +18,7 @@ Examples:
 
 ---
 
-BR-0104 | Compensation Value Types
+BR-0105 | Compensation Value Types
 
 Values:
 - Hourly.
@@ -31,7 +31,7 @@ Rule: Compensation type may change according to the applicable rule or seniority
 
 ---
 
-BR-0105 | Compensation Rule Validity
+BR-0106 | Compensation Rule Validity
 
 Rule: Compensation Rules are defined by SY or effective period.
 
@@ -41,7 +41,7 @@ Rule: A new value must be stored as a new effective configuration.
 
 ---
 
-BR-0106 | Certificate Compensation
+BR-0107 | Certificate Compensation
 
 Rule: Certificate possession and Certificate Status are stored in Employees.
 
@@ -55,7 +55,7 @@ Example:
 
 ---
 
-BR-0107 | Compensation Status Value
+BR-0108 | Compensation Status Value
 
 Rule: Compensation value may vary by Certificate Status.
 
@@ -68,7 +68,7 @@ Rule: Each applicable status may have a different compensation value.
 
 ---
 
-BR-0108 | Employee Compensation Eligibility
+BR-0109 | Employee Compensation Eligibility
 
 Rule: Compensation eligibility is assigned manually by an authorized user.
 
@@ -82,7 +82,7 @@ Rule: Eligibility includes a Start Month and may include an End Month.
 
 ---
 
-BR-0109 | Compensation Accumulation
+BR-0110 | Compensation Accumulation
 
 Rule: An Employee may receive multiple Compensation Factors simultaneously.
 
@@ -90,7 +90,7 @@ Rule: Compensation Factors accumulate unless a future rule explicitly defines ot
 
 ---
 
-BR-0110 | Hour Basis
+BR-0111 | Hour Basis
 
 Rule: Hourly Compensation is calculated from Regular Hours by default.
 
@@ -101,7 +101,7 @@ Notes:
 
 ---
 
-BR-0111 | Duplicate Compensation Warning
+BR-0112 | Duplicate Compensation Warning
 
 Rule: Duplicate active Compensation Factors for the same Employee generate a Data Quality warning.
 
@@ -109,7 +109,7 @@ Rule: Duplicate entries do not block saving.
 
 ---
 
-BR-0112 | Compensation History and Reporting
+BR-0113 | Compensation History and Reporting
 
 Rule: Compensation configuration and Employee eligibility history must be preserved.
 
