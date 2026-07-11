@@ -182,6 +182,165 @@ Notes:
 - Seniority may include recognized previous experience.
 - Compensation and benefits that depend on Seniority must use the recorded Seniority value, not Employment Start Date.
 
+---
+
+BR-0143 | Staff and Licensing Views
+
+Rule: Staff and Licensing provides three operational views:
+- Staff and Licensing Dashboard.
+- Filtered Employee Card List.
+- Full Employee Record.
+
+Rule: Each view serves a different level of management detail.
+
+---
+
+BR-0144 | Employee Treatment Status
+
+Values:
+- Normal.
+- Requires Attention.
+
+Rule: An Employee is marked Requires Attention when required employee information is missing or invalid.
+
+Current examples:
+- Missing National ID.
+- Missing Salary Information.
+- Missing Weekly Day Off.
+- Missing Seniority.
+- Missing Role.
+- Missing Department or DC assignment.
+- Other required employee fields.
+
+Rule: Technical Employee issues are important but are separate from Certificate status.
+
+Notes:
+- Requires Attention is displayed in Orange on the Employee Card.
+- Required Employee fields are configuration data.
+
+---
+
+BR-0145 | Independent Certificate Status
+
+Rule: Every required Certificate is evaluated independently.
+
+Rule: One valid Certificate must not hide a problem in another Certificate.
+
+Rule: Employee Cards display the current status of each primary Certificate separately.
+
+Current primary Certificates:
+- Professional / Caregiver Certificate.
+- First Aid.
+- Safe Conduct.
+
+---
+
+BR-0146 | Missing Certificate
+
+Rule: A required Certificate with no valid Certificate Status is displayed in Red.
+
+Rule: A missing required Certificate places the Employee in the Licensing Attention list.
+
+Rule: Certificate problems and Technical Employee problems are tracked separately.
+
+---
+
+BR-0147 | Certificate Expiration Alerts
+
+Rule: Certificate expiration severity is calculated from the stored Expiration Date.
+
+Values:
+- 90 to 61 days remaining -> Orange.
+- 60 to 31 days remaining -> Light Pink.
+- 30 to 1 days remaining -> Light Red.
+- Expired -> Red.
+
+Rule: A Certificate enters Requires Attention starting 90 days before expiration.
+
+Rule: Color presentation must remain consistent across:
+- Dashboard.
+- Employee Card List.
+- Full Employee Record.
+
+---
+
+BR-0148 | Study and Commitment Target Date
+
+Rule: Certificate Status may include:
+- Committed to Study.
+- Studying.
+
+Rule: These statuses may include a manually entered Target Completion Date.
+
+Rule: When a Target Completion Date exists, the same alert thresholds defined in BR-0147 apply to that date.
+
+Rule: When the Target Completion Date has passed and the Certificate is not Certified, the status is Red.
+
+Notes:
+- Target Completion Date is different from Certificate Expiration Date.
+
+---
+
+BR-0149 | Employee Summary Card
+
+Rule: The Employee Summary Card displays:
+- Employee Name.
+- Current DC.
+- Current Role.
+- Employment Status.
+- General Employee Treatment Status.
+- Individual status for each primary Certificate.
+
+Rule: The General Employee Treatment Status represents employee-data issues.
+
+Rule: Certificate indicators represent licensing status independently.
+
+Rule: The Employee Summary Card links to the Full Employee Record.
+
+---
+
+BR-0150 | Staff and Licensing Dashboard
+
+Rule: The Staff and Licensing Dashboard displays the existing Staff and Licensing management metrics.
+
+Metrics may include:
+- Total Employees.
+- Active Employees.
+- Employees Requiring Attention.
+- Missing Professional Certificate.
+- Missing or Invalid First Aid.
+- Missing or Invalid Safe Conduct.
+- Additional existing Staff and Licensing metrics.
+
+Rule: Dashboard metrics provide access to the corresponding filtered Employee Card List.
+
+---
+
+BR-0151 | Staff Work Lists
+
+Rule: Staff and Licensing issues are divided into operational work lists.
+
+Values:
+- Licensing Review.
+- Technical Details Review.
+
+Licensing Review may include:
+- Missing Certificate.
+- Expired Certificate.
+- Certificate nearing expiration.
+- Study or commitment target nearing or passing its date.
+
+Technical Details Review may include:
+- Missing required Employee fields.
+- Invalid Employee assignments.
+- Missing employment or compensation-related information.
+
+Rule: An Employee may appear in more than one work list.
+
+Rule: The overall Employees Requiring Attention count counts each Employee once.
+
+Rule: Each work list provides access to the relevant filtered Employee records.
+
 ## Reference Data
 
 ## Related Decisions
