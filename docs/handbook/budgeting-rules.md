@@ -296,6 +296,78 @@ Notes:
 
 ---
 
+BR-0127 | Administration Budget Ownership
+
+Rule: Administration Budget Categories belong to Administration.
+
+Rule: Administration remains the owner of Administration Budget and Actual values.
+
+Rule: Administration Budget Categories may be analyzed by DC without transferring ownership of the expense to the DC.
+
+Notes:
+- Examples include Accounting, Systems, Training, Staff Welfare, and Office expenses.
+
+---
+
+BR-0128 | Administration Actual Allocation
+
+Rule: An actual Administration expense may be allocated between one or more DCs for Administration analysis.
+
+Rule: The allocation represents which DCs benefited from or caused the Administration expense.
+
+Rule: A full expense may be allocated to one DC when it applies only to that DC.
+
+Rule: The sum of allocation rows must equal the original Administration expense.
+
+Rule: The original source transaction must remain traceable.
+
+---
+
+BR-0129 | Budget and Actual Allocation Independence
+
+Rule: The Budget Calculation Method determines planned Budget values only.
+
+Rule: The Budget Calculation Method does not determine how an actual expense must be allocated.
+
+Rule: Actual allocation represents operational reality and may differ from the planned Budget distribution.
+
+Notes:
+- Example: Training Budget may be calculated for all DCs, while an actual training expense may apply only to one DC.
+
+---
+
+BR-0130 | Administration Allocation and Overhead Separation
+
+Rule: Administration Actual Allocation and Administration Overhead are separate business processes.
+
+Rule: Administration Actual Allocation is used to analyze Administration expenses by DC and Budget Category.
+
+Rule: Administration Overhead is an Internal Allocation charged to DCs according to BR-0048 and BR-0049.
+
+Rule: Administration Actual Allocation must not create a DC operating expense outside Administration reporting.
+
+Rule: DC reporting includes the applicable Overhead category, not the underlying Administration Budget Categories.
+
+---
+
+BR-0131 | Administration Budget Comparison by Daycare
+
+Rule: Administration reporting may compare Budget and Actual values by:
+- Administration Budget Category.
+- DC.
+- Administration Budget Category and DC.
+
+Rule: The comparison displays:
+- Budget.
+- Actual.
+- Monetary Variance.
+- Percentage Variance.
+- Status Color.
+
+Rule: Administration Budget Categories are not displayed in a DC operating Dashboard unless explicitly configured otherwise.
+
+---
+
 ## Reference Data
 
 None.
