@@ -209,3 +209,19 @@ Status: Approved.
 Decision: The database must optimize for the real operational needs of the owner and office staff. Future extensibility is preserved through stable identities, clean relationships, and effective dates, but no extra tables, workflows, hierarchies, status models, or abstractions are introduced solely for unlikely future scenarios.
 
 Impact: The blueprint avoids enterprise-scale patterns that are not required by the current daycare operation. A design extension is included only when it solves an approved business requirement, protects history, prevents a realistic migration problem, or supports a likely near-term change.
+
+### DBD-0026 | Minimal Google Sheets Surface
+
+Status: Approved.
+
+Decision: The final Google Sheets workspace must remain compact and practical. Database normalization must not be exposed as one tab or one file per database table.
+
+Impact: The target is one primary operational spreadsheet, or at most a very small number of spreadsheets, with approximately five to seven user-facing work tabs unless a clear operational need justifies more. Technical tables, audit records, lookup data, import logs, and database-only structures remain hidden from day-to-day users or are exposed through protected support tabs. Multiple database tables may be managed through one user-facing tab when that produces a simpler workflow without losing validation or history.
+
+### DBD-0027 | No Table Without Operational Justification
+
+Status: Approved.
+
+Decision: A separate database table is created only when it protects history, represents a true repeating relationship, prevents duplication, supports an independent lifecycle, or is required for reliable synchronization and validation.
+
+Impact: Architectural neatness alone is not sufficient justification for another table. The final blueprint must include a simplification review that identifies merged concepts, database-only tables, and user-facing Sheets tabs separately.
