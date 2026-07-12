@@ -201,3 +201,11 @@ Status: Approved working method.
 Decision: Non-blocking questions are collected for final review instead of interrupting table-by-table design.
 
 Impact: Architecture work continues domain by domain. Only a question that would materially change the overall schema should stop progress.
+
+### DBD-0025 | Operational Simplicity Over Speculative Complexity
+
+Status: Approved.
+
+Decision: The database must optimize for the real operational needs of the owner and office staff. Future extensibility is preserved through stable identities, clean relationships, and effective dates, but no extra tables, workflows, hierarchies, status models, or abstractions are introduced solely for unlikely future scenarios.
+
+Impact: The blueprint avoids enterprise-scale patterns that are not required by the current daycare operation. A design extension is included only when it solves an approved business requirement, protects history, prevents a realistic migration problem, or supports a likely near-term change.
