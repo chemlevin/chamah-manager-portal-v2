@@ -480,3 +480,79 @@ Tests:
 Remaining issues:
 
 - The templates intentionally contain no project-specific business content yet.
+
+## 2026-07-13 - Supabase Foundation Migration Preparation
+
+Objective: Prepare Phase 1 managed Supabase migration foundations for project `vyyfuaqmbxvfqgbfqooc` without changing the current application, APIs, calculations, UI, Google Sheets, or business tables.
+
+Files changed:
+
+- `.gitignore`
+- `supabase/config.toml`
+- `supabase/migrations/20260713000100_database_foundations.sql`
+- `PROJECT_LOG.md`
+
+Technical decisions:
+
+- Added local Supabase configuration pointing at project ref `vyyfuaqmbxvfqgbfqooc`.
+- Ignored local Supabase state and secret-bearing files under `supabase/.branches`, `supabase/.temp`, and `supabase/.env`.
+- Created a foundation-only migration with `pgcrypto` and a shared `public.set_updated_at()` trigger function.
+- Did not create business tables, seed data, API code, Edge Functions, Google Sheets sync, or portal changes.
+
+Business decisions:
+
+- None. This was infrastructure preparation only.
+
+Validation:
+
+- Read `AGENTS.md`, `PROJECT_LOG.md`, every file under `docs/handbook/`, and every file under `docs/data/`.
+- Verified the connected Supabase MCP account did not expose target project access: project details, SQL execution, migration listing/application, and security/performance advisors for `vyyfuaqmbxvfqgbfqooc` returned permission errors.
+- Verified the Supabase CLI is not installed in the shell environment.
+
+Tests not run:
+
+- Migration application and live database verification could not be completed because the connected Supabase account lacks permission to project `vyyfuaqmbxvfqgbfqooc`.
+- Git branch creation and commit could not be completed because `.git` is denied for write operations in the current sandbox.
+- Application build and Playwright tests were not run because no application source, API, calculation, UI, or generated deployment output was changed.
+
+Remaining issues:
+
+- Supabase project access must be corrected before applying Migration 001, inspecting project state, or running advisors.
+- Git write access to `.git` must be corrected before creating the required branch and commit.
+
+## 2026-07-13 - Supabase Phase 1 Recovery Verification
+
+Objective: Complete the Phase 1 recovery pass for Supabase project `vyyfuaqmbxvfqgbfqooc` and verify the foundation migration state without starting Migration 002.
+
+Files changed:
+
+- `.gitignore`
+- `supabase/config.toml`
+- `supabase/migrations/20260713133220_database_foundations.sql`
+- `PROJECT_LOG.md`
+
+Technical decisions:
+
+- Verified the linked Supabase project is `vyyfuaqmbxvfqgbfqooc`, project name `chamah-manager`, region `eu-west-1`, status `ACTIVE_HEALTHY`.
+- Verified PostgreSQL version is PostgreSQL 17.6.
+- Confirmed the target database is not empty: public business tables and later database migrations already exist in the linked project.
+- Confirmed the remote migration history already records `database_foundations` as version `20260713133220`.
+- Aligned the local foundation migration filename and SQL with the recorded remote migration.
+- Did not create Migration 002, business tables, seed data, API code, Edge Functions, Google Sheets sync, portal changes, or generated output.
+
+Validation:
+
+- Confirmed `pgcrypto` exists in the `extensions` schema.
+- Confirmed `public.set_updated_at()` exists and sets `updated_at` using `timezone('utc', now())`.
+- Confirmed critical security advisors reported no issues.
+- Confirmed critical performance advisors reported no issues.
+- Confirmed `supabase db push --linked --dry-run` refuses to run because remote migration history contains later versions that are not present locally.
+
+Tests not run:
+
+- Application build and Playwright tests were not run because no application source, API, calculation, UI, or generated deployment output was changed.
+
+Remaining issues:
+
+- The linked Supabase project has remote migration history beyond Phase 1 that is not represented in the local repository.
+- Future migration work should reconcile remote migration history before attempting another `supabase db push`.
