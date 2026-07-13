@@ -1,38 +1,37 @@
 # Relationship Matrix
 
-Status: Draft architecture.
+Status: Schema Freeze v1.
 
-Last updated: 2026-07-12
+Last updated: 2026-07-13
 
 ## Purpose
 
-This document summarizes expected relationships between identified entities.
+This document summarizes the kept Schema Freeze v1 relationships.
 
 ## Matrix
 
 | From | To | Relationship | Status |
 |---|---|---|---|
-| School Year | School Year Configuration | one-to-many | Planned |
-| Calendar Year | Bank Transaction | one-to-many by transaction date | Planned |
-| Legal Entity Type | Legal Entity | one-to-many | Planned |
-| Legal Entity | Bank Account | one-to-many | Planned |
-| Legal Entity | Daycare | one-to-many/current ownership | Planned |
-| Organization Unit | Organization Unit | parent-child hierarchy | Planned |
-| Organization Unit | Daycare | one-to-many or one-to-one depending design | Planned |
-| Daycare | Classroom | one-to-many | Planned |
-| Daycare | Employee | one-to-many current assignment | Planned |
-| Daycare | Payroll Allocation Row | one-to-many | Planned |
-| Daycare | Bank Allocation | one-to-many | Planned |
-| Budget Category | Budget Setting | one-to-many by SY/effective period | Planned |
-| Budget Category | Budget Exception | one-to-many | Planned |
-| Bank Transaction | Bank Allocation | one-to-many | Planned |
-| Payroll Record | Payroll Allocation Row | one-to-many | Planned |
-| Data Quality Issue | Source Entity | polymorphic/reference | Planned |
-| Import Batch | Imported Rows | one-to-many | Planned |
+| School Year | Daycare School Year | one-to-many | Frozen v1 |
+| Calendar Year | Bank Transaction | one-to-many by transaction date | Frozen v1 |
+| Legal Entity Type | Legal Entity | one-to-many | Frozen v1 |
+| Legal Entity | Bank Account | one-to-many | Frozen v1 |
+| Legal Entity | Daycare | one-to-many/current ownership | Frozen v1 |
+| Allocation Unit | Daycare | one-to-one for daycare units | Frozen v1 |
+| Allocation Unit | Bank Allocation | one-to-many authoritative target | Frozen v1 |
+| Allocation Unit | Payroll Allocation Row | one-to-many authoritative target | Frozen v1 |
+| Daycare | Classroom | one-to-many through daycare school year | Frozen v1 |
+| Daycare | Employee Assignment | one-to-many current/effective assignment | Frozen v1 |
+| Budget Category | Budget Rule | one-to-many by period/effective dates | Frozen v1 |
+| Budget Category | Budget Snapshot | one-to-many immutable locked results | Frozen v1 |
+| Bank Transaction | Bank Allocation | one-to-many | Frozen v1 |
+| Payroll Record | Payroll Allocation Row | one-to-many | Frozen v1 |
+| Import Batch | Import Row | one-to-many | Frozen v1 |
+| Import Batch | Bank/Payroll source rows | one-to-many | Frozen v1 |
+| Data Quality Issue | Source Entity | polymorphic/reference | Frozen v1 |
+| Audit Event | Source Entity | polymorphic/reference | Frozen v1 |
 
 ## Open Questions
 
-- Whether Daycare is a subtype of Organization Unit or linked one-to-one.
-- Whether historical Legal Entity ownership requires a separate effective-dated relationship table.
-- Whether audit events use polymorphic references or table-specific audit tables.
-
+- API/auth policy relationships are deferred.
+- Historical Legal Entity ownership expansion is deferred.

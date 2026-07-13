@@ -1,8 +1,8 @@
 # Source Of Truth Model
 
-Status: Draft architecture.
+Status: Schema Freeze v1.
 
-Last updated: 2026-07-12
+Last updated: 2026-07-13
 
 ## Purpose
 
@@ -16,13 +16,17 @@ The Handbook under `docs/handbook/` is the only source of business truth.
 
 Google Sheets is the operational editing interface. Users do not edit the database directly.
 
+No visible Budget tab is added to Google Sheets v1.
+
 ## Final Data Truth
 
 The database is the final system Source of Truth after records are validated and imported/synced.
 
 ## Current Implementation
 
-The current implementation reads Google Sheets directly through APIs. This describes current behavior only. It does not override the Handbook and does not mean the database is implemented.
+The current implementation reads Google Sheets directly through APIs. This describes current behavior only. It does not override the Handbook.
+
+Schema Freeze v1 keeps the database structure ready for future import/sync and API parity work. It does not switch the portal to database reads.
 
 ## Source Separation
 
@@ -46,4 +50,3 @@ The current implementation reads Google Sheets directly through APIs. This descr
 - Calculated fields are protected.
 - Audit and sync fields are protected.
 - Free text is allowed only where explicitly documented.
-

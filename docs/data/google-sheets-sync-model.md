@@ -1,8 +1,8 @@
 # Google Sheets Sync Model
 
-Status: Draft architecture.
+Status: Schema Freeze v1.
 
-Last updated: 2026-07-12
+Last updated: 2026-07-13
 
 ## Purpose
 
@@ -17,6 +17,7 @@ This document describes the intended Google Sheets editing and sync model.
 - Only marked Sheet cells are editable.
 - Dropdowns are used wherever possible.
 - Free text is allowed only in explicitly defined fields.
+- No visible Budget tab is added to Google Sheets v1.
 
 ## Sync Flow
 
@@ -36,6 +37,7 @@ Editable data must be explicitly documented per table.
 ## Protected Data
 
 Protected fields include:
+
 - internal IDs
 - business codes after use
 - calculated fields
@@ -53,7 +55,7 @@ Protected fields include:
 
 ## Open Questions
 
-- Exact Sheets tab names for each future table.
+- Exact Sheets tab names for non-budget future tables.
 - Exact protection mechanism in Google Sheets.
 - Whether rejected rows remain in the Sheet, an error Sheet, or an import review view.
-
+- Future budget configuration editing surface.

@@ -1,8 +1,8 @@
 # Table: legal_entity_types
 
-Status: Draft, not yet finally approved.
+Status: Frozen v1.
 
-Last updated: 2026-07-12
+Last updated: 2026-07-13
 
 ## Related Handbook Rules
 
@@ -148,12 +148,12 @@ Record creation, update, importer/sync metadata, and source row traceability whe
 
 This table supports LE concepts in Tuition and Organization rules.
 
-## Draft Example Rows
+## Example Rows
 
 | Code | Display name | Notes |
 |---|---|---|
-| `NONPROFIT` | עמותה | Draft example. |
-| `COMPANY` | חברה | Draft example. |
+| `NONPROFIT` | עמותה | Example. |
+| `COMPANY` | חברה | Example. |
 | `PUBLIC_BENEFIT_COMPANY` | חל״צ | Example of a future new row, not a replacement for an existing row. |
 
 ## Open Questions
@@ -161,4 +161,3 @@ This table supports LE concepts in Tuition and Organization rules.
 - Are these legal entity type values final?
 - Are additional legal entity types required?
 - Should legal entity types have effective dates?
-

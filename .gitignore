@@ -6,3 +6,7 @@ playwright-report/
 test-results/
 screenshots/**/*.png
 !screenshots/**/.gitkeep
+.tmp/
+supabase/.branches
+supabase/.temp
+supabase/.env

@@ -1,30 +1,36 @@
 # Data Tables
 
-Status: Table documentation index.
+Status: Schema Freeze v1 table documentation index.
 
-Last updated: 2026-07-12
+Last updated: 2026-07-13
 
 ## Purpose
 
-This folder contains future database table documentation. These documents are architecture drafts and do not implement database schema.
+This folder contains table documentation for Schema Freeze v1.
 
 ## Table Statuses
 
-- `school-years.md`: approved concept.
-- `calendar-years.md`: approved concept.
-- `legal-entity-types.md`: draft, not yet finally approved.
+- `school-years.md`: frozen v1.
+- `calendar-years.md`: frozen v1.
+- `legal-entity-types.md`: frozen v1.
+- `bank-transactions.md`: frozen v1.
+- `bank-allocations.md`: frozen v1.
+- `budget-categories.md`: frozen v1.
+- `budget-rules.md`: frozen v1.
+- `data-quality-issues.md`: frozen v1.
+- `payroll-allocations.md`: frozen v1.
 
 ## Table Document Requirements
 
-Every table document must include:
+Every table document should include:
+
 - Status
 - Last updated
 - Related Handbook rules
-- Related architecture decisions
 - Purpose
 - Source of Truth
 - Primary key
-- Business code
+- Business code where applicable
 - Fields and types
 - Nullable fields
 - Defaults
@@ -47,4 +53,3 @@ Every table document must include:
 - Audit requirements
 - Handbook traceability
 - Open questions
-

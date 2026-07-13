@@ -1,8 +1,8 @@
 # Data Architecture Overview
 
-Status: Draft architecture.
+Status: Schema Freeze v1.
 
-Last updated: 2026-07-12
+Last updated: 2026-07-13
 
 ## Purpose
 
@@ -21,7 +21,7 @@ Google Sheets
 
 ## Current Phase Boundary
 
-The database is not implemented. Existing application code, APIs, Google Sheets integration, calculations, UI, and tests continue unchanged during the blueprint phase.
+The current 33-table schema is kept and corrected by Migration 011. Existing application code, APIs, Google Sheets integration, calculations, UI, and tests continue unchanged during Schema Freeze v1.
 
 ## Target Responsibilities
 
@@ -29,6 +29,7 @@ The database is not implemented. Existing application code, APIs, Google Sheets 
   - operational editing interface
   - displays validation warnings and errors
   - limits editing to defined cells
+  - has no visible Budget tab in v1
 - Import/Sync:
   - reads Sheets
   - validates records
@@ -39,27 +40,25 @@ The database is not implemented. Existing application code, APIs, Google Sheets 
   - stable identities
   - historical records
   - accepted configuration and operational data
+  - flat allocation unit targets
 - APIs:
   - eventually read accepted data from the database
 - Website:
   - eventually displays database-backed accepted data
 
-## Draft Architecture Areas
+## Schema Freeze v1 Boundary
 
-- Master Data
-- Year and calendar configuration
-- Google Sheets editing model
-- Import and validation
-- Data quality
-- Audit/history
-- Operational entities
-- Reporting read models
+- Keep `allocation_units` flat.
+- Use `allocation_unit_id` as the authoritative bank/payroll allocation target.
+- Store bank debit, credit, signed amount, and source payload.
+- Keep dynamic budget results out of storage until explicit lock.
+- Store immutable locked budget snapshots.
+- Keep RLS enabled without permissive public policies.
+- Add no visible Budget tab in Google Sheets v1.
 
 ## Future Work
 
-- SQL schema design.
-- Migration design.
 - Import implementation.
 - API read model changes.
+- API/auth RLS policies.
 - UI switch from Sheets-backed APIs to database-backed APIs.
-
