@@ -2,7 +2,7 @@
 
 Status: Active architecture log.
 
-Last updated: 2026-07-12
+Last updated: 2026-07-13
 
 ## Purpose
 
@@ -225,3 +225,11 @@ Status: Approved.
 Decision: A separate database table is created only when it protects history, represents a true repeating relationship, prevents duplication, supports an independent lifecycle, or is required for reliable synchronization and validation.
 
 Impact: Architectural neatness alone is not sufficient justification for another table. The final blueprint must include a simplification review that identifies merged concepts, database-only tables, and user-facing Sheets tabs separately.
+
+### DBD-0028 | Parallel New Application Environment
+
+Status: Approved target architecture.
+
+Decision: The future database-backed portal should be implemented as a new application environment in parallel with the current portal, rather than replacing the current runtime in place.
+
+Impact: The current portal remains available as a behavioral reference, reconciliation baseline, and rollback option. The new portal reads only from the new database-backed APIs and must not depend directly on the legacy Google Sheets structure. Existing UI patterns, components, and proven workflows may be reused where useful, but legacy Sheet connectors, temporary mappings, and implementation-specific workarounds are not copied automatically. Cutover occurs only after verified parity and owner approval.
