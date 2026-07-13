@@ -14,7 +14,7 @@ This document records unresolved questions that remain after the architecture de
 
 Status: Resolved for v1.
 
-Resolution: Use a lightweight configurable list. Seed the current actual type only. `NONPROFIT`, `COMPANY`, and `PUBLIC_BENEFIT_COMPANY` are examples; future types are added as new rows, not schema changes.
+Resolution: Use a lightweight configurable list. Seed the current actual type only. Future types are added as new rows, not schema changes.
 
 ### DBQ-0002 | Next Table After Year Tables
 
@@ -24,21 +24,39 @@ Resolution: Blueprint design proceeded by domain rather than strict table order.
 
 ### DBQ-0003 | Google Sheets Tab Layout
 
-Status: Resolved at blueprint level.
+Status: Resolved.
 
-Resolution: Default target is one primary operational spreadsheet with compact visible tabs: `הגדרות`, `ילדים`, `עובדים`, `שכר`, `בנקים`, and optional `תקציב` only when manual input is needed. Exact final column order is an implementation deliverable based on `google-sheets-mapping.md`.
+Resolution: One primary operational spreadsheet with exactly five initial visible tabs: `הגדרות`, `ילדים`, `עובדים`, `שכר`, `בנקים`. No visible `תקציב` tab in v1. Budget configuration is maintained in `הגדרות`; calculated outputs are shown in the portal/reports.
 
 ### DBQ-0004 | Business Code Language
 
 Status: Resolved.
 
-Resolution: Business Codes use stable uppercase English/ASCII codes. Hebrew remains for display names. Business Codes are not user-facing labels.
+Resolution: Business Codes use stable uppercase English/ASCII codes. Hebrew remains for display names.
 
 ### DBQ-0005 | Calendar Year Visibility
 
 Status: Resolved.
 
-Resolution: Calendar Year may include selectable/visible controls when required by the dashboard, but visibility and lifecycle remain separate. Multiple Calendar Years may remain open or selectable.
+Resolution: Calendar Year may include selectable/visible controls when required by the dashboard, while visibility and lifecycle remain separate. Multiple Calendar Years may remain open or selectable.
+
+### DBQ-0007 | Daycare Legal Entity Transfer History
+
+Status: Resolved for v1.
+
+Resolution: Keep `daycares.legal_entity_id` for the initial implementation. Add an effective-dated ownership-history table before the first actual transfer or when migration evidence requires historical ownership.
+
+### DBQ-0008 | Budget Tab Requiredness
+
+Status: Resolved.
+
+Resolution: Do not create a visible `תקציב` tab in v1. Add it later only after a demonstrated recurring manual-entry requirement.
+
+### DBQ-0011 | Historical Migration Depth
+
+Status: Resolved for the first migration wave.
+
+Resolution: Migrate the current and previous School Years and the current and previous Calendar Years. The schema supports all history; older reliable data may be migrated later.
 
 ## Open Non-Structural Questions
 
@@ -51,26 +69,6 @@ Question: Should historical reporting resolve names through effective-dated iden
 Recommendation: Use stable foreign keys as authority. Store snapshots only on finalized calculation/reporting outputs when reproducibility requires the exact historical label.
 
 Blocking: Does not block core schema creation. Must be resolved before final reporting views are frozen.
-
-### DBQ-0007 | Daycare Legal Entity Transfer History
-
-Status: Open — only needed when a real transfer occurs.
-
-Question: Should v1 create an effective-dated `daycare_legal_entity_assignments` table immediately, or keep `daycares.legal_entity_id` until an actual daycare transfer is planned?
-
-Recommendation: Keep the core model simple. Add the history table before the first ownership transfer or include it in v1 only if migration data already contains historical ownership changes.
-
-Blocking: Does not block initial one-entity operation.
-
-### DBQ-0008 | Budget Tab Requiredness
-
-Status: Open — owner workflow decision.
-
-Question: Is a visible `תקציב` input tab required, or are budget rules maintained inside `הגדרות` while calculated results remain website/database outputs?
-
-Recommendation: Do not create a visible Budget tab unless the owner or office staff must enter recurring manual budget values there.
-
-Blocking: Blocks final visible Sheet build, not database schema.
 
 ### DBQ-0009 | Publish/Sync Trigger
 
@@ -92,16 +90,6 @@ Recommendation: Select the environment immediately before implementation. Creden
 
 Blocking: Blocks environment setup only.
 
-### DBQ-0011 | Historical Migration Depth
-
-Status: Open — migration scope decision.
-
-Question: How many historical School Years and Calendar Years will be migrated into the new database?
-
-Recommendation: Migrate all reliable source data needed for comparative reporting. Do not delay v1 for low-quality history that can be archived and imported later.
-
-Blocking: Blocks migration scope and timeline, not core schema.
-
 ### DBQ-0012 | Parallel Run Duration
 
 Status: Open — cutover decision.
@@ -116,4 +104,4 @@ Blocking: Blocks cutover approval only.
 
 There are currently no unresolved questions that require redesign of the core Database Blueprint.
 
-Open items must be resolved at the implementation phase where they become relevant. Codex must not invent answers silently; unresolved choices must be surfaced before the dependent implementation step.
+The owner-dependent architecture decisions are closed in `final-architecture-closure.md`. Remaining items are implementation/environment choices and must be surfaced at the phase where they become relevant. Codex must not invent answers silently.
