@@ -1,8 +1,8 @@
 # Source Map
 
-Status: Draft architecture.
+Status: Schema Freeze v1.
 
-Last updated: 2026-07-12
+Last updated: 2026-07-13
 
 ## Purpose
 
@@ -17,7 +17,7 @@ This document maps known source surfaces to future database concepts.
 | Current APIs | Current Sheets-backed read layer | Future database-backed read layer |
 | Website | Current consumer of APIs | Future consumer of database-backed APIs |
 | Import/Sync | Not implemented | Validates and imports Sheet data to database |
-| Database | Not implemented | Final system Source of Truth |
+| Database | Structure frozen v1 | Final system Source of Truth after import/sync |
 
 ## Existing Known Google Sheets Areas
 
@@ -28,6 +28,7 @@ This document maps known source surfaces to future database concepts.
 - School Year configuration.
 - Calendar Year configuration.
 - Master Data configuration.
+- No visible Budget tab in Google Sheets v1.
 
 ## Source Authority Rules
 
@@ -35,4 +36,3 @@ This document maps known source surfaces to future database concepts.
 - Google Sheets provides editable operational/configuration data.
 - Database stores accepted validated data.
 - Existing code is current implementation evidence only.
-

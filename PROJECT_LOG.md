@@ -556,3 +556,61 @@ Remaining issues:
 
 - The linked Supabase project has remote migration history beyond Phase 1 that is not represented in the local repository.
 - Future migration work should reconcile remote migration history before attempting another `supabase db push`.
+## 2026-07-13 - Database Schema Freeze v1 Corrections
+
+Objective: Finalize Database Structure Freeze v1 for Supabase project `vyyfuaqmbxvfqgbfqooc` while keeping the existing schema and preserving migrations 001-010.
+
+Files changed:
+
+- `supabase/migrations/20260713201414_schema_freeze_v1_corrections.sql`
+- `docs/data/data-dictionary.md`
+- `docs/data/final-design-review.md`
+- `docs/data/final-architecture-closure.md`
+- `docs/data/decision-log.md`
+- `docs/data/relationship-matrix.md`
+- `docs/data/diagrams/erd.md`
+- `docs/data/open-questions.md`
+- `docs/data/README.md`
+- `docs/data/architecture-overview.md`
+- `docs/data/entity-inventory.md`
+- `docs/data/google-sheets-sync-model.md`
+- `docs/data/migration-strategy.md`
+- `docs/data/source-map.md`
+- `docs/data/source-of-truth-model.md`
+- Relevant table docs under `docs/data/tables/`
+- `PROJECT_LOG.md`
+
+Technical decisions:
+
+- Kept all 33 existing public tables.
+- Left migrations 001-010 unchanged.
+- Added one corrective Migration 011.
+- Aligned bank accounting status codes, budget category types, budget rule contracts, data quality statuses, bank source amount fields, allocation target integrity, and finalized payroll allocation reconciliation with the Handbook.
+- Kept `allocation_units` flat and authoritative for bank/payroll allocation targets.
+- Kept RLS enabled and deferred API/auth policies.
+
+Business decisions:
+
+- The current schema is kept and corrected, not rebuilt.
+- Dynamic budget results remain runtime calculations until explicit lock.
+- `budget_snapshots` stores immutable locked snapshots.
+- No visible Budget tab is added to Google Sheets v1.
+
+Validation:
+
+- Confirmed migrations 001-010 have no local diff.
+- Confirmed no table drops or data deletion statements were introduced.
+- Confirmed stale docs no longer claim only year tables are approved, that `organization_units` hierarchy is required, that `allocation_units` is a deviation, or that schema rebuild is required.
+- Applied Migration 011 to Supabase project `vyyfuaqmbxvfqgbfqooc`.
+- Confirmed Migration 011 is recorded remotely.
+- Confirmed all 33 public tables remain and no unexpected table was added.
+- Confirmed the new columns, constraints, functions, and triggers exist.
+- Confirmed rollback-safe validation inserts blocked invalid bank amounts, ambiguous allocation targets, Approved Ignore without metadata, and unreconciled finalized payroll allocations.
+- Confirmed rollback validation left `0` rows in public tables.
+- Confirmed RLS remains enabled on all 33 public tables and no public policies were added.
+- Confirmed Supabase security advisors reported no error-level findings.
+- Confirmed Supabase performance advisors reported no error-level findings.
+
+Tests not run:
+
+- Application build and Playwright tests were not run because no portal, API, calculation, Google Sheets, or UI files changed.

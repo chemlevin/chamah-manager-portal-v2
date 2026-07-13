@@ -1,8 +1,8 @@
 # Table: calendar_years
 
-Status: Approved concept.
+Status: Frozen v1.
 
-Last updated: 2026-07-12
+Last updated: 2026-07-13
 
 ## Related Handbook Rules
 
@@ -159,4 +159,3 @@ This table supports CY rules in Calendar and Accounting documentation.
 
 - Whether Calendar Year needs Website Visibility.
 - Whether CLOSED years may be reopened and by whom.
-

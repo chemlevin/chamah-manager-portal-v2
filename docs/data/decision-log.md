@@ -2,7 +2,7 @@
 
 Status: Active architecture log.
 
-Last updated: 2026-07-12
+Last updated: 2026-07-13
 
 ## Purpose
 
@@ -201,3 +201,43 @@ Status: Approved working method.
 Decision: Non-blocking questions are collected for final review instead of interrupting table-by-table design.
 
 Impact: Architecture work continues domain by domain. Only a question that would materially change the overall schema should stop progress.
+
+### DBD-0025 | Keep Current Schema With Corrective Migration
+
+Status: Approved.
+
+Decision: The current 33-table schema is kept for Database Structure Freeze v1 and corrected through one Migration 011.
+
+Impact: Migrations 001-010 remain unchanged. The schema is not rebuilt.
+
+### DBD-0026 | Flat Allocation Units
+
+Status: Approved.
+
+Decision: `allocation_units` is the v1 allocation and reporting target model. It remains flat and does not require an organization hierarchy.
+
+Impact: `allocation_unit_id` is the authoritative target for bank and payroll allocations.
+
+### DBD-0027 | Handbook-Constrained Workflow Values
+
+Status: Approved.
+
+Decision: Bank accounting statuses, budget category types, data quality severities/statuses, and payroll allocation finalization statuses use constrained stable codes mapped to Handbook values.
+
+Impact: Incorrect prior codes are replaced by Migration 011 constraints.
+
+### DBD-0028 | Dynamic Budget Results And Locked Snapshots
+
+Status: Approved.
+
+Decision: Unlocked budget results are dynamic runtime results. `budget_snapshots` stores immutable locked monthly snapshots only.
+
+Impact: Budget data storage remains compact and does not create a visible Google Sheets Budget tab in v1.
+
+### DBD-0029 | RLS Policy Deferral
+
+Status: Approved.
+
+Decision: RLS remains enabled, but no permissive public policies are added during Schema Freeze v1.
+
+Impact: API/auth-specific policies are deferred to a later security phase.

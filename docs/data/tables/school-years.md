@@ -1,8 +1,8 @@
 # Table: school_years
 
-Status: Approved concept.
+Status: Frozen v1.
 
-Last updated: 2026-07-12
+Last updated: 2026-07-13
 
 ## Related Handbook Rules
 
@@ -174,4 +174,3 @@ This table supports SY lifecycle and default selection rules from Calendar rules
 
 - Exact values for `review_status`.
 - Whether active SY count is limited to one.
-
