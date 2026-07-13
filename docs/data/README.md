@@ -1,148 +1,142 @@
 # Data Architecture Knowledge Base
 
-Status: Active Database Blueprint knowledge base. The database is not implemented.
+Status: Database Blueprint v1.0 — implementation-ready documentation package. No database, Sync service, Google Sheets workspace, or replacement portal has been implemented yet.
 
-Last updated: 2026-07-12
+Last updated: 2026-07-13
 
 ## Purpose
 
-`docs/data/` is the permanent, self-contained database architecture knowledge base for the Chamah Manager Portal. It records approved database decisions, draft table designs, source-of-truth rules, Google Sheets operating requirements, migration strategy, unresolved questions, and implementation handoff requirements.
+`docs/data/` is the permanent, self-contained database architecture knowledge base for the Chamah Manager Portal. It allows a future developer or AI model to understand the approved architecture and continue implementation without access to prior conversations.
 
-The folder must allow a future developer or AI model to continue the work without access to prior conversations.
-
-This folder is documentation only. It does not create migrations, SQL, ORM models, APIs, calculations, Google Sheets integrations, tests, UI, Supabase projects, or production infrastructure.
+The Handbook under `docs/handbook/` remains the only source of business truth. This folder records the approved database architecture, Google Sheets operating model, migration strategy, open implementation questions, and Codex handoff instructions.
 
 ## Mandatory Reading Order
 
 1. `docs/handbook/`
-2. `docs/data/README.md`
-3. `database-blueprint-principles.md`
-4. `decision-log.md`
-5. `open-questions.md`
-6. `architecture-overview.md`
-7. `source-of-truth-model.md`
-8. `google-sheets-sync-model.md`
-9. `naming-and-identity-standards.md`
-10. `entity-inventory.md`
-11. `relationship-matrix.md`
-12. `source-map.md`
-13. `migration-strategy.md`
-14. `google-sheets-mapping.md`
-15. `tables/README.md`
-16. Individual table documents under `tables/`
-17. `diagrams/erd.md`
+2. `docs/data/database-constitution.md`
+3. `docs/data/README.md`
+4. `docs/data/database-blueprint-principles.md`
+5. `docs/data/decision-log.md`
+6. `docs/data/open-questions.md`
+7. `docs/data/executive-summary.md`
+8. `docs/data/domain-model.md`
+9. `docs/data/data-dictionary.md`
+10. `docs/data/relationship-matrix.md`
+11. `docs/data/diagrams/erd.md`
+12. `docs/data/source-map.md`
+13. `docs/data/google-sheets-workspace.md`
+14. `docs/data/google-sheets-mapping.md`
+15. `docs/data/migration-strategy.md`
+16. `docs/data/database-roadmap.md`
+17. `docs/data/codex-implementation-package.md`
+18. Individual domain/table documents under `docs/data/tables/`
 
 ## Current Phase
 
-Current phase: Production-grade Database Blueprint and Google Sheets workspace specification.
+Blueprint design is complete. The repository contains an implementation-ready architecture package, subject only to the explicitly listed non-structural questions in `open-questions.md` and owner approval of the final visible Google Sheets layout.
 
-The new database is being designed in parallel with the existing system. The current website, APIs, calculations, UI, tests, deployment, and current Google Sheets are not modified during this phase.
+No application code, database migrations, APIs, Google Sheets integration, tests, deployment, Supabase project, or replacement portal has been created in this phase.
 
-No database account or Supabase project is required until the blueprint, table specifications, sync model, and final Google Sheets structure are implementation-ready.
+## Approved Target Architecture
 
-## Sources Of Truth
+```text
+Google Sheets operational workspace
+        ↓
+Validation and controlled Publish/Sync
+        ↓
+PostgreSQL / Supabase database
+        ↓
+Database-backed APIs
+        ↓
+Parallel new portal / dashboard
+```
 
-- `docs/handbook/` is the only source of business truth.
-- `docs/data/` is the source of approved database architecture decisions.
-- Existing code and current Google Sheets describe the present implementation and migration source; they do not override the Handbook.
-- The future database is the final system Source of Truth after successful validation and sync.
-- Google Sheets is the operational editing interface for the owner and office staff.
+The current production portal remains available during implementation as a behavior reference, reconciliation baseline, and rollback option.
 
-Target flow:
+## Core Approved Decisions
 
-`Google Sheets -> Validation -> Import/Sync -> Database -> APIs -> Website`
-
-## Approved Core Decisions
-
+- The Handbook is the business Source of Truth.
+- Google Sheets is the operational editing interface.
 - Users do not edit the database directly.
-- Only marked Google Sheets cells are editable.
-- Controlled fields use dropdowns wherever possible.
-- Free text is limited to fields explicitly designed for it.
-- IDs, used business codes, calculated values, audit fields, and sync metadata are protected.
-- Adding a new valid Master Data row creates a new business entity.
-- Display-name changes preserve identity.
-- Material meaning changes require a new business code and new row.
-- Historical data is never silently overwritten.
-- Configuration, operational data, imported source data, and manual workflow data are separated.
-- School Year and Calendar Year are separate concepts.
-- Multiple years may remain selectable; one year is shown at a time per dashboard.
-- Multiple Calendar Years may remain OPEN during accounting completion work.
-- One Daycare represents one daycare license.
-- Classroom structure and Age Group composition may change by School Year and within-year effective dates.
+- The database becomes the final system Source of Truth after validation and synchronization.
+- The new database and portal are built in parallel to the current system.
+- The replacement portal reads only from the new database, not from the legacy Sheets structure.
+- Stable identity is separated from period-based operational data.
+- Master Data uses stable internal ID, stable Business Code, and Display Name.
+- Used records are not physically deleted.
+- Historical data is not silently overwritten.
+- Configuration, imported source data, manual operational work, and calculated results are separated.
+- One Daycare represents one license.
+- Classroom structure belongs to a School Year and may have effective dates inside the year.
 - Budget child quantity is monthly enrollment by classroom and Age Group.
-- A child counted for a month is treated as producing tuition income for that month.
-- Legal Entity support remains lightweight and exists mainly for ownership, bank accounts, tuition dimensions, and reporting separation.
+- A child counted for a month is treated as generating tuition income for that month.
+- Legal Entity support remains lightweight.
+- The database is normalized internally, but the Google Sheets workspace remains compact.
+- A separate table is created only when it protects history, represents a repeating relationship, prevents duplication, supports an independent lifecycle, or is required for reliable sync/validation.
 
-See `decision-log.md` for permanent decision IDs and full impact.
+See `decision-log.md` for permanent decision IDs and complete impact.
 
-## Domain Work Plan
+## Final User-Facing Google Sheets Target
 
-1. Foundation and periods.
-2. Organization, Daycares, and classroom configuration.
-3. Children and monthly enrollment.
-4. Employees, employment, assignments, certificates, and compensation eligibility.
-5. Payroll source records and allocations.
-6. Banking, bank allocations, and accounting workflow.
-7. Budget configuration, calculation, locks, and administration allocations.
-8. Imports, audit, and Data Quality.
-9. Reporting and final Google Sheets workspace mapping.
-10. Codex implementation handoff.
+Default target: one primary operational spreadsheet with a compact visible surface.
 
-## Current Table Status
+Expected visible work areas:
 
-### Approved Concepts
+1. `הגדרות`
+2. `ילדים`
+3. `עובדים`
+4. `שכר`
+5. `בנקים`
+6. `תקציב` only when manual budget input is genuinely required
 
-- `school_years`
-- `calendar_years`
-- lightweight `legal_entities`
-- `daycares`
-- School-Year/effective-period classroom configuration
-- monthly enrollment by classroom and Age Group
+Technical reference lists, IDs, versions, import logs, validation data, and system metadata may exist in protected or hidden support areas. They must not create a fragmented day-to-day workflow.
 
-### Draft Or Pending Full Specification
+## Main Blueprint Deliverables
 
-- reporting/accounting month dimension
-- legal entity types and legal entities field-level specification
-- daycare legal-entity history if ownership changes
-- detailed classroom table split
-- all remaining domain tables
+- Database Constitution
+- Architecture principles and decision log
+- Domain Model
+- Data Dictionary
+- ERD
+- Relationship Matrix
+- Source Map
+- Google Sheets workspace specification
+- Google Sheets-to-database mapping
+- Import, validation, audit, and Data Quality model
+- Migration Strategy
+- Implementation Roadmap
+- Codex Implementation Package
+- Domain/table blueprints
+- Open Questions log
+- Final Design Review
 
-Table-level approval requires a completed document under `tables/` and consistency checks against the Handbook and related decisions.
+## Implementation Readiness
 
-## Google Sheets Final Deliverable
+The package is ready to be handed to Codex for staged implementation after:
 
-The final implementation package must define a new Google Drive / Google Sheets workspace that serves as the operational work surface.
+1. The owner approves the final visible Google Sheets workflow.
+2. The implementation team selects and creates the PostgreSQL/Supabase environment.
+3. Non-structural implementation choices in `open-questions.md` are resolved at the relevant phase.
 
-Each operational Sheet specification must define:
+Codex must execute the approved architecture. It must not redesign business rules or introduce speculative complexity.
 
-- spreadsheet and tab name
-- row identity
-- editable columns
-- protected columns
-- dropdown sources
-- free-text fields
-- blocking validations
-- warnings
-- sync status columns
-- error feedback columns
-- publish/sync behavior
-- database mapping
-- audit behavior
+## Recommended Implementation Sequence
 
-The final Google Sheets workspace is designed from the approved database model; the database model is not copied from the limitations of the existing Sheets.
+1. Create the new database environment.
+2. Implement the core schema from migrations.
+3. Seed only approved reference/configuration data.
+4. Build the compact Google Sheets workspace.
+5. Build controlled validation and Publish/Sync.
+6. Migrate and reconcile historical data.
+7. Build database-backed read APIs.
+8. Build the replacement portal in a parallel environment.
+9. Run old and new systems in parallel.
+10. Cut over only after verified parity and owner approval.
 
-## Open Questions
-
-See `open-questions.md`.
-
-Non-blocking questions are collected and presented together near the end of blueprint work. Only structurally blocking uncertainty should interrupt domain design.
-
-## Next Recommended Action
-
-Complete the Foundation and Organization domain specifications, beginning with period/month handling and the clean separation among Daycare identity, annual/effective classroom configuration, and monthly budget enrollment.
+See `database-roadmap.md` and `codex-implementation-package.md` for the exact implementation phases and acceptance criteria.
 
 ## Maintenance Rule
 
-Every future database architecture decision must update the relevant files in `docs/data/`.
+Every future database architecture change must update the relevant documents in `docs/data/`.
 
-Do not rely on conversation history. Do not describe an unapproved proposal as implemented or final. Do not create database code until the blueprint explicitly reaches implementation-ready status.
+Do not rely on chat history. Do not describe proposals as implemented facts. Do not change the Handbook through database documentation. Do not create production code from an unresolved business assumption.
