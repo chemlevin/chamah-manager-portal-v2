@@ -1,148 +1,129 @@
 # Data Architecture Knowledge Base
 
-Status: Active Database Blueprint knowledge base. The database is not implemented.
+Status: Database Blueprint v1.0 — implementation-ready documentation package. No database, Sync service, Google Sheets workspace, or replacement portal has been implemented yet.
 
-Last updated: 2026-07-12
+Last updated: 2026-07-13
 
 ## Purpose
 
-`docs/data/` is the permanent, self-contained database architecture knowledge base for the Chamah Manager Portal. It records approved database decisions, draft table designs, source-of-truth rules, Google Sheets operating requirements, migration strategy, unresolved questions, and implementation handoff requirements.
+`docs/data/` is the permanent database architecture knowledge base for the Chamah Manager Portal. It must allow a future developer or AI model to continue implementation without relying on prior conversations.
 
-The folder must allow a future developer or AI model to continue the work without access to prior conversations.
-
-This folder is documentation only. It does not create migrations, SQL, ORM models, APIs, calculations, Google Sheets integrations, tests, UI, Supabase projects, or production infrastructure.
+The Handbook under `docs/handbook/` is the only source of business truth. This folder records the approved architecture, operational Google Sheets model, migration strategy, implementation decisions, and Codex handoff instructions.
 
 ## Mandatory Reading Order
 
 1. `docs/handbook/`
-2. `docs/data/README.md`
-3. `database-blueprint-principles.md`
-4. `decision-log.md`
-5. `open-questions.md`
-6. `architecture-overview.md`
-7. `source-of-truth-model.md`
-8. `google-sheets-sync-model.md`
-9. `naming-and-identity-standards.md`
-10. `entity-inventory.md`
-11. `relationship-matrix.md`
-12. `source-map.md`
-13. `migration-strategy.md`
-14. `google-sheets-mapping.md`
-15. `tables/README.md`
-16. Individual table documents under `tables/`
-17. `diagrams/erd.md`
+2. `docs/data/database-constitution.md`
+3. `docs/data/README.md`
+4. `docs/data/final-architecture-closure.md`
+5. `docs/data/decision-log.md`
+6. `docs/data/open-questions.md`
+7. `docs/data/executive-summary.md`
+8. `docs/data/domain-model.md`
+9. `docs/data/data-dictionary.md`
+10. `docs/data/relationship-matrix.md`
+11. `docs/data/diagrams/erd.md`
+12. `docs/data/source-map.md`
+13. `docs/data/google-sheets-workspace.md`
+14. `docs/data/google-sheets-mapping.md`
+15. `docs/data/migration-strategy.md`
+16. `docs/data/database-roadmap.md`
+17. `docs/data/codex-implementation-package.md`
+18. Relevant domain/table documents under `docs/data/tables/`
 
-## Current Phase
+Where earlier documents are ambiguous, `final-architecture-closure.md` controls unless the Handbook states otherwise.
 
-Current phase: Production-grade Database Blueprint and Google Sheets workspace specification.
+## Approved Target Architecture
 
-The new database is being designed in parallel with the existing system. The current website, APIs, calculations, UI, tests, deployment, and current Google Sheets are not modified during this phase.
+```text
+Google Sheets operational workspace
+        ↓
+Validation and controlled Publish/Sync
+        ↓
+PostgreSQL / Supabase database
+        ↓
+Database-backed APIs
+        ↓
+Parallel new portal / dashboard
+```
 
-No database account or Supabase project is required until the blueprint, table specifications, sync model, and final Google Sheets structure are implementation-ready.
+The current portal remains available during implementation as a behavioral reference, reconciliation baseline, and rollback option.
 
-## Sources Of Truth
+## Core Decisions
 
-- `docs/handbook/` is the only source of business truth.
-- `docs/data/` is the source of approved database architecture decisions.
-- Existing code and current Google Sheets describe the present implementation and migration source; they do not override the Handbook.
-- The future database is the final system Source of Truth after successful validation and sync.
-- Google Sheets is the operational editing interface for the owner and office staff.
-
-Target flow:
-
-`Google Sheets -> Validation -> Import/Sync -> Database -> APIs -> Website`
-
-## Approved Core Decisions
-
+- Google Sheets is the operational editing interface.
 - Users do not edit the database directly.
-- Only marked Google Sheets cells are editable.
-- Controlled fields use dropdowns wherever possible.
-- Free text is limited to fields explicitly designed for it.
-- IDs, used business codes, calculated values, audit fields, and sync metadata are protected.
-- Adding a new valid Master Data row creates a new business entity.
-- Display-name changes preserve identity.
-- Material meaning changes require a new business code and new row.
-- Historical data is never silently overwritten.
-- Configuration, operational data, imported source data, and manual workflow data are separated.
-- School Year and Calendar Year are separate concepts.
-- Multiple years may remain selectable; one year is shown at a time per dashboard.
-- Multiple Calendar Years may remain OPEN during accounting completion work.
-- One Daycare represents one daycare license.
-- Classroom structure and Age Group composition may change by School Year and within-year effective dates.
-- Budget child quantity is monthly enrollment by classroom and Age Group.
-- A child counted for a month is treated as producing tuition income for that month.
-- Legal Entity support remains lightweight and exists mainly for ownership, bank accounts, tuition dimensions, and reporting separation.
+- The database becomes the accepted-data Source of Truth after validation and synchronization.
+- The replacement portal reads only from the new database-backed APIs.
+- Stable identity is separated from period-based operational data.
+- Master Data uses stable internal UUID, stable Business Code, and Display Name.
+- Used records are not physically deleted.
+- Historical data is not silently overwritten.
+- Imported source data, manual operational work, configuration, and calculated results remain separate.
+- One Daycare represents one license.
+- Classroom structure belongs to a School Year and may change through effective dates.
+- Monthly enrollment by classroom and Age Group is the budget child source.
+- Employee identity is separate from employment and assignments.
+- Payroll and bank source records are separate from user allocations.
+- Allocation Units provide a lightweight destination model for Daycares, Office, Management, Development, and other approved units.
+- Current budget values are dynamically calculated; approved/locked months are stored as immutable snapshots.
+- No enterprise hierarchy, workflow engine, one-tab-per-table model, or speculative abstraction is part of v1.
 
-See `decision-log.md` for permanent decision IDs and full impact.
+## Final Google Sheets Surface
 
-## Domain Work Plan
+The initial operational workbook has five visible tabs:
 
-1. Foundation and periods.
-2. Organization, Daycares, and classroom configuration.
-3. Children and monthly enrollment.
-4. Employees, employment, assignments, certificates, and compensation eligibility.
-5. Payroll source records and allocations.
-6. Banking, bank allocations, and accounting workflow.
-7. Budget configuration, calculation, locks, and administration allocations.
-8. Imports, audit, and Data Quality.
-9. Reporting and final Google Sheets workspace mapping.
-10. Codex implementation handoff.
+1. `הגדרות`
+2. `ילדים`
+3. `עובדים`
+4. `שכר`
+5. `בנקים`
 
-## Current Table Status
+There is no visible `תקציב` tab in v1. Budget rules and approved manual configuration are maintained inside structured blocks in `הגדרות`; calculated outputs appear in the portal and reports.
 
-### Approved Concepts
+Technical lookup, ID, row-version, import, validation, audit, and error-support areas may exist as protected or hidden ranges/tabs. They must not fragment daily work.
 
-- `school_years`
-- `calendar_years`
-- lightweight `legal_entities`
-- `daycares`
-- School-Year/effective-period classroom configuration
-- monthly enrollment by classroom and Age Group
+## Initial Migration Scope
 
-### Draft Or Pending Full Specification
+The schema supports all historical years. The first migration wave includes:
 
-- reporting/accounting month dimension
-- legal entity types and legal entities field-level specification
-- daycare legal-entity history if ownership changes
-- detailed classroom table split
-- all remaining domain tables
+- Current School Year
+- Previous School Year
+- Current Calendar Year
+- Previous Calendar Year
 
-Table-level approval requires a completed document under `tables/` and consistency checks against the Handbook and related decisions.
+Older reliable history may be migrated later without redesigning the schema.
 
-## Google Sheets Final Deliverable
+## Implementation Readiness
 
-The final implementation package must define a new Google Drive / Google Sheets workspace that serves as the operational work surface.
+The Blueprint has no unresolved owner-dependent core-schema blocker.
 
-Each operational Sheet specification must define:
+Codex must execute the approved architecture and must not:
 
-- spreadsheet and tab name
-- row identity
-- editable columns
-- protected columns
-- dropdown sources
-- free-text fields
-- blocking validations
-- warnings
-- sync status columns
-- error feedback columns
-- publish/sync behavior
-- database mapping
-- audit behavior
+- invent business rules
+- create speculative tables
+- convert editable Master Data into hard-coded application-only values
+- expose database normalization as additional daily Sheet tabs
+- overwrite locked historical snapshots
+- bypass the controlled validation and synchronization flow
 
-The final Google Sheets workspace is designed from the approved database model; the database model is not copied from the limitations of the existing Sheets.
+Remaining questions in `open-questions.md` concern environment, hosting, exact sync trigger, reporting-label snapshots, and cutover timing. They must be surfaced at the relevant implementation phase.
 
-## Open Questions
+## Recommended Sequence
 
-See `open-questions.md`.
-
-Non-blocking questions are collected and presented together near the end of blueprint work. Only structurally blocking uncertainty should interrupt domain design.
-
-## Next Recommended Action
-
-Complete the Foundation and Organization domain specifications, beginning with period/month handling and the clean separation among Daycare identity, annual/effective classroom configuration, and monthly budget enrollment.
+1. Select and create the PostgreSQL/Supabase environment.
+2. Implement schema and migrations in small reviewable phases.
+3. Seed only approved reference/configuration values.
+4. Build the five-tab Google Sheets workspace.
+5. Build validation and controlled Publish/Sync.
+6. Migrate and reconcile the approved historical scope.
+7. Build database-backed APIs.
+8. Build the replacement portal in parallel.
+9. Run old and new systems in parallel.
+10. Cut over only after verified parity and owner approval.
 
 ## Maintenance Rule
 
-Every future database architecture decision must update the relevant files in `docs/data/`.
+Every future database architecture change must update the relevant documents in `docs/data/`.
 
-Do not rely on conversation history. Do not describe an unapproved proposal as implemented or final. Do not create database code until the blueprint explicitly reaches implementation-ready status.
+Do not rely on chat history. Do not describe proposals as implemented facts. Do not change the Handbook through database documentation. Do not create production code from an unresolved business assumption.

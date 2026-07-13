@@ -2,7 +2,7 @@
 
 Status: Active architecture log.
 
-Last updated: 2026-07-12
+Last updated: 2026-07-13
 
 ## Purpose
 
@@ -201,3 +201,35 @@ Status: Approved working method.
 Decision: Non-blocking questions are collected for final review instead of interrupting table-by-table design.
 
 Impact: Architecture work continues domain by domain. Only a question that would materially change the overall schema should stop progress.
+
+### DBD-0025 | Operational Simplicity Over Speculative Complexity
+
+Status: Approved.
+
+Decision: The database must optimize for the real operational needs of the owner and office staff. Future extensibility is preserved through stable identities, clean relationships, and effective dates, but no extra tables, workflows, hierarchies, status models, or abstractions are introduced solely for unlikely future scenarios.
+
+Impact: The blueprint avoids enterprise-scale patterns that are not required by the current daycare operation. A design extension is included only when it solves an approved business requirement, protects history, prevents a realistic migration problem, or supports a likely near-term change.
+
+### DBD-0026 | Minimal Google Sheets Surface
+
+Status: Approved.
+
+Decision: The final Google Sheets workspace must remain compact and practical. Database normalization must not be exposed as one tab or one file per database table.
+
+Impact: The target is one primary operational spreadsheet, or at most a very small number of spreadsheets, with approximately five to seven user-facing work tabs unless a clear operational need justifies more. Technical tables, audit records, lookup data, import logs, and database-only structures remain hidden from day-to-day users or are exposed through protected support tabs. Multiple database tables may be managed through one user-facing tab when that produces a simpler workflow without losing validation or history.
+
+### DBD-0027 | No Table Without Operational Justification
+
+Status: Approved.
+
+Decision: A separate database table is created only when it protects history, represents a true repeating relationship, prevents duplication, supports an independent lifecycle, or is required for reliable synchronization and validation.
+
+Impact: Architectural neatness alone is not sufficient justification for another table. The final blueprint must include a simplification review that identifies merged concepts, database-only tables, and user-facing Sheets tabs separately.
+
+### DBD-0028 | Parallel New Application Environment
+
+Status: Approved target architecture.
+
+Decision: The future database-backed portal should be implemented as a new application environment in parallel with the current portal, rather than replacing the current runtime in place.
+
+Impact: The current portal remains available as a behavioral reference, reconciliation baseline, and rollback option. The new portal reads only from the new database-backed APIs and must not depend directly on the legacy Google Sheets structure. Existing UI patterns, components, and proven workflows may be reused where useful, but legacy Sheet connectors, temporary mappings, and implementation-specific workarounds are not copied automatically. Cutover occurs only after verified parity and owner approval.
