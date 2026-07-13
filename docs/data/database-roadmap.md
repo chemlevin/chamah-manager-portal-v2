@@ -6,7 +6,7 @@ Last updated: 2026-07-13
 
 ## Goal
 
-Build the new database, controlled Google Sheets workspace, synchronization layer, and database-backed APIs without disrupting the current production system.
+Build the new database, controlled Google Sheets workspace, synchronization layer, database-backed APIs, and a new parallel portal environment without disrupting the current production system.
 
 ## Phase 0 — Blueprint Approval
 
@@ -34,11 +34,14 @@ Tasks:
 - Define secret-management rules
 - Enable backups and point-in-time recovery according to selected plan
 - Document connection ownership and access
+- Create a separate Vercel project or equivalent deployment environment for the new portal
+- Keep the current production deployment unchanged
 
 Exit criteria:
 
 - Empty database environment available
-- No production API uses it yet
+- Separate new-portal environment available
+- No production API uses the new database yet
 - Credentials are not committed to the repository
 
 ## Phase 2 — Core Schema
@@ -135,23 +138,50 @@ Exit criteria:
 
 Tasks:
 
-- Implement database-backed read services in parallel with current APIs
-- Preserve existing response contracts where possible
+- Implement database-backed read services for the new portal
+- Preserve existing response contracts where they are still useful
 - Add read models/views for dashboard needs
 - Compare database outputs against current Sheets-backed outputs
+- Do not make the new portal depend on legacy Sheet connectors
 
 Exit criteria:
 
 - Automated and manual parity checks pass
-- Current production APIs remain available for rollback
+- Current production APIs remain available as a reference and rollback source
 
-## Phase 7 — Parallel Run
+## Phase 7 — New Parallel Portal
+
+Tasks:
+
+- Build the new portal in a separate deployment environment
+- Reuse proven UI components and interaction patterns where useful
+- Reimplement data access against the new database-backed APIs only
+- Recreate screens module by module rather than as one uncontrolled rewrite
+- Keep current calculations traceable to Handbook rules and parity tests
+- Avoid copying legacy Sheet-specific mappings and workarounds
+
+Suggested module order:
+
+1. Reference/configuration views
+2. Organization and children
+3. Employees and payroll
+4. Banking/accounting
+5. Budget/dashboard
+
+Exit criteria:
+
+- New portal operates independently of legacy Google Sheets structure
+- Core screens match approved behavior and numbers
+- Current production portal remains available
+
+## Phase 8 — Parallel Run
 
 Tasks:
 
 - Continue current operational process
 - Synchronize new Sheets/database in parallel
-- Compare children, payroll, bank, and budget outputs each month
+- Run the new portal alongside the current portal
+- Compare children, payroll, bank, budget, and dashboard outputs each month
 - Resolve discrepancies before cutover
 
 Minimum recommendation:
@@ -165,29 +195,22 @@ Exit criteria:
 - No unresolved blocking data-quality issue
 - Rollback plan tested
 
-## Phase 8 — Cutover
+## Phase 9 — Cutover
 
 Tasks:
 
-- Switch selected API reads to the database module by module
+- Move users to the new portal only after approved parity
 - Monitor errors and reconciliation
-- Keep old Sheets-backed path available temporarily
-- Do not switch all domains in one uncontrolled release
-
-Suggested order:
-
-1. Reference/configuration reads
-2. Organization and children
-3. Employees and payroll
-4. Banking/accounting
-5. Budget/dashboard
+- Keep the old portal available temporarily as rollback/reference
+- Do not retire the old environment immediately
 
 Exit criteria:
 
-- Website reads accepted data from database
+- New portal reads accepted data from the database
 - Operational edits continue through the new controlled Sheets workspace
+- Owner approves production use
 
-## Phase 9 — Stabilization
+## Phase 10 — Stabilization And Legacy Retirement
 
 Tasks:
 
@@ -196,8 +219,10 @@ Tasks:
 - Simplify fields or tabs proven unnecessary
 - Finalize backup and recovery runbook
 - Document support procedure
+- Freeze the old portal to read-only when confidence is sufficient
+- Retire the old portal only after the agreed retention period and verified rollback no longer being required
 
-## Phase 10 — Optional Future Enhancements
+## Phase 11 — Optional Future Enhancements
 
 Only after stable operation:
 
