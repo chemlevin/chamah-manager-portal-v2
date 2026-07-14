@@ -4,7 +4,9 @@
     "start": "node scripts/serve.mjs",
     "qa": "node scripts/run-qa.mjs",
     "qa:update": "node scripts/run-qa.mjs --update",
-    "qa:report": "node tests/report.mjs"
+    "qa:report": "node tests/report.mjs",
+    "dry-run:sheets-v2": "node scripts/google-sheets-v2-dry-run.mjs",
+    "test:dry-run:sheets-v2": "node --test tests/google-sheets-v2-dry-run.spec.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.0"
