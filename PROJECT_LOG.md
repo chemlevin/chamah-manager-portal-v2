@@ -615,3 +615,14 @@ Validation:
 Tests not run:
 
 - Application build and Playwright tests were not run because no portal, API, calculation, Google Sheets, or UI files changed.
+## 2026-07-14 — Google Sheets v2 database delta
+
+- Audited the live `chamah-manager` Supabase schema against the connected Google Sheets v2 workbook and current repository implementation.
+- Added an additive migration for v2 sync identifiers, school-year months, monthly work calendars, mixed-class capacity breakdowns, effective-dated employee pay terms, accounting statuses, staffing budget parameters, daycare-year calculation settings, source payroll hour components, and bank allocation metadata.
+- Extended existing master/rule tables rather than replacing them; preserved the existing UUID primary keys, API contracts, runtime engines, budget calculations, RLS posture, triggers and stored data.
+- Added `docs/data/google-sheets-v2-delta-map.md` with STORED / DERIVED / VALIDATION_ONLY / UI_ONLY / SYNC_METADATA decisions and grain mapping.
+- No Google Sheets data was imported and no existing database data was deleted or rewritten.
+- Applied the migration to Supabase project `vyyfuaqmbxvfqgbfqooc`; remote migration version is `20260714203517`.
+- Verified all six new tables exist with RLS enabled, all sampled delta columns exist, and the public schema still contains zero rows.
+- `npm run build` passed. The Playwright-based test suite could not run because dependency installation failed in the execution environment while reading the npm cache; no package or lockfile was changed.
+- Supabase advisors reported informational notices only: the existing project intentionally has RLS enabled without policies and the empty database reports indexes as unused. No error-level advisor finding was introduced.
