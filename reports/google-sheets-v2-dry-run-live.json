@@ -1,0 +1,29 @@
+{
+  "spreadsheetId": "16Jj7x1oBdlZsR1FITrjJzXHeCN3OfGto-kMIjDQ2LMM",
+  "databaseProject": "vyyfuaqmbxvfqgbfqooc",
+  "mode": "DRY_RUN_READ_ONLY",
+  "databaseRowsBefore": 0,
+  "databaseRowsAfter": 0,
+  "totals": { "INSERT": 191, "UPDATE": 0, "SKIP": 7, "ERROR": 0 },
+  "bySource": {
+    "SCHOOL_YEARS": 2, "MONTHS": 12, "MONTHLY_WORK_CALENDAR": 12,
+    "ORGANIZATION_UNITS": 3, "DAYCARES": 7, "CLASSROOMS": 19,
+    "CLASSROOM_CAPACITY_BREAKDOWN": 6, "BANK_ACCOUNTS": 5,
+    "BUDGET_CATEGORIES": 35, "BUDGET_CATEGORY_SETTINGS": 21,
+    "TUITION_RULES": 5, "STAFFING_RULES": 6, "FIXED_STAFF_RULES": 14,
+    "PAY_ADDITION_RULES": 18, "ACCOUNTING_STATUSES": 5,
+    "DAYCARE_YEAR_SETTINGS": 7, "PAYROLL_ROLES": 4,
+    "PAYROLL_DEPARTMENTS": 9, "STAFFING_BUDGET_PARAMETERS": 1,
+    "EMPLOYEES": 0, "EMPLOYEE_PAY_TERMS": 0, "MONTHLY_OCCUPANCY": 0,
+    "PAYROLL": 0, "BANK_TRANSACTIONS": 0
+  },
+  "skips": [
+    { "source": "CLASSROOM_CAPACITY_BREAKDOWN", "rows": [87, 90, 91], "reason": "empty licensed_capacity placeholder" },
+    { "source": "MONTHLY_OCCUPANCY", "rows": [2, 3, 4, 5], "reason": "instruction-note placeholders without classroom or age group" }
+  ],
+  "warnings": [
+    { "source": "SCHOOL_YEARS", "sourceId": "SY-2027-2028", "reason": "future school year exists but its 12 MONTHS rows have not been created yet" }
+  ],
+  "blockingErrors": [],
+  "writesPerformed": false
+}
