@@ -626,3 +626,12 @@ Tests not run:
 - Verified all six new tables exist with RLS enabled, all sampled delta columns exist, and the public schema still contains zero rows.
 - `npm run build` passed. The Playwright-based test suite could not run because dependency installation failed in the execution environment while reading the npm cache; no package or lockfile was changed.
 - Supabase advisors reported informational notices only: the existing project intentionally has RLS enabled without policies and the empty database reports indexes as unused. No error-level advisor finding was introduced.
+
+## 2026-07-14 — Google Sheets v2 read-only import Dry Run
+
+- Added a read-only Dry Run CLI and pure mapping library for the stacked settings tables, monthly occupancy unfolding, payroll split rows and bank transaction/allocation rows.
+- Added five dependency-free mapping tests; all five passed.
+- Read the connected Google Sheets v2 workbook and live Supabase project directly without writes.
+- Result: 191 configuration inserts ready, 0 updates, 7 placeholder rows skipped, 0 blocking errors and 0 operational business rows.
+- Recorded one non-blocking future-year warning and three blank mixed-class capacity placeholders.
+- `npm run build` passed. Supabase remained at zero rows.
