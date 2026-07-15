@@ -17,6 +17,11 @@
       <label class="field" for="email"><span>כתובת מייל</span><input id="email" type="email" placeholder="כתובת המייל שלך" required autocomplete="username"></label>
       <label class="field" for="password"><span>סיסמה</span><span class="password-control"><input id="password" type="password" placeholder="הסיסמה שלך" required autocomplete="current-password"><button id="toggle-password" class="password-toggle" type="button" aria-label="הצגת הסיסמה" aria-pressed="false">הצג</button></span></label>
       <button id="login-submit" class="button button-primary button-block" type="submit">כניסה</button>
+      <button id="forgot-password" class="text-button" type="button" aria-expanded="false" aria-controls="recovery-help">שכחתי סיסמה</button>
+      <div id="recovery-help" class="recovery-help" hidden>
+        <strong>איפוס סיסמה מאובטח</strong>
+        <span>יש לבקש ממנהל המערכת לשלוח קישור איפוס דרך Supabase. הקישור ייפתח כאן ויאפשר להגדיר סיסמה חדשה.</span>
+      </div>
       <p id="login-message" class="form-message" aria-live="polite"></p>
     </form>
   </section>

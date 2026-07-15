@@ -941,3 +941,51 @@ Validation:
 Remaining issues:
 
 - Live recovery email, password update, subsequent password login, and production RLS reads require the existing user to trigger and complete the Dashboard Reset Password action after deployment.
+
+## 2026-07-15 - Sprint 3 Financial Dashboard Foundation
+
+Objective: Build the reusable production-oriented Financial Dashboard foundation for the new `/new/` portal without changing data contracts, calculations, APIs, Supabase, or RLS.
+
+Files changed:
+
+- `chamah-manager-portal/new/index.html`
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/styles.css`
+- `tests/new-portal-dashboards.spec.mjs`
+- `tests/new-portal-screenshots.spec.mjs`
+- `PROJECT_LOG.md`
+
+Implementation:
+
+- Added a Hebrew `שכחתי סיסמה` entry point that explains and connects users to the existing administrator-triggered Supabase recovery flow without changing authentication requests or session behavior.
+- Replaced the organization-only finance view with one reusable Financial Dashboard that receives either the organization or any active Allocation Unit from existing hash navigation.
+- Added dashboard context for unit, School Year, selected period, and breadcrumbs.
+- Added single- and multi-month selection while keeping the School-Year summary independent from the selected reporting months.
+- Added 12 reusable clickable KPI cards covering revenue, expenses, payroll, profit/loss, budget, budget utilization, actual hours, standard hours, hours difference, hours difference percentage, children, and alerts.
+- Preserved existing bank, payroll, and children behavior; children uses only the latest available selected month and is never summed across months.
+- Displays professional unavailable states for KPIs whose approved data source or calculation is not present.
+- Added a reusable KPI drill-down panel with description, calculation, data source, and future source-record placement.
+- Added initially collapsed Budget, Payroll, Working Hours, Children, Bank Transactions, and Data Quality sections.
+- Added a reusable sticky dashboard toolbar with data-only refresh, successful last-updated timestamp, print, and placeholder PDF/Excel actions.
+- Added skeleton loading, non-technical retry errors, print styling, RTL responsive layouts, and touch targets of at least 44px.
+
+Scope preserved:
+
+- Did not modify APIs, calculations, business logic, database schema, Supabase configuration/data, RLS, package files, `cmh-ops`, or the existing production website.
+- Did not invent financial values; missing Budget, Hours, and other unavailable sources render explicit empty states.
+
+Validation:
+
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `npm run build` passed.
+- Focused authentication, portal foundation, and dashboard tests passed: 77 passed, 3 conditionally skipped.
+- Screenshot generation passed: 1 passed, 3 project duplicates intentionally skipped.
+- Full `npx playwright test` regression passed: 302 passed, 6 intentionally skipped.
+- Desktop 1440x900, tablet 820x1180, and mobile 390x844 screenshots were generated and visually reviewed.
+- Responsive tests confirmed no horizontal overflow across configured projects and tablet/mobile landscape sizes.
+
+Remaining placeholders:
+
+- Budget, profit/loss, budget utilization, actual/standard hours, hours variance, and hours variance percentage remain unavailable until approved source data and calculation contracts exist.
+- PDF and Excel export actions are intentionally UI placeholders; browser printing is active.
+- Detailed expandable sections and KPI source-row records are prepared but intentionally not populated in this foundation sprint.

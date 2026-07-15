@@ -28,6 +28,8 @@ let unitState = { status: 'idle', items: [], error: '' };
 let generalModel = {};
 let generalStatus = 'idle';
 let generalError = '';
+let generalLastUpdated = null;
+let activeDashboardUnit = null;
 const protectedRequests = new Set();
 let authPending = false;
 let recoveryPending = false;
@@ -264,8 +266,13 @@ function dashboardPlaceholderTemplate(unit, type) {
   return `<section class="page-heading"><div><p class="eyebrow">${escapeHtml(unit.display_name)} · ${type.title}</p><h1>${type.title}</h1><p>הדשבורד יוצג בהקשר של ${escapeHtml(unit.display_name)}.</p></div><a class="button button-secondary" href="${unitRoute(unit.allocation_unit_id)}">חזרה לדשבורדי היחידה</a></section><section class="coming-soon panel"><span class="coming-icon" aria-hidden="true">${type.icon}</span><span class="status-badge status-info">בקרוב</span><h2>${type.title} עבור ${escapeHtml(unit.display_name)}</h2><p>היעד מוכן לטעינת נתונים ייעודיים בספרינט עתידי. בשלב זה לא מוצגים נתונים, מדדים או התראות.</p></section>`;
 }
 
-function generalDashboardShell() {
-  return `<section class="page-heading general-dashboard-heading"><div><p class="eyebrow">כלל הארגון · דשבורד כספים</p><h1>דשבורד כספים</h1><p>נתונים חיים מ־Supabase</p></div><div class="filters"><label class="field" for="year-filter"><span>שנת לימודים</span><select id="year-filter"></select></label><label class="field" for="month-filter"><span>חודש</span><select id="month-filter"></select></label></div></section><div id="general-state" class="state">טוען נתונים חיים…</div><div id="general-dashboard" hidden><section id="kpis" class="kpis"></section><section class="panel data-panel"><div class="panel-head"><div><p class="eyebrow">לפי מעון</p><h2>תפוסה</h2></div><span id="daycare-count"></span></div><div id="daycares" class="daycare-grid"></div></section><section class="panel data-panel"><div class="panel-head"><div><p class="eyebrow">איכות נתונים</p><h2>מה חסר ודורש טיפול</h2></div><span id="issues-count"></span></div><div id="issues" class="issues"></div></section></div>`;
+function generalDashboardShell(unit) {
+  return `<section class="financial-heading"><div><p class="eyebrow">דשבורד כספים</p><h1>דשבורד כספים · ${escapeHtml(unit.display_name)}</h1><p>תמונת מצב ניהולית המבוססת על הנתונים הקיימים בלבד.</p></div><div class="dashboard-context"><span><small>יחידת הקצאה</small><strong>${escapeHtml(unit.display_name)}</strong></span><span><small>שנת לימודים</small><strong id="context-year">—</strong></span><span><small>תקופה נבחרת</small><strong id="context-period">—</strong></span></div></section>
+  <section class="global-toolbar panel" aria-label="פעולות דשבורד"><button id="refresh-dashboard" class="button button-secondary" type="button">↻ רענון נתונים</button><span class="last-updated"><small>עודכן לאחרונה</small><strong id="last-updated">טרם עודכן</strong></span><div class="toolbar-actions"><button class="button button-quiet" type="button" data-export="print">הדפסה</button><button class="button button-quiet" type="button" data-export="pdf">PDF</button><button class="button button-quiet" type="button" data-export="excel">Excel</button></div></section>
+  <section class="period-panel panel"><div><h2>בחירת תקופה</h2><p>ניתן לבחור חודש אחד או מספר חודשים. סיכום שנת הלימודים נשאר קבוע.</p></div><div class="filters"><label class="field" for="year-filter"><span>שנת לימודים</span><select id="year-filter"></select></label><label class="field" for="month-filter"><span>חודשים</span><select id="month-filter" multiple aria-describedby="month-help"></select><small id="month-help">לבחירה מרובה: Ctrl או ⌘</small></label></div></section>
+  <div id="general-state" class="dashboard-skeleton" aria-live="polite">${Array.from({ length: 8 }, () => '<span></span>').join('')}</div>
+  <div id="general-dashboard" hidden><section class="school-year-summary panel" aria-labelledby="summary-title"><div><p class="eyebrow">הסיכום הניהולי הראשי</p><h2 id="summary-title">מתחילת שנת הלימודים</h2><p id="summary-range">—</p></div><div class="summary-arrow" aria-hidden="true">↓</div><div><small>עד החודש האחרון הזמין</small><strong id="summary-month">—</strong></div></section><section id="kpis" class="financial-kpis" aria-label="מדדים מרכזיים"></section><section class="expandable-sections" aria-label="פירוט הדשבורד">${['תקציב','שכר','שעות עבודה','ילדים','תנועות בנק','איכות נתונים'].map((label) => `<details class="dashboard-detail panel"><summary>${label}<span>פתיחת פירוט</span></summary><div class="detail-empty">הפירוט יתווסף כאשר נתוני המקור המתאימים יהיו זמינים.</div></details>`).join('')}</section></div>
+  <aside id="kpi-panel" class="kpi-panel" hidden aria-labelledby="kpi-panel-title"><button id="close-kpi-panel" class="icon-button" type="button" aria-label="סגירת פירוט">×</button><p class="eyebrow">פירוט מדד</p><h2 id="kpi-panel-title"></h2><dl><div><dt>תיאור</dt><dd id="kpi-description"></dd></div><div><dt>חישוב</dt><dd id="kpi-calculation"></dd></div><div><dt>מקור נתונים</dt><dd id="kpi-source"></dd></div></dl><div class="empty-state compact"><strong>רשומות מקור</strong><span>רשומות המקור המפורטות יתווספו בשלב הבא.</span></div></aside><button id="kpi-backdrop" class="kpi-backdrop" type="button" aria-label="סגירת פירוט" hidden></button><div id="export-message" class="toast" role="status" hidden></div>`;
 }
 
 const sum = (items, getter) => items.reduce((total, item) => total + Number(getter(item) || 0), 0);
@@ -281,6 +288,7 @@ async function loadGeneralDashboard() {
     ]);
     generalModel = { years, months, daycares, dsy, classrooms, enrollment, payroll, pa, bank, ba, units, issues };
     generalStatus = 'ready';
+    generalLastUpdated = new Date();
   } catch (error) {
     generalStatus = 'error';
     generalError = error.message;
@@ -294,41 +302,64 @@ function setupGeneralFilters() {
   yearSelect.innerHTML = generalModel.years.map((year) => `<option value="${year.school_year_id}">${escapeHtml(year.display_name)}</option>`).join('');
   yearSelect.value = oldValue && generalModel.years.some((year) => year.school_year_id === oldValue) ? oldValue : (generalModel.years.find((year) => year.is_default) || generalModel.years[0])?.school_year_id || '';
   const available = generalModel.months.filter((item) => item.school_year_id === yearSelect.value);
+  const selectedValues = new Set([...$('#month-filter').selectedOptions].map((option) => option.value));
   $('#month-filter').innerHTML = available.map((item) => `<option value="${item.start_date}">${escapeHtml(item.month_label)}</option>`).join('');
+  [...$('#month-filter').options].forEach((option) => { option.selected = selectedValues.has(option.value); });
   const now = new Date().toISOString().slice(0, 7);
-  $('#month-filter').value = available.find((item) => item.start_date.startsWith(now))?.start_date || available[0]?.start_date || '';
+  const initial = available.find((item) => item.start_date.startsWith(now))?.start_date || available[0]?.start_date || '';
+  if (![...$('#month-filter').selectedOptions].length && initial) $('#month-filter').value = initial;
 }
 
+const kpiDefinitions = [
+  ['revenue', 'הכנסות', 'סך תנועות הבנק החיוביות בתקופה שנבחרה.', 'סכום תנועות חיוביות', 'תנועות בנק ושיוכי בנק'],
+  ['expenses', 'הוצאות', 'סך תנועות הבנק השליליות בתקופה שנבחרה.', 'ערך מוחלט של תנועות שליליות', 'תנועות בנק ושיוכי בנק'],
+  ['payroll', 'שכר', 'עלות השכר הזמינה בתקופה שנבחרה.', 'סכום עלות מעסיק', 'רשומות שכר והקצאות שכר'],
+  ['profit', 'רווח / הפסד', 'המדד יוצג רק כאשר קיים מקור מאושר לחישוב.', 'טרם הוגדר', 'אין מקור זמין'],
+  ['budget', 'תקציב', 'מסגרת התקציב המאושרת לתקופה.', 'טרם הוגדר', 'אין מקור זמין'],
+  ['budget-use', 'ניצול תקציב', 'שיעור ניצול התקציב המאושר.', 'טרם הוגדר', 'אין מקור זמין'],
+  ['hours', 'שעות עבודה', 'שעות העבודה בפועל.', 'טרם הוגדר', 'אין מקור זמין'],
+  ['standard-hours', 'שעות תקן', 'שעות התקן המאושרות.', 'טרם הוגדר', 'אין מקור זמין'],
+  ['hours-gap', 'פער שעות', 'הפער בין שעות בפועל לשעות התקן.', 'טרם הוגדר', 'אין מקור זמין'],
+  ['hours-gap-percent', 'פער שעות %', 'שיעור הפער בין שעות בפועל לשעות התקן.', 'טרם הוגדר', 'אין מקור זמין'],
+  ['children', 'ילדים', 'הערך בחודש האחרון שנבחר שבו קיימים נתונים; ילדים אינם נסכמים בין חודשים.', 'הערך העדכני ביותר', 'רישום חודשי'],
+  ['alerts', 'התראות', 'מספר התראות איכות הנתונים הפתוחות.', 'ספירת התראות פתוחות', 'איכות נתונים']
+];
+
 function renderGeneralData() {
-  if (generalStatus === 'error') { $('#general-state').textContent = generalError; $('#general-state').classList.add('error'); return; }
+  if (generalStatus === 'error') { $('#general-state').className = 'error-state panel'; $('#general-state').innerHTML = '<strong>לא ניתן לטעון את נתוני הדשבורד</strong><span>הנתונים האחרונים נשמרו ככל שהיו זמינים.</span><button class="button button-secondary" type="button" data-retry-dashboard>נסה שוב</button>'; return; }
   if (generalStatus !== 'ready') return;
   setupGeneralFilters();
   const year = $('#year-filter').value;
-  const selectedMonth = month($('#month-filter').value);
+  const selectedMonths = [...$('#month-filter').selectedOptions].map((option) => month(option.value));
+  const selectedMonthSet = new Set(selectedMonths);
+  const unitId = activeDashboardUnit?.allocation_unit_id;
   const dsyIds = new Set(generalModel.dsy.filter((item) => item.school_year_id === year && item.is_operating).map((item) => item.daycare_school_year_id));
   const classrooms = generalModel.classrooms.filter((item) => dsyIds.has(item.daycare_school_year_id));
-  const classroomIds = new Set(classrooms.map((item) => item.classroom_id));
-  const enrollment = generalModel.enrollment.filter((item) => classroomIds.has(item.classroom_id) && month(item.reporting_month) === selectedMonth);
-  const payroll = generalModel.payroll.filter((item) => month(item.payroll_month) === selectedMonth);
+  const relevantDaycares = unitId === 'organization' ? generalModel.daycares : generalModel.daycares.filter((item) => item.allocation_unit_id === unitId);
+  const relevantDsyIds = new Set(generalModel.dsy.filter((item) => relevantDaycares.some((daycare) => daycare.daycare_id === item.daycare_id) && item.school_year_id === year && item.is_operating).map((item) => item.daycare_school_year_id));
+  const classroomIds = new Set(classrooms.filter((item) => unitId === 'organization' || relevantDsyIds.has(item.daycare_school_year_id)).map((item) => item.classroom_id));
+  const enrollment = generalModel.enrollment.filter((item) => classroomIds.has(item.classroom_id) && selectedMonthSet.has(month(item.reporting_month)));
+  const payroll = generalModel.payroll.filter((item) => selectedMonthSet.has(month(item.payroll_month)));
   const payrollIds = new Set(payroll.map((item) => item.payroll_record_id));
-  const payrollAllocations = generalModel.pa.filter((item) => payrollIds.has(item.payroll_record_id));
-  const bankAllocations = generalModel.ba.filter((item) => month(item.budget_month) === selectedMonth);
+  const payrollAllocations = generalModel.pa.filter((item) => payrollIds.has(item.payroll_record_id) && (unitId === 'organization' || item.allocation_unit_id === unitId));
+  const bankAllocations = generalModel.ba.filter((item) => selectedMonthSet.has(month(item.budget_month)) && (unitId === 'organization' || item.allocation_unit_id === unitId));
   const bankIds = new Set(bankAllocations.map((item) => item.bank_transaction_id));
   const transactions = generalModel.bank.filter((item) => bankIds.has(item.bank_transaction_id));
   const income = sum(transactions.filter((item) => item.amount > 0), (item) => item.amount);
   const expense = Math.abs(sum(transactions.filter((item) => item.amount < 0), (item) => item.amount));
-  const values = [['כמות ילדים', sum(enrollment, (item) => item.children_count)], ['עלות שכר', money.format(sum(payroll, (item) => item.employer_cost))], ['הכנסות בנק', money.format(income)], ['הוצאות בנק', money.format(expense)]];
-  $('#kpis').innerHTML = values.map((value) => `<article class="kpi"><span>${value[0]}</span><strong>${value[1]}</strong></article>`).join('');
-  const daycareRows = generalModel.daycares.filter((daycare) => generalModel.dsy.some((item) => item.daycare_id === daycare.daycare_id && item.school_year_id === year && item.is_operating)).map((daycare) => { const ids = new Set(classrooms.filter((classroom) => generalModel.dsy.some((item) => item.daycare_school_year_id === classroom.daycare_school_year_id && item.daycare_id === daycare.daycare_id)).map((classroom) => classroom.classroom_id)); return { ...daycare, children: sum(enrollment.filter((item) => ids.has(item.classroom_id)), (item) => item.children_count), payroll: sum(payrollAllocations.filter((item) => item.allocation_unit_id === daycare.allocation_unit_id), (item) => item.allocation_amount) }; });
-  $('#daycares').innerHTML = daycareRows.length ? daycareRows.map((daycare) => `<article class="daycare-card"><strong>${escapeHtml(daycare.display_name)}</strong><div class="number">${daycare.children} ילדים</div><small>שכר משויך: ${money.format(daycare.payroll)}</small></article>`).join('') : '<div class="empty-state">אין נתוני תפוסה בחודש שנבחר</div>';
-  $('#daycare-count').textContent = `${daycareRows.length} מעונות`;
-  const missing = [];
-  if (!enrollment.length) missing.push('לא נמצאו נתוני תפוסה לחודש שנבחר');
-  if (!payroll.length) missing.push('לא נמצאו רשומות שכר לחודש שנבחר');
-  if (!bankAllocations.length) missing.push('לא נמצאו שיוכי תנועות בנק לחודש שנבחר');
-  generalModel.issues.forEach((issue) => missing.push(issue.explanation));
-  $('#issues').innerHTML = missing.length ? missing.map((item) => `<div class="issue">${escapeHtml(item)}</div>`).join('') : '<div class="empty-state">לא נמצאו נתונים חסרים או התראות פתוחות</div>';
-  $('#issues-count').textContent = missing.length ? `${missing.length} דורשים טיפול` : 'תקין';
+  const latestEnrollmentMonth = [...new Set(enrollment.map((item) => month(item.reporting_month)))].sort().at(-1);
+  const children = latestEnrollmentMonth ? sum(enrollment.filter((item) => month(item.reporting_month) === latestEnrollmentMonth), (item) => item.children_count) : null;
+  const payrollValue = unitId === 'organization' ? sum(payroll, (item) => item.employer_cost) : sum(payrollAllocations, (item) => item.allocation_amount);
+  const values = { revenue: transactions.some((item) => item.amount > 0) ? money.format(income) : null, expenses: transactions.some((item) => item.amount < 0) ? money.format(expense) : null, payroll: payrollValue ? money.format(payrollValue) : null, children, alerts: generalModel.issues.length };
+  $('#kpis').innerHTML = kpiDefinitions.map(([id, label]) => `<button class="financial-kpi" type="button" data-kpi="${id}"><span>${label}</span><strong>${values[id] ?? 'אין נתונים'}</strong><small>${values[id] == null ? 'המקור טרם זמין' : 'לתקופה שנבחרה'}</small></button>`).join('');
+  const selectedLabels = [...$('#month-filter').selectedOptions].map((option) => option.textContent);
+  const selectedYear = generalModel.years.find((item) => item.school_year_id === year);
+  const yearMonths = generalModel.months.filter((item) => item.school_year_id === year);
+  $('#context-year').textContent = selectedYear?.display_name || 'אין נתונים';
+  $('#context-period').textContent = selectedLabels.length ? selectedLabels.join(', ') : 'לא נבחרה תקופה';
+  $('#summary-range').textContent = selectedYear ? `${new Intl.DateTimeFormat('he-IL').format(new Date(selectedYear.start_date))} – ${new Intl.DateTimeFormat('he-IL').format(new Date(selectedYear.end_date))}` : 'אין נתוני שנת לימודים';
+  $('#summary-month').textContent = yearMonths.at(-1)?.month_label || 'אין נתונים זמינים';
+  $('#last-updated').textContent = generalLastUpdated ? new Intl.DateTimeFormat('he-IL', { dateStyle: 'short', timeStyle: 'short' }).format(generalLastUpdated) : 'טרם עודכן';
   $('#general-state').hidden = true;
   $('#general-dashboard').hidden = false;
 }
@@ -360,11 +391,12 @@ async function render() {
       if (!unit) $('#page-content').innerHTML = `<section class="error-state panel"><strong>היחידה הארגונית לא נמצאה או אינה פעילה</strong><a class="button button-secondary" href="#dashboards">חזרה לכל היחידות</a></section>`;
       else if (!route.dashboardType) { title = unit.display_name; $('#page-content').innerHTML = unitHubTemplate(unit); }
       else if (!type) $('#page-content').innerHTML = `<section class="error-state panel"><strong>סוג הדשבורד לא נמצא</strong><a class="button button-secondary" href="${unitRoute(unit.allocation_unit_id)}">חזרה לדשבורדי היחידה</a></section>`;
-      else if (unit.allocation_unit_id === 'organization' && type.id === 'finance') {
+      else if (type.id === 'finance') {
         title = type.title;
-        $('#page-content').innerHTML = generalDashboardShell();
+        activeDashboardUnit = unit;
+        $('#page-content').innerHTML = generalDashboardShell(unit);
         await loadGeneralDashboard();
-        if (parseRoute().unitId === 'organization' && parseRoute().dashboardType === 'finance') renderGeneralData();
+        if (parseRoute().unitId === unit.allocation_unit_id && parseRoute().dashboardType === 'finance') renderGeneralData();
       } else { title = type.title; $('#page-content').innerHTML = dashboardPlaceholderTemplate(unit, type); }
     }
   }
@@ -374,11 +406,55 @@ async function render() {
   const retryButton = $('[data-retry-units]');
   if (retryButton) retryButton.addEventListener('click', () => { unitState = { status: 'idle', items: [], error: '' }; render(); });
   const yearFilter = $('#year-filter');
-  if (yearFilter) yearFilter.addEventListener('change', () => { setupGeneralFilters(); renderGeneralData(); });
+  if (yearFilter) yearFilter.addEventListener('change', () => { $('#month-filter').innerHTML = ''; setupGeneralFilters(); renderGeneralData(); });
   const monthFilter = $('#month-filter');
   if (monthFilter) monthFilter.addEventListener('change', renderGeneralData);
+  document.querySelectorAll('[data-kpi]').forEach((card) => card.addEventListener('click', () => openKpiPanel(card.dataset.kpi)));
+  $('#close-kpi-panel')?.addEventListener('click', closeKpiPanel);
+  $('#kpi-backdrop')?.addEventListener('click', closeKpiPanel);
+  $('#refresh-dashboard')?.addEventListener('click', async () => {
+    const button = $('#refresh-dashboard');
+    button.disabled = true;
+    button.textContent = 'מרענן נתונים…';
+    generalStatus = 'idle';
+    await loadGeneralDashboard();
+    if (parseRoute().dashboardType === 'finance') renderGeneralData();
+    button.disabled = false;
+    button.textContent = '↻ רענון נתונים';
+  });
+  $('[data-retry-dashboard]')?.addEventListener('click', async () => { generalStatus = 'idle'; $('#general-state').className = 'dashboard-skeleton'; $('#general-state').innerHTML = Array.from({ length: 8 }, () => '<span></span>').join(''); await loadGeneralDashboard(); renderGeneralData(); });
+  document.querySelectorAll('[data-export]').forEach((button) => button.addEventListener('click', () => {
+    if (button.dataset.export === 'print') window.print();
+    else showToast(`ייצוא ${button.textContent} יהיה זמין בהמשך.`);
+  }));
   closeMenu();
   $('#main-content').focus({ preventScroll: true });
+}
+
+function openKpiPanel(id) {
+  const definition = kpiDefinitions.find((item) => item[0] === id);
+  if (!definition) return;
+  const [, title, description, calculation, source] = definition;
+  $('#kpi-panel-title').textContent = title;
+  $('#kpi-description').textContent = description;
+  $('#kpi-calculation').textContent = calculation;
+  $('#kpi-source').textContent = source;
+  $('#kpi-panel').hidden = false;
+  $('#kpi-backdrop').hidden = false;
+  $('#close-kpi-panel').focus();
+}
+
+function closeKpiPanel() {
+  if (!$('#kpi-panel')) return;
+  $('#kpi-panel').hidden = true;
+  $('#kpi-backdrop').hidden = true;
+}
+
+function showToast(message) {
+  const toast = $('#export-message');
+  toast.textContent = message;
+  toast.hidden = false;
+  window.setTimeout(() => { toast.hidden = true; }, 2600);
 }
 
 function openMenu() { $('#sidebar').classList.add('open'); $('#sidebar-backdrop').classList.add('open'); $('#menu-toggle').setAttribute('aria-expanded', 'true'); document.body.classList.add('menu-open'); }
@@ -413,6 +489,11 @@ $('#toggle-password').addEventListener('click', () => {
   $('#toggle-password').textContent = visible ? 'הצג' : 'הסתר';
   $('#toggle-password').setAttribute('aria-label', visible ? 'הצגת הסיסמה' : 'הסתרת הסיסמה');
   $('#toggle-password').setAttribute('aria-pressed', String(!visible));
+});
+$('#forgot-password').addEventListener('click', () => {
+  const help = $('#recovery-help');
+  help.hidden = !help.hidden;
+  $('#forgot-password').setAttribute('aria-expanded', String(!help.hidden));
 });
 $('#show-recovery-passwords').addEventListener('change', () => {
   const type = $('#show-recovery-passwords').checked ? 'text' : 'password';

@@ -43,15 +43,29 @@ test.describe('new portal organizational dashboards', () => {
     await expect(page.getByText('בקרוב', { exact: true })).toBeVisible();
   });
 
-  test('keeps the recovered general dashboard under organization finance', async ({ page }) => {
+  test('opens the reusable financial dashboard for the organization', async ({ page }) => {
     const requests = await mockNewPortalSupabase(page);
     await openNewPortal(page, 'dashboards/unit/organization/finance');
     await expect(page.getByRole('heading', { level: 1, name: 'דשבורד כספים' })).toBeVisible();
     await expect(page.locator('#general-dashboard')).toBeVisible();
-    await expect(page.locator('#kpis .kpi')).toHaveCount(4);
+    await expect(page.locator('#kpis .financial-kpi')).toHaveCount(12);
+    await expect(page.getByRole('heading', { level: 2, name: 'מתחילת שנת הלימודים' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /רענון נתונים/ })).toBeVisible();
+    await expect(page.locator('.dashboard-detail')).toHaveCount(6);
     for (const table of ['school_years', 'school_year_months', 'daycares', 'daycare_school_years', 'classrooms', 'monthly_enrollment', 'payroll_records', 'payroll_allocations', 'bank_transactions', 'bank_allocations', 'data_quality_issues']) {
       expect(requests.some((request) => request.table === table)).toBeTruthy();
     }
+  });
+
+  test('uses the same financial dashboard for an allocation unit and exposes KPI drill-down', async ({ page }) => {
+    await mockNewPortalSupabase(page);
+    await openNewPortal(page, `dashboards/unit/${activeDaycareId}/finance`);
+    await expect(page.getByRole('heading', { level: 1, name: 'דשבורד כספים · יחידה פעילה א' })).toBeVisible();
+    await expect(page.locator('#context-period')).toContainText('ספטמבר 2026');
+    await page.locator('[data-kpi="budget"]').click();
+    await expect(page.locator('#kpi-panel')).toBeVisible();
+    await expect(page.locator('#kpi-panel-title')).toHaveText('תקציב');
+    await expect(page.locator('#kpi-source')).toHaveText('אין מקור זמין');
   });
 
   test('has no horizontal overflow across configured responsive projects', async ({ page }) => {
