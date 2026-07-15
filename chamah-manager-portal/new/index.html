@@ -21,6 +21,23 @@
     </form>
   </section>
 
+  <section id="recovery-view" class="login-shell" hidden>
+    <form id="recovery-form" class="login-card panel" novalidate>
+      <svg class="chamah-logo" width="80" height="80" viewBox="0 0 64 64" role="img" aria-label="חמ״ה"><rect width="64" height="64" rx="18" fill="#fff"/><rect x="3" y="3" width="58" height="58" rx="16" fill="#e5f0ec"/><circle cx="32" cy="31" r="19" fill="#44766c"/><path d="M20 35c8-12 18-16 31-15-4 13-13 21-26 24 4-7 9-12 17-15-10 3-17 8-23 16z" fill="#fff"/></svg>
+      <p class="eyebrow">פורטל הניהול של חמ״ה</p>
+      <h1>הגדרת סיסמה חדשה</h1>
+      <p class="muted">בחרי סיסמה חדשה הכוללת לפחות 10 תווים, אות אחת ומספר אחד.</p>
+      <div id="recovery-fields">
+        <label class="field" for="new-password"><span>סיסמה חדשה</span><input id="new-password" type="password" required minlength="10" autocomplete="new-password"></label>
+        <label class="field" for="confirm-password"><span>אימות סיסמה חדשה</span><input id="confirm-password" type="password" required minlength="10" autocomplete="new-password"></label>
+        <label class="password-visibility"><input id="show-recovery-passwords" type="checkbox"> <span>הצגת הסיסמאות</span></label>
+        <button id="save-password" class="button button-primary button-block" type="submit">שמירת הסיסמה וכניסה</button>
+      </div>
+      <p id="recovery-message" class="form-message" aria-live="polite"></p>
+      <button id="return-to-login" class="button button-quiet button-block" type="button">חזרה למסך הכניסה</button>
+    </form>
+  </section>
+
   <div id="app-view" class="app-shell" hidden>
     <header class="app-header">
       <button id="menu-toggle" class="icon-button menu-button" type="button" aria-label="פתיחת תפריט" aria-expanded="false" aria-controls="sidebar"><span aria-hidden="true">☰</span></button>

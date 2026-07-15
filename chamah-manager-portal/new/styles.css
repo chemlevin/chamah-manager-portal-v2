@@ -51,6 +51,8 @@ p { line-height: 1.65; }
 .password-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; }
 .password-control input { border-start-end-radius: 0; border-end-end-radius: 0; }
 .password-toggle { min-width: 68px; padding: 0 12px; color: var(--primary-700); background: var(--primary-50); border: 1px solid #bdcbc4; border-inline-start: 0; border-start-end-radius: var(--radius-sm); border-end-end-radius: var(--radius-sm); font-weight: 700; cursor: pointer; }
+.password-visibility { min-height: 44px; display: flex; align-items: center; gap: 8px; margin-block-start: 12px; color: var(--text-muted); font-size: .9rem; font-weight: 600; text-align: right; }
+.password-visibility input { width: 20px; height: 20px; accent-color: var(--primary-600); }
 .field { display: grid; gap: 7px; font-weight: 600; }
 .field input, .field select, .field textarea { width: 100%; min-height: 48px; padding: 11px 13px; color: var(--text); background: var(--surface); border: 1px solid #bdcbc4; border-radius: var(--radius-sm); transition: border-color var(--transition), box-shadow var(--transition); }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--primary-600); box-shadow: 0 0 0 3px rgba(8, 116, 67, .12); outline: 0; }

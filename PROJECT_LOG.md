@@ -904,3 +904,40 @@ Remaining issues:
 
 - A real password is not available to this session and was not requested or handled. Live password login and authenticated RLS reads remain pending until the existing user securely establishes a password.
 - Supabase Dashboard exposes password recovery for an existing user rather than a direct plaintext password field. Completing that recovery requires an authenticated password-update screen, which is intentionally outside this task's scope.
+
+## 2026-07-15 - Password Recovery Completion
+
+Objective: Add the minimal secure recovery-session screen required for the existing user to establish a password.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/index.html`
+- `chamah-manager-portal/new/styles.css`
+- `tests/new-portal-auth.spec.mjs`
+- `PROJECT_LOG.md`
+
+Implementation:
+
+- Added a Hebrew RTL password-recovery completion form under `/new/` while preserving the existing email/password login.
+- Processes only Supabase recovery callbacks, persists the recovery access and refresh tokens, and immediately removes secret callback parameters from the browser URL.
+- Validates a minimum of 10 characters with at least one letter and one number, plus matching confirmation.
+- Updates the authenticated recovery user through the normal Supabase user endpoint, equivalent to `updateUser({ password })`.
+- Preserves the authenticated session after success, returns to portal home, and keeps automatic refresh, RLS reads, dashboard navigation, and logout unchanged.
+- Added Hebrew states for expired, invalid, and already-used recovery links.
+
+Security:
+
+- No service-role key, SQL, Admin API, password value, or public signup was introduced.
+- Password values are submitted directly from the browser to Supabase Auth and are not stored by portal code.
+
+Validation:
+
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `npm run build` passed.
+- Focused authentication and recovery coverage passed across desktop, laptop, and two mobile profiles: 36 passed.
+- Full `npx playwright test` regression passed: 298 passed, 6 intentionally skipped viewport-specific duplicates.
+
+Remaining issues:
+
+- Live recovery email, password update, subsequent password login, and production RLS reads require the existing user to trigger and complete the Dashboard Reset Password action after deployment.

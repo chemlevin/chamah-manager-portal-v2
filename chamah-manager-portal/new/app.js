@@ -2,6 +2,7 @@ const SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
 const SESSION_KEY = 'chamah.portal.session';
 const SESSION_REFRESH_LEEWAY_SECONDS = 60;
+const MIN_PASSWORD_LENGTH = 10;
 const $ = (selector) => document.querySelector(selector);
 const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 });
 
@@ -29,6 +30,7 @@ let generalStatus = 'idle';
 let generalError = '';
 const protectedRequests = new Set();
 let authPending = false;
+let recoveryPending = false;
 
 function readSession() {
   try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { return null; }
@@ -44,6 +46,41 @@ function normalizeSession(value) {
   const expiresIn = Number(value.expires_in || 0);
   const expiresAt = Number(value.expires_at) || (expiresIn ? Math.floor(Date.now() / 1000) + expiresIn : 0);
   return { ...value, expires_at: expiresAt };
+}
+
+function cleanRecoveryUrl(route = 'reset-password') {
+  history.replaceState({}, '', `${location.pathname}#${route}`);
+}
+
+function recoveryErrorMessage(value = {}) {
+  const detail = `${value.error_code || ''} ${value.error_description || ''} ${value.error || ''}`.toLowerCase();
+  if (detail.includes('expired')) return 'תוקף הקישור פג. יש לשלוח קישור איפוס חדש דרך Supabase.';
+  return 'קישור האיפוס אינו תקף או שכבר נעשה בו שימוש. יש לשלוח קישור חדש דרך Supabase.';
+}
+
+function parseRecoveryCallback() {
+  const hash = new URLSearchParams(location.hash.slice(1));
+  const search = new URLSearchParams(location.search);
+  const error = hash.get('error') || search.get('error');
+  const errorCode = hash.get('error_code') || search.get('error_code');
+  const errorDescription = hash.get('error_description') || search.get('error_description');
+  const isRecovery = hash.get('type') === 'recovery' || search.get('type') === 'recovery' || location.hash === '#reset-password' || Boolean(error || errorCode || errorDescription);
+  if (!isRecovery) return { isRecovery: false, error: '' };
+  if (error || errorCode || errorDescription) {
+    saveSession(null);
+    cleanRecoveryUrl();
+    return { isRecovery: true, error: recoveryErrorMessage({ error, error_code: errorCode, error_description: errorDescription }) };
+  }
+  if (hash.get('access_token') && hash.get('refresh_token')) {
+    saveSession({
+      access_token: hash.get('access_token'),
+      refresh_token: hash.get('refresh_token'),
+      token_type: hash.get('token_type') || 'bearer',
+      expires_in: Number(hash.get('expires_in') || 3600)
+    });
+    cleanRecoveryUrl();
+  }
+  return { isRecovery: true, error: '' };
 }
 
 function authErrorMessage(response, value, fallback) {
@@ -71,6 +108,48 @@ function setAuthPending(pending) {
   authPending = pending;
   $('#login-submit').disabled = pending;
   $('#toggle-password').disabled = pending;
+}
+
+function setRecoveryPending(pending) {
+  recoveryPending = pending;
+  $('#save-password').disabled = pending;
+  $('#return-to-login').disabled = pending;
+  $('#show-recovery-passwords').disabled = pending;
+}
+
+function isStrongPassword(value) {
+  return value.length >= MIN_PASSWORD_LENGTH && /\p{L}/u.test(value) && /\d/.test(value);
+}
+
+async function updateRecoveryPassword(password) {
+  if (!await ensureAccessToken()) throw new Error('תוקף קישור האיפוס פג. יש לשלוח קישור חדש דרך Supabase.');
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    method: 'PUT',
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password })
+  });
+  if (!response.ok) {
+    const value = await response.json().catch(() => ({}));
+    if (response.status === 401 || response.status === 403) throw new Error(recoveryErrorMessage(value));
+    throw new Error('לא ניתן לשמור את הסיסמה. יש לנסות שוב.');
+  }
+}
+
+function showRecoveryView(error = '') {
+  $('#login-view').style.display = 'none';
+  $('#app-view').hidden = true;
+  $('#recovery-view').hidden = false;
+  $('#recovery-message').textContent = error;
+  $('#recovery-fields').hidden = Boolean(error);
+  if (!error) $('#new-password').focus();
+}
+
+async function showPortalHome() {
+  $('#login-view').style.display = 'none';
+  $('#recovery-view').hidden = true;
+  $('#app-view').hidden = false;
+  $('#israeli-date').textContent = formatToday();
+  await render();
 }
 
 async function refreshSession() {
@@ -335,6 +414,43 @@ $('#toggle-password').addEventListener('click', () => {
   $('#toggle-password').setAttribute('aria-label', visible ? 'הצגת הסיסמה' : 'הסתרת הסיסמה');
   $('#toggle-password').setAttribute('aria-pressed', String(!visible));
 });
+$('#show-recovery-passwords').addEventListener('change', () => {
+  const type = $('#show-recovery-passwords').checked ? 'text' : 'password';
+  $('#new-password').type = type;
+  $('#confirm-password').type = type;
+});
+$('#recovery-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (recoveryPending) return;
+  const password = $('#new-password');
+  const confirmation = $('#confirm-password');
+  const message = $('#recovery-message');
+  if (!isStrongPassword(password.value)) { message.textContent = 'הסיסמה חייבת לכלול לפחות 10 תווים, אות אחת ומספר אחד.'; password.focus(); return; }
+  if (password.value !== confirmation.value) { message.textContent = 'הסיסמאות אינן תואמות.'; confirmation.focus(); return; }
+  setRecoveryPending(true);
+  message.textContent = 'שומר את הסיסמה החדשה…';
+  try {
+    await updateRecoveryPassword(password.value);
+    password.value = '';
+    confirmation.value = '';
+    cleanRecoveryUrl('home');
+    unitState = { status: 'idle', items: [], error: '' };
+    await showPortalHome();
+  } catch (error) { message.textContent = error.message; }
+  finally { setRecoveryPending(false); }
+});
+$('#return-to-login').addEventListener('click', async () => {
+  if (recoveryPending) return;
+  const accessToken = session?.access_token;
+  saveSession(null);
+  cleanRecoveryUrl('home');
+  $('#recovery-view').hidden = true;
+  $('#login-view').style.display = '';
+  $('#login-message').textContent = '';
+  if (accessToken) {
+    try { await fetch(`${SUPABASE_URL}/auth/v1/logout`, { method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${accessToken}` } }); } catch { /* Local recovery session is already cleared. */ }
+  }
+});
 $('#logout').addEventListener('click', async () => {
   const accessToken = session?.access_token;
   protectedRequests.forEach((controller) => controller.abort());
@@ -363,15 +479,19 @@ window.addEventListener('hashchange', render);
 window.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMenu(); });
 
 async function initializeAuth() {
+  const recovery = parseRecoveryCallback();
+  if (recovery.isRecovery) {
+    if (recovery.error) { showRecoveryView(recovery.error); return; }
+    if (!await validateSession()) { showRecoveryView('קישור האיפוס אינו תקף או שפג תוקפו. יש לשלוח קישור חדש דרך Supabase.'); return; }
+    showRecoveryView();
+    return;
+  }
   if (!await validateSession()) {
     $('#app-view').hidden = true;
     $('#login-view').style.display = '';
     return;
   }
-  $('#login-view').style.display = 'none';
-  $('#app-view').hidden = false;
-  $('#israeli-date').textContent = formatToday();
-  await render();
+  await showPortalHome();
 }
 
 initializeAuth();

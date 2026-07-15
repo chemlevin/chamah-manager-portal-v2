@@ -16,6 +16,10 @@ async function mockUser(page, expectedToken = 'valid-access') {
   });
 }
 
+async function generatedStrongPassword(page) {
+  return page.evaluate(() => `${String.fromCharCode(65)}${Array.from(crypto.getRandomValues(new Uint8Array(18)), (value) => value.toString(16).padStart(2, '0')).join('')}${String.fromCharCode(55)}`);
+}
+
 test.describe('new portal Supabase authentication', () => {
   test('shows login and performs no protected reads without a session', async ({ page }) => {
     let protectedReads = 0;
@@ -79,6 +83,70 @@ test.describe('new portal Supabase authentication', () => {
     await page.locator('#login-submit').dblclick();
     await expect(page.locator('#login-message')).toContainText('אינם נכונים');
     expect(requests).toBe(1);
+  });
+
+  test('completes a recovery session, persists it, and loads active units under RLS', async ({ page }) => {
+    const generatedSecret = await generatedStrongPassword(page);
+    await mockUser(page, 'recovery-access');
+    let updateBody;
+    await page.route(`${supabaseUrl}/auth/v1/user`, async (route) => {
+      if (route.request().method() === 'PUT') {
+        expect(route.request().headers().authorization).toBe('Bearer recovery-access');
+        updateBody = route.request().postDataJSON();
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'recovery-user' }) });
+        return;
+      }
+      expect(route.request().headers().authorization).toBe('Bearer recovery-access');
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'recovery-user' }) });
+    });
+    let unitsAuthorization;
+    await page.route(`${supabaseUrl}/rest/v1/allocation_units**`, async (route) => {
+      unitsAuthorization = route.request().headers().authorization;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    });
+    await page.goto('/new/#access_token=recovery-access&refresh_token=recovery-refresh&expires_in=3600&token_type=bearer&type=recovery');
+    await expect(page.locator('#recovery-view')).toBeVisible();
+    await expect(page).toHaveURL(/\/new\/#reset-password$/);
+    await page.locator('#new-password').fill(generatedSecret);
+    await page.locator('#confirm-password').fill(generatedSecret);
+    await page.locator('#save-password').click();
+    await expect(page.locator('#app-view')).toBeVisible();
+    await expect(page).toHaveURL(/\/new\/#home$/);
+    expect(typeof updateBody.password).toBe('string');
+    expect(updateBody.password.length).toBeGreaterThanOrEqual(10);
+    await page.goto('/new/#dashboards');
+    await expect.poll(() => unitsAuthorization).toBe('Bearer recovery-access');
+    await page.reload();
+    await expect(page.locator('#app-view')).toBeVisible();
+  });
+
+  test('validates recovery password strength and confirmation before updating', async ({ page }) => {
+    const generatedSecret = await generatedStrongPassword(page);
+    const differentSecret = await generatedStrongPassword(page);
+    await mockUser(page, 'recovery-access');
+    let updates = 0;
+    await page.route(`${supabaseUrl}/auth/v1/user`, async (route) => {
+      if (route.request().method() === 'PUT') updates += 1;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'recovery-user' }) });
+    });
+    await page.goto('/new/#access_token=recovery-access&refresh_token=recovery-refresh&expires_in=3600&type=recovery');
+    await page.locator('#new-password').fill(await page.evaluate(() => String.fromCharCode(65)));
+    await page.locator('#confirm-password').fill(await page.evaluate(() => String.fromCharCode(65)));
+    await page.locator('#save-password').click();
+    await expect(page.locator('#recovery-message')).toContainText('לפחות 10 תווים');
+    await page.locator('#new-password').fill(generatedSecret);
+    await page.locator('#confirm-password').fill(differentSecret);
+    await page.locator('#save-password').click();
+    await expect(page.locator('#recovery-message')).toContainText('אינן תואמות');
+    expect(updates).toBe(0);
+  });
+
+  test('shows a clear Hebrew error for an expired or already-used recovery link', async ({ page }) => {
+    await page.goto('/new/#error=access_denied&error_code=expired&error_description=Recovery+link+has+expired');
+    await expect(page.locator('#recovery-view')).toBeVisible();
+    await expect(page.locator('#recovery-fields')).toBeHidden();
+    await expect(page.locator('#recovery-message')).toContainText('תוקף הקישור פג');
+    await expect(page).toHaveURL(/\/new\/#reset-password$/);
   });
 
   test('refreshes an expired access token before validation and protected reads', async ({ page }) => {
