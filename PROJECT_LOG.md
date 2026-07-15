@@ -615,3 +615,40 @@ Validation:
 Tests not run:
 
 - Application build and Playwright tests were not run because no portal, API, calculation, Google Sheets, or UI files changed.
+
+## 2026-07-15 - Recover Deployed New Portal Source
+
+Objective: Recover the exact `/new/` Preview deployment artifacts into Git without changing application behavior, Supabase configuration, APIs, calculations, database files, or deployment state.
+
+Files changed:
+
+- `.gitattributes`
+- `chamah-manager-portal/new/index.html`
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/styles.css`
+- `PROJECT_LOG.md`
+
+Technical decisions:
+
+- Recovered the HTML, JavaScript, CSS, and SVG bytes directly from `https://chamah-manager-portal-v2-preview.vercel.app`.
+- Kept the recovered source under `chamah-manager-portal/`, which the existing build script already copies recursively into `dist`.
+- Changed no build or routing code because the existing recursive copy publishes `/new/` without additional support.
+- Preserved `email_redirect_to:location.href.split(/[?#]/)[0]` exactly as deployed.
+- Confirmed the existing Git blob for both mirrored logo sources is byte-identical to the deployed SVG.
+- Added file-specific LF attributes so Windows checkouts preserve the deployed artifact bytes.
+
+Validation:
+
+- Confirmed all four deployable source files match the live Preview artifacts by exact byte size and SHA-256 hash.
+- `npm run build` passed.
+- Confirmed `dist/new/index.html`, `dist/new/app.js`, and `dist/new/styles.css` exist and match their source hashes.
+- Confirmed `dist/assets/chamah-logo.svg` matches the live Preview hash.
+- Confirmed the database branch remained clean and unchanged.
+
+Tests not run:
+
+- The broader Playwright suite was not run because this was byte-for-byte source recovery with no logic changes; exact artifact hash comparison plus build/static-output validation was the smallest reliable check.
+
+Remaining issues:
+
+- The original local creation history remains unavailable; Git now preserves the exact currently deployed artifacts as the recovery source.

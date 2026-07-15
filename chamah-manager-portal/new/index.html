@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>חמ״ה — פורטל ניהול חדש</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <section id="login-view" class="login-shell">
+    <form id="login-form" class="login-card">
+      <img src="../assets/chamah-logo.svg" alt="חמ״ה">
+      <p class="eyebrow">פורטל הניהול החדש</p><h1>כניסה מאובטחת</h1>
+      <p>נשלח אליך קישור חד־פעמי למייל. אין צורך בסיסמה.</p>
+      <label>כתובת מייל<input id="email" type="email" value="mlevin770@gmail.com" required autocomplete="email"></label>
+      <button type="submit">שליחת קישור כניסה</button><p id="login-message" class="message" aria-live="polite"></p>
+    </form>
+  </section>
+  <div id="app-view" class="app" hidden>
+    <header class="topbar"><a class="brand" href="./"><img src="../assets/chamah-logo.svg" alt=""><strong>פורטל חמ״ה</strong><span>חדש</span></a><button id="logout" class="ghost">יציאה</button></header>
+    <div class="layout">
+      <nav class="sidebar" aria-label="ניווט ראשי">
+        <a class="active" href="#dashboard">דשבורד</a><a href="#employees">עובדות</a><a href="#occupancy">תפוסה</a><a href="#payroll">שכר</a><a href="#bank">תנועות בנק</a><a href="#budget">תקציב</a>
+      </nav>
+      <main>
+        <section class="page-head"><div><p class="eyebrow">תמונת מצב ניהולית</p><h1>דשבורד</h1><p>נתונים חיים מ־Supabase</p></div><div class="filters"><label>שנת לימודים<select id="year-filter"></select></label><label>חודש<select id="month-filter"></select></label></div></section>
+        <div id="state" class="state">טוען נתונים…</div>
+        <div id="dashboard" hidden>
+          <section id="kpis" class="kpis"></section>
+          <section class="panel"><div class="panel-head"><div><p class="eyebrow">לפי מעון</p><h2>תפוסה</h2></div><span id="daycare-count"></span></div><div id="daycares" class="daycare-grid"></div></section>
+          <section class="panel"><div class="panel-head"><div><p class="eyebrow">איכות נתונים</p><h2>מה חסר ודורש טיפול</h2></div><span id="issues-count"></span></div><div id="issues" class="issues"></div></section>
+        </div>
+      </main>
+    </div>
+  </div>
+  <script type="module" src="app.js"></script>
+</body></html>
