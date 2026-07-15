@@ -761,3 +761,26 @@ Remaining issues:
 
 - The canonical Preview authentication bypass is still temporary and must be removed before launch as documented in the preceding entries.
 - Business modules remain intentionally unimplemented and display `בקרוב` until future sprints.
+
+## 2026-07-15 - Codex Prompt Guidelines
+
+Objective: Add permanent project guidance for concise, implementation-focused Codex prompts.
+
+Files changed:
+
+- `AGENTS.md`
+- `PROJECT_LOG.md`
+
+Documentation decisions:
+
+- Added a dedicated `Prompt Guidelines` section covering prompt scope, implementation value, architecture reuse, database ownership, avoidance of hardcoded business data, UI component reuse, and current-sprint focus.
+- Kept the requested rules concise and separate from application behavior.
+
+Validation:
+
+- Confirmed only Markdown documentation files changed.
+- Application build and Playwright tests were not required because no application code, APIs, calculations, database files, or generated output changed.
+
+Remaining issues:
+
+- None known.

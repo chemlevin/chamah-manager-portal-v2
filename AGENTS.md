@@ -153,6 +153,20 @@ APIs and engines are separate. Preserve this separation: API handlers handle tra
 - Do not edit generated output directly.
 - Run appropriate validation after changes.
 
+## Prompt Guidelines
+
+- Keep Codex prompts short and operational.
+- Do not repeat permanent project rules already defined in AGENTS.md.
+- Write implementation instructions only.
+- Do not include explanatory, motivational or descriptive text unless it changes implementation.
+- Every line in a prompt must have direct implementation value.
+- Prefer objectives, requirements, acceptance criteria and deliverables.
+- Extend existing architecture instead of redesigning it.
+- The database is the single source of truth.
+- Never hardcode business entities or business data that already exists in the database.
+- Reuse existing UI components whenever possible.
+- Keep prompts focused on the current sprint only.
+
 # Permanent Project Rules
 
 - Do not change Budget Engine behavior unless explicitly requested.
