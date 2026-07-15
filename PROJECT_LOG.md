@@ -827,3 +827,39 @@ Validation:
 Remaining issues:
 
 - Supabase Auth URL Configuration could not be read or changed through the connected database integration, and the available Dashboard browser session was not signed in. It must be verified before the real-email callback acceptance check.
+
+## 2026-07-15 - Email OTP Authentication
+
+Objective: Replace Magic Link authentication with a same-page six-digit Supabase email OTP flow.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/index.html`
+- `chamah-manager-portal/new/styles.css`
+- `tests/new-portal-auth.spec.mjs`
+- `PROJECT_LOG.md`
+
+Implementation:
+
+- Replaced redirect-based Magic Link requests with `/auth/v1/otp` requests for existing users only.
+- Added a same-page six-digit code step that verifies through `/auth/v1/verify` using `email`, `token`, and `type: email`.
+- Persisted the returned access token, refresh token, and expiry through the existing session mechanism.
+- Preserved session validation, automatic access-token refresh, authenticated protected reads, and full Supabase logout.
+- Added Hebrew states for sent, invalid, expired, rate-limited, and pending requests, plus a visible 60-second resend countdown.
+- Removed Magic Link callback parsing, redirect targets, and URL token cleanup because the OTP flow has no browser redirect.
+
+Scope preserved:
+
+- Did not modify database schema, RLS, database permissions, APIs, calculations, business rules, package files, or `cmh-ops`.
+
+Validation:
+
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `npm run build` passed.
+- Focused authentication, foundation, and dashboards Playwright coverage passed across desktop, laptop, and two mobile profiles: 65 passed, 3 conditionally skipped.
+- Full `npx playwright test` regression passed: 290 passed, 6 intentionally skipped viewport-specific duplicates.
+
+Remaining issues:
+
+- The hosted Supabase Magic Link email template could not be verified because the available Dashboard browser session was not authenticated. Before live OTP validation, the template must be changed to display `{{ .Token }}` and must not offer `{{ .ConfirmationURL }}` as the sign-in action.

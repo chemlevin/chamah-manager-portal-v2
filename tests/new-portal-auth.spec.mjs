@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 
 const supabaseUrl = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
-const canonicalUrl = 'https://chamah-manager-portal-v2-preview.vercel.app/new/';
 const sessionKey = 'chamah.portal.session';
 
 const validSession = { access_token: 'valid-access', refresh_token: 'valid-refresh', expires_at: 4102444800 };
@@ -27,32 +26,74 @@ test.describe('new portal Supabase authentication', () => {
     expect(protectedReads).toBe(0);
   });
 
-  test('requests a Magic Link for an existing user with only the canonical redirect', async ({ page }) => {
+  test('requests a six-digit OTP for an existing user without redirect parameters', async ({ page }) => {
     let requestDetails;
-    await page.route(`${supabaseUrl}/auth/v1/otp**`, async (route) => {
+    await page.route(`${supabaseUrl}/auth/v1/otp`, async (route) => {
       requestDetails = { url: route.request().url(), body: route.request().postDataJSON() };
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
     await page.goto('/new/');
     await page.locator('#email').fill('existing@example.org');
-    await page.locator('#login-form button[type="submit"]').click();
-    await expect(page.locator('#login-message')).toContainText('הקישור נשלח');
-    expect(new URL(requestDetails.url).searchParams.get('redirect_to')).toBe(canonicalUrl);
+    await page.locator('#request-code').click();
+    await expect(page.locator('#login-message')).toContainText('הקוד נשלח');
+    await expect(page.locator('#code-step')).toBeVisible();
+    await expect(page.locator('#resend-code')).toBeDisabled();
+    await expect(page.locator('#resend-code')).toContainText('60');
+    expect(new URL(requestDetails.url).search).toBe('');
     expect(requestDetails.body).toEqual({ email: 'existing@example.org', create_user: false });
-    expect(JSON.stringify(requestDetails)).not.toContain('localhost');
+    expect(JSON.stringify(requestDetails)).not.toContain('redirect');
   });
 
-  test('processes callback tokens, cleans the URL, and persists the session across reload', async ({ page }) => {
-    await page.route(`${supabaseUrl}/auth/v1/user`, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'callback-user' }) }));
-    await page.goto('/new/#access_token=callback-access&refresh_token=callback-refresh&expires_in=3600&token_type=bearer');
+  test('verifies the OTP, persists the returned session, and restores it on reload', async ({ page }) => {
+    await page.route(`${supabaseUrl}/auth/v1/otp`, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }));
+    let verificationBody;
+    await page.route(`${supabaseUrl}/auth/v1/verify`, async (route) => {
+      verificationBody = route.request().postDataJSON();
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ access_token: 'otp-access', refresh_token: 'otp-refresh', expires_in: 3600, token_type: 'bearer' }) });
+    });
+    await page.route(`${supabaseUrl}/auth/v1/user`, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'otp-user' }) }));
+    await page.goto('/new/');
+    await page.locator('#email').fill('existing@example.org');
+    await page.locator('#request-code').click();
+    await page.locator('#otp-code').fill('123456');
+    await page.locator('#verify-code').click();
     await expect(page.locator('#app-view')).toBeVisible();
-    await expect(page).toHaveURL(/\/new\/#home$/);
+    expect(verificationBody).toEqual({ email: 'existing@example.org', token: '123456', type: 'email' });
     const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), sessionKey);
-    expect(stored.access_token).toBe('callback-access');
-    expect(stored.refresh_token).toBe('callback-refresh');
-    expect(page.url()).not.toContain('access_token');
+    expect(stored.access_token).toBe('otp-access');
+    expect(stored.refresh_token).toBe('otp-refresh');
     await page.reload();
     await expect(page.locator('#app-view')).toBeVisible();
+  });
+
+  test('shows Hebrew invalid-code and rate-limit states', async ({ page }) => {
+    await page.route(`${supabaseUrl}/auth/v1/otp`, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }));
+    await page.route(`${supabaseUrl}/auth/v1/verify`, (route) => route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ error_code: 'otp_expired', msg: 'Token has expired or is invalid' }) }));
+    await page.goto('/new/');
+    await page.locator('#email').fill('existing@example.org');
+    await page.locator('#request-code').click();
+    await page.locator('#otp-code').fill('654321');
+    await page.locator('#verify-code').click();
+    await expect(page.locator('#login-message')).toContainText('תוקף הקוד פג');
+    await page.locator('#change-email').click();
+    await page.unroute(`${supabaseUrl}/auth/v1/otp`);
+    await page.route(`${supabaseUrl}/auth/v1/otp`, (route) => route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ message: 'email rate limit exceeded' }) }));
+    await page.locator('#request-code').click();
+    await expect(page.locator('#login-message')).toContainText('בקשות רבות מדי');
+  });
+
+  test('prevents duplicate OTP requests while a request is pending', async ({ page }) => {
+    let requests = 0;
+    await page.route(`${supabaseUrl}/auth/v1/otp`, async (route) => {
+      requests += 1;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+    });
+    await page.goto('/new/');
+    await page.locator('#email').fill('existing@example.org');
+    await page.locator('#request-code').dblclick();
+    await expect(page.locator('#code-step')).toBeVisible();
+    expect(requests).toBe(1);
   });
 
   test('refreshes an expired access token before validation and protected reads', async ({ page }) => {

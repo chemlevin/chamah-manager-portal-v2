@@ -48,6 +48,10 @@ p { line-height: 1.65; }
 .login-card { width: min(430px, 100%); padding: 32px; text-align: center; }
 .login-card .chamah-logo { margin-block-end: 14px; }
 .login-card .field { margin-block-start: 24px; text-align: right; }
+.code-destination { margin: 18px 0 0; color: var(--text-muted); font-size: .9rem; }
+.otp-input { direction: ltr; text-align: center; letter-spacing: .45em; font-size: 1.25rem; font-weight: 700; }
+.otp-actions { display: grid; grid-template-columns: 1fr; gap: 8px; margin-block-start: 12px; }
+.otp-actions .button { width: 100%; }
 .field { display: grid; gap: 7px; font-weight: 600; }
 .field input, .field select, .field textarea { width: 100%; min-height: 48px; padding: 11px 13px; color: var(--text); background: var(--surface); border: 1px solid #bdcbc4; border-radius: var(--radius-sm); transition: border-color var(--transition), box-shadow var(--transition); }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--primary-600); box-shadow: 0 0 0 3px rgba(8, 116, 67, .12); outline: 0; }
@@ -55,6 +59,7 @@ p { line-height: 1.65; }
 
 .button { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 16px; border: 1px solid transparent; border-radius: var(--radius-sm); font-weight: 700; text-decoration: none; cursor: pointer; transition: background var(--transition), border-color var(--transition), transform var(--transition); }
 .button:hover { transform: translateY(-1px); }
+.button:disabled { cursor: not-allowed; opacity: .58; transform: none; }
 .button-primary { color: #fff; background: var(--primary-600); }
 .button-primary:hover { background: var(--primary-700); }
 .button-secondary { color: var(--primary-700); background: var(--surface); border-color: #b9cbc2; }

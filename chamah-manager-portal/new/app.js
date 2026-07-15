@@ -1,8 +1,8 @@
 const SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
 const SESSION_KEY = 'chamah.portal.session';
-const AUTH_REDIRECT_URL = 'https://chamah-manager-portal-v2-preview.vercel.app/new/';
 const SESSION_REFRESH_LEEWAY_SECONDS = 60;
+const OTP_RESEND_SECONDS = 60;
 const $ = (selector) => document.querySelector(selector);
 const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 });
 
@@ -29,6 +29,10 @@ let generalModel = {};
 let generalStatus = 'idle';
 let generalError = '';
 const protectedRequests = new Set();
+let authEmail = '';
+let authPending = false;
+let resendSeconds = 0;
+let resendTimer = null;
 
 function readSession() {
   try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { return null; }
@@ -46,38 +50,83 @@ function normalizeSession(value) {
   return { ...value, expires_at: expiresAt };
 }
 
-function cleanAuthUrl() {
-  history.replaceState({}, '', `${new URL(AUTH_REDIRECT_URL).pathname}#home`);
+function authErrorMessage(response, value, fallback) {
+  const detail = `${value?.error_code || ''} ${value?.msg || ''} ${value?.message || ''}`.toLowerCase();
+  if (response.status === 429 || detail.includes('rate limit')) return 'נשלחו בקשות רבות מדי. יש להמתין מעט לפני ניסיון נוסף.';
+  if (detail.includes('expired')) return 'תוקף הקוד פג. יש לבקש קוד חדש.';
+  if (detail.includes('invalid') || detail.includes('token')) return 'הקוד שהוזן שגוי. יש לבדוק את הקוד ולנסות שוב.';
+  return fallback;
 }
 
-function parseCallback() {
-  const hash = new URLSearchParams(location.hash.slice(1));
-  const search = new URLSearchParams(location.search);
-  const error = hash.get('error_description') || search.get('error_description');
-  if (hash.get('access_token') && hash.get('refresh_token')) {
-    saveSession({
-      access_token: hash.get('access_token'),
-      refresh_token: hash.get('refresh_token'),
-      token_type: hash.get('token_type') || 'bearer',
-      expires_in: Number(hash.get('expires_in') || 3600)
-    });
-    cleanAuthUrl();
-  } else if (error) {
-    saveSession(null);
-    cleanAuthUrl();
-  }
-  return error;
-}
-
-async function sendLoginLink(email) {
-  const endpoint = new URL(`${SUPABASE_URL}/auth/v1/otp`);
-  endpoint.searchParams.set('redirect_to', AUTH_REDIRECT_URL);
-  const response = await fetch(endpoint, {
+async function sendOtp(email) {
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
     method: 'POST',
     headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, create_user: false })
   });
-  if (!response.ok) throw new Error((await response.json()).msg || 'שליחת הקישור נכשלה. אפשר לנסות שוב בעוד רגע.');
+  if (!response.ok) {
+    const value = await response.json().catch(() => ({}));
+    throw new Error(authErrorMessage(response, value, 'שליחת הקוד נכשלה. אפשר לנסות שוב בעוד רגע.'));
+  }
+}
+
+async function verifyOtp(email, token) {
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, token, type: 'email' })
+  });
+  const value = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(authErrorMessage(response, value, 'אימות הקוד נכשל. יש לנסות שוב.'));
+  saveSession(value);
+  if (!session) throw new Error('לא התקבל חיבור מאובטח. יש לבקש קוד חדש.');
+}
+
+function setAuthPending(pending) {
+  authPending = pending;
+  $('#request-code').disabled = pending;
+  $('#verify-code').disabled = pending;
+  $('#change-email').disabled = pending;
+  updateResendButton();
+}
+
+function updateResendButton() {
+  const button = $('#resend-code');
+  button.disabled = authPending || resendSeconds > 0;
+  button.textContent = resendSeconds > 0 ? `שליחה חוזרת בעוד ${resendSeconds} שניות` : 'שליחת קוד חדש';
+}
+
+function startResendCooldown() {
+  clearInterval(resendTimer);
+  resendSeconds = OTP_RESEND_SECONDS;
+  updateResendButton();
+  resendTimer = setInterval(() => {
+    resendSeconds -= 1;
+    updateResendButton();
+    if (resendSeconds <= 0) { clearInterval(resendTimer); resendTimer = null; }
+  }, 1000);
+}
+
+function showCodeStep(email) {
+  authEmail = email;
+  $('#email-step').hidden = true;
+  $('#code-step').hidden = false;
+  $('#code-destination').textContent = `הקוד נשלח אל ${email}`;
+  $('#otp-code').value = '';
+  $('#otp-code').focus();
+  startResendCooldown();
+}
+
+function showEmailStep() {
+  authEmail = '';
+  clearInterval(resendTimer);
+  resendTimer = null;
+  resendSeconds = 0;
+  $('#code-step').hidden = true;
+  $('#email-step').hidden = false;
+  $('#otp-code').value = '';
+  updateResendButton();
+  $('#email').focus();
 }
 
 async function refreshSession() {
@@ -313,7 +362,41 @@ function openMenu() { $('#sidebar').classList.add('open'); $('#sidebar-backdrop'
 function closeMenu() { $('#sidebar').classList.remove('open'); $('#sidebar-backdrop').classList.remove('open'); $('#menu-toggle').setAttribute('aria-expanded', 'false'); document.body.classList.remove('menu-open'); }
 function formatToday() { return new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date()); }
 
-$('#login-form').addEventListener('submit', async (event) => { event.preventDefault(); const email = $('#email'); const message = $('#login-message'); if (!email.validity.valid) { message.textContent = 'יש להזין כתובת דוא״ל תקינה.'; email.focus(); return; } message.textContent = 'שולח קישור כניסה…'; try { await sendLoginLink(email.value.trim()); message.textContent = 'הקישור נשלח. יש לפתוח אותו מאותו דפדפן.'; } catch (error) { message.textContent = error.message; } });
+$('#login-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (authPending) return;
+  const message = $('#login-message');
+  if ($('#code-step').hidden) {
+    const email = $('#email');
+    if (!email.validity.valid) { message.textContent = 'יש להזין כתובת דוא״ל תקינה.'; email.focus(); return; }
+    setAuthPending(true);
+    message.textContent = 'שולח קוד כניסה…';
+    try { await sendOtp(email.value.trim()); showCodeStep(email.value.trim()); message.textContent = 'הקוד נשלח. יש להזין את שש הספרות שהתקבלו בדוא״ל.'; } catch (error) { message.textContent = error.message; }
+    finally { setAuthPending(false); }
+    return;
+  }
+  const code = $('#otp-code');
+  if (!/^\d{6}$/.test(code.value.trim())) { message.textContent = 'יש להזין קוד בן שש ספרות.'; code.focus(); return; }
+  setAuthPending(true);
+  message.textContent = 'מאמת את הקוד…';
+  try {
+    await verifyOtp(authEmail, code.value.trim());
+    if (!await validateSession()) throw new Error('לא ניתן לאמת את החיבור. יש לבקש קוד חדש.');
+    $('#login-view').style.display = 'none';
+    $('#app-view').hidden = false;
+    $('#israeli-date').textContent = formatToday();
+    await render();
+  } catch (error) { message.textContent = error.message; }
+  finally { setAuthPending(false); }
+});
+$('#resend-code').addEventListener('click', async () => {
+  if (authPending || resendSeconds > 0 || !authEmail) return;
+  setAuthPending(true);
+  $('#login-message').textContent = 'שולח קוד חדש…';
+  try { await sendOtp(authEmail); startResendCooldown(); $('#login-message').textContent = 'קוד חדש נשלח לדוא״ל.'; } catch (error) { $('#login-message').textContent = error.message; }
+  finally { setAuthPending(false); }
+});
+$('#change-email').addEventListener('click', () => { if (!authPending) { showEmailStep(); $('#login-message').textContent = ''; } });
 $('#logout').addEventListener('click', async () => {
   const accessToken = session?.access_token;
   protectedRequests.forEach((controller) => controller.abort());
@@ -325,7 +408,7 @@ $('#logout').addEventListener('click', async () => {
   $('#app-view').hidden = true;
   $('#login-view').style.display = '';
   $('#login-message').textContent = 'ההתנתקות הושלמה.';
-  cleanAuthUrl();
+  history.replaceState({}, '', `${location.pathname}#home`);
   if (accessToken) {
     try { await fetch(`${SUPABASE_URL}/auth/v1/logout`, { method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${accessToken}` } }); } catch { /* Local logout is already complete. */ }
   }
@@ -337,8 +420,6 @@ window.addEventListener('hashchange', render);
 window.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMenu(); });
 
 async function initializeAuth() {
-  const callbackError = parseCallback();
-  if (callbackError) $('#login-message').textContent = callbackError;
   if (!await validateSession()) {
     $('#app-view').hidden = true;
     $('#login-view').style.display = '';
