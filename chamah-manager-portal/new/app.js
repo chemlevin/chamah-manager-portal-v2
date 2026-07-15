@@ -2,7 +2,6 @@ const SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
 const SESSION_KEY = 'chamah.portal.session';
 const SESSION_REFRESH_LEEWAY_SECONDS = 60;
-const OTP_RESEND_SECONDS = 60;
 const $ = (selector) => document.querySelector(selector);
 const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 });
 
@@ -29,10 +28,7 @@ let generalModel = {};
 let generalStatus = 'idle';
 let generalError = '';
 const protectedRequests = new Set();
-let authEmail = '';
 let authPending = false;
-let resendSeconds = 0;
-let resendTimer = null;
 
 function readSession() {
   try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { return null; }
@@ -53,80 +49,28 @@ function normalizeSession(value) {
 function authErrorMessage(response, value, fallback) {
   const detail = `${value?.error_code || ''} ${value?.msg || ''} ${value?.message || ''}`.toLowerCase();
   if (response.status === 429 || detail.includes('rate limit')) return 'נשלחו בקשות רבות מדי. יש להמתין מעט לפני ניסיון נוסף.';
-  if (detail.includes('expired')) return 'תוקף הקוד פג. יש לבקש קוד חדש.';
-  if (detail.includes('invalid') || detail.includes('token')) return 'הקוד שהוזן שגוי. יש לבדוק את הקוד ולנסות שוב.';
+  if (response.status === 400 || detail.includes('invalid') || detail.includes('credentials')) return 'כתובת המייל או הסיסמה אינם נכונים.';
   return fallback;
 }
 
-async function sendOtp(email) {
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
+async function signInWithPassword(email, password) {
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
     method: 'POST',
     headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, create_user: false })
-  });
-  if (!response.ok) {
-    const value = await response.json().catch(() => ({}));
-    throw new Error(authErrorMessage(response, value, 'שליחת הקוד נכשלה. אפשר לנסות שוב בעוד רגע.'));
-  }
-}
-
-async function verifyOtp(email, token) {
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
-    method: 'POST',
-    headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, token, type: 'email' })
+    body: JSON.stringify({ email, password })
   });
   const value = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(authErrorMessage(response, value, 'אימות הקוד נכשל. יש לנסות שוב.'));
+  if (!response.ok) {
+    throw new Error(authErrorMessage(response, value, 'הכניסה נכשלה. יש לנסות שוב.'));
+  }
   saveSession(value);
-  if (!session) throw new Error('לא התקבל חיבור מאובטח. יש לבקש קוד חדש.');
+  if (!session) throw new Error('לא התקבל חיבור מאובטח. יש לנסות שוב.');
 }
 
 function setAuthPending(pending) {
   authPending = pending;
-  $('#request-code').disabled = pending;
-  $('#verify-code').disabled = pending;
-  $('#change-email').disabled = pending;
-  updateResendButton();
-}
-
-function updateResendButton() {
-  const button = $('#resend-code');
-  button.disabled = authPending || resendSeconds > 0;
-  button.textContent = resendSeconds > 0 ? `שליחה חוזרת בעוד ${resendSeconds} שניות` : 'שליחת קוד חדש';
-}
-
-function startResendCooldown() {
-  clearInterval(resendTimer);
-  resendSeconds = OTP_RESEND_SECONDS;
-  updateResendButton();
-  resendTimer = setInterval(() => {
-    resendSeconds -= 1;
-    updateResendButton();
-    if (resendSeconds <= 0) { clearInterval(resendTimer); resendTimer = null; }
-  }, 1000);
-}
-
-function showCodeStep(email) {
-  authEmail = email;
-  $('#email-step').hidden = true;
-  $('#code-step').hidden = false;
-  $('#code-destination').textContent = `הקוד נשלח אל ${email}`;
-  $('#otp-code').value = '';
-  $('#otp-code').focus();
-  startResendCooldown();
-}
-
-function showEmailStep() {
-  authEmail = '';
-  clearInterval(resendTimer);
-  resendTimer = null;
-  resendSeconds = 0;
-  $('#code-step').hidden = true;
-  $('#email-step').hidden = false;
-  $('#otp-code').value = '';
-  updateResendButton();
-  $('#email').focus();
+  $('#login-submit').disabled = pending;
+  $('#toggle-password').disabled = pending;
 }
 
 async function refreshSession() {
@@ -366,22 +310,16 @@ $('#login-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   if (authPending) return;
   const message = $('#login-message');
-  if ($('#code-step').hidden) {
-    const email = $('#email');
-    if (!email.validity.valid) { message.textContent = 'יש להזין כתובת דוא״ל תקינה.'; email.focus(); return; }
-    setAuthPending(true);
-    message.textContent = 'שולח קוד כניסה…';
-    try { await sendOtp(email.value.trim()); showCodeStep(email.value.trim()); message.textContent = 'הקוד נשלח. יש להזין את שש הספרות שהתקבלו בדוא״ל.'; } catch (error) { message.textContent = error.message; }
-    finally { setAuthPending(false); }
-    return;
-  }
-  const code = $('#otp-code');
-  if (!/^\d{6}$/.test(code.value.trim())) { message.textContent = 'יש להזין קוד בן שש ספרות.'; code.focus(); return; }
+  const email = $('#email');
+  const password = $('#password');
+  if (!email.validity.valid) { message.textContent = 'יש להזין כתובת מייל תקינה.'; email.focus(); return; }
+  if (!password.value) { message.textContent = 'יש להזין סיסמה.'; password.focus(); return; }
   setAuthPending(true);
-  message.textContent = 'מאמת את הקוד…';
+  message.textContent = 'מתבצעת כניסה…';
   try {
-    await verifyOtp(authEmail, code.value.trim());
-    if (!await validateSession()) throw new Error('לא ניתן לאמת את החיבור. יש לבקש קוד חדש.');
+    await signInWithPassword(email.value.trim(), password.value);
+    password.value = '';
+    if (!await validateSession()) throw new Error('לא ניתן לאמת את החיבור. יש לנסות שוב.');
     $('#login-view').style.display = 'none';
     $('#app-view').hidden = false;
     $('#israeli-date').textContent = formatToday();
@@ -389,14 +327,14 @@ $('#login-form').addEventListener('submit', async (event) => {
   } catch (error) { message.textContent = error.message; }
   finally { setAuthPending(false); }
 });
-$('#resend-code').addEventListener('click', async () => {
-  if (authPending || resendSeconds > 0 || !authEmail) return;
-  setAuthPending(true);
-  $('#login-message').textContent = 'שולח קוד חדש…';
-  try { await sendOtp(authEmail); startResendCooldown(); $('#login-message').textContent = 'קוד חדש נשלח לדוא״ל.'; } catch (error) { $('#login-message').textContent = error.message; }
-  finally { setAuthPending(false); }
+$('#toggle-password').addEventListener('click', () => {
+  const password = $('#password');
+  const visible = password.type === 'text';
+  password.type = visible ? 'password' : 'text';
+  $('#toggle-password').textContent = visible ? 'הצג' : 'הסתר';
+  $('#toggle-password').setAttribute('aria-label', visible ? 'הצגת הסיסמה' : 'הסתרת הסיסמה');
+  $('#toggle-password').setAttribute('aria-pressed', String(!visible));
 });
-$('#change-email').addEventListener('click', () => { if (!authPending) { showEmailStep(); $('#login-message').textContent = ''; } });
 $('#logout').addEventListener('click', async () => {
   const accessToken = session?.access_token;
   protectedRequests.forEach((controller) => controller.abort());
@@ -405,6 +343,11 @@ $('#logout').addEventListener('click', async () => {
   unitState = { status: 'idle', items: [], error: '' };
   generalModel = {};
   generalStatus = 'idle';
+  $('#password').value = '';
+  $('#password').type = 'password';
+  $('#toggle-password').textContent = 'הצג';
+  $('#toggle-password').setAttribute('aria-label', 'הצגת הסיסמה');
+  $('#toggle-password').setAttribute('aria-pressed', 'false');
   $('#app-view').hidden = true;
   $('#login-view').style.display = '';
   $('#login-message').textContent = 'ההתנתקות הושלמה.';

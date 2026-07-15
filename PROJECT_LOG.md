@@ -863,3 +863,44 @@ Validation:
 Remaining issues:
 
 - The hosted Supabase Magic Link email template could not be verified because the available Dashboard browser session was not authenticated. Before live OTP validation, the template must be changed to display `{{ .Token }}` and must not offer `{{ .ConfirmationURL }}` as the sign-in action.
+
+## 2026-07-15 - Email and Password Authentication
+
+Objective: Replace passwordless authentication with Supabase email and password login for existing authorized users.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/index.html`
+- `chamah-manager-portal/new/styles.css`
+- `tests/new-portal-auth.spec.mjs`
+- `PROJECT_LOG.md`
+
+Implementation:
+
+- Removed the OTP request, verification, resend, countdown, and code-entry flow.
+- Added a Hebrew RTL email/password form with password visibility control, pending-state submission protection, and non-enumerating invalid-credentials feedback.
+- Implemented the Supabase password grant used by `signInWithPassword` and persisted the returned access token, refresh token, and expiry.
+- Preserved existing session validation, automatic refresh, authenticated protected reads, and remote/local logout.
+- Kept public signup and password recovery absent from the portal.
+
+Security:
+
+- No password was hardcoded, committed, stored in environment configuration, logged, or written to tests or documentation.
+- Tests generate disposable input values at runtime and use mocked Supabase Auth responses.
+
+Scope preserved:
+
+- Did not modify database schema, RLS, database permissions, APIs, calculations, business rules, package files, or `cmh-ops`.
+
+Validation:
+
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `npm run build` passed.
+- Focused password authentication coverage passed across desktop, laptop, and two mobile profiles: 24 passed.
+- Full `npx playwright test` regression passed: 286 passed, 6 intentionally skipped viewport-specific duplicates.
+
+Remaining issues:
+
+- A real password is not available to this session and was not requested or handled. Live password login and authenticated RLS reads remain pending until the existing user securely establishes a password.
+- Supabase Dashboard exposes password recovery for an existing user rather than a direct plaintext password field. Completing that recovery requires an authenticated password-update screen, which is intentionally outside this task's scope.
