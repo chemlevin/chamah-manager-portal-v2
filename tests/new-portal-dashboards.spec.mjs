@@ -52,10 +52,11 @@ test.describe('new portal organizational dashboards', () => {
     await expect(page.getByRole('heading', { level: 2, name: 'מתחילת שנת הלימודים' })).toBeVisible();
     await expect(page.getByRole('button', { name: /רענון נתונים/ })).toBeVisible();
     await expect(page.locator('.dashboard-detail')).toHaveCount(6);
-    for (const table of ['school_years', 'school_year_months', 'daycares', 'daycare_school_years', 'classrooms', 'monthly_enrollment', 'payroll_records', 'payroll_allocations', 'bank_transactions', 'bank_allocations', 'data_quality_issues', 'budget_snapshots', 'budget_categories']) {
+    for (const table of ['school_years', 'school_year_months', 'daycares', 'daycare_school_years', 'classrooms', 'monthly_enrollment', 'payroll_records', 'payroll_allocations', 'bank_transactions', 'bank_allocations', 'data_quality_issues', 'budget_categories', 'budget_rules', 'monthly_work_calendars', 'staffing_budget_parameters', 'age_groups', 'roles']) {
       expect(requests.some((request) => request.table === table)).toBeTruthy();
     }
     await expect(page.locator('[data-kpi-card="payroll"] .kpi-open')).toContainText('80,000');
+    await expect(page.locator('[data-kpi-card="payroll"] .kpi-open')).toContainText('59,700');
     await expect(page.locator('[data-kpi-card="payroll"]')).toHaveClass(/status-exception/);
     await page.locator('#detail-bank').evaluate((element) => element.closest('details').setAttribute('open', ''));
     await expect(page.locator('#detail-bank')).toContainText('יחידה פעילה א');
@@ -67,14 +68,14 @@ test.describe('new portal organizational dashboards', () => {
     await openNewPortal(page, `dashboards/unit/${activeDaycareId}/finance`);
     await expect(page.getByRole('heading', { level: 1, name: 'דשבורד כספים · יחידה פעילה א' })).toBeVisible();
     await expect(page.locator('#context-period')).toContainText('ספטמבר 2026');
-    await expect(page.locator('[data-kpi-card="expenses"]')).toHaveClass(/status-good/);
-    await expect(page.locator('[data-kpi-card="revenue"]')).toHaveClass(/status-warning/);
+    await expect(page.locator('[data-kpi-card="expenses"]')).toHaveClass(/status-exception/);
+    await expect(page.locator('[data-kpi-card="revenue"]')).toHaveClass(/status-exception/);
     await page.locator('[data-kpi-card="expenses"] .kpi-open').click();
     await expect(page.locator('#kpi-panel')).toBeVisible();
     await expect(page.locator('#kpi-panel-title')).toHaveText('הוצאות');
-    await expect(page.locator('#kpi-source')).toContainText('budget_snapshots');
+    await expect(page.locator('#kpi-source')).toContainText('budget_rules');
     await expect(page.locator('#kpi-filters')).toContainText('יחידה פעילה א');
-    await expect(page.locator('#kpi-records tbody tr')).toHaveCount(1);
+    await expect(page.locator('#kpi-records tbody tr')).toHaveCount(2);
   });
 
   test('supports responsive month chips, multiple months, and latest-month children without changing the school-year summary', async ({ page }) => {

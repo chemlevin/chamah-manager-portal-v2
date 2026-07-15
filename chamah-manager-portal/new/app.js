@@ -1,3 +1,5 @@
+import { calculateBudgetModel, summarizeBudget } from './budget-calculations.js';
+
 const SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
 const SESSION_KEY = 'chamah.portal.session';
@@ -34,6 +36,7 @@ let generalLastUpdated = null;
 let activeDashboardUnit = null;
 let selectedSchoolYearId = '';
 let selectedReportingMonths = new Set();
+let selectedDashboardUnitIds = new Set();
 let recoveryRequestPending = false;
 const protectedRequests = new Set();
 let authPending = false;
@@ -289,7 +292,7 @@ function generalDashboardShell(unit) {
   return `<section class="financial-heading"><div><p class="eyebrow">דשבורד כספים</p><h1>דשבורד כספים · ${escapeHtml(unit.display_name)}</h1><p>תמונת מצב ניהולית המבוססת על הנתונים הקיימים בלבד.</p></div><div class="dashboard-context"><span><small>יחידת הקצאה</small><strong>${escapeHtml(unit.display_name)}</strong></span><span><small>שנת לימודים</small><strong id="context-year">—</strong></span><span><small>תקופה נבחרת</small><strong id="context-period">—</strong></span></div></section>
   <section class="global-toolbar panel" aria-label="פעולות דשבורד"><button id="refresh-dashboard" class="button button-secondary" type="button">↻ רענון נתונים</button><span class="last-updated"><small>עודכן לאחרונה</small><strong id="last-updated">טרם עודכן</strong></span><div class="toolbar-actions"><button class="button button-quiet" type="button" data-export="print">הדפסה</button><button class="button button-quiet" type="button" data-export="pdf">PDF</button><button class="button button-quiet" type="button" data-export="excel">Excel</button></div></section>
   <div id="general-state" class="dashboard-skeleton" aria-live="polite">${Array.from({ length: 8 }, () => '<span></span>').join('')}</div>
-  <div id="general-dashboard" hidden><section class="school-year-summary panel" aria-labelledby="summary-title"><div><p class="eyebrow">הסיכום הניהולי הראשי</p><h2 id="summary-title">מתחילת שנת הלימודים</h2><p id="summary-range">—</p></div><div class="summary-arrow" aria-hidden="true">↓</div><div><small>עד חודש הדיווח הנוכחי</small><strong id="summary-month">—</strong></div></section><section class="period-panel panel"><div><h2>בחירת תקופה</h2><p>בחרי שנת לימודים וחודש אחד או מספר חודשים. הסיכום השנתי נשאר קבוע.</p></div><div class="chip-filters"><fieldset><legend>שנת לימודים</legend><div id="year-chips" class="filter-chips"></div></fieldset><fieldset><legend>חודשים</legend><div id="month-chips" class="filter-chips month-chips"></div></fieldset></div></section><section id="kpis" class="financial-kpis" aria-label="מדדים מרכזיים"></section><section class="expandable-sections" aria-label="פירוט הדשבורד">${[['budget','תקציב'],['payroll','שכר'],['hours','שעות עבודה'],['children','ילדים'],['bank','תנועות בנק'],['quality','איכות נתונים']].map(([id, label]) => `<details class="dashboard-detail panel"><summary>${label}<span>פתיחת פירוט</span></summary><div id="detail-${id}" class="detail-content"></div></details>`).join('')}</section></div>
+  <div id="general-dashboard" hidden><section class="school-year-summary panel" aria-labelledby="summary-title"><div><p class="eyebrow">הסיכום הניהולי הראשי</p><h2 id="summary-title">מתחילת שנת הלימודים</h2><p id="summary-range">—</p></div><div class="summary-arrow" aria-hidden="true">↓</div><div><small>עד חודש הנתונים האחרון</small><strong id="summary-month">—</strong></div></section><section class="period-panel panel"><div><h2>בחירת תקופה</h2><p>בחרי יחידות וחודש אחד או מספר חודשים. הסיכום השנתי נשאר קבוע.</p></div><div class="chip-filters"><fieldset id="unit-filter-group" hidden><legend>יחידות</legend><div id="unit-chips" class="filter-chips"></div></fieldset><fieldset><legend>שנת לימודים</legend><div id="year-chips" class="filter-chips"></div></fieldset><fieldset><legend>חודשים</legend><div id="month-chips" class="filter-chips month-chips"></div></fieldset></div></section><section id="kpis" class="financial-kpis" aria-label="מדדים מרכזיים"></section><section class="expandable-sections" aria-label="פירוט הדשבורד">${[['budget','תקציב'],['payroll','שכר'],['hours','שעות עבודה'],['children','ילדים'],['bank','תנועות בנק'],['quality','איכות נתונים']].map(([id, label]) => `<details class="dashboard-detail panel"><summary>${label}<span>פתיחת פירוט</span></summary><div id="detail-${id}" class="detail-content"></div></details>`).join('')}</section></div>
   <aside id="kpi-panel" class="kpi-panel" hidden aria-labelledby="kpi-panel-title"><button id="close-kpi-panel" class="icon-button" type="button" aria-label="סגירת פירוט">×</button><p class="eyebrow">פירוט מדד</p><h2 id="kpi-panel-title"></h2><dl><div><dt>הסבר</dt><dd id="kpi-description"></dd></div><div><dt>חישוב</dt><dd id="kpi-calculation"></dd></div><div><dt>מקורות נתונים</dt><dd id="kpi-source"></dd></div><div><dt>מסננים שהוחלו</dt><dd id="kpi-filters"></dd></div></dl><div><h3>רשומות מקור</h3><div id="kpi-records" class="source-records"></div></div></aside><button id="kpi-backdrop" class="kpi-backdrop" type="button" aria-label="סגירת פירוט" hidden></button><div id="export-message" class="toast" role="status" hidden></div>`;
 }
 
@@ -301,10 +304,28 @@ async function loadGeneralDashboard() {
   generalStatus = 'loading';
   generalError = '';
   try {
-    const [years, months, daycares, dsy, classrooms, enrollment, payroll, pa, bank, ba, units, issues, budgetSnapshots, budgetCategories] = await Promise.all([
-      rest('school_years', 'select=school_year_id,display_name,start_date,end_date,is_default,is_selectable&is_selectable=eq.true&order=start_date.desc'), rest('school_year_months', 'select=school_year_id,month_label,start_date,school_year_sequence&order=school_year_sequence'), rest('daycares', 'select=daycare_id,allocation_unit_id,display_name,lifecycle_status,display_order&order=display_order'), rest('daycare_school_years', 'select=daycare_school_year_id,daycare_id,school_year_id,is_operating'), rest('classrooms', 'select=classroom_id,daycare_school_year_id,display_name'), rest('monthly_enrollment', 'select=monthly_enrollment_id,classroom_id,reporting_month,children_count'), rest('payroll_records', 'select=payroll_record_id,payroll_month,employer_cost,regular_hours,overtime_hours'), rest('payroll_allocations', 'select=payroll_allocation_id,payroll_record_id,allocation_unit_id,allocation_amount,allocated_hours,budget_category_id'), rest('bank_transactions', 'select=bank_transaction_id,transaction_date,description,amount'), rest('bank_allocations', 'select=bank_allocation_id,bank_transaction_id,allocation_unit_id,budget_month,allocation_amount,budget_category_id'), rest('allocation_units', 'select=allocation_unit_id,display_name,allocation_unit_type,lifecycle_status,display_order&lifecycle_status=eq.ACTIVE&order=display_order.asc,display_name.asc'), rest('data_quality_issues', 'select=data_quality_issue_id,severity,status,explanation,entity_type&status=eq.OPEN'), rest('budget_snapshots', 'select=budget_snapshot_id,allocation_unit_id,daycare_id,reporting_month,budget_category_id,planned_amount,actual_amount,snapshot_status&snapshot_status=eq.LOCKED'), rest('budget_categories', 'select=budget_category_id,display_name,category_type,lifecycle_status&lifecycle_status=eq.ACTIVE')
+    const [years, months, daycares, dsy, classrooms, enrollment, payroll, pa, bank, ba, units, issues, budgetSnapshots, budgetCategories, budgetRules, workCalendars, staffingParameters, ageGroups, roles] = await Promise.all([
+      rest('school_years', 'select=school_year_id,display_name,start_date,end_date,is_default,is_selectable&is_selectable=eq.true&order=start_date.desc'),
+      rest('school_year_months', 'select=school_year_month_id,school_year_id,month_label,start_date,school_year_sequence&order=school_year_sequence'),
+      rest('daycares', 'select=daycare_id,daycare_code,allocation_unit_id,display_name,lifecycle_status,display_order&order=display_order'),
+      rest('daycare_school_years', 'select=daycare_school_year_id,daycare_id,school_year_id,is_operating,tuition_calculation_mode,tuition_standard_type,staffing_calculation_mode,staffing_standard_type'),
+      rest('classrooms', 'select=classroom_id,daycare_school_year_id,display_name,lifecycle_status,effective_from,effective_to'),
+      rest('monthly_enrollment', 'select=monthly_enrollment_id,classroom_id,reporting_month,age_group_id,children_count'),
+      rest('payroll_records', 'select=payroll_record_id,payroll_month,employer_cost,regular_hours,overtime_hours'),
+      rest('payroll_allocations', 'select=payroll_allocation_id,payroll_record_id,allocation_unit_id,role_id,allocation_amount,allocated_hours,budget_category_id'),
+      rest('bank_transactions', 'select=bank_transaction_id,transaction_date,description,amount'),
+      rest('bank_allocations', 'select=bank_allocation_id,bank_transaction_id,allocation_unit_id,budget_month,allocation_amount,budget_category_id'),
+      rest('allocation_units', 'select=allocation_unit_id,display_name,allocation_unit_type,lifecycle_status,display_order&lifecycle_status=eq.ACTIVE&order=display_order.asc,display_name.asc'),
+      rest('data_quality_issues', 'select=data_quality_issue_id,severity,status,explanation,entity_type&status=eq.OPEN'),
+      rest('budget_snapshots', 'select=budget_snapshot_id,allocation_unit_id,daycare_id,reporting_month,budget_category_id,planned_amount,actual_amount,snapshot_status&snapshot_status=eq.LOCKED'),
+      rest('budget_categories', 'select=budget_category_id,budget_category_code,display_name,category_type,lifecycle_status,requires_budget,budget_source&lifecycle_status=eq.ACTIVE'),
+      rest('budget_rules', 'select=budget_rule_id,budget_category_id,school_year_id,daycare_id,allocation_unit_id,age_group_id,effective_from,effective_to,rule_type,numeric_value,text_value,lifecycle_status,sheet_rule_id,calculation_method,parameter_1,parameter_2,show_budget,display_scope,effective_from_month_id,effective_to_month_id,standard_type,minimum_staff,rounding_method'),
+      rest('monthly_work_calendars', 'select=monthly_work_calendar_id,school_year_month_id,sun_thu_hours_per_day,friday_hours_per_day,sun_thu_workdays,friday_workdays'),
+      rest('staffing_budget_parameters', 'select=staffing_budget_parameter_id,school_year_id,monthly_hours_per_fte,hourly_budget_cost,budget_formula,effective_from_month_id,effective_to_month_id,lifecycle_status'),
+      rest('age_groups', 'select=age_group_id,age_group_code,display_name,lifecycle_status'),
+      rest('roles', 'select=role_id,role_code,display_name,role_group')
     ]);
-    generalModel = { years, months, daycares, dsy, classrooms, enrollment, payroll, pa, bank, ba, units: activeUnits(units), issues, budgetSnapshots, budgetCategories };
+    generalModel = { years, months, daycares, dsy, classrooms, enrollment, payroll, pa, bank, ba, units: activeUnits(units), issues, budgetSnapshots, budgetCategories, budgetRules, workCalendars, staffingParameters, ageGroups, roles };
     generalStatus = 'ready';
     generalLastUpdated = new Date();
   } catch (error) {
@@ -320,18 +341,29 @@ function setupGeneralFilters() {
   const availableKeys = new Set(available.map((item) => month(item.start_date)));
   selectedReportingMonths = new Set([...selectedReportingMonths].filter((value) => availableKeys.has(value)));
   if (!selectedReportingMonths.size && available.length) {
-    const current = new Date().toISOString().slice(0, 7);
-    selectedReportingMonths.add(month(available.find((item) => month(item.start_date) === current)?.start_date || available[0].start_date));
+    const availableDataMonths = [...new Set(generalModel.enrollment.map((item) => month(item.reporting_month)))].filter((value) => availableKeys.has(value)).sort();
+    selectedReportingMonths.add(availableDataMonths[0] || month(available[0].start_date));
+  }
+  const unitFilter = $('#unit-filter-group');
+  if (activeDashboardUnit?.allocation_unit_id === 'organization') {
+    unitFilter.hidden = false;
+    const selectableUnits = generalModel.units.filter((item) => item.allocation_unit_id !== 'organization');
+    selectedDashboardUnitIds = new Set([...selectedDashboardUnitIds].filter((id) => selectableUnits.some((unit) => unit.allocation_unit_id === id)));
+    if (!selectedDashboardUnitIds.size) selectedDashboardUnitIds = new Set(selectableUnits.map((unit) => unit.allocation_unit_id));
+    $('#unit-chips').innerHTML = selectableUnits.map((unit) => { const selected = selectedDashboardUnitIds.has(unit.allocation_unit_id); return `<button class="filter-chip${selected ? ' selected' : ''}" type="button" data-dashboard-unit="${escapeHtml(unit.allocation_unit_id)}" aria-pressed="${selected}">${escapeHtml(unit.display_name)}</button>`; }).join('');
+  } else {
+    unitFilter.hidden = true;
+    selectedDashboardUnitIds = new Set(activeDashboardUnit ? [activeDashboardUnit.allocation_unit_id] : []);
   }
   $('#year-chips').innerHTML = generalModel.years.map((year) => `<button class="filter-chip${year.school_year_id === selectedSchoolYearId ? ' selected' : ''}" type="button" data-year="${escapeHtml(year.school_year_id)}" aria-pressed="${year.school_year_id === selectedSchoolYearId}">${escapeHtml(year.display_name)}</button>`).join('');
   $('#month-chips').innerHTML = available.map((item) => { const key = month(item.start_date); const selected = selectedReportingMonths.has(key); return `<button class="filter-chip${selected ? ' selected' : ''}" type="button" data-month="${key}" aria-pressed="${selected}">${escapeHtml(item.month_label)}</button>`; }).join('') || '<span class="empty-inline">אין חודשים זמינים</span>';
 }
 
 const kpiDefinitions = {
-  revenue: { title: 'הכנסות', description: 'הכנסות בפועל מתנועות בנק משויכות בתקופה שנבחרה.', calculation: 'סכום ההקצאות החיוביות.', source: 'bank_allocations, bank_transactions, budget_snapshots' },
-  expenses: { title: 'הוצאות', description: 'הוצאות בנק בפועל מול תקציב הוצאות נעול.', calculation: 'הערך המוחלט של ההקצאות השליליות; ניצול = בפועל חלקי תקציב.', source: 'bank_allocations, bank_transactions, budget_snapshots, budget_categories' },
-  payroll: { title: 'שכר', description: 'עלות השכר בפועל מול תקציב השכר הנעול.', calculation: 'עלות מעסיק לארגון או הקצאות שכר ליחידה; ניצול = בפועל חלקי תקציב.', source: 'payroll_records, payroll_allocations, budget_snapshots, budget_categories' },
-  hours: { title: 'שעות עבודה', description: 'שעות העבודה בפועל. שעות התקן אינן זמינות במקור המאושר הנוכחי.', calculation: 'שעות רגילות ועוד שעות נוספות, או שעות שהוקצו ליחידה.', source: 'payroll_records, payroll_allocations' },
+  revenue: { title: 'הכנסות', description: 'הכנסות בפועל ותקציב שכר לימוד, לצד תוצאה תפעולית ללא כפל שכר.', calculation: 'תקציב שכר לימוד = ילדים × תעריף מאושר לכל כיתה וקבוצת גיל. תוצאה = הכנסות פחות הוצאות בנק שאינן שכר פחות שכר בפועל.', source: 'monthly_enrollment, budget_rules, daycare_school_years, bank_allocations, budget_categories' },
+  expenses: { title: 'הוצאות', description: 'הוצאות בנק שאינן שכר מול תקציב ההוצאות המחושב לפי הגדרות v2.', calculation: 'כל קטגוריה מחושבת בשיטה המאושרת שלה; ניצול = בפועל חלקי תקציב.', source: 'budget_rules, budget_categories, monthly_enrollment, monthly_work_calendars, bank_allocations' },
+  payroll: { title: 'שכר', description: 'שכר מטפלות ושכר קבוע בפועל מול התקציב המשולב.', calculation: 'תקציב מטפלות = שעות צוות נדרשות × עלות שעה מיובאת; תקציב קבוע = משרות × עלות חודשית; הסיכום מחבר את הרכיבים בלבד.', source: 'staffing_budget_parameters, budget_rules, monthly_enrollment, monthly_work_calendars, payroll_allocations' },
+  hours: { title: 'שעות עבודה', description: 'שעות שכר בפועל מול שעות צוות נדרשות לפי ילדים, תקינה ולוח עבודה.', calculation: 'לכל כיתה וקבוצת גיל: עיגול תקינה לפי BR-0015 × שעות הפעילות החודשיות.', source: 'monthly_enrollment, classrooms, daycare_school_years, budget_rules, monthly_work_calendars, payroll_allocations' },
   children: { title: 'ילדים', description: 'מספר הילדים בחודש התקף האחרון מתוך התקופה שנבחרה.', calculation: 'סכום הרשומות בחודש האחרון בלבד; אין סכימה בין חודשים.', source: 'monthly_enrollment, classrooms, daycare_school_years' },
   quality: { title: 'איכות נתונים', description: 'נושאי איכות נתונים פתוחים הדורשים תשומת לב.', calculation: 'ספירת נושאים פתוחים.', source: 'data_quality_issues' }
 };
@@ -353,12 +385,13 @@ function kpiCardTemplate(card) {
 function renderDetailSections(view) {
   const units = (generalModel.units.length ? generalModel.units : unitState.items).map((unit) => ({ id: unit.allocation_unit_id, name: unit.display_name }));
   const grouped = units.map((unit) => ({ יחידה: unit.name, שכר: money.format(sum(view.payrollAllocations.filter((row) => row.allocation_unit_id === unit.id), (row) => row.allocation_amount)), 'תנועות בנק': money.format(sum(view.bankAllocations.filter((row) => row.allocation_unit_id === unit.id), (row) => row.allocation_amount)) }));
-  $('#detail-budget').innerHTML = sourceRowsTemplate(view.budgetRows.map((row) => ({ חודש: row.reporting_month, קטגוריה: view.categoryMap.get(row.budget_category_id)?.display_name || 'לא שויך', תקציב: money.format(row.planned_amount) })));
-  $('#detail-payroll').innerHTML = activeDashboardUnit.allocation_unit_id === 'organization' ? sourceRowsTemplate(grouped) : sourceRowsTemplate(view.payrollAllocations.map((row) => ({ חודש: view.payrollById.get(row.payroll_record_id)?.payroll_month || '', סכום: money.format(row.allocation_amount), שעות: row.allocated_hours ?? 'אין נתונים זמינים' })));
-  $('#detail-hours').innerHTML = sourceRowsTemplate(view.payroll.map((row) => ({ חודש: row.payroll_month, 'שעות רגילות': row.regular_hours ?? 'אין נתונים זמינים', 'שעות נוספות': row.overtime_hours ?? 'אין נתונים זמינים' })));
+  const calculatedRows = view.calculatedBudget.rows;
+  $('#detail-budget').innerHTML = sourceRowsTemplate(calculatedRows.filter((row) => ['daycare-month', 'expense'].includes(row.type)).map((row) => ({ חודש: row.month, מעון: row.daycare, קטגוריה: row.category || 'סיכום', תקציב: money.format(row.budget ?? row.expenseBudget ?? 0), שיטה: row.method || 'סיכום חודשי' })));
+  $('#detail-payroll').innerHTML = sourceRowsTemplate(calculatedRows.filter((row) => ['daycare-month', 'fixed'].includes(row.type)).map((row) => ({ חודש: row.month, מעון: row.daycare, רכיב: row.role || 'שכר כולל', 'שכר מטפלות': row.caregiverBudget == null ? '' : money.format(row.caregiverBudget), 'שכר קבוע': money.format(row.budget ?? row.fixedBudget ?? 0) })));
+  $('#detail-hours').innerHTML = sourceRowsTemplate(calculatedRows.filter((row) => row.type === 'classroom').map((row) => ({ חודש: row.month, מעון: row.daycare, כיתה: row.classroom, 'קבוצת גיל': row.ageGroup, 'שעות נדרשות': number.format(row.requiredHours || 0) })));
   $('#detail-children').innerHTML = sourceRowsTemplate(view.latestEnrollment.map((row) => ({ חודש: row.reporting_month, ילדים: row.children_count })));
   $('#detail-bank').innerHTML = activeDashboardUnit.allocation_unit_id === 'organization' ? sourceRowsTemplate(grouped) : sourceRowsTemplate(view.bankAllocations.map((row) => ({ חודש: row.budget_month, סכום: money.format(row.allocation_amount), תיאור: view.bankById.get(row.bank_transaction_id)?.description || '' })));
-  $('#detail-quality').innerHTML = sourceRowsTemplate(generalModel.issues.map((row) => ({ חומרה: row.severity, תחום: row.entity_type || '', הסבר: row.explanation })));
+  $('#detail-quality').innerHTML = sourceRowsTemplate([...generalModel.issues.map((row) => ({ חומרה: row.severity, תחום: row.entity_type || '', הסבר: row.explanation })), ...view.calculationIssues.map((row) => ({ חומרה: 'שגיאת חישוב', תחום: row.code, הסבר: row.message, מעון: row.daycare || '', חודש: row.month || '' }))]);
 }
 
 function renderGeneralData() {
@@ -367,7 +400,8 @@ function renderGeneralData() {
   setupGeneralFilters();
   const selectedMonthSet = selectedReportingMonths;
   const unitId = activeDashboardUnit?.allocation_unit_id;
-  const relevantDaycares = unitId === 'organization' ? generalModel.daycares : generalModel.daycares.filter((item) => item.allocation_unit_id === unitId);
+  const selectedUnitIds = unitId === 'organization' ? selectedDashboardUnitIds : new Set([unitId]);
+  const relevantDaycares = generalModel.daycares.filter((item) => selectedUnitIds.has(item.allocation_unit_id));
   const relevantDaycareIds = new Set(relevantDaycares.map((item) => item.daycare_id));
   const relevantDsyIds = new Set(generalModel.dsy.filter((item) => relevantDaycareIds.has(item.daycare_id) && item.school_year_id === selectedSchoolYearId && item.is_operating).map((item) => item.daycare_school_year_id));
   const classroomIds = new Set(generalModel.classrooms.filter((item) => relevantDsyIds.has(item.daycare_school_year_id)).map((item) => item.classroom_id));
@@ -377,42 +411,53 @@ function renderGeneralData() {
   const children = latestEnrollment.length ? sum(latestEnrollment, (item) => item.children_count) : null;
   const payroll = generalModel.payroll.filter((item) => selectedMonthSet.has(month(item.payroll_month)));
   const payrollById = new Map(payroll.map((item) => [item.payroll_record_id, item]));
-  const payrollAllocations = generalModel.pa.filter((item) => payrollById.has(item.payroll_record_id) && (unitId === 'organization' || item.allocation_unit_id === unitId));
-  const payrollCost = unitId === 'organization' ? (payroll.length ? sum(payroll, (item) => item.employer_cost) : null) : (payrollAllocations.length ? sum(payrollAllocations, (item) => item.allocation_amount) : null);
-  const actualHours = unitId === 'organization' ? (payroll.some((item) => item.regular_hours != null || item.overtime_hours != null) ? sum(payroll, (item) => Number(item.regular_hours || 0) + Number(item.overtime_hours || 0)) : null) : (payrollAllocations.some((item) => item.allocated_hours != null) ? sum(payrollAllocations, (item) => item.allocated_hours) : null);
-  const bankAllocations = generalModel.ba.filter((item) => selectedMonthSet.has(month(item.budget_month)) && (unitId === 'organization' || item.allocation_unit_id === unitId));
+  const payrollAllocations = generalModel.pa.filter((item) => payrollById.has(item.payroll_record_id) && selectedUnitIds.has(item.allocation_unit_id));
+  const payrollCost = payrollAllocations.length ? sum(payrollAllocations, (item) => item.allocation_amount) : null;
+  const actualHours = payrollAllocations.some((item) => item.allocated_hours != null) ? sum(payrollAllocations, (item) => item.allocated_hours) : null;
+  const roleById = new Map(generalModel.roles.map((item) => [item.role_id, item]));
+  const caregiverActual = sum(payrollAllocations.filter((item) => roleById.get(item.role_id)?.role_code === 'ROLE-CAREGIVER'), (item) => item.allocation_amount);
+  const fixedActual = sum(payrollAllocations.filter((item) => roleById.get(item.role_id)?.role_code !== 'ROLE-CAREGIVER'), (item) => item.allocation_amount);
+  const bankAllocations = generalModel.ba.filter((item) => selectedMonthSet.has(month(item.budget_month)) && selectedUnitIds.has(item.allocation_unit_id));
   const bankById = new Map(generalModel.bank.map((item) => [item.bank_transaction_id, item]));
-  const incomeRows = bankAllocations.filter((item) => Number(item.allocation_amount) > 0);
-  const expenseRows = bankAllocations.filter((item) => Number(item.allocation_amount) < 0);
-  const income = incomeRows.length ? sum(incomeRows, (item) => item.allocation_amount) : null;
-  const expenses = expenseRows.length ? Math.abs(sum(expenseRows, (item) => item.allocation_amount)) : null;
   const categoryMap = new Map(generalModel.budgetCategories.map((item) => [item.budget_category_id, item]));
+  const incomeRows = bankAllocations.filter((item) => categoryMap.get(item.budget_category_id)?.category_type === 'INCOME' && Number(item.allocation_amount) > 0);
+  const expenseRows = bankAllocations.filter((item) => categoryMap.get(item.budget_category_id)?.category_type === 'EXPENSE' && !['CAT-PAYROLL-STAFF', 'CAT-PAYROLL-NONSTAFF'].includes(categoryMap.get(item.budget_category_id)?.budget_category_code));
+  const income = incomeRows.length ? sum(incomeRows, (item) => item.allocation_amount) : null;
+  const expenses = expenseRows.length ? sum(expenseRows, (item) => Math.abs(Number(item.allocation_amount))) : null;
   const budgetRows = generalModel.budgetSnapshots.filter((item) => selectedMonthSet.has(month(item.reporting_month)) && (unitId === 'organization' || item.allocation_unit_id === unitId || relevantDaycareIds.has(item.daycare_id)));
-  const planned = (type) => { const rows = budgetRows.filter((item) => categoryMap.get(item.budget_category_id)?.category_type === type); return rows.length ? sum(rows, (item) => item.planned_amount) : null; };
-  const revenueBudget = planned('INCOME');
-  const expenseBudget = planned('EXPENSE');
-  const payrollBudget = planned('PAYROLL');
+  const calculatedBudget = calculateBudgetModel({ ...generalModel, budgetCategories: generalModel.budgetCategories }, { schoolYearId: selectedSchoolYearId, months: selectedMonthSet, unitIds: [...selectedUnitIds] });
+  const budgetSummary = summarizeBudget(calculatedBudget);
+  generalModel.calculatedBudget = calculatedBudget;
+  const revenueBudget = budgetSummary.tuitionBudget;
+  const expenseBudget = budgetSummary.expenseBudget;
+  const payrollBudget = budgetSummary.payrollBudget;
+  const requiredHours = budgetSummary.requiredHours;
+  const actualResult = income == null || expenses == null || payrollCost == null ? null : income - expenses - payrollCost;
+  const budgetResult = revenueBudget == null || expenseBudget == null || payrollBudget == null ? null : revenueBudget - expenseBudget - payrollBudget;
+  const calculationIssues = calculatedBudget.issues;
   const cards = [
-    { id: 'revenue', title: 'הכנסות', primary: income, formatter: money.format, utilization: utilization(income, revenueBudget), lines: [{ label: 'תקציב הכנסות', value: revenueBudget, formatter: money.format }, { label: 'ניצול', value: utilization(income, revenueBudget), formatter: (value) => `${number.format(value)}%` }, { label: 'רווח / הפסד', value: null }] },
+    { id: 'revenue', title: 'הכנסות', primary: income, formatter: money.format, utilization: utilization(income, revenueBudget), lines: [{ label: 'תקציב שכר לימוד', value: revenueBudget, formatter: money.format }, { label: 'ניצול', value: utilization(income, revenueBudget), formatter: (value) => `${number.format(value)}%` }, { label: 'תוצאה בפועל', value: actualResult, formatter: money.format }, { label: 'תוצאה תקציבית', value: budgetResult, formatter: money.format }] },
     { id: 'expenses', title: 'הוצאות', primary: expenses, formatter: money.format, utilization: utilization(expenses, expenseBudget), lines: [{ label: 'תקציב הוצאות', value: expenseBudget, formatter: money.format }, { label: 'ניצול', value: utilization(expenses, expenseBudget), formatter: (value) => `${number.format(value)}%` }] },
     { id: 'payroll', title: 'שכר', primary: payrollCost, formatter: money.format, utilization: utilization(payrollCost, payrollBudget), lines: [{ label: 'תקציב שכר', value: payrollBudget, formatter: money.format }, { label: 'ניצול', value: utilization(payrollCost, payrollBudget), formatter: (value) => `${number.format(value)}%` }] },
-    { id: 'hours', title: 'שעות עבודה', primary: actualHours, formatter: number.format, utilization: null, lines: [{ label: 'שעות תקן', value: null }, { label: 'פער וניצול', value: null }] },
+    { id: 'hours', title: 'שעות עבודה', primary: actualHours, formatter: number.format, utilization: utilization(actualHours, requiredHours), lines: [{ label: 'שעות צוות נדרשות', value: requiredHours, formatter: number.format }, { label: 'פער', value: actualHours == null || requiredHours == null ? null : actualHours - requiredHours, formatter: number.format }] },
     { id: 'children', title: 'ילדים', primary: children, formatter: number.format, utilization: null, lines: [{ label: 'חודש הנתון', value: latestEnrollmentMonth ? generalModel.months.find((item) => month(item.start_date) === latestEnrollmentMonth)?.month_label || latestEnrollmentMonth : null }] },
-    { id: 'quality', title: 'איכות נתונים', primary: generalModel.issues.length, formatter: number.format, utilization: null, lines: [{ label: 'מצב', value: generalModel.issues.length ? 'דורש טיפול' : 'אין התראות פתוחות' }] }
+    { id: 'quality', title: 'איכות נתונים', primary: generalModel.issues.length + calculationIssues.length, formatter: number.format, utilization: null, lines: [{ label: 'מצב', value: generalModel.issues.length + calculationIssues.length ? 'דורש טיפול' : 'אין התראות פתוחות' }] }
   ];
-  generalModel.currentKpis = Object.fromEntries(cards.map((card) => [card.id, { ...card, records: card.id === 'revenue' ? incomeRows : card.id === 'expenses' ? expenseRows : card.id === 'payroll' || card.id === 'hours' ? payrollAllocations : card.id === 'children' ? latestEnrollment : generalModel.issues }]));
+  const budgetRecords = calculatedBudget.rows;
+  const payrollRecords = [...budgetRecords.filter((row) => row.type === 'daycare-month' || row.type === 'fixed'), { רכיב: 'שכר מטפלות בפועל', סכום: caregiverActual }, { רכיב: 'שכר קבוע בפועל', סכום: fixedActual }];
+  generalModel.currentKpis = Object.fromEntries(cards.map((card) => [card.id, { ...card, records: card.id === 'revenue' ? [...incomeRows, ...budgetRecords.filter((row) => row.type === 'classroom')] : card.id === 'expenses' ? [...expenseRows, ...budgetRecords.filter((row) => row.type === 'expense')] : card.id === 'payroll' ? payrollRecords : card.id === 'hours' ? budgetRecords.filter((row) => row.type === 'classroom') : card.id === 'children' ? latestEnrollment : [...generalModel.issues, ...calculationIssues] }]));
   $('#kpis').innerHTML = cards.map(kpiCardTemplate).join('');
   const selectedYear = generalModel.years.find((item) => item.school_year_id === selectedSchoolYearId);
   const yearMonths = generalModel.months.filter((item) => item.school_year_id === selectedSchoolYearId);
   const selectedLabels = yearMonths.filter((item) => selectedMonthSet.has(month(item.start_date))).map((item) => item.month_label);
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  const summaryMonth = yearMonths.find((item) => month(item.start_date) === currentMonth) || yearMonths.filter((item) => month(item.start_date) <= currentMonth).at(-1) || yearMonths[0];
+  const dataMonthKeys = new Set(generalModel.enrollment.filter((item) => classroomIds.has(item.classroom_id)).map((item) => month(item.reporting_month)));
+  const summaryMonth = yearMonths.filter((item) => dataMonthKeys.has(month(item.start_date))).at(-1) || yearMonths[0];
   $('#context-year').textContent = selectedYear?.display_name || 'אין נתונים זמינים';
   $('#context-period').textContent = selectedLabels.length ? selectedLabels.join(', ') : 'אין נתונים זמינים';
-  $('#summary-range').textContent = selectedYear ? `${new Intl.DateTimeFormat('he-IL').format(new Date(selectedYear.start_date))} – ${new Intl.DateTimeFormat('he-IL').format(new Date(selectedYear.end_date))}` : 'אין נתונים זמינים';
+  $('#summary-range').textContent = selectedYear && summaryMonth ? `${yearMonths[0]?.month_label || ''} → ${summaryMonth.month_label}` : 'אין נתונים זמינים';
   $('#summary-month').textContent = summaryMonth?.month_label || 'אין נתונים זמינים';
   $('#last-updated').textContent = generalLastUpdated ? new Intl.DateTimeFormat('he-IL', { dateStyle: 'short', timeStyle: 'short' }).format(generalLastUpdated) : 'טרם עודכן';
-  renderDetailSections({ payroll, payrollById, payrollAllocations, bankAllocations, bankById, budgetRows, categoryMap, latestEnrollment });
+  renderDetailSections({ payroll, payrollById, payrollAllocations, bankAllocations, bankById, budgetRows, categoryMap, latestEnrollment, calculatedBudget, calculationIssues, caregiverActual, fixedActual });
   $('#general-state').hidden = true;
   $('#general-dashboard').hidden = false;
   bindDashboardDynamicInteractions();
@@ -485,6 +530,11 @@ function bindDashboardDynamicInteractions() {
   document.querySelectorAll('[data-month]').forEach((button) => button.addEventListener('click', () => {
     const value = button.dataset.month;
     if (selectedReportingMonths.has(value) && selectedReportingMonths.size > 1) selectedReportingMonths.delete(value); else selectedReportingMonths.add(value);
+    renderGeneralData();
+  }));
+  document.querySelectorAll('[data-dashboard-unit]').forEach((button) => button.addEventListener('click', () => {
+    const value = button.dataset.dashboardUnit;
+    if (selectedDashboardUnitIds.has(value) && selectedDashboardUnitIds.size > 1) selectedDashboardUnitIds.delete(value); else selectedDashboardUnitIds.add(value);
     renderGeneralData();
   }));
   document.querySelectorAll('.kpi-open').forEach((button) => button.addEventListener('click', () => openKpiPanel(button.dataset.kpi)));

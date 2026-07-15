@@ -1034,3 +1034,49 @@ Validation:
 - Screenshot generation passed: 1 passed, 3 project duplicates intentionally skipped.
 - Desktop 1440x900, tablet 820x1180, and mobile 390x844 screenshots were generated and visually reviewed.
 - Full `npx playwright test` regression passed: 318 passed, 6 intentionally skipped.
+
+## 2026-07-15 - Sprint 3.2 Google Sheets v2 Budget Integration
+
+Objective: Complete the approved Google Sheets v2 to Supabase budget-data path and calculate the reusable `/new/` Financial Dashboard without using the legacy portal, legacy Sheets, or legacy Budget Engine.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/budget-calculations.js`
+- `supabase/migrations/20260715154442_staffing_budget_parameters_v2.sql`
+- `tests/new-budget-calculations.spec.mjs`
+- `tests/new-portal-dashboards.spec.mjs`
+- `tests/new-portal-test-data.mjs`
+- `PROJECT_LOG.md`
+
+Implementation:
+
+- Extended existing Supabase configuration tables with the Google Sheets v2 fields required by the approved budget contract: hourly staffing cost, formula identifier, staffing/tuition standard type, minimum staffing, and rounding method.
+- Imported and verified `STAFFING_BUDGET_PARAMETERS.hourly_budget_cost = 60` and `budget_formula = MONTHLY_REQUIRED_STAFF_HOURS × HOURLY_BUDGET_COST` for SY-2026-2027.
+- Identified Google Sheets v2 `MONTHLY_OCCUPANCY` as the monthly children input. Required staff hours are produced from that input together with `STAFFING_RULES` and the monthly work calendar; the source sheet does not store a separate pre-calculated required-hours result.
+- Imported the complete available September-November 2026 occupancy matrix into existing `monthly_enrollment`: 20 classroom/age rows and all 6 active daycares per month.
+- Added a pure browser calculation module over normalized Supabase data for tuition, caregiver staffing hours and budget, fixed staff, operating expense rules, and organization-level office expense rules.
+- Applied approved half-position staffing rounding per classroom and age group before aggregation, and used 160 hours only where an approved annual per-staff expense rule requires an FTE conversion. It is never used as the caregiver payroll-budget hours source.
+- Connected the reusable Financial Dashboard to the calculated monthly and School-Year values for every Allocation Unit and the organization, including multi-unit selection, source drill-down, explicit data-quality issues, and actual-versus-budget indicators.
+- Kept actual bank and payroll reads unchanged and excluded payroll categories from non-payroll bank expenses to prevent double counting.
+
+Import ownership and recurring contract:
+
+- The existing Google Sheets v2 importer is an external/manual process recorded through `import_batches`; no repository, Vercel, Supabase Edge Function, database function, or scheduled job owns the recurring import.
+- The recurring importer must map `STAFFING_BUDGET_PARAMETERS.hourly_budget_cost` and `.budget_formula`, map `STAFFING_RULES.standard_type`, `.minimum_staff`, and `.rounding_method`, map `TUITION_RULES.standard_type`, and upsert `MONTHLY_OCCUPANCY` by classroom, age group, and reporting month into `monthly_enrollment`.
+- A controlled import batch was recorded for the configuration and occupancy update. No old Sheet or legacy portal source was inspected or used.
+
+Scope preserved:
+
+- Did not modify RLS, database permissions, APIs, legacy calculations, package files, `cmh-ops`, or the existing production website.
+
+Validation:
+
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `node --check chamah-manager-portal/new/budget-calculations.js` passed.
+- `npm run build` passed.
+- Focused calculation and dashboard coverage passed across desktop, laptop, and mobile: 53 passed, 3 intentionally skipped.
+- Screenshot generation passed and desktop 1440x900, tablet 820x1180, and mobile 390x844 Financial Dashboard screenshots were visually reviewed.
+- Full `npx playwright test` regression passed: 330 passed, 6 intentionally skipped.
+- Live Supabase verification confirmed the SY-2026-2027 cost/formula and 20 occupancy rows covering all 6 active daycares in each of September, October, and November 2026.
+- Supabase security advisor reported no migration-specific RLS issue. Existing project-level password-protection and performance advisories remain outside this sprint.
