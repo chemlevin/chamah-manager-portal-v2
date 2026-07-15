@@ -1,23 +1,26 @@
 import { mkdir } from 'node:fs/promises';
 import { test, expect } from '@playwright/test';
+import { activeDaycareId, mockNewPortalSupabase, openNewPortal } from './new-portal-test-data.mjs';
 
 const screenshots = [
-  { name: 'desktop-home', width: 1440, height: 900 },
-  { name: 'tablet-home', width: 820, height: 1180 },
-  { name: 'mobile-home', width: 390, height: 844 }
+  { name: 'desktop-organizational-units', width: 1440, height: 900, route: 'dashboards', ready: '.unit-card' },
+  { name: 'tablet-unit-dashboards', width: 820, height: 1180, route: `dashboards/unit/${activeDaycareId}`, ready: '.dashboard-type-card' },
+  { name: 'desktop-organization-finance', width: 1440, height: 900, route: 'dashboards/unit/organization/finance', ready: '#general-dashboard' },
+  { name: 'mobile-organizational-units', width: 390, height: 844, route: 'dashboards', ready: '.unit-card' },
+  { name: 'mobile-unit-dashboards', width: 390, height: 844, route: `dashboards/unit/${activeDaycareId}`, ready: '.dashboard-type-card' }
 ];
 
 test('captures the new portal foundation at required viewport sizes', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-1440', 'A single browser project produces the canonical screenshots.');
-  await mkdir('screenshots/new-portal-foundation', { recursive: true });
-  await page.addInitScript(() => localStorage.setItem('chamah.portal.session', JSON.stringify({ access_token: 'visual-test-session', expires_at: 4102444800 })));
+  await mkdir('screenshots/new-portal-dashboards', { recursive: true });
+  await mockNewPortalSupabase(page);
 
   for (const target of screenshots) {
     await page.setViewportSize({ width: target.width, height: target.height });
-    await page.goto('/new/#home');
-    await expect(page.locator('.module-card')).toHaveCount(5);
+    await openNewPortal(page, target.route);
+    await expect.poll(() => page.locator(target.ready).count()).toBeGreaterThan(0);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
     await page.waitForTimeout(300);
-    await page.screenshot({ path: `screenshots/new-portal-foundation/${target.name}.png` });
+    await page.screenshot({ path: `screenshots/new-portal-dashboards/${target.name}.png` });
   }
 });
