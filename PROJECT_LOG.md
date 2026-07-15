@@ -684,3 +684,33 @@ Tests not run:
 Remaining issues:
 
 - This bypass is intentionally temporary and must be removed before launch by deleting the constant/helper, the bypass branches in `rest()` and startup, and the Preview banner markup.
+
+## 2026-07-15 - Preview Authentication Bypass Display Fix
+
+Objective: Ensure the canonical Preview authentication bypass visually skips the login form.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `PROJECT_LOG.md`
+
+Root cause:
+
+- The hostname condition evaluated to true and the startup bypass ran.
+- Startup set the login section's `hidden` property, but `.login-shell { display: grid }` overrode the browser's default `[hidden] { display: none }`, leaving the login form rendered over the active dashboard.
+
+Technical decision:
+
+- Changed only the successful startup path to set `#login-view` to inline `display: none`, which takes precedence over the existing `.login-shell` rule.
+- Preserved the exact hostname condition, Magic Link flow, Supabase behavior, APIs, database, RLS, and UI structure.
+
+Validation:
+
+- Confirmed the deployed pre-fix hostname comparison returned `true` while computed login display remained `grid`.
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `npm run build` passed.
+- Browser verification on the canonical Preview URL confirmed the login form is not rendered and the dashboard opens directly.
+
+Remaining issues:
+
+- The bypass remains temporary and must still be removed before launch.
