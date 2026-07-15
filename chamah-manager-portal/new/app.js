@@ -1,21 +1,122 @@
-const URL='https://vyyfuaqmbxvfqgbfqooc.supabase.co';
-const KEY='sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
-const sessionKey='chamah.portal.session';
+const SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
+const SESSION_KEY = 'chamah.portal.session';
 // Temporary Preview-only authentication bypass. Remove before launch.
-const TEMP_PREVIEW_AUTH_BYPASS_HOSTNAME='chamah-manager-portal-v2-preview.vercel.app';
-const isTemporaryPreviewAuthBypass=()=>location.hostname===TEMP_PREVIEW_AUTH_BYPASS_HOSTNAME;
-const $=(s)=>document.querySelector(s); const money=new Intl.NumberFormat('he-IL',{style:'currency',currency:'ILS',maximumFractionDigits:0});
-let session=readSession(), model={};
-function readSession(){try{return JSON.parse(localStorage.getItem(sessionKey))}catch{return null}}
-function saveSession(value){session=value;value?localStorage.setItem(sessionKey,JSON.stringify(value)):localStorage.removeItem(sessionKey)}
-function parseCallback(){const p=new URLSearchParams(location.hash.slice(1));if(p.get('access_token')){saveSession({access_token:p.get('access_token'),refresh_token:p.get('refresh_token'),expires_at:Math.floor(Date.now()/1000)+Number(p.get('expires_in')||3600)});history.replaceState({},'',location.pathname)}if(new URLSearchParams(location.search).get('error_description')) $('#login-message').textContent=new URLSearchParams(location.search).get('error_description')}
-async function otp(email){const r=await fetch(`${URL}/auth/v1/otp`,{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify({email,create_user:true,options:{email_redirect_to:location.href.split(/[?#]/)[0]}})});if(!r.ok)throw new Error((await r.json()).msg||'שליחת הקישור נכשלה')}
-async function refresh(){if(!session?.refresh_token)return false;const r=await fetch(`${URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:session.refresh_token})});if(!r.ok){saveSession(null);return false}const x=await r.json();saveSession({...x,expires_at:Math.floor(Date.now()/1000)+x.expires_in});return true}
-async function rest(table,query=''){if(session?.expires_at<Date.now()/1000+60)await refresh();const headers={apikey:KEY};if(session?.access_token)headers.Authorization=`Bearer ${session.access_token}`;const r=await fetch(`${URL}/rest/v1/${table}?${query}`,{headers});if(!r.ok)throw new Error((await r.json()).message||`שגיאה בקריאת ${table}`);return r.json()}
-const sum=(a,f)=>a.reduce((n,x)=>n+Number(f(x)||0),0); const month=(d)=>String(d||'').slice(0,7);
-async function load(){showState('טוען נתונים חיים…');try{const [years,months,daycares,dsy,classrooms,enrollment,payroll,pa,bank,ba,units,issues]=await Promise.all([
-rest('school_years','select=school_year_id,display_name,start_date,end_date,is_default,is_selectable&is_selectable=eq.true&order=start_date.desc'),rest('school_year_months','select=school_year_id,month_label,start_date,school_year_sequence&order=school_year_sequence'),rest('daycares','select=daycare_id,allocation_unit_id,display_name,lifecycle_status,display_order&order=display_order'),rest('daycare_school_years','select=daycare_school_year_id,daycare_id,school_year_id,is_operating'),rest('classrooms','select=classroom_id,daycare_school_year_id,display_name'),rest('monthly_enrollment','select=classroom_id,reporting_month,children_count'),rest('payroll_records','select=payroll_record_id,payroll_month,employer_cost'),rest('payroll_allocations','select=payroll_record_id,allocation_unit_id,allocation_amount'),rest('bank_transactions','select=bank_transaction_id,transaction_date,amount'),rest('bank_allocations','select=bank_transaction_id,allocation_unit_id,budget_month,allocation_amount'),rest('allocation_units','select=allocation_unit_id,display_name'),rest('data_quality_issues','select=severity,status,explanation,entity_type&status=eq.OPEN')]);model={years,months,daycares,dsy,classrooms,enrollment,payroll,pa,bank,ba,units,issues};setupFilters();render()}catch(e){showState(e.message,true)}}
-function setupFilters(){const y=$('#year-filter'),old=y.value;y.innerHTML=model.years.map(x=>`<option value="${x.school_year_id}">${x.display_name}</option>`).join('');y.value=old&&model.years.some(x=>x.school_year_id===old)?old:(model.years.find(x=>x.is_default)||model.years[0])?.school_year_id||'';const available=model.months.filter(x=>x.school_year_id===y.value);$('#month-filter').innerHTML=available.map(x=>`<option value="${x.start_date}">${x.month_label}</option>`).join('');const now=new Date().toISOString().slice(0,7);$('#month-filter').value=available.find(x=>x.start_date.startsWith(now))?.start_date||available[0]?.start_date||''}
-function render(){const year=$('#year-filter').value,m=month($('#month-filter').value);const dsyIds=new Set(model.dsy.filter(x=>x.school_year_id===year&&x.is_operating).map(x=>x.daycare_school_year_id));const cls=model.classrooms.filter(x=>dsyIds.has(x.daycare_school_year_id));const clsIds=new Set(cls.map(x=>x.classroom_id));const enroll=model.enrollment.filter(x=>clsIds.has(x.classroom_id)&&month(x.reporting_month)===m);const pr=model.payroll.filter(x=>month(x.payroll_month)===m),prIds=new Set(pr.map(x=>x.payroll_record_id));const pa=model.pa.filter(x=>prIds.has(x.payroll_record_id));const ba=model.ba.filter(x=>month(x.budget_month)===m);const bankIds=new Set(ba.map(x=>x.bank_transaction_id));const tx=model.bank.filter(x=>bankIds.has(x.bank_transaction_id));const income=sum(tx.filter(x=>x.amount>0),x=>x.amount),expense=Math.abs(sum(tx.filter(x=>x.amount<0),x=>x.amount));const vals=[['כמות ילדים',sum(enroll,x=>x.children_count)],['עלות שכר',money.format(sum(pr,x=>x.employer_cost))],['הכנסות בנק',money.format(income)],['הוצאות בנק',money.format(expense)]];$('#kpis').innerHTML=vals.map(v=>`<article class="kpi"><span>${v[0]}</span><strong>${v[1]}</strong></article>`).join('');const daycareRows=model.daycares.filter(d=>model.dsy.some(x=>x.daycare_id===d.daycare_id&&x.school_year_id===year&&x.is_operating)).map(d=>{const ids=new Set(cls.filter(c=>model.dsy.some(x=>x.daycare_school_year_id===c.daycare_school_year_id&&x.daycare_id===d.daycare_id)).map(c=>c.classroom_id));return {...d,children:sum(enroll.filter(e=>ids.has(e.classroom_id)),x=>x.children_count),payroll:sum(pa.filter(x=>x.allocation_unit_id===d.allocation_unit_id),x=>x.allocation_amount)}});$('#daycares').innerHTML=daycareRows.length?daycareRows.map(d=>`<article class="daycare-card"><strong>${d.display_name}</strong><div class="number">${d.children} ילדים</div><small>שכר משויך: ${money.format(d.payroll)}</small></article>`).join(''):'<div class="empty">אין נתוני תפוסה בחודש שנבחר</div>';$('#daycare-count').textContent=`${daycareRows.length} מעונות`;const missing=[];if(!enroll.length)missing.push('לא נמצאו נתוני תפוסה לחודש שנבחר');if(!pr.length)missing.push('לא נמצאו רשומות שכר לחודש שנבחר');if(!ba.length)missing.push('לא נמצאו שיוכי תנועות בנק לחודש שנבחר');model.issues.forEach(x=>missing.push(x.explanation));$('#issues').innerHTML=missing.length?missing.map(x=>`<div class="issue">${x}</div>`).join(''):'<div class="empty">לא נמצאו נתונים חסרים או התראות פתוחות</div>';$('#issues-count').textContent=missing.length?`${missing.length} דורשים טיפול`:'תקין';$('#state').hidden=true;$('#dashboard').hidden=false}
-function showState(t,error=false){$('#state').hidden=false;$('#state').textContent=t;$('#state').classList.toggle('error',error);$('#dashboard').hidden=true}
-$('#login-form').addEventListener('submit',async e=>{e.preventDefault();const msg=$('#login-message');msg.textContent='שולח…';try{await otp($('#email').value.trim());msg.textContent='הקישור נשלח. יש לפתוח אותו מאותו דפדפן.'}catch(x){msg.textContent=x.message}});$('#logout').addEventListener('click',()=>{saveSession(null);location.reload()});$('#year-filter').addEventListener('change',()=>{setupFilters();render()});$('#month-filter').addEventListener('change',render);parseCallback();if(session?.access_token||isTemporaryPreviewAuthBypass()){$('#login-view').style.display='none';$('#app-view').hidden=false;if(isTemporaryPreviewAuthBypass())$('#preview-auth-banner').hidden=false;load()}
+const TEMP_PREVIEW_AUTH_BYPASS_HOSTNAME = 'chamah-manager-portal-v2-preview.vercel.app';
+const isTemporaryPreviewAuthBypass = () => location.hostname === TEMP_PREVIEW_AUTH_BYPASS_HOSTNAME;
+const $ = (selector) => document.querySelector(selector);
+
+const modules = [
+  { route: 'dashboards', icon: '📊', title: 'דשבורדים', description: 'תמונת מצב ניהולית ברורה, מדדים מרכזיים ונושאים הדורשים תשומת לב.' },
+  { route: 'calculators', icon: '🧮', title: 'מחשבונים', description: 'כלי חישוב ותכנון שיסייעו בקבלת החלטות מהירה ומדויקת.' },
+  { route: 'tasks', icon: '✅', title: 'משימות', description: 'ריכוז משימות, מעקב אחר ביצוע ותיעדוף העבודה השוטפת.' },
+  { route: 'maintenance', icon: '🔧', title: 'תחזוקה', description: 'דיווח תקלות, מעקב טיפול וניהול תחזוקת המעונות.' },
+  { route: 'knowledge', icon: '📚', title: 'מרכז ידע והנחיות', description: 'נהלים, הנחיות מקצועיות ומידע ארגוני במקום אחד.' }
+];
+
+const routes = Object.fromEntries(modules.map((module) => [module.route, module]));
+routes.home = { route: 'home', title: 'עמוד הבית' };
+
+function readSession() {
+  try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { return null; }
+}
+
+function saveSession(value) {
+  value ? localStorage.setItem(SESSION_KEY, JSON.stringify(value)) : localStorage.removeItem(SESSION_KEY);
+}
+
+function parseCallback() {
+  const hash = new URLSearchParams(location.hash.slice(1));
+  if (hash.get('access_token')) {
+    saveSession({ access_token: hash.get('access_token'), refresh_token: hash.get('refresh_token'), expires_at: Math.floor(Date.now() / 1000) + Number(hash.get('expires_in') || 3600) });
+    history.replaceState({}, '', location.pathname);
+  }
+  const error = new URLSearchParams(location.search).get('error_description');
+  if (error) $('#login-message').textContent = error;
+}
+
+async function sendLoginLink(email) {
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
+    method: 'POST',
+    headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, create_user: true, options: { email_redirect_to: location.href.split(/[?#]/)[0] } })
+  });
+  if (!response.ok) throw new Error((await response.json()).msg || 'שליחת הקישור נכשלה. אפשר לנסות שוב בעוד רגע.');
+}
+
+function getRoute() {
+  const route = location.hash.slice(1).split('?')[0];
+  return routes[route] ? route : 'home';
+}
+
+function homeTemplate() {
+  return `<section class="page-heading">
+    <div><p class="eyebrow">סביבת העבודה שלך</p><h1>שלום, ברוכה הבאה לפורטל חמ״ה</h1><p>מכאן ניתן להגיע לכל כלי הניהול, המעקב והידע של הארגון.</p></div>
+    <span class="status-badge status-success"><span aria-hidden="true">●</span> המערכת זמינה</span>
+  </section>
+  <section class="attention-panel panel" aria-labelledby="attention-title"><div class="attention-icon" aria-hidden="true">i</div><div><h2 id="attention-title">הפורטל החדש בהקמה</h2><p>מעטפת העבודה מוכנה. המודולים ייפתחו בהדרגה בספרינטים הבאים.</p></div><a class="button button-secondary" href="#knowledge">למידע נוסף</a></section>
+  <section aria-labelledby="modules-title"><div class="section-heading"><div><h2 id="modules-title">לאן תרצי להמשיך?</h2><p>בחרי תחום כדי לפתוח את סביבת העבודה המתאימה.</p></div></div>
+    <div class="module-grid">${modules.map((module) => `<a class="module-card card" href="#${module.route}"><span class="module-icon" aria-hidden="true">${module.icon}</span><div><h3>${module.title}</h3><p>${module.description}</p></div><span class="card-action">פתיחה <span aria-hidden="true">←</span></span></a>`).join('')}</div>
+  </section>`;
+}
+
+function comingSoonTemplate(module) {
+  return `<section class="page-heading"><div><p class="eyebrow">${module.title}</p><h1>${module.title}</h1><p>${module.description}</p></div><span class="status-badge status-neutral">בתכנון</span></section>
+  <section class="coming-soon panel"><span class="coming-icon" aria-hidden="true">${module.icon}</span><span class="status-badge status-info">בקרוב</span><h2>המודול נמצא בהכנה</h2><p>אנחנו בונים עבורך סביבת עבודה מקצועית, מהירה וברורה. היא תתווסף לפורטל באחד הספרינטים הקרובים.</p><div class="next-action"><strong>הפעולה הבאה</strong><span>אפשר לחזור לעמוד הבית ולבחור תחום אחר.</span></div><a class="button button-primary" href="#home">חזרה לעמוד הבית</a></section>`;
+}
+
+function render() {
+  const route = getRoute();
+  const current = routes[route];
+  document.title = `${current.title} | פורטל חמ״ה`;
+  $('#page-content').innerHTML = route === 'home' ? homeTemplate() : comingSoonTemplate(current);
+  $('#breadcrumbs').innerHTML = route === 'home' ? '<span aria-current="page">עמוד הבית</span>' : `<a href="#home">עמוד הבית</a><span aria-hidden="true">/</span><span aria-current="page">${current.title}</span>`;
+  document.querySelectorAll('[data-route]').forEach((item) => item.classList.toggle('active', item.dataset.route === route));
+  closeMenu();
+  $('#main-content').focus({ preventScroll: true });
+}
+
+function openMenu() {
+  $('#sidebar').classList.add('open');
+  $('#sidebar-backdrop').classList.add('open');
+  $('#menu-toggle').setAttribute('aria-expanded', 'true');
+  document.body.classList.add('menu-open');
+}
+
+function closeMenu() {
+  $('#sidebar').classList.remove('open');
+  $('#sidebar-backdrop').classList.remove('open');
+  $('#menu-toggle').setAttribute('aria-expanded', 'false');
+  document.body.classList.remove('menu-open');
+}
+
+function formatToday() {
+  return new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
+}
+
+$('#login-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const email = $('#email');
+  const message = $('#login-message');
+  if (!email.validity.valid) { message.textContent = 'יש להזין כתובת דוא״ל תקינה.'; email.focus(); return; }
+  message.textContent = 'שולח קישור כניסה…';
+  try { await sendLoginLink(email.value.trim()); message.textContent = 'הקישור נשלח. יש לפתוח אותו מאותו דפדפן.'; }
+  catch (error) { message.textContent = error.message; }
+});
+
+$('#logout').addEventListener('click', () => { saveSession(null); location.reload(); });
+$('#menu-toggle').addEventListener('click', () => $('#sidebar').classList.contains('open') ? closeMenu() : openMenu());
+$('#mobile-more').addEventListener('click', openMenu);
+$('#sidebar-backdrop').addEventListener('click', closeMenu);
+window.addEventListener('hashchange', render);
+window.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMenu(); });
+
+parseCallback();
+const session = readSession();
+if (session?.access_token || isTemporaryPreviewAuthBypass()) {
+  $('#login-view').style.display = 'none';
+  $('#app-view').hidden = false;
+  $('#israeli-date').textContent = formatToday();
+  if (isTemporaryPreviewAuthBypass()) $('#preview-auth-banner').hidden = false;
+  render();
+}

@@ -714,3 +714,50 @@ Validation:
 Remaining issues:
 
 - The bypass remains temporary and must still be removed before launch.
+
+## 2026-07-15 - New Portal Sprint 1 Foundation
+
+Objective: Build the permanent Hebrew RTL application shell, navigation, home page, and design-system foundation for the new portal only, without implementing business modules.
+
+Files changed:
+
+- `chamah-manager-portal/new/index.html`
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/styles.css`
+- `tests/new-portal-foundation.spec.mjs`
+- `tests/new-portal-screenshots.spec.mjs`
+- `screenshots/new-portal-foundation/desktop-home.png`
+- `screenshots/new-portal-foundation/tablet-home.png`
+- `screenshots/new-portal-foundation/mobile-home.png`
+- `PROJECT_LOG.md`
+
+Technical decisions:
+
+- Kept Sprint 1 isolated under `/new/` and preserved the existing Magic Link flow and temporary canonical Preview hostname bypass.
+- Replaced the recovered business-dashboard landing screen with a reusable hash-routed portal shell containing a header, desktop sidebar, main content area, breadcrumbs, mobile drawer, and bottom mobile navigation.
+- Added a Portal Home with five navigation cards: Dashboards, Calculators, Tasks, Maintenance, and Knowledge Center.
+- Routed every Sprint 1 module destination to a consistent professional `בקרוב` screen; no business module logic or data fetching was added.
+- Added reusable design-system primitives for buttons, cards, panels, fields, tables, status badges, empty/loading/error states, typography, spacing, colors, shadows, radii, focus states, transitions, and reduced-motion support.
+- Used `Intl.DateTimeFormat('he-IL')` for the shell date and retained Hebrew-only user-facing copy.
+- Embedded the portal mark as accessible SVG inside the new shell so it renders consistently without changing the shared production site or local server configuration.
+- Added focused Playwright coverage for RTL, five-card navigation, placeholder routing, mobile navigation, and horizontal overflow.
+- Added deterministic screenshot coverage for desktop 1440x900, tablet 820x1180, and mobile 390x844.
+
+Scope preserved:
+
+- Did not change the existing production portal source, APIs, calculation engines, database, Supabase schema, business rules, package files, Vercel settings, or deployment state.
+- Verified the connected Vercel project before implementation as `chamah-manager-portal-v2-preview` (`prj_6IND7ee2E9s3KispBh6iBDWwQo6X`).
+
+Validation:
+
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `npm run build` passed.
+- Focused new-portal Playwright suite passed in desktop, laptop, and two mobile projects: 12 passed.
+- Screenshot generation suite passed: 1 passed.
+- Full `npx playwright test` regression passed: 237 passed, 3 intentionally skipped screenshot duplicates.
+- Visual inspection confirmed correct RTL presentation, responsive navigation, stable tablet/mobile layouts, visible embedded logo, large touch targets, and no horizontal overflow.
+
+Remaining issues:
+
+- The canonical Preview authentication bypass is still temporary and must be removed before launch as documented in the preceding entries.
+- Business modules remain intentionally unimplemented and display `בקרוב` until future sprints.
