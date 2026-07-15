@@ -989,3 +989,48 @@ Remaining placeholders:
 - Budget, profit/loss, budget utilization, actual/standard hours, hours variance, and hours variance percentage remain unavailable until approved source data and calculation contracts exist.
 - PDF and Excel export actions are intentionally UI placeholders; browser printing is active.
 - Detailed expandable sections and KPI source-row records are prepared but intentionally not populated in this foundation sprint.
+
+## 2026-07-15 - Sprint 3.1 Financial Dashboard Data Integration and UX Refinement
+
+Objective: Connect the reusable `/new/` Financial Dashboard to approved Supabase data, refine its reporting UX, and complete the existing password-recovery request entry point without changing schemas, RLS, APIs, or calculation contracts.
+
+Files changed:
+
+- `chamah-manager-portal/new/index.html`
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/styles.css`
+- `tests/new-portal-auth.spec.mjs`
+- `tests/new-portal-dashboards.spec.mjs`
+- `tests/new-portal-test-data.mjs`
+- `PROJECT_LOG.md`
+
+Implementation:
+
+- Audited and reused approved financial sources: locked Budget snapshots and active Budget categories, bank transaction allocations, payroll records and unit allocations, monthly enrollment, active Allocation Units, and data-quality issues.
+- Corrected unit and organization bank totals to use each approved allocation amount instead of repeating a full bank transaction amount when one transaction is split between units.
+- Added responsive School-Year and month chips with multi-month selection while keeping the School-Year summary permanently first and independent of temporary month filters.
+- Consolidated the dashboard into six management KPI cards for revenue, expenses, payroll, working hours, children, and data quality, with utilization status thresholds and latest-month-only children reporting.
+- Added organization-level source grouping by active Allocation Unit and populated expandable Budget, Payroll, Hours, Children, Bank, and Data Quality sections with approved source records.
+- Added a reusable permanent KPI action menu with explanation, calculation, sources, records, KPI printing/PDF output, and Excel-compatible CSV export.
+- Added KPI drill-down context, applied-filter display, data-only refresh, skeleton loading, empty/error states, and retry behavior.
+- Completed the Hebrew forgot-password request UI using Supabase recovery email delivery to the canonical Preview `/new/` URL while preserving the existing secure recovery completion flow.
+
+Calculation and source audit:
+
+- Revenue and expenses use approved bank allocation values and locked Budget category types.
+- Payroll uses approved employer cost at organization scope and approved allocation amounts at unit scope; hours use regular plus overtime hours at organization scope and allocated hours at unit scope.
+- Budget utilization is actual divided by planned for the matching approved category and period.
+- Required/standard hours and a non-duplicative approved profit/loss contract are not available in the current Supabase data model, so those values remain explicitly unavailable rather than inferred.
+
+Scope preserved:
+
+- Did not modify database schema, Supabase configuration/data, RLS, APIs, package files, existing business rules, `cmh-ops`, or the existing production website.
+
+Validation:
+
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `npm run build` passed.
+- Focused authentication, dashboard, and portal foundation coverage passed: 93 passed, 3 intentionally skipped.
+- Screenshot generation passed: 1 passed, 3 project duplicates intentionally skipped.
+- Desktop 1440x900, tablet 820x1180, and mobile 390x844 screenshots were generated and visually reviewed.
+- Full `npx playwright test` regression passed: 318 passed, 6 intentionally skipped.

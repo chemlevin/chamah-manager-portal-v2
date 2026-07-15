@@ -159,8 +159,13 @@ p { line-height: 1.65; }
 .toolbar-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .period-panel { display: grid; gap: 16px; margin-block-end: 14px; padding: 16px; }
 .period-panel p { margin: 0; color: var(--text-muted); font-size: .9rem; }
-.period-panel select[multiple] { min-height: 108px; }
-.period-panel .field small { color: var(--text-muted); font-weight: 400; }
+.chip-filters { min-width: 0; display: grid; gap: 10px; }
+.chip-filters fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.chip-filters legend { margin-block-end: 6px; font-size: .82rem; font-weight: 700; }
+.filter-chips { display: flex; gap: 7px; overflow-x: auto; padding-block-end: 4px; scrollbar-width: thin; }
+.filter-chip { min-width: max-content; min-height: 44px; padding: 8px 13px; color: var(--text); background: var(--surface); border: 1px solid #bdcbc4; border-radius: 999px; font-weight: 700; cursor: pointer; }
+.filter-chip.selected { color: #fff; background: var(--primary-600); border-color: var(--primary-600); }
+.empty-inline { color: var(--text-muted); font-size: .86rem; }
 .dashboard-skeleton { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .dashboard-skeleton span { min-height: 112px; border-radius: var(--radius-md); background: linear-gradient(90deg, #e8eeeb 25%, #f7faf8 50%, #e8eeeb 75%); background-size: 220% 100%; animation: skeleton 1.3s infinite linear; }
 @keyframes skeleton { to { background-position-x: -220%; } }
@@ -171,15 +176,26 @@ p { line-height: 1.65; }
 .school-year-summary strong { font-size: 1.1rem; }
 .summary-arrow { color: var(--primary-600); font-size: 1.5rem; }
 .financial-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.financial-kpi { min-width: 0; min-height: 124px; display: grid; align-content: space-between; gap: 6px; padding: 14px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); text-align: right; cursor: pointer; transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition); }
+.financial-kpi { min-width: 0; min-height: 150px; display: grid; position: relative; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); text-align: right; transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition); }
 .financial-kpi:hover { border-color: #acc4b8; box-shadow: var(--shadow-md); transform: translateY(-2px); }
-.financial-kpi span, .financial-kpi small { color: var(--text-muted); }
-.financial-kpi strong { font-size: clamp(1.08rem, 3vw, 1.65rem); overflow-wrap: anywhere; }
+.financial-kpi.status-good { border-block-start: 4px solid var(--success); }
+.financial-kpi.status-warning { border-block-start: 4px solid #d49b24; }
+.financial-kpi.status-exception { border-block-start: 4px solid var(--danger); }
+.kpi-open { min-width: 0; display: grid; align-content: space-between; gap: 7px; padding: 14px; color: inherit; background: transparent; border: 0; border-radius: inherit; text-align: right; cursor: pointer; }
+.kpi-open > span, .kpi-open small { color: var(--text-muted); }
+.kpi-open strong { padding-inline-end: 22px; font-size: clamp(1.08rem, 3vw, 1.65rem); overflow-wrap: anywhere; }
+.kpi-open small { display: flex; justify-content: space-between; gap: 8px; font-size: .75rem; }
+.kpi-open small b { color: var(--text); text-align: left; }
+.kpi-menu-button { width: 44px; height: 44px; display: grid; place-items: center; padding: 0; color: var(--text-muted); background: transparent; border: 0; border-radius: 50%; position: absolute; inset-block-start: 3px; inset-inline-end: 3px; z-index: 2; cursor: pointer; font-size: 1.35rem; }
+.kpi-action-menu { min-width: 160px; padding: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow-md); position: absolute; inset-block-start: 42px; inset-inline-end: 8px; z-index: 12; }
+.kpi-action-menu button { width: 100%; min-height: 44px; padding: 7px 10px; background: transparent; border: 0; border-radius: 6px; text-align: right; cursor: pointer; }
+.kpi-action-menu button:hover { background: var(--primary-50); }
 .expandable-sections { display: grid; gap: 10px; margin-block-start: 16px; }
 .dashboard-detail { overflow: clip; }
 .dashboard-detail summary { min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; font-weight: 700; cursor: pointer; }
 .dashboard-detail summary span { color: var(--primary-600); font-size: .8rem; }
-.detail-empty { padding: 18px; color: var(--text-muted); background: var(--surface-muted); border-top: 1px solid var(--border); }
+.detail-content { padding: 14px; color: var(--text-muted); background: var(--surface-muted); border-top: 1px solid var(--border); }
+.source-records { min-width: 0; }
 .kpi-panel { width: min(420px, 92vw); height: 100dvh; padding: 26px 22px; background: var(--surface); box-shadow: var(--shadow-md); position: fixed; inset-block: 0; inset-inline-end: 0; z-index: 70; overflow-y: auto; }
 .kpi-panel .icon-button { margin-inline-start: auto; }
 .kpi-panel dl { display: grid; gap: 12px; }
@@ -217,7 +233,7 @@ p { line-height: 1.65; }
   .daycare-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .financial-heading { grid-template-columns: minmax(0, 1fr) minmax(360px, auto); align-items: end; }
   .dashboard-context { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .period-panel { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+  .period-panel { grid-template-columns: minmax(220px, .6fr) minmax(0, 1.4fr); align-items: start; }
   .dashboard-skeleton { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
@@ -255,4 +271,7 @@ p { line-height: 1.65; }
   .app-layout { display: block; }
   .main-content { max-width: none; padding: 0; }
   .financial-kpi, .panel { break-inside: avoid; box-shadow: none; }
+  body.print-single-kpi .financial-kpi:not(.print-target), body.print-single-kpi .school-year-summary, body.print-single-kpi .period-panel, body.print-single-kpi .expandable-sections { display: none !important; }
+  body.print-single-kpi .financial-kpis { display: block; }
+  body.print-single-kpi .financial-kpi.print-target { max-width: 680px; margin: 24px auto; }
 }

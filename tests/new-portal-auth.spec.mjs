@@ -85,6 +85,24 @@ test.describe('new portal Supabase authentication', () => {
     expect(requests).toBe(1);
   });
 
+  test('requests password recovery to the canonical portal without changing the login flow', async ({ page }) => {
+    let recoveryUrl;
+    let recoveryBody;
+    await page.route(`${supabaseUrl}/auth/v1/recover**`, async (route) => {
+      recoveryUrl = route.request().url();
+      recoveryBody = route.request().postDataJSON();
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+    });
+    await page.goto('/new/');
+    await page.locator('#email').fill('existing@example.org');
+    await page.locator('#forgot-password').click();
+    await page.locator('#request-recovery').click();
+    await expect(page.locator('#recovery-request-message')).toContainText('אם הכתובת מורשית במערכת');
+    expect(recoveryBody).toEqual({ email: 'existing@example.org' });
+    expect(new URL(recoveryUrl).searchParams.get('redirect_to')).toBe('https://chamah-manager-portal-v2-preview.vercel.app/new/');
+    await expect(page.locator('#login-submit')).toBeVisible();
+  });
+
   test('completes a recovery session, persists it, and loads active units under RLS', async ({ page }) => {
     const generatedSecret = await generatedStrongPassword(page);
     await mockUser(page, 'recovery-access');

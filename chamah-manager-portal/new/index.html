@@ -20,7 +20,9 @@
       <button id="forgot-password" class="text-button" type="button" aria-expanded="false" aria-controls="recovery-help">שכחתי סיסמה</button>
       <div id="recovery-help" class="recovery-help" hidden>
         <strong>איפוס סיסמה מאובטח</strong>
-        <span>יש לבקש ממנהל המערכת לשלוח קישור איפוס דרך Supabase. הקישור ייפתח כאן ויאפשר להגדיר סיסמה חדשה.</span>
+        <span>קישור מאובטח להגדרת סיסמה חדשה יישלח לכתובת המייל שהוזנה.</span>
+        <button id="request-recovery" class="button button-secondary button-block" type="button">שליחת קישור לאיפוס סיסמה</button>
+        <span id="recovery-request-message" class="form-message" role="status"></span>
       </div>
       <p id="login-message" class="form-message" aria-live="polite"></p>
     </form>
