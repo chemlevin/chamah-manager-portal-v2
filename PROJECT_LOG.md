@@ -652,3 +652,35 @@ Tests not run:
 Remaining issues:
 
 - The original local creation history remains unavailable; Git now preserves the exact currently deployed artifacts as the recovery source.
+
+## 2026-07-15 - Temporary Canonical Preview Authentication Bypass
+
+Objective: Allow testing without a Magic Link only on the canonical Preview-project hostname.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/index.html`
+- `PROJECT_LOG.md`
+
+Technical decisions:
+
+- Added one clearly named temporary Preview hostname constant and an exact-host helper.
+- The bypass activates only when `location.hostname === 'chamah-manager-portal-v2-preview.vercel.app'`.
+- Preview bypass requests without a session omit the Authorization header but continue using the publishable key and remain subject to Supabase RLS; existing authenticated sessions keep their Authorization header.
+- Preserved the existing Magic Link flow, callback handling, redirect behavior, and authenticated REST headers on every other hostname.
+- Added a small visible Preview-only banner: `מצב בדיקה — כניסה ללא אימות`.
+
+Validation:
+
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `npm run build` passed.
+- Confirmed the built output contains the exact hostname gate and unchanged Magic Link redirect expression.
+
+Tests not run:
+
+- The broader Playwright suite was not run because the change is isolated to the recovered `/new/` authentication entry gate and static banner.
+
+Remaining issues:
+
+- This bypass is intentionally temporary and must be removed before launch by deleting the constant/helper, the bypass branches in `rest()` and startup, and the Preview banner markup.
