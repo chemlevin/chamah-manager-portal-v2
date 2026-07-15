@@ -1,9 +1,8 @@
 const SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
 const SESSION_KEY = 'chamah.portal.session';
-// Temporary Preview-only authentication bypass. Remove before launch.
-const TEMP_PREVIEW_AUTH_BYPASS_HOSTNAME = 'chamah-manager-portal-v2-preview.vercel.app';
-const isTemporaryPreviewAuthBypass = () => location.hostname === TEMP_PREVIEW_AUTH_BYPASS_HOSTNAME;
+const AUTH_REDIRECT_URL = 'https://chamah-manager-portal-v2-preview.vercel.app/new/';
+const SESSION_REFRESH_LEEWAY_SECONDS = 60;
 const $ = (selector) => document.querySelector(selector);
 const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 });
 
@@ -29,49 +28,93 @@ let unitState = { status: 'idle', items: [], error: '' };
 let generalModel = {};
 let generalStatus = 'idle';
 let generalError = '';
+const protectedRequests = new Set();
 
 function readSession() {
   try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { return null; }
 }
 
 function saveSession(value) {
-  session = value;
-  value ? localStorage.setItem(SESSION_KEY, JSON.stringify(value)) : localStorage.removeItem(SESSION_KEY);
+  session = normalizeSession(value);
+  session ? localStorage.setItem(SESSION_KEY, JSON.stringify(session)) : localStorage.removeItem(SESSION_KEY);
+}
+
+function normalizeSession(value) {
+  if (!value?.access_token || !value?.refresh_token) return null;
+  const expiresIn = Number(value.expires_in || 0);
+  const expiresAt = Number(value.expires_at) || (expiresIn ? Math.floor(Date.now() / 1000) + expiresIn : 0);
+  return { ...value, expires_at: expiresAt };
+}
+
+function cleanAuthUrl() {
+  history.replaceState({}, '', `${new URL(AUTH_REDIRECT_URL).pathname}#home`);
 }
 
 function parseCallback() {
   const hash = new URLSearchParams(location.hash.slice(1));
-  if (hash.get('access_token')) {
-    saveSession({ access_token: hash.get('access_token'), refresh_token: hash.get('refresh_token'), expires_at: Math.floor(Date.now() / 1000) + Number(hash.get('expires_in') || 3600) });
-    history.replaceState({}, '', `${location.pathname}#home`);
+  const search = new URLSearchParams(location.search);
+  const error = hash.get('error_description') || search.get('error_description');
+  if (hash.get('access_token') && hash.get('refresh_token')) {
+    saveSession({
+      access_token: hash.get('access_token'),
+      refresh_token: hash.get('refresh_token'),
+      token_type: hash.get('token_type') || 'bearer',
+      expires_in: Number(hash.get('expires_in') || 3600)
+    });
+    cleanAuthUrl();
+  } else if (error) {
+    saveSession(null);
+    cleanAuthUrl();
   }
-  const error = new URLSearchParams(location.search).get('error_description');
-  if (error) $('#login-message').textContent = error;
+  return error;
 }
 
 async function sendLoginLink(email) {
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/otp`, {
+  const endpoint = new URL(`${SUPABASE_URL}/auth/v1/otp`);
+  endpoint.searchParams.set('redirect_to', AUTH_REDIRECT_URL);
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, create_user: true, options: { email_redirect_to: location.href.split(/[?#]/)[0] } })
+    body: JSON.stringify({ email, create_user: false })
   });
   if (!response.ok) throw new Error((await response.json()).msg || 'שליחת הקישור נכשלה. אפשר לנסות שוב בעוד רגע.');
 }
 
 async function refreshSession() {
   if (!session?.refresh_token) return false;
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, { method: 'POST', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: session.refresh_token }) });
+  const refreshToken = session.refresh_token;
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, { method: 'POST', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: refreshToken }) });
   if (!response.ok) { saveSession(null); return false; }
   const value = await response.json();
-  saveSession({ ...value, expires_at: Math.floor(Date.now() / 1000) + value.expires_in });
+  saveSession({ ...value, refresh_token: value.refresh_token || refreshToken });
+  return Boolean(session);
+}
+
+async function ensureAccessToken() {
+  if (!session?.access_token || !session?.refresh_token) return false;
+  if (!session.expires_at || session.expires_at <= Date.now() / 1000 + SESSION_REFRESH_LEEWAY_SECONDS) return refreshSession();
   return true;
 }
 
+async function validateSession() {
+  if (!await ensureAccessToken()) return false;
+  const validate = () => fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}` } });
+  let response = await validate();
+  if (response.status === 401 && await refreshSession()) response = await validate();
+  if (!response.ok) saveSession(null);
+  return response.ok;
+}
+
 async function rest(table, query = '') {
-  if (session?.expires_at < Date.now() / 1000 + 60) await refreshSession();
-  const headers = { apikey: SUPABASE_KEY };
-  if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, { headers });
+  if (!await ensureAccessToken()) throw new Error('החיבור פג. יש להתחבר מחדש.');
+  const controller = new AbortController();
+  protectedRequests.add(controller);
+  let response;
+  try {
+    response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, { signal: controller.signal, headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}` } });
+  } finally {
+    protectedRequests.delete(controller);
+  }
   if (!response.ok) throw new Error((await response.json()).message || `שגיאה בקריאת ${table}`);
   return response.json();
 }
@@ -271,18 +314,40 @@ function closeMenu() { $('#sidebar').classList.remove('open'); $('#sidebar-backd
 function formatToday() { return new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date()); }
 
 $('#login-form').addEventListener('submit', async (event) => { event.preventDefault(); const email = $('#email'); const message = $('#login-message'); if (!email.validity.valid) { message.textContent = 'יש להזין כתובת דוא״ל תקינה.'; email.focus(); return; } message.textContent = 'שולח קישור כניסה…'; try { await sendLoginLink(email.value.trim()); message.textContent = 'הקישור נשלח. יש לפתוח אותו מאותו דפדפן.'; } catch (error) { message.textContent = error.message; } });
-$('#logout').addEventListener('click', () => { saveSession(null); location.reload(); });
+$('#logout').addEventListener('click', async () => {
+  const accessToken = session?.access_token;
+  protectedRequests.forEach((controller) => controller.abort());
+  protectedRequests.clear();
+  saveSession(null);
+  unitState = { status: 'idle', items: [], error: '' };
+  generalModel = {};
+  generalStatus = 'idle';
+  $('#app-view').hidden = true;
+  $('#login-view').style.display = '';
+  $('#login-message').textContent = 'ההתנתקות הושלמה.';
+  cleanAuthUrl();
+  if (accessToken) {
+    try { await fetch(`${SUPABASE_URL}/auth/v1/logout`, { method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${accessToken}` } }); } catch { /* Local logout is already complete. */ }
+  }
+});
 $('#menu-toggle').addEventListener('click', () => $('#sidebar').classList.contains('open') ? closeMenu() : openMenu());
 $('#mobile-more').addEventListener('click', openMenu);
 $('#sidebar-backdrop').addEventListener('click', closeMenu);
 window.addEventListener('hashchange', render);
 window.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMenu(); });
 
-parseCallback();
-if (session?.access_token || isTemporaryPreviewAuthBypass()) {
+async function initializeAuth() {
+  const callbackError = parseCallback();
+  if (callbackError) $('#login-message').textContent = callbackError;
+  if (!await validateSession()) {
+    $('#app-view').hidden = true;
+    $('#login-view').style.display = '';
+    return;
+  }
   $('#login-view').style.display = 'none';
   $('#app-view').hidden = false;
   $('#israeli-date').textContent = formatToday();
-  if (isTemporaryPreviewAuthBypass()) $('#preview-auth-banner').hidden = false;
-  render();
+  await render();
 }
+
+initializeAuth();

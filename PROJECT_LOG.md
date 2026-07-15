@@ -784,3 +784,46 @@ Validation:
 Remaining issues:
 
 - None known.
+
+## 2026-07-15 - Secure Supabase Magic Link Authentication
+
+Objective: Remove the temporary Preview authentication bypass and complete the real Supabase Magic Link session lifecycle for the canonical new portal.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/index.html`
+- `chamah-manager-portal/new/styles.css`
+- `tests/new-portal-auth.spec.mjs`
+- `tests/new-portal-foundation.spec.mjs`
+- `tests/new-portal-test-data.mjs`
+- `PROJECT_LOG.md`
+
+Implementation:
+
+- Removed the Preview hostname bypass, bypass banner, banner styling, and all associated temporary conditions.
+- Fixed Magic Link requests to use the fixed canonical redirect `https://chamah-manager-portal-v2-preview.vercel.app/new/` and disabled automatic user creation.
+- Added callback token persistence, callback parameter cleanup, session validation, automatic access-token refresh, authenticated-only protected reads, and full remote/local logout behavior.
+- Added focused authentication coverage for anonymous access, Magic Link request options, callback handling, persistence, refresh, protected reads, and logout.
+- Updated existing new-portal helpers to model a complete authenticated Supabase session and validate it through the Auth user endpoint.
+
+Root cause:
+
+- The previous client derived its redirect from the current browser location, so a request made from local development explicitly selected `localhost`.
+- The direct Auth request also placed the redirect inside a client-library-style nested body instead of the Auth endpoint's `redirect_to` query parameter, allowing the configured Site URL fallback to determine the destination.
+
+Scope preserved:
+
+- Did not modify RLS, database schema, database permissions, Supabase data, APIs, calculations, business rules, package files, or the existing `cmh-ops` website.
+
+Validation:
+
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `npm run build` passed.
+- Focused new-portal authentication, foundation, and dashboards suite passed across desktop, laptop, and two mobile profiles: 57 passed, 3 conditionally skipped.
+- Full `npx playwright test` regression passed: 282 passed, 6 intentionally skipped viewport-specific duplicates.
+- Supabase Auth logs confirmed historical Magic Link requests used a `http://localhost:3000` referer.
+
+Remaining issues:
+
+- Supabase Auth URL Configuration could not be read or changed through the connected database integration, and the available Dashboard browser session was not signed in. It must be verified before the real-email callback acceptance check.

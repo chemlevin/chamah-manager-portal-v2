@@ -16,6 +16,7 @@ const generalResponses = {
 
 export async function mockNewPortalSupabase(page, units = allocationUnits) {
   const requestedTables = [];
+  await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/auth/v1/user', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'test-user' }) }));
   await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/rest/v1/**', async (route) => {
     const url = new URL(route.request().url());
     const table = url.pathname.split('/').pop();
@@ -31,6 +32,6 @@ export async function mockNewPortalSupabase(page, units = allocationUnits) {
 }
 
 export async function openNewPortal(page, route = 'home') {
-  await page.addInitScript(() => localStorage.setItem('chamah.portal.session', JSON.stringify({ access_token: 'test-session', expires_at: 4102444800 })));
+  await page.addInitScript(() => localStorage.setItem('chamah.portal.session', JSON.stringify({ access_token: 'test-session', refresh_token: 'test-refresh', expires_at: 4102444800 })));
   await page.goto(`/new/#${route}`);
 }

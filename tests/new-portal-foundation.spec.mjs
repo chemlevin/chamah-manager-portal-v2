@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 const openPortal = async (page, route = 'home') => {
-  await page.addInitScript(() => localStorage.setItem('chamah.portal.session', JSON.stringify({ access_token: 'visual-test-session', expires_at: 4102444800 })));
+  await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/auth/v1/user', (request) => request.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'visual-test-user' }) }));
+  await page.addInitScript(() => localStorage.setItem('chamah.portal.session', JSON.stringify({ access_token: 'visual-test-session', refresh_token: 'visual-test-refresh', expires_at: 4102444800 })));
   await page.goto(`/new/#${route}`);
 };
 
