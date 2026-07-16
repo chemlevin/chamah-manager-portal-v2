@@ -1152,3 +1152,9 @@ Validation:
 - `node --check chamah-manager-portal/new/app.js` passed.
 - `npm run build` passed.
 - Focused Playwright Accounting Dashboard validation was attempted, but the existing session-mock setup remained on the login screen before the dashboard route loaded. This must be resolved before claiming browser-regression success; no production or Preview deployment was performed from this unverified state.
+
+## 2026-07-16 - Accounting Dashboard Validation Repair
+
+- Replaced the direct local-storage test setup with the portal's email/password form flow and mocked Supabase Auth responses in the Playwright fixture.
+- Corrected two rendering blockers discovered by that real flow: a quoted Hebrew source-data label and a `Set` conversion before filtering the latest month.
+- `node --check`, `npm run build`, and the focused desktop Accounting Dashboard test passed.

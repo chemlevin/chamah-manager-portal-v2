@@ -76,6 +76,11 @@ const generalResponses = {
 export async function mockNewPortalSupabase(page, units = allocationUnits) {
   const requestedTables = [];
   await page.route('**/auth/v1/user**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'test-user' }) }));
+  await page.route('**/auth/v1/token**', (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get('grant_type') !== 'password') return route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ message: 'Unsupported test grant.' }) });
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ access_token: 'test-session', refresh_token: 'test-refresh', expires_in: 3600, token_type: 'bearer' }) });
+  });
   await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/rest/v1/**', async (route) => {
     const url = new URL(route.request().url());
     const table = url.pathname.split('/').pop();
@@ -91,6 +96,16 @@ export async function mockNewPortalSupabase(page, units = allocationUnits) {
 }
 
 export async function openNewPortal(page, route = 'home') {
-  await page.addInitScript(() => localStorage.setItem('chamah.portal.session', JSON.stringify({ access_token: 'test-session', refresh_token: 'test-refresh', expires_at: 4102444800 })));
-  await page.goto(`/new/#${route}`);
+  await page.goto('/new/');
+  if (await page.locator('#email').isVisible()) {
+    await page.locator('#email').fill('qa@example.test');
+    await page.locator('#password').fill('בדיקה12345');
+    const signInResponse = page.waitForResponse((response) => response.url().includes('/auth/v1/token?grant_type=password'));
+    await page.locator('#login-submit').click();
+    if (!(await signInResponse).ok()) throw new Error('Supabase test login did not succeed.');
+  }
+  await page.waitForSelector('#app-view:not([hidden])');
+  await page.waitForSelector('#page-content .page-heading');
+  await page.waitForFunction(() => document.title.startsWith('עמוד הבית |'));
+  await page.evaluate((value) => { location.hash = value; }, route);
 }

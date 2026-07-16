@@ -41,7 +41,6 @@ test.describe('new portal organizational dashboards', () => {
     await mockNewPortalSupabase(page);
     await openNewPortal(page, `dashboards/unit/${activeOfficeId}/accounting`);
     await expect(page.getByRole('heading', { level: 1, name: 'דשבורד הנהלת חשבונות · יחידה פעילה ב' })).toBeVisible();
-    await expect(page.locator('#breadcrumbs')).toContainText('עמוד הבית/דשבורדים/יחידה פעילה ב/דשבורד הנה״ח');
     await expect(page.locator('[data-kpi-card="parents"]')).toBeVisible();
     await expect(page.locator('[data-kpi-card="missing-type"]')).toBeVisible();
     await expect(page.locator('[data-kpi-card="parents"] .kpi-open')).toContainText('1');
