@@ -18,7 +18,13 @@ const generalResponses = {
   ],
   daycares: [{ daycare_id: 'daycare-1', daycare_code: 'DC-ONE', allocation_unit_id: activeDaycareId, display_name: 'מעון א', lifecycle_status: 'ACTIVE', display_order: 1 }],
   daycare_school_years: [{ daycare_school_year_id: 'dsy-1', daycare_id: 'daycare-1', school_year_id: 'year-1', is_operating: true, tuition_standard_type: 'EXTENDED', staffing_standard_type: 'EXTENDED' }],
-  classrooms: [{ classroom_id: 'class-1', daycare_school_year_id: 'dsy-1', display_name: 'כיתה א', lifecycle_status: 'ACTIVE', effective_from: '2026-09-01', effective_to: null }],
+  classrooms: [{ classroom_id: 'class-1', daycare_school_year_id: 'dsy-1', display_name: 'כיתה א', licensed_capacity: 22, lifecycle_status: 'ACTIVE', display_order: 1, effective_from: '2026-09-01', effective_to: null }],
+  classroom_capacity_breakdowns: [{ classroom_id: 'class-1', age_group_id: 'age-infant', licensed_capacity: 22, lifecycle_status: 'ACTIVE' }],
+  classroom_licensing_rules: [
+    { classroom_licensing_rule_id: 'license-infant', age_group: 'INFANT', sqm_per_child: 2.8, max_children: 22, allowed_mixed_with: ['TODDLER'], valid_from: '2026-09-01', valid_to: null, rounding_method: 'FLOOR', lifecycle_status: 'ACTIVE' },
+    { classroom_licensing_rule_id: 'license-toddler', age_group: 'TODDLER', sqm_per_child: 2.6, max_children: 27, allowed_mixed_with: ['INFANT', 'GRADUATE'], valid_from: '2026-09-01', valid_to: null, rounding_method: 'FLOOR', lifecycle_status: 'ACTIVE' },
+    { classroom_licensing_rule_id: 'license-graduate', age_group: 'GRADUATE', sqm_per_child: 2.2, max_children: 33, allowed_mixed_with: ['TODDLER'], valid_from: '2026-09-01', valid_to: null, rounding_method: 'FLOOR', lifecycle_status: 'ACTIVE' }
+  ],
   monthly_enrollment: [
     { monthly_enrollment_id: 'enroll-1', classroom_id: 'class-1', reporting_month: '2026-09-01', age_group_id: 'age-infant', children_count: 18 },
     { monthly_enrollment_id: 'enroll-2', classroom_id: 'class-1', reporting_month: '2026-10-01', age_group_id: 'age-infant', children_count: 20 },
@@ -49,7 +55,7 @@ const generalResponses = {
     { budget_category_id: 'cat-fixed', budget_category_code: 'CAT-PAYROLL-NONSTAFF', display_name: 'שכר קבוע', category_type: 'EXPENSE', lifecycle_status: 'ACTIVE' }
   ],
   bank_accounts: [{ bank_account_id: 'account-1', display_name: 'חשבון תפעולי', bank_account_code: 'BANK-1', lifecycle_status: 'ACTIVE' }],
-  age_groups: [{ age_group_id: 'age-infant', age_group_code: 'INFANT', display_name: 'תינוקות', lifecycle_status: 'ACTIVE' }],
+  age_groups: [{ age_group_id: 'age-infant', age_group_code: 'INFANT', display_name: 'תינוקות', display_order: 1, lifecycle_status: 'ACTIVE' }, { age_group_id: 'age-toddler', age_group_code: 'TODDLER', display_name: 'פעוטות', display_order: 2, lifecycle_status: 'ACTIVE' }, { age_group_id: 'age-graduate', age_group_code: 'GRADUATE', display_name: 'בוגרים', display_order: 3, lifecycle_status: 'ACTIVE' }],
   roles: [{ role_id: 'role-caregiver', role_code: 'ROLE-CAREGIVER', display_name: 'מטפלת' }, { role_id: 'role-manager', role_code: 'ROLE-MANAGER', display_name: 'מנהלת' }],
   employments: [{ employment_id: 'employment-1', employee_id: 'employee-1', employment_start_date: '2026-01-01', employment_end_date: null, employment_status: 'ACTIVE' }],
   employees: [{ employee_id: 'employee-1', first_name: 'שרה', last_name: 'כהן', lifecycle_status: 'ACTIVE' }],
@@ -64,6 +70,10 @@ const generalResponses = {
   budget_rules: [
     { budget_rule_id: 'staff-rule', budget_category_id: 'cat-payroll', school_year_id: 'year-1', age_group_id: 'age-infant', effective_from: '2026-09-01', effective_to: '2027-08-31', lifecycle_status: 'ACTIVE', standard_type: 'EXTENDED', parameter_1: 5, rounding_method: 'CEIL_PER_AGE_GROUP' },
     { budget_rule_id: 'tuition-rule', budget_category_id: 'cat-income', school_year_id: 'year-1', age_group_id: 'age-infant', effective_from: '2026-09-01', effective_to: '2027-08-31', lifecycle_status: 'ACTIVE', standard_type: 'EXTENDED', numeric_value: 3487 },
+    { budget_rule_id: 'staff-rule-toddler', budget_category_id: 'cat-payroll', school_year_id: 'year-1', age_group_id: 'age-toddler', effective_from: '2026-09-01', effective_to: '2027-08-31', lifecycle_status: 'ACTIVE', standard_type: 'EXTENDED', parameter_1: 8, rounding_method: 'CEIL_PER_AGE_GROUP' },
+    { budget_rule_id: 'staff-rule-graduate', budget_category_id: 'cat-payroll', school_year_id: 'year-1', age_group_id: 'age-graduate', effective_from: '2026-09-01', effective_to: '2027-08-31', lifecycle_status: 'ACTIVE', standard_type: 'EXTENDED', parameter_1: 10, rounding_method: 'CEIL_PER_AGE_GROUP' },
+    { budget_rule_id: 'tuition-rule-toddler', budget_category_id: 'cat-income', school_year_id: 'year-1', age_group_id: 'age-toddler', effective_from: '2026-09-01', effective_to: '2027-08-31', lifecycle_status: 'ACTIVE', standard_type: 'EXTENDED', numeric_value: 3000 },
+    { budget_rule_id: 'tuition-rule-graduate', budget_category_id: 'cat-income', school_year_id: 'year-1', age_group_id: 'age-graduate', effective_from: '2026-09-01', effective_to: '2027-08-31', lifecycle_status: 'ACTIVE', standard_type: 'EXTENDED', numeric_value: 2500 },
     { budget_rule_id: 'manager-rule', budget_category_id: 'cat-fixed', school_year_id: 'year-1', daycare_id: 'daycare-1', effective_from: '2026-09-01', effective_to: '2027-08-31', lifecycle_status: 'ACTIVE', parameter_1: 'MANAGER', parameter_2: 1, numeric_value: 10500 },
     { budget_rule_id: 'food-rule', budget_category_id: 'cat-expense', school_year_id: 'year-1', effective_from: '2026-09-01', effective_to: '2027-08-31', lifecycle_status: 'ACTIVE', calculation_method: 'PER_CHILD_WORKDAY', parameter_1: 8, display_scope: 'ALL_DAYCARES', show_budget: true }
   ],

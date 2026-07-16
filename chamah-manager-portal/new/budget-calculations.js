@@ -19,6 +19,12 @@ export function roundRequiredStaff(value) {
   return Math.ceil(numberValue(value) * 2 - Number.EPSILON) / 2;
 }
 
+// Occupancy calculator contract: sum mixed-age fractions before rounding to a whole caregiver.
+// Financial Dashboard keeps using roundRequiredStaff above.
+export function roundOccupancyCaregivers(value) {
+  return Math.ceil(numberValue(value) - Number.EPSILON);
+}
+
 export function calculateBudgetModel(data, options) {
   const selectedMonths = [...options.months].sort();
   const selectedUnitIds = new Set(options.unitIds || []);

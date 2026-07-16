@@ -1195,3 +1195,41 @@ Validation:
 - Read-only verification confirmed active `HAVRAA-GLOBAL_MONTHLY` rules for `SY-2026-2027`, beginning at 12 recognized seniority months.
 - Havraa is now calculated from the selected full-time monthly rule as `amount × min(monthly_hours / 182, 1)` and appears in the breakdown.
 - Class Management is no longer treated as a rule conflict; it is calculated only when the explicit `CLASS_MANAGER=TRUE` eligibility input is selected.
+
+## 2026-07-16 - New Portal Occupancy Calculator UI
+
+Objective: Connect the completed occupancy calculation engine to the new portal under Calculators → Occupancy, Staffing and Profitability.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/styles.css`
+- `chamah-manager-portal/new/occupancy-calculations.js`
+- `tests/new-portal-test-data.mjs`
+- `tests/new-portal-occupancy.spec.mjs`
+- `tests/new-portal-occupancy-screenshots.spec.mjs`
+- `tests/new-occupancy-calculations.spec.mjs`
+- `PROJECT_LOG.md`
+
+Technical decisions:
+
+- Added existing-classroom mode backed by active daycare, classroom, month, and monthly enrollment records.
+- Added planning mode with editable age-group composition.
+- Loaded age groups, classroom licensing rules, staffing and tuition budget rules, classroom capacity data, and staffing hours from Supabase instead of hardcoding business entities or values in the UI.
+- Reused the completed occupancy engine for unified children, square-meter, staffing, revenue, efficiency, and optional wage results.
+- Added valid alternatives, print/PDF, and CSV output.
+- Removed the closed mobile sidebar from layout so it cannot create horizontal overflow; desktop and open-mobile behavior remain unchanged.
+
+Validation:
+
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `node --check chamah-manager-portal/new/occupancy-calculations.js` passed.
+- `npm.cmd run build` passed.
+- Focused `npx.cmd playwright test tests/new-occupancy-calculations.spec.mjs` passed: 8 tests.
+- Focused `npx.cmd playwright test tests/new-portal-occupancy.spec.mjs` passed: 12 tests across desktop, laptop, and two mobile projects.
+- Screenshot capture passed for desktop 1440×900, tablet 820×1180, and mobile 390×844; generated images remain ignored QA artifacts under `screenshots/new-portal-occupancy/`.
+- Full `npx.cmd playwright test` regression passed: 375 passed and 9 intentionally skipped.
+
+Remaining issues:
+
+- None known within the requested occupancy calculator scope.

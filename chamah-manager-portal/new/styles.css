@@ -79,8 +79,8 @@ p { line-height: 1.65; }
 .header-actions { margin-inline-start: auto; display: flex; align-items: center; gap: 12px; }
 .header-date { display: none; color: var(--text-muted); font-size: .88rem; }
 .app-layout { min-height: calc(100vh - 68px); }
-.sidebar { width: min(294px, 86vw); height: calc(100dvh - 68px); display: flex; flex-direction: column; padding: 20px 12px; color: #e8f1ed; background: var(--primary-900); position: fixed; inset-block-start: 68px; inset-inline-start: 0; z-index: 35; transform: translateX(110%); transition: transform 220ms ease; }
-.sidebar.open { transform: translateX(0); box-shadow: var(--shadow-md); }
+.sidebar { width: min(294px, 86vw); height: calc(100dvh - 68px); display: none; flex-direction: column; padding: 20px 12px; color: #e8f1ed; background: var(--primary-900); position: fixed; inset-block-start: 68px; inset-inline-start: 0; z-index: 35; }
+.sidebar.open { display: flex; box-shadow: var(--shadow-md); }
 .sidebar-heading { padding: 0 12px 12px; color: #a9c3b7; font-size: .76rem; font-weight: 700; }
 .primary-nav { display: grid; gap: 4px; }
 .primary-nav a { min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 10px 12px; color: #d8e6df; border-radius: var(--radius-sm); text-decoration: none; transition: color var(--transition), background var(--transition); }
@@ -250,6 +250,25 @@ p { line-height: 1.65; }
 .salary-comparison { display: grid; gap: 12px; }
 .salary-comparison > div:nth-child(2), .salary-comparison > div:last-child { display: flex; flex-wrap: wrap; gap: 8px; }
 .salary-comparison > div:last-child > div { min-width: 145px; flex: 1 1 145px; }
+.occupancy-calculator, .occupancy-results { min-width: 0; display: grid; gap: 14px; }
+.occupancy-inputs { display: grid; gap: 16px; padding: 16px; }
+.mode-switch, .age-composition { min-width: 0; margin: 0; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-md); }
+.mode-switch { display: flex; flex-wrap: wrap; gap: 12px 22px; }
+.mode-switch legend, .age-composition legend { padding-inline: 6px; font-weight: 700; }
+.mode-switch label { min-height: 44px; display: flex; align-items: center; gap: 7px; font-weight: 700; }
+.occupancy-fields, #occupancy-age-inputs { display: grid; gap: 12px; }
+.occupancy-actions, .occupancy-result-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.occupancy-result-heading { justify-content: space-between; }
+.occupancy-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.occupancy-metric { min-width: 0; display: grid; gap: 5px; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-block-start: 4px solid; border-radius: var(--radius-md); }
+.occupancy-metric.status-good { border-block-start-color: var(--success); }
+.occupancy-metric.status-exception { border-block-start-color: var(--danger); }
+.occupancy-metric span, .occupancy-metric small { color: var(--text-muted); }
+.occupancy-metric strong { overflow-wrap: anywhere; font-size: clamp(1rem, 4vw, 1.4rem); }
+.occupancy-financial, .occupancy-alternatives { min-width: 0; padding: 16px; }
+.occupancy-financial > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.occupancy-financial span { display: grid; gap: 4px; padding: 12px; background: var(--surface-muted); border-radius: var(--radius-sm); }
+.occupancy-financial strong { font-size: 1.15rem; }
 .kpi-panel { width: min(760px, 96vw); height: 100dvh; padding: 26px 22px; background: var(--surface); box-shadow: var(--shadow-md); position: fixed; inset-block: 0; inset-inline-end: 0; z-index: 70; overflow-y: auto; }
 .kpi-panel .icon-button { margin-inline-start: auto; }
 .kpi-context, .source-note { color: var(--text-muted); }
@@ -308,7 +327,7 @@ p { line-height: 1.65; }
   .menu-button, .mobile-nav, .sidebar-backdrop { display: none; }
   .header-date { display: inline; }
   .app-layout { display: grid; grid-template-columns: 248px minmax(0, 1fr); }
-  .sidebar { width: 248px; height: calc(100vh - 68px); position: sticky; inset-block-start: 68px; transform: none; }
+  .sidebar { width: 248px; height: calc(100vh - 68px); display: flex; position: sticky; inset-block-start: 68px; }
   .main-content { padding: 28px 32px 48px; }
   .module-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .module-card { min-height: 220px; grid-template-rows: auto 1fr auto; padding: 22px; }
@@ -324,6 +343,8 @@ p { line-height: 1.65; }
   .daycare-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .staff-filters { grid-template-columns: minmax(220px, 2fr) repeat(2, minmax(150px, 1fr)); align-items: end; }
   .salary-inputs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .occupancy-fields, #occupancy-age-inputs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .occupancy-summary { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 
 @media (min-width: 1280px) {
@@ -337,7 +358,7 @@ p { line-height: 1.65; }
 }
 
 @media print {
-  .app-header, .sidebar, .breadcrumbs, .mobile-nav, .global-toolbar, .period-panel, .kpi-panel, .kpi-backdrop { display: none !important; }
+  .app-header, .sidebar, .breadcrumbs, .mobile-nav, .global-toolbar, .period-panel, .kpi-panel, .kpi-backdrop, .occupancy-inputs, .occupancy-result-heading .occupancy-actions { display: none !important; }
   .app-layout { display: block; }
   .main-content { max-width: none; padding: 0; }
   .financial-kpi, .panel { break-inside: avoid; box-shadow: none; }
