@@ -1174,3 +1174,11 @@ Validation:
 - Canonical licensing data is read only from active `employee_pay_terms`: First Aid, Safe Conduct, caregiver-certificate status, studies target date, and weekly schedule.
 - Added operational KPIs, licensing/missing-data/workforce/daycare/employee expandable sections, and Information Center drill-down using the shared dashboard infrastructure.
 - Address and the currently unpopulated certificate tables are intentionally excluded from completeness logic.
+
+## 2026-07-16 - Staff & Licensing UX Review
+
+- Reordered the closed-by-default management sections by operational priority: immediate attention, licensing, missing employee data, workforce analysis, daycare comparison, and employee list.
+- Moved the "דורשים תשומת לב" KPI into the primary KPI row so its existing exception status is visible without opening details.
+- Replaced the employee-list table with compact, responsive employee cards limited to the operational fields required for an immediate decision. Each card opens the existing shared Information Center.
+- Workforce analysis continues to show headcount by role only; it makes no cross-role salary comparison.
+- Added tablet and mobile Staff & Licensing screenshot coverage.

@@ -59,6 +59,9 @@ test.describe('new portal organizational dashboards', () => {
     await openNewPortal(page, `dashboards/unit/${activeDaycareId}/staffing`);
     await expect(page.getByRole('heading', { level: 1, name: 'דשבורד צוות ורישוי · יחידה פעילה א' })).toBeVisible();
     await expect(page.locator('[data-kpi-card="staff-active"] .kpi-open')).toContainText('1');
+    await page.locator('details:has-text("רשימת עובדים") summary').click();
+    await expect(page.locator('.staff-employee-card')).toHaveCount(1);
+    await expect(page.locator('.staff-employee-card')).toContainText('שרה כהן');
     await page.locator('[data-kpi-card="staff-active"] .kpi-info-button').click();
     await expect(page.locator('#kpi-panel')).toBeVisible();
     await expect(page.locator('#detail-licensing')).toContainText('שרה כהן');
