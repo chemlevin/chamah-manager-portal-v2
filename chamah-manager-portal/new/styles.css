@@ -100,6 +100,9 @@ p { line-height: 1.65; }
 .panel, .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
 .status-badge { min-height: 28px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; white-space: nowrap; font-size: .78rem; font-weight: 700; }
 .status-success { color: var(--success); background: #e8f6ee; }
+.status-warning { color: var(--warning); background: #fff3d8; }
+.status-danger { color: var(--danger); background: #fbeceb; }
+.status-gray { color: #53665d; background: #e9eeeb; }
 .status-neutral { color: #53665d; background: #e9eeeb; }
 .status-info { color: var(--info); background: #e8f3f8; }
 .status-error { color: var(--danger); background: #fbeceb; }
@@ -196,11 +199,44 @@ p { line-height: 1.65; }
 .detail-content { padding: 14px; color: var(--text-muted); background: var(--surface-muted); border-top: 1px solid var(--border); }
 .source-records { min-width: 0; }
 .staff-employee-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); gap: 10px; }
-.staff-employee-card { min-width: 0; display: grid; gap: 5px; padding: 14px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); text-align: right; cursor: pointer; }
-.staff-employee-card:hover { border-color: var(--primary-600); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.staff-employee-card { min-width: 0; display: grid; gap: 10px; padding: 14px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); text-align: right; }
+.staff-employee-card.status-good, .staff-daycare-card.status-good { border-block-start: 4px solid var(--success); }
+.staff-employee-card.status-warning, .staff-daycare-card.status-warning { border-block-start: 4px solid #d49b24; }
+.staff-employee-card.status-exception, .staff-daycare-card.status-exception { border-block-start: 4px solid var(--danger); }
+.staff-employee-card.status-neutral, .staff-daycare-card.status-neutral { border-block-start: 4px solid #8a9790; }
+.staff-employee-card header { display: flex; justify-content: space-between; gap: 8px; align-items: start; }
+.staff-employee-card header div { min-width: 0; display: grid; gap: 3px; }
+.staff-employee-card header span { color: var(--text-muted); }
 .staff-employee-card strong { font-size: 1rem; }
 .staff-employee-card span { color: var(--text-muted); font-size: .84rem; overflow-wrap: anywhere; }
 .staff-employee-card .status-badge { justify-self: start; margin-block-start: 3px; }
+.staff-employee-card > p { margin: 0; color: var(--text-muted); font-size: .86rem; }
+.staff-issue-badges { display: flex; flex-wrap: wrap; gap: 5px; }
+.staff-issue-badges .status-badge { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.staff-daycare-summary { margin-block-start: 14px; padding: 16px; }
+.staff-daycare-summary .section-heading { margin-block-end: 10px; }
+.staff-daycare-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.staff-daycare-card { padding: 13px; background: var(--surface-muted); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.staff-daycare-card h3 { margin: 0 0 8px; font-size: 1rem; }
+.staff-daycare-card div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.staff-daycare-card span { display: flex; justify-content: space-between; gap: 8px; color: var(--text-muted); font-size: .78rem; }
+.staff-daycare-card b { color: var(--text); }
+.staff-filters { display: grid; gap: 10px; margin-block-start: 14px; padding: 14px; }
+.staff-filters label { display: grid; gap: 6px; color: var(--text-muted); font-size: .82rem; font-weight: 700; }
+.staff-filters input, .staff-filters select { min-width: 0; min-height: 44px; padding: 9px 11px; color: var(--text); background: var(--surface); border: 1px solid #bdcbc4; border-radius: var(--radius-sm); }
+.staff-record-panel { width: min(760px, 96vw); height: 100dvh; padding: 26px 22px; background: var(--surface); box-shadow: var(--shadow-md); position: fixed; inset-block: 0; inset-inline-end: 0; z-index: 70; overflow-y: auto; }
+.staff-record-panel .icon-button { margin-inline-start: auto; }
+.staff-record-panel section { margin-block-start: 22px; padding-block-start: 16px; border-block-start: 1px solid var(--border); }
+.staff-record-panel h3 { margin-block-end: 10px; }
+.staff-record-panel dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.staff-record-panel dl div { min-width: 0; padding: 10px; background: var(--surface-muted); border-radius: var(--radius-sm); }
+.staff-record-panel dt { color: var(--text-muted); font-size: .75rem; }
+.staff-record-panel dd { margin: 3px 0 0; overflow-wrap: anywhere; font-weight: 700; }
+.staff-schedule { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.staff-schedule li { display: flex; justify-content: space-between; gap: 8px; padding: 9px; background: var(--surface-muted); border-radius: var(--radius-sm); }
+.staff-issue-group { display: grid; gap: 6px; margin-block-start: 8px; padding: 10px; border-inline-start: 4px solid; border-radius: var(--radius-sm); }
+.staff-issue-group.status-warning { border-color: #d49b24; }
+.staff-issue-group.status-exception { border-color: var(--danger); }
 .kpi-panel { width: min(760px, 96vw); height: 100dvh; padding: 26px 22px; background: var(--surface); box-shadow: var(--shadow-md); position: fixed; inset-block: 0; inset-inline-end: 0; z-index: 70; overflow-y: auto; }
 .kpi-panel .icon-button { margin-inline-start: auto; }
 .kpi-context, .source-note { color: var(--text-muted); }
@@ -273,6 +309,7 @@ p { line-height: 1.65; }
   .financial-kpi.kpi-primary { grid-column: span 3; }
   .financial-kpi.kpi-secondary { grid-column: span 4; }
   .daycare-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .staff-filters { grid-template-columns: minmax(220px, 2fr) repeat(2, minmax(150px, 1fr)); align-items: end; }
 }
 
 @media (min-width: 1280px) {
