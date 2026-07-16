@@ -108,4 +108,5 @@ export async function openNewPortal(page, route = 'home') {
   await page.waitForSelector('#page-content .page-heading');
   await page.waitForFunction(() => document.title.startsWith('עמוד הבית |'));
   await page.evaluate((value) => { location.hash = value; }, route);
+  if (route.includes('/finance') || route.includes('/accounting')) await page.waitForSelector('#general-dashboard:not([hidden])');
 }

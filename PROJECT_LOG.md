@@ -1158,3 +1158,5 @@ Validation:
 - Replaced the direct local-storage test setup with the portal's email/password form flow and mocked Supabase Auth responses in the Playwright fixture.
 - Corrected two rendering blockers discovered by that real flow: a quoted Hebrew source-data label and a `Set` conversion before filtering the latest month.
 - `node --check`, `npm run build`, and the focused desktop Accounting Dashboard test passed.
+- Screenshot validation passed at desktop, tablet, and mobile sizes through the authenticated session-reuse flow.
+- A full regression initially reported eight Financial Dashboard timing failures; the shared Playwright helper now waits for dashboard readiness, and all eight affected desktop, laptop, and mobile tests passed on rerun.
