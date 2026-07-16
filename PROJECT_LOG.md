@@ -1167,3 +1167,10 @@ Validation:
 - Corrected the month-key root cause: Hebrew locale date formatting had produced a Hebrew-calendar month key (`2025-12`) for calendar year 2026. Labels now use `he-IL-u-ca-gregory` and filter keys are explicit Gregorian `YYYY-MM` values.
 - `budget_month` remains source-detail information and no longer controls the Accounting period filter.
 - Validation passed: syntax, build, focused Accounting dashboard test, screenshot capture, and full Playwright suite (334 passed, 6 skipped).
+
+## 2026-07-16 - Staff & Licensing Dashboard
+
+- Added the `/new/` Staff & Licensing Dashboard for organization and allocation-unit routes using Supabase employees, employments, primary assignments, active pay terms, roles, daycares, classrooms, and allocation units.
+- Canonical licensing data is read only from active `employee_pay_terms`: First Aid, Safe Conduct, caregiver-certificate status, studies target date, and weekly schedule.
+- Added operational KPIs, licensing/missing-data/workforce/daycare/employee expandable sections, and Information Center drill-down using the shared dashboard infrastructure.
+- Address and the currently unpopulated certificate tables are intentionally excluded from completeness logic.

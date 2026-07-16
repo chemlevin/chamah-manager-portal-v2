@@ -37,6 +37,10 @@ let accountingModel = {};
 let accountingStatus = 'idle';
 let accountingError = '';
 let accountingLastUpdated = null;
+let staffModel = {};
+let staffStatus = 'idle';
+let staffError = '';
+let staffLastUpdated = null;
 let dashboardMode = 'finance';
 let activeDashboardUnit = null;
 let selectedSchoolYearId = '';
@@ -308,6 +312,40 @@ function accountingDashboardShell(unit) {
   <div id="general-state" class="dashboard-skeleton" aria-live="polite">${Array.from({ length: 8 }, () => '<span></span>').join('')}</div>
   <div id="general-dashboard" hidden><section class="school-year-summary panel"><div><p class="eyebrow">סיכום שנה קלנדרית</p><h2>מתחילת השנה הקלנדרית</h2><p id="summary-range">—</p></div><div id="school-year-metrics" class="summary-metrics"></div><div><small>עד היום</small><strong id="summary-month">—</strong></div></section><section class="period-panel panel"><div><h2>בחירת תקופה</h2><p>בחרי יחידות וחודש אחד או מספר חודשים. הסיכום השנתי הקלנדרי נשאר קבוע.</p></div><div class="chip-filters"><fieldset id="unit-filter-group" hidden><legend>יחידות</legend><div id="unit-chips" class="filter-chips"></div></fieldset><fieldset><legend>שנה קלנדרית</legend><div id="year-chips" class="filter-chips"></div></fieldset><fieldset><legend>חודשים</legend><div id="month-chips" class="filter-chips month-chips"></div></fieldset></div></section><section id="kpis" class="financial-kpis accounting-kpis" aria-label="מדדי הנהלת חשבונות"></section><section class="expandable-sections" aria-label="פירוט הנהלת חשבונות">${[['daycare','תנועות לפי מעון'],['unit','תנועות לפי יחידת הקצאה'],['account','תנועות לפי חשבון בנק'],['status','תנועות לפי סטטוס הנה״ח'],['attention','תנועות הדורשות תשומת לב'],['split','תנועות מפוצלות']].map(([id, label]) => `<details class="dashboard-detail panel"><summary>${label}<span>פתיחת פירוט</span></summary><div id="detail-${id}" class="detail-content"></div></details>`).join('')}</section></div>
   <aside id="kpi-panel" class="kpi-panel" hidden aria-labelledby="kpi-panel-title"><button id="close-kpi-panel" class="icon-button" type="button" aria-label="סגירת מרכז המידע">×</button><p class="eyebrow">מרכז מידע</p><h2 id="kpi-panel-title"></h2><p id="kpi-filters" class="kpi-context"></p><div class="info-tabs" role="tablist">${[['explanation','הסבר'],['calculation','חישוב עסקי'],['details','פירוט'],['source','נתוני מקור'],['actions','פעולות']].map(([id,label], index) => `<button type="button" role="tab" data-info-tab="${id}" aria-selected="${index === 0}">${label}</button>`).join('')}</div><section class="info-tab-panel" data-info-panel="explanation"><p id="kpi-description"></p></section><section class="info-tab-panel" data-info-panel="calculation" hidden><p id="kpi-calculation"></p></section><section class="info-tab-panel" data-info-panel="details" hidden><div id="kpi-details" class="source-records"></div></section><section class="info-tab-panel" data-info-panel="source" hidden><p id="kpi-source" class="source-note"></p><div id="kpi-records" class="source-records"></div></section><section class="info-tab-panel" data-info-panel="actions" hidden><div class="info-actions"><button class="button button-secondary" type="button" data-info-action="print">הדפסה</button><button class="button button-secondary" type="button" data-info-action="pdf">ייצוא PDF</button><button class="button button-secondary" type="button" data-info-action="excel">ייצוא Excel</button></div></section></aside><button id="kpi-backdrop" class="kpi-backdrop" type="button" aria-label="סגירת מרכז המידע" hidden></button><div id="export-message" class="toast" role="status" hidden></div>`;
+}
+
+function staffDashboardShell(unit) {
+  return `<section class="financial-heading"><div><p class="eyebrow">צוות ורישוי</p><h1>דשבורד צוות ורישוי · ${escapeHtml(unit.display_name)}</h1><p>בקרת תוקף, שלמות נתונים ופעולות נדרשות עבור העובדים.</p></div><div class="dashboard-context"><span><small>יחידת הקצאה</small><strong>${escapeHtml(unit.display_name)}</strong></span></div></section>
+  <section class="global-toolbar panel"><button id="refresh-dashboard" class="button button-secondary" type="button">↻ רענון נתונים</button><span class="last-updated"><small>עודכן לאחרונה</small><strong id="last-updated">טרם עודכן</strong></span><div class="toolbar-actions"><button class="button button-quiet" type="button" data-export="print">הדפסה</button><button class="button button-quiet" type="button" data-export="pdf">PDF</button><button class="button button-quiet" type="button" data-export="excel">Excel</button></div></section>
+  <div id="general-state" class="dashboard-skeleton" aria-live="polite">${Array.from({ length: 8 }, () => '<span></span>').join('')}</div><div id="general-dashboard" hidden><section class="period-panel panel"><div><h2>תמונת מצב תפעולית</h2><p>המדדים מציגים עובדים פעילים והנושאים המחייבים טיפול.</p></div><div class="chip-filters"><fieldset id="unit-filter-group" hidden><legend>יחידות</legend><div id="unit-chips" class="filter-chips"></div></fieldset></div></section><section id="kpis" class="financial-kpis" aria-label="מדדי צוות ורישוי"></section><section class="expandable-sections">${[['licensing','רישוי ותעודות'],['missing','נתוני עובד חסרים'],['workforce','ניתוח כוח אדם'],['comparison','השוואת מעונות'],['employees','רשימת עובדים']].map(([id,label]) => `<details class="dashboard-detail panel" ${id === 'employees' ? 'open' : ''}><summary>${label}<span>פתיחת פירוט</span></summary><div id="detail-${id}" class="detail-content"></div></details>`).join('')}</section></div><aside id="kpi-panel" class="kpi-panel" hidden aria-labelledby="kpi-panel-title"><button id="close-kpi-panel" class="icon-button" type="button" aria-label="סגירה">×</button><p class="eyebrow">מרכז מידע</p><h2 id="kpi-panel-title"></h2><p id="kpi-filters" class="kpi-context"></p><div class="info-tabs" role="tablist">${[['explanation','הסבר'],['calculation','חישוב עסקי'],['details','פירוט'],['source','נתוני מקור'],['actions','פעולות']].map(([id,label], index) => `<button type="button" role="tab" data-info-tab="${id}" aria-selected="${index === 0}">${label}</button>`).join('')}</div><section class="info-tab-panel" data-info-panel="explanation"><p id="kpi-description"></p></section><section class="info-tab-panel" data-info-panel="calculation" hidden><p id="kpi-calculation"></p></section><section class="info-tab-panel" data-info-panel="details" hidden><div id="kpi-details" class="source-records"></div></section><section class="info-tab-panel" data-info-panel="source" hidden><p id="kpi-source" class="source-note"></p><div id="kpi-records" class="source-records"></div></section><section class="info-tab-panel" data-info-panel="actions" hidden><div class="info-actions"><button class="button button-secondary" type="button" data-info-action="print">הדפסה</button><button class="button button-secondary" type="button" data-info-action="pdf">ייצוא PDF</button><button class="button button-secondary" type="button" data-info-action="excel">ייצוא Excel</button></div></section></aside><button id="kpi-backdrop" class="kpi-backdrop" type="button" hidden></button><div id="export-message" class="toast" hidden></div>`;
+}
+
+const staffDateStatus = (date) => { if (!date) return 'exception'; const days = (new Date(`${date}T00:00:00`) - new Date()) / 86400000; return days < 0 ? 'exception' : days <= 60 ? 'warning' : 'good'; };
+async function loadStaffDashboard() {
+  if (staffStatus === 'loading' || staffStatus === 'ready') return;
+  staffStatus = 'loading'; staffError = '';
+  try {
+    const [employees, employments, assignments, terms, roles, daycares, classrooms, units] = await Promise.all([
+      rest('employees', 'select=employee_id,employee_code,national_id,first_name,last_name,phone,email,birth_date,hebrew_birth_date,lifecycle_status,manager_employee_id,notes'),
+      rest('employments', 'select=employment_id,employee_id,employment_start_date,employment_end_date,recognized_prior_seniority_months,employment_status,notes'),
+      rest('employee_assignments', 'select=assignment_id,employment_id,allocation_unit_id,daycare_id,classroom_id,role_id,effective_from,effective_to,is_primary,notes'),
+      rest('employee_pay_terms', 'select=employee_pay_term_id,employee_id,valid_from,valid_to,pay_type,base_pay,estimated_employment_percentage,caregiver_certificate_status,studies_end_date,has_degree,is_class_manager,first_aid_valid_until,safe_conduct_valid_until,weekly_schedule,notes'),
+      rest('roles', 'select=role_id,display_name,daycare_relevant,lifecycle_status'), rest('daycares', 'select=daycare_id,allocation_unit_id,display_name,lifecycle_status'), rest('classrooms', 'select=classroom_id,display_name,lifecycle_status'), rest('allocation_units', 'select=allocation_unit_id,display_name,allocation_unit_type,lifecycle_status')
+    ]); staffModel = { employees, employments, assignments, terms, roles, daycares, classrooms, units: activeUnits(units) }; staffStatus = 'ready'; staffLastUpdated = new Date();
+  } catch (error) { staffStatus = 'error'; staffError = error.message; }
+}
+
+function renderStaffData() {
+  if (staffStatus === 'error') { $('#general-state').className = 'error-state panel'; $('#general-state').innerHTML = `<strong>לא ניתן לטעון נתוני צוות</strong><button class="button button-secondary" data-retry-dashboard>נסי שוב</button>`; return; }
+  if (staffStatus !== 'ready') return;
+  const m = staffModel; const isOrganization = activeDashboardUnit.allocation_unit_id === 'organization'; const today = new Date().toISOString().slice(0, 10);
+  const people = m.employees.map((employee) => {
+    const employment = m.employments.find((item) => item.employee_id === employee.employee_id && item.employment_status === 'ACTIVE'); const assignment = m.assignments.find((item) => item.employment_id === employment?.employment_id && item.is_primary && (!item.effective_to || item.effective_to >= today)); const term = m.terms.filter((item) => item.employee_id === employee.employee_id && item.valid_from <= today && (!item.valid_to || item.valid_to >= today)).sort((a,b) => b.valid_from.localeCompare(a.valid_from))[0]; const role = m.roles.find((item) => item.role_id === assignment?.role_id); const daycare = m.daycares.find((item) => item.daycare_id === assignment?.daycare_id); if (!employment || (!isOrganization && assignment?.allocation_unit_id !== activeDashboardUnit.allocation_unit_id)) return null;
+    const missing = [['מספר עובד', employee.employee_code], ['תעודת זהות', employee.national_id], ['טלפון', employee.phone], ['דוא״ל', employee.email], ['תאריך לידה', employee.birth_date], ['תאריך לידה עברי', employee.hebrew_birth_date], ['תחילת העסקה', employment.employment_start_date], ['וותק מוכר', employment.recognized_prior_seniority_months], ['תפקיד', role], ['תנאי שכר פעילים', term], ['שכר בסיס', term?.base_pay], ['סוג שכר', term?.pay_type], ['תעודת מטפלת', term?.caregiver_certificate_status], ['עזרה ראשונה', term?.first_aid_valid_until], ['התנהגות בטוחה', term?.safe_conduct_valid_until], ['לוח שבועי', term?.weekly_schedule]].filter(([,value]) => value === null || value === undefined || value === ''); if (role?.daycare_relevant && !daycare) missing.push(['מעון', null]); if (['STUDYING','COMMITMENT_TO_STUDIES','בלימודים','התחייבות ללימודים'].includes(term?.caregiver_certificate_status) && !term?.studies_end_date) missing.push(['תאריך יעד ללימודים', null]); const firstAid = staffDateStatus(term?.first_aid_valid_until); const safe = staffDateStatus(term?.safe_conduct_valid_until); const overall = missing.length || firstAid === 'exception' || safe === 'exception' ? 'exception' : firstAid === 'warning' || safe === 'warning' ? 'warning' : 'good'; return { employee, employment, assignment, term, role, daycare, missing: missing.map(([label]) => label), firstAid, safe, overall };
+  }).filter(Boolean);
+  const row = (p) => ({ עובד: `${p.employee.first_name || ''} ${p.employee.last_name || ''}`.trim(), מעון: p.daycare?.display_name || 'לא שויך', תפקיד: p.role?.display_name || 'לא הוגדר', 'עזרה ראשונה': p.term?.first_aid_valid_until || 'חסר', 'התנהגות בטוחה': p.term?.safe_conduct_valid_until || 'חסר', 'תעודת מטפלת': p.term?.caregiver_certificate_status || 'חסר', 'שדות חסרים': p.missing.join(', ') || '—', __status: p.overall });
+  const definitions = (id, title, list, description) => ({ id, title, primary: list.length, formatter: number.format, utilization: list.some((p) => p.overall === 'exception') ? 101 : 0, definition: { title, description, calculation: 'ספירת עובדים פעילים העונים להגדרה המוצגת.', source: 'נתוני עובדים, העסקה, שיוך ותנאי שכר פעילים ב־Supabase' }, details: list.map(row), records: list.map(row) });
+  const cards = [definitions('staff-active','עובדים פעילים',people,'עובדים עם העסקה פעילה.'), definitions('staff-compliant','עובדים תקינים',people.filter((p)=>p.overall==='good'),'עובדים ללא חוסר או תוקף קרוב.'), definitions('staff-attention','דורשים תשומת לב',people.filter((p)=>p.overall!=='good'),'עובדים עם חוסר, תוקף קרוב או תוקף שפג.'), definitions('staff-first-aid-expired','עזרה ראשונה שפגה',people.filter((p)=>p.firstAid==='exception'),'עובדים שתוקף עזרה ראשונה חסר או פג.'), definitions('staff-safe-expired','התנהגות בטוחה שפגה',people.filter((p)=>p.safe==='exception'),'עובדים שתוקף התנהגות בטוחה חסר או פג.'), definitions('staff-missing','נתונים חיוניים חסרים',people.filter((p)=>p.missing.length),'עובדים שחסר להם שדה חובה מאושר.')]; staffModel.currentKpis = Object.fromEntries(cards.map((item)=>[item.id,item])); $('#kpis').innerHTML = cards.map((item,index)=>kpiCardTemplate({...item,row:index<4?'primary':'secondary'})).join(''); $('#detail-licensing').innerHTML = sourceRowsTemplate(people.map(row)); $('#detail-missing').innerHTML = sourceRowsTemplate(people.filter((p)=>p.missing.length).map(row)); $('#detail-workforce').innerHTML = sourceRowsTemplate(m.roles.map((role)=>({ תפקיד: role.display_name, עובדים: number.format(people.filter((p)=>p.role?.role_id===role.role_id).length,)}))); $('#detail-comparison').closest('details').hidden = !isOrganization; $('#detail-comparison').innerHTML = sourceRowsTemplate(m.daycares.map((daycare)=>({ מעון:daycare.display_name, פעילים:number.format(people.filter((p)=>p.daycare?.daycare_id===daycare.daycare_id).length), 'דורשים טיפול':number.format(people.filter((p)=>p.daycare?.daycare_id===daycare.daycare_id && p.overall==='exception').length)}))); $('#detail-employees').innerHTML = sourceRowsTemplate(people.map(row)); $('#last-updated').textContent = new Intl.DateTimeFormat('he-IL',{dateStyle:'short',timeStyle:'short'}).format(staffLastUpdated); $('#general-state').hidden=true; $('#general-dashboard').hidden=false; bindDashboardDynamicInteractions();
 }
 
 const sum = (items, getter) => items.reduce((total, item) => total + Number(getter(item) || 0), 0);
@@ -631,6 +669,8 @@ async function render() {
         $('#page-content').innerHTML = accountingDashboardShell(unit);
         await loadAccountingDashboard();
         if (parseRoute().unitId === unit.allocation_unit_id && parseRoute().dashboardType === 'accounting') renderAccountingData();
+      } else if (type.id === 'staffing') {
+        title = type.title; dashboardMode = 'staffing'; activeDashboardUnit = unit; $('#page-content').innerHTML = staffDashboardShell(unit); await loadStaffDashboard(); if (parseRoute().unitId === unit.allocation_unit_id && parseRoute().dashboardType === 'staffing') renderStaffData();
       } else { title = type.title; $('#page-content').innerHTML = dashboardPlaceholderTemplate(unit, type); }
     }
   }
@@ -646,6 +686,7 @@ async function render() {
     button.disabled = true;
     button.textContent = 'מרענן נתונים…';
     if (dashboardMode === 'accounting') { accountingStatus = 'idle'; await loadAccountingDashboard(); if (parseRoute().dashboardType === 'accounting') renderAccountingData(); }
+    else if (dashboardMode === 'staffing') { staffStatus = 'idle'; await loadStaffDashboard(); if (parseRoute().dashboardType === 'staffing') renderStaffData(); }
     else { generalStatus = 'idle'; await loadGeneralDashboard(); if (parseRoute().dashboardType === 'finance') renderGeneralData(); }
     button.disabled = false;
     button.textContent = '↻ רענון נתונים';
@@ -660,7 +701,7 @@ async function render() {
 }
 
 function bindDashboardDynamicInteractions() {
-  const rerenderDashboard = () => dashboardMode === 'accounting' ? renderAccountingData() : renderGeneralData();
+  const rerenderDashboard = () => dashboardMode === 'accounting' ? renderAccountingData() : dashboardMode === 'staffing' ? renderStaffData() : renderGeneralData();
   document.querySelectorAll('[data-year]').forEach((button) => button.addEventListener('click', () => { if (dashboardMode === 'accounting') selectedCalendarYearId = button.dataset.year; else selectedSchoolYearId = button.dataset.year; selectedReportingMonths = new Set(); rerenderDashboard(); }));
   document.querySelectorAll('[data-month]').forEach((button) => button.addEventListener('click', () => {
     const value = button.dataset.month;
@@ -678,13 +719,13 @@ function bindDashboardDynamicInteractions() {
 }
 
 function openKpiPanel(id) {
-  const activeModel = dashboardMode === 'accounting' ? accountingModel : generalModel;
+  const activeModel = dashboardMode === 'accounting' ? accountingModel : dashboardMode === 'staffing' ? staffModel : generalModel;
   const isBudgetCell = id.startsWith('budget:');
   const card = isBudgetCell ? activeModel.budgetCells?.[id.slice(7)] : activeModel.currentKpis?.[id];
   const definition = card?.definition || kpiDefinitions[id];
   if (!definition || !card) return;
-  const selectedYear = dashboardMode === 'accounting' ? activeModel.years.find((item) => item.calendar_year_id === selectedCalendarYearId)?.display_name : activeModel.years.find((item) => item.school_year_id === selectedSchoolYearId)?.display_name;
-  const period = dashboardMode === 'accounting' ? [...selectedReportingMonths].join(', ') : activeModel.months.filter((item) => selectedReportingMonths.has(month(item.start_date))).map((item) => item.month_label).join(', ');
+  const selectedYear = dashboardMode === 'staffing' ? 'מצב נוכחי' : dashboardMode === 'accounting' ? activeModel.years.find((item) => item.calendar_year_id === selectedCalendarYearId)?.display_name : activeModel.years.find((item) => item.school_year_id === selectedSchoolYearId)?.display_name;
+  const period = dashboardMode === 'staffing' ? 'עובדים פעילים' : dashboardMode === 'accounting' ? [...selectedReportingMonths].join(', ') : activeModel.months.filter((item) => selectedReportingMonths.has(month(item.start_date))).map((item) => item.month_label).join(', ');
   $('#kpi-panel-title').textContent = definition.title;
   $('#kpi-description').textContent = definition.description;
   $('#kpi-calculation').textContent = definition.calculation;

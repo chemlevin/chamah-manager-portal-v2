@@ -51,6 +51,20 @@ test.describe('new portal organizational dashboards', () => {
     expect(consoleErrors).toEqual([]);
   });
 
+  test('opens the Staff & Licensing Dashboard with active employees and drill-down', async ({ page }) => {
+    const consoleErrors = [];
+    page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
+    page.on('pageerror', (error) => consoleErrors.push(error.message));
+    await mockNewPortalSupabase(page);
+    await openNewPortal(page, `dashboards/unit/${activeDaycareId}/staffing`);
+    await expect(page.getByRole('heading', { level: 1, name: 'דשבורד צוות ורישוי · יחידה פעילה א' })).toBeVisible();
+    await expect(page.locator('[data-kpi-card="staff-active"] .kpi-open')).toContainText('1');
+    await page.locator('[data-kpi-card="staff-active"] .kpi-info-button').click();
+    await expect(page.locator('#kpi-panel')).toBeVisible();
+    await expect(page.locator('#detail-licensing')).toContainText('שרה כהן');
+    expect(consoleErrors).toEqual([]);
+  });
+
   test('opens the reusable financial dashboard for the organization', async ({ page }) => {
     const consoleErrors = [];
     page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });

@@ -53,6 +53,7 @@ const generalResponses = {
   roles: [{ role_id: 'role-caregiver', role_code: 'ROLE-CAREGIVER', display_name: 'מטפלת' }, { role_id: 'role-manager', role_code: 'ROLE-MANAGER', display_name: 'מנהלת' }],
   employments: [{ employment_id: 'employment-1', employee_id: 'employee-1', employment_start_date: '2026-01-01', employment_end_date: null, employment_status: 'ACTIVE' }],
   employees: [{ employee_id: 'employee-1', first_name: 'שרה', last_name: 'כהן', lifecycle_status: 'ACTIVE' }],
+  employee_pay_terms: [{ employee_pay_term_id: 'term-1', employee_id: 'employee-1', valid_from: '2026-01-01', valid_to: null, pay_type: 'MONTHLY', base_pay: 9000, caregiver_certificate_status: 'CERTIFIED', studies_end_date: null, has_degree: false, is_class_manager: false, first_aid_valid_until: '2027-01-01', safe_conduct_valid_until: '2027-01-01', weekly_schedule: { sunday: true, monday: true, tuesday: true, wednesday: true, thursday: true, friday: false } }],
   employee_assignments: [{ assignment_id: 'assignment-1', employment_id: 'employment-1', allocation_unit_id: activeDaycareId, daycare_id: 'daycare-1', classroom_id: 'class-1', role_id: 'role-caregiver', effective_from: '2026-01-01', effective_to: null, is_primary: true }],
   monthly_work_calendars: [
     { school_year_month_id: 'month-9', sun_thu_hours_per_day: 8.5, friday_hours_per_day: 4.5, sun_thu_workdays: 22, friday_workdays: 4 },

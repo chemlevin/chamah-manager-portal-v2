@@ -7,6 +7,7 @@ const screenshots = [
   { name: 'tablet-financial-dashboard', width: 820, height: 1180, route: `dashboards/unit/${activeDaycareId}/finance`, ready: '#general-dashboard' },
   { name: 'desktop-organization-finance', width: 1440, height: 900, route: 'dashboards/unit/organization/finance', ready: '#general-dashboard' },
   { name: 'desktop-organization-accounting', width: 1440, height: 900, route: 'dashboards/unit/organization/accounting', ready: '#general-dashboard' },
+  { name: 'desktop-staff-licensing-dashboard', width: 1440, height: 900, route: `dashboards/unit/${activeDaycareId}/staffing`, ready: '#general-dashboard' },
   { name: 'tablet-accounting-dashboard', width: 820, height: 1180, route: `dashboards/unit/${activeOfficeId}/accounting`, ready: '#general-dashboard' },
   { name: 'mobile-organizational-units', width: 390, height: 844, route: 'dashboards', ready: '.unit-card' },
   { name: 'mobile-financial-dashboard', width: 390, height: 844, route: `dashboards/unit/${activeDaycareId}/finance`, ready: '#general-dashboard' },
