@@ -33,6 +33,11 @@ let generalModel = {};
 let generalStatus = 'idle';
 let generalError = '';
 let generalLastUpdated = null;
+let accountingModel = {};
+let accountingStatus = 'idle';
+let accountingError = '';
+let accountingLastUpdated = null;
+let dashboardMode = 'finance';
 let activeDashboardUnit = null;
 let selectedSchoolYearId = '';
 let selectedReportingMonths = new Set();
@@ -296,6 +301,14 @@ function generalDashboardShell(unit) {
   <aside id="kpi-panel" class="kpi-panel" hidden aria-labelledby="kpi-panel-title"><button id="close-kpi-panel" class="icon-button" type="button" aria-label="סגירת מרכז המידע">×</button><p class="eyebrow">מרכז מידע</p><h2 id="kpi-panel-title"></h2><p id="kpi-filters" class="kpi-context"></p><div class="info-tabs" role="tablist">${[['explanation','הסבר'],['calculation','חישוב עסקי'],['details','פירוט'],['source','נתוני מקור'],['actions','פעולות']].map(([id,label], index) => `<button type="button" role="tab" data-info-tab="${id}" aria-selected="${index === 0}">${label}</button>`).join('')}</div><section class="info-tab-panel" data-info-panel="explanation"><p id="kpi-description"></p></section><section class="info-tab-panel" data-info-panel="calculation" hidden><p id="kpi-calculation"></p></section><section class="info-tab-panel" data-info-panel="details" hidden><div id="kpi-details" class="source-records"></div></section><section class="info-tab-panel" data-info-panel="source" hidden><p id="kpi-source" class="source-note"></p><div id="kpi-records" class="source-records"></div></section><section class="info-tab-panel" data-info-panel="actions" hidden><div class="info-actions"><button class="button button-secondary" type="button" data-info-action="print">הדפסה</button><button class="button button-secondary" type="button" data-info-action="pdf">ייצוא PDF</button><button class="button button-secondary" type="button" data-info-action="excel">ייצוא Excel</button></div></section></aside><button id="kpi-backdrop" class="kpi-backdrop" type="button" aria-label="סגירת מרכז המידע" hidden></button><div id="export-message" class="toast" role="status" hidden></div>`;
 }
 
+function accountingDashboardShell(unit) {
+  return `<section class="financial-heading"><div><p class="eyebrow">דשבורד הנהלת חשבונות</p><h1>דשבורד הנהלת חשבונות · ${escapeHtml(unit.display_name)}</h1><p>בקרה על שלמות תנועות הבנק ותהליך הטיפול החשבונאי.</p></div><div class="dashboard-context"><span><small>יחידת הקצאה</small><strong>${escapeHtml(unit.display_name)}</strong></span><span><small>שנת לימודים</small><strong id="context-year">—</strong></span><span><small>תקופה נבחרת</small><strong id="context-period">—</strong></span></div></section>
+  <section class="global-toolbar panel" aria-label="פעולות דשבורד"><button id="refresh-dashboard" class="button button-secondary" type="button">↻ רענון נתונים</button><span class="last-updated"><small>עודכן לאחרונה</small><strong id="last-updated">טרם עודכן</strong></span><div class="toolbar-actions"><button class="button button-quiet" type="button" data-export="print">הדפסה</button><button class="button button-quiet" type="button" data-export="pdf">PDF</button><button class="button button-quiet" type="button" data-export="excel">Excel</button></div></section>
+  <div id="general-state" class="dashboard-skeleton" aria-live="polite">${Array.from({ length: 8 }, () => '<span></span>').join('')}</div>
+  <div id="general-dashboard" hidden><section class="school-year-summary panel"><div><p class="eyebrow">סיכום שנת הלימודים</p><h2>מתחילת שנת הלימודים</h2><p id="summary-range">—</p></div><div id="school-year-metrics" class="summary-metrics"></div><div><small>עד חודש הנתונים האחרון</small><strong id="summary-month">—</strong></div></section><section class="period-panel panel"><div><h2>בחירת תקופה</h2><p>בחרי יחידות וחודש אחד או מספר חודשים. הסיכום השנתי נשאר קבוע.</p></div><div class="chip-filters"><fieldset id="unit-filter-group" hidden><legend>יחידות</legend><div id="unit-chips" class="filter-chips"></div></fieldset><fieldset><legend>שנת לימודים</legend><div id="year-chips" class="filter-chips"></div></fieldset><fieldset><legend>חודשים</legend><div id="month-chips" class="filter-chips month-chips"></div></fieldset></div></section><section id="kpis" class="financial-kpis accounting-kpis" aria-label="מדדי הנהלת חשבונות"></section><section class="expandable-sections" aria-label="פירוט הנהלת חשבונות">${[['daycare','תנועות לפי מעון'],['unit','תנועות לפי יחידת הקצאה'],['account','תנועות לפי חשבון בנק'],['status','תנועות לפי סטטוס הנה״ח'],['attention','תנועות הדורשות תשומת לב'],['split','תנועות מפוצלות']].map(([id, label]) => `<details class="dashboard-detail panel"><summary>${label}<span>פתיחת פירוט</span></summary><div id="detail-${id}" class="detail-content"></div></details>`).join('')}</section></div>
+  <aside id="kpi-panel" class="kpi-panel" hidden aria-labelledby="kpi-panel-title"><button id="close-kpi-panel" class="icon-button" type="button" aria-label="סגירת מרכז המידע">×</button><p class="eyebrow">מרכז מידע</p><h2 id="kpi-panel-title"></h2><p id="kpi-filters" class="kpi-context"></p><div class="info-tabs" role="tablist">${[['explanation','הסבר'],['calculation','חישוב עסקי'],['details','פירוט'],['source','נתוני מקור'],['actions','פעולות']].map(([id,label], index) => `<button type="button" role="tab" data-info-tab="${id}" aria-selected="${index === 0}">${label}</button>`).join('')}</div><section class="info-tab-panel" data-info-panel="explanation"><p id="kpi-description"></p></section><section class="info-tab-panel" data-info-panel="calculation" hidden><p id="kpi-calculation"></p></section><section class="info-tab-panel" data-info-panel="details" hidden><div id="kpi-details" class="source-records"></div></section><section class="info-tab-panel" data-info-panel="source" hidden><p id="kpi-source" class="source-note"></p><div id="kpi-records" class="source-records"></div></section><section class="info-tab-panel" data-info-panel="actions" hidden><div class="info-actions"><button class="button button-secondary" type="button" data-info-action="print">הדפסה</button><button class="button button-secondary" type="button" data-info-action="pdf">ייצוא PDF</button><button class="button button-secondary" type="button" data-info-action="excel">ייצוא Excel</button></div></section></aside><button id="kpi-backdrop" class="kpi-backdrop" type="button" aria-label="סגירת מרכז המידע" hidden></button><div id="export-message" class="toast" role="status" hidden></div>`;
+}
+
 const sum = (items, getter) => items.reduce((total, item) => total + Number(getter(item) || 0), 0);
 const month = (date) => String(date || '').slice(0, 7);
 
@@ -382,7 +395,7 @@ function sourceRowsTemplate(rows) {
 }
 
 function kpiCardTemplate(card) {
-  return `<article class="financial-kpi ${utilizationClass(card.utilization)} kpi-${card.row || 'primary'}" data-kpi-card="${card.id}"><button class="kpi-open" type="button" data-kpi="${card.id}"><span>${card.title}</span><strong>${metric(card.primary, card.formatter)}</strong>${card.lines.map((line) => `<small><span>${line.label}</span><b>${metric(line.value, line.formatter)}</b></small>`).join('')}</button><button class="kpi-info-button" type="button" data-kpi="${card.id}" aria-label="מידע על ${card.title}">מידע</button></article>`;
+  return `<article class="financial-kpi ${utilizationClass(card.utilization)} kpi-${card.row || 'primary'}" data-kpi-card="${card.id}"><button class="kpi-open" type="button" data-kpi="${card.id}"><span>${card.title}</span><strong>${metric(card.primary, card.formatter)}</strong>${(card.lines || []).map((line) => `<small><span>${line.label}</span><b>${metric(line.value, line.formatter)}</b></small>`).join('')}</button><button class="kpi-info-button" type="button" data-kpi="${card.id}" aria-label="מידע על ${card.title}">מידע</button></article>`;
 }
 
 function buildBudgetCategoryRows({ calculatedBudget, bankAllocations, payrollAllocations, relevantDaycares, categoryMap, unitById }) {
@@ -598,10 +611,18 @@ async function render() {
       else if (!type) $('#page-content').innerHTML = `<section class="error-state panel"><strong>סוג הדשבורד לא נמצא</strong><a class="button button-secondary" href="${unitRoute(unit.allocation_unit_id)}">חזרה לדשבורדי היחידה</a></section>`;
       else if (type.id === 'finance') {
         title = type.title;
+        dashboardMode = 'finance';
         activeDashboardUnit = unit;
         $('#page-content').innerHTML = generalDashboardShell(unit);
         await loadGeneralDashboard();
         if (parseRoute().unitId === unit.allocation_unit_id && parseRoute().dashboardType === 'finance') renderGeneralData();
+      } else if (type.id === 'accounting') {
+        title = type.title;
+        dashboardMode = 'accounting';
+        activeDashboardUnit = unit;
+        $('#page-content').innerHTML = accountingDashboardShell(unit);
+        await loadAccountingDashboard();
+        if (parseRoute().unitId === unit.allocation_unit_id && parseRoute().dashboardType === 'accounting') renderAccountingData();
       } else { title = type.title; $('#page-content').innerHTML = dashboardPlaceholderTemplate(unit, type); }
     }
   }
@@ -616,13 +637,12 @@ async function render() {
     const button = $('#refresh-dashboard');
     button.disabled = true;
     button.textContent = 'מרענן נתונים…';
-    generalStatus = 'idle';
-    await loadGeneralDashboard();
-    if (parseRoute().dashboardType === 'finance') renderGeneralData();
+    if (dashboardMode === 'accounting') { accountingStatus = 'idle'; await loadAccountingDashboard(); if (parseRoute().dashboardType === 'accounting') renderAccountingData(); }
+    else { generalStatus = 'idle'; await loadGeneralDashboard(); if (parseRoute().dashboardType === 'finance') renderGeneralData(); }
     button.disabled = false;
     button.textContent = '↻ רענון נתונים';
   });
-  $('[data-retry-dashboard]')?.addEventListener('click', async () => { generalStatus = 'idle'; $('#general-state').className = 'dashboard-skeleton'; $('#general-state').innerHTML = Array.from({ length: 8 }, () => '<span></span>').join(''); await loadGeneralDashboard(); renderGeneralData(); });
+  $('[data-retry-dashboard]')?.addEventListener('click', async () => { $('#general-state').className = 'dashboard-skeleton'; $('#general-state').innerHTML = Array.from({ length: 8 }, () => '<span></span>').join(''); if (dashboardMode === 'accounting') { accountingStatus = 'idle'; await loadAccountingDashboard(); renderAccountingData(); } else { generalStatus = 'idle'; await loadGeneralDashboard(); renderGeneralData(); } });
   document.querySelectorAll('[data-export]').forEach((button) => button.addEventListener('click', () => {
     if (button.dataset.export === 'print' || button.dataset.export === 'pdf') window.print();
     else exportDashboardCsv();
@@ -632,16 +652,17 @@ async function render() {
 }
 
 function bindDashboardDynamicInteractions() {
-  document.querySelectorAll('[data-year]').forEach((button) => button.addEventListener('click', () => { selectedSchoolYearId = button.dataset.year; selectedReportingMonths = new Set(); renderGeneralData(); }));
+  const rerenderDashboard = () => dashboardMode === 'accounting' ? renderAccountingData() : renderGeneralData();
+  document.querySelectorAll('[data-year]').forEach((button) => button.addEventListener('click', () => { selectedSchoolYearId = button.dataset.year; selectedReportingMonths = new Set(); rerenderDashboard(); }));
   document.querySelectorAll('[data-month]').forEach((button) => button.addEventListener('click', () => {
     const value = button.dataset.month;
     if (selectedReportingMonths.has(value) && selectedReportingMonths.size > 1) selectedReportingMonths.delete(value); else selectedReportingMonths.add(value);
-    renderGeneralData();
+    rerenderDashboard();
   }));
   document.querySelectorAll('[data-dashboard-unit]').forEach((button) => button.addEventListener('click', () => {
     const value = button.dataset.dashboardUnit;
     if (selectedDashboardUnitIds.has(value) && selectedDashboardUnitIds.size > 1) selectedDashboardUnitIds.delete(value); else selectedDashboardUnitIds.add(value);
-    renderGeneralData();
+    rerenderDashboard();
   }));
   document.querySelectorAll('.kpi-open').forEach((button) => button.addEventListener('click', () => openKpiPanel(button.dataset.kpi)));
   document.querySelectorAll('.kpi-info-button').forEach((button) => button.addEventListener('click', () => openKpiPanel(button.dataset.kpi)));
@@ -649,12 +670,13 @@ function bindDashboardDynamicInteractions() {
 }
 
 function openKpiPanel(id) {
+  const activeModel = dashboardMode === 'accounting' ? accountingModel : generalModel;
   const isBudgetCell = id.startsWith('budget:');
-  const card = isBudgetCell ? generalModel.budgetCells?.[id.slice(7)] : generalModel.currentKpis?.[id];
+  const card = isBudgetCell ? activeModel.budgetCells?.[id.slice(7)] : activeModel.currentKpis?.[id];
   const definition = card?.definition || kpiDefinitions[id];
   if (!definition || !card) return;
-  const selectedYear = generalModel.years.find((item) => item.school_year_id === selectedSchoolYearId)?.display_name || 'אין נתונים זמינים';
-  const period = generalModel.months.filter((item) => selectedReportingMonths.has(month(item.start_date))).map((item) => item.month_label).join(', ');
+  const selectedYear = activeModel.years.find((item) => item.school_year_id === selectedSchoolYearId)?.display_name || 'אין נתונים זמינים';
+  const period = activeModel.months.filter((item) => selectedReportingMonths.has(month(item.start_date))).map((item) => item.month_label).join(', ');
   $('#kpi-panel-title').textContent = definition.title;
   $('#kpi-description').textContent = definition.description;
   $('#kpi-calculation').textContent = definition.calculation;
@@ -683,6 +705,132 @@ function closeKpiPanel() {
   $('#kpi-backdrop').hidden = true;
 }
 
+const accountingStatusLabels = {
+  PENDING_SUBMISSION: 'ממתין להגשה',
+  SENT_TO_ACCOUNTING: 'נשלח להנהלת חשבונות',
+  MISSING_DOCUMENTS: 'חסרים מסמכים',
+  NO_SUPPORTING_DOCUMENT_REQUIRED: 'אין צורך במסמך תומך'
+};
+
+async function loadAccountingDashboard() {
+  if (accountingStatus === 'loading' || accountingStatus === 'ready') return;
+  accountingStatus = 'loading'; accountingError = '';
+  try {
+    const [years, months, transactions, allocations, accounts, units, daycares, categories] = await Promise.all([
+      rest('school_years', 'select=school_year_id,display_name,start_date,end_date,is_default,is_selectable&is_selectable=eq.true&order=start_date.desc'),
+      rest('school_year_months', 'select=school_year_month_id,school_year_id,month_label,start_date,school_year_sequence&order=school_year_sequence'),
+      rest('bank_transactions', 'select=bank_transaction_id,bank_account_id,transaction_date,description,reference_number,amount,debit_amount,credit_amount&order=transaction_date.desc'),
+      rest('bank_allocations', 'select=bank_allocation_id,bank_transaction_id,allocation_unit_id,budget_month,budget_category_id,allocation_amount,accounting_status,notes'),
+      rest('bank_accounts', 'select=bank_account_id,display_name,bank_account_code,lifecycle_status'),
+      rest('allocation_units', 'select=allocation_unit_id,display_name,allocation_unit_type,lifecycle_status,display_order&lifecycle_status=eq.ACTIVE&order=display_order.asc,display_name.asc'),
+      rest('daycares', 'select=daycare_id,allocation_unit_id,display_name,lifecycle_status,display_order&order=display_order'),
+      rest('budget_categories', 'select=budget_category_id,display_name,category_type,lifecycle_status&lifecycle_status=eq.ACTIVE')
+    ]);
+    accountingModel = { years, months, transactions, allocations, accounts, units: activeUnits(units), daycares, categories };
+    accountingStatus = 'ready'; accountingLastUpdated = new Date();
+  } catch (error) { accountingStatus = 'error'; accountingError = error.message; }
+}
+
+function setupAccountingFilters() {
+  const model = accountingModel;
+  if (!model.years?.length) return;
+  if (!selectedSchoolYearId || !model.years.some((item) => item.school_year_id === selectedSchoolYearId)) selectedSchoolYearId = (model.years.find((item) => item.is_default) || model.years[0]).school_year_id;
+  const available = model.months.filter((item) => item.school_year_id === selectedSchoolYearId);
+  const availableKeys = new Set(available.map((item) => month(item.start_date)));
+  selectedReportingMonths = new Set([...selectedReportingMonths].filter((item) => availableKeys.has(item)));
+  if (!selectedReportingMonths.size && available.length) {
+    const source = activeDashboardUnit?.allocation_unit_id === 'organization' ? model.transactions.map((item) => month(item.transaction_date)) : model.allocations.filter((item) => item.allocation_unit_id === activeDashboardUnit?.allocation_unit_id).map((item) => month(item.budget_month));
+    selectedReportingMonths.add(source.filter((item) => availableKeys.has(item)).sort().at(-1) || month(available[0].start_date));
+  }
+  const unitFilter = $('#unit-filter-group');
+  if (activeDashboardUnit?.allocation_unit_id === 'organization') {
+    unitFilter.hidden = false;
+    const selectable = model.units.filter((item) => item.allocation_unit_id !== 'organization');
+    selectedDashboardUnitIds = new Set([...selectedDashboardUnitIds].filter((id) => selectable.some((item) => item.allocation_unit_id === id)));
+    if (!selectedDashboardUnitIds.size) selectedDashboardUnitIds = new Set(selectable.map((item) => item.allocation_unit_id));
+    $('#unit-chips').innerHTML = selectable.map((item) => `<button class="filter-chip${selectedDashboardUnitIds.has(item.allocation_unit_id) ? ' selected' : ''}" type="button" data-dashboard-unit="${escapeHtml(item.allocation_unit_id)}" aria-pressed="${selectedDashboardUnitIds.has(item.allocation_unit_id)}">${escapeHtml(item.display_name)}</button>`).join('');
+  } else { unitFilter.hidden = true; selectedDashboardUnitIds = new Set(activeDashboardUnit ? [activeDashboardUnit.allocation_unit_id] : []); }
+  $('#year-chips').innerHTML = model.years.map((item) => `<button class="filter-chip${item.school_year_id === selectedSchoolYearId ? ' selected' : ''}" type="button" data-year="${escapeHtml(item.school_year_id)}" aria-pressed="${item.school_year_id === selectedSchoolYearId}">${escapeHtml(item.display_name)}</button>`).join('');
+  $('#month-chips').innerHTML = available.map((item) => { const value = month(item.start_date); return `<button class="filter-chip${selectedReportingMonths.has(value) ? ' selected' : ''}" type="button" data-month="${value}" aria-pressed="${selectedReportingMonths.has(value)}">${escapeHtml(item.month_label)}</button>`; }).join('');
+}
+
+function accountingTransactionRow(transaction, model, allocations = []) {
+  const account = model.accounts.find((item) => item.bank_account_id === transaction.bank_account_id);
+  return { תאריך: transaction.transaction_date, חשבון: account?.display_name || 'לא שויך', תיאור: transaction.description, אסמכתא: transaction.reference_number || '—', סכום: money.format(transaction.amount), הקצאות: number.format(allocations.length) };
+}
+
+function renderAccountingData() {
+  if (accountingStatus === 'error') { $('#general-state').className = 'error-state panel'; $('#general-state').innerHTML = '<strong>לא ניתן לטעון את נתוני הנהלת החשבונות</strong><button class="button button-secondary" type="button" data-retry-dashboard>נסה שוב</button>'; return; }
+  if (accountingStatus !== 'ready') return;
+  setupAccountingFilters();
+  const model = accountingModel; const selectedUnits = activeDashboardUnit.allocation_unit_id === 'organization' ? selectedDashboardUnitIds : new Set([activeDashboardUnit.allocation_unit_id]);
+  const txById = new Map(model.transactions.map((item) => [item.bank_transaction_id, item]));
+  const categoryById = new Map(model.categories.map((item) => [item.budget_category_id, item]));
+  const allocationsByTx = new Map(model.transactions.map((item) => [item.bank_transaction_id, []]));
+  model.allocations.forEach((item) => { if (allocationsByTx.has(item.bank_transaction_id)) allocationsByTx.get(item.bank_transaction_id).push(item); });
+  const unitDaycare = new Map(model.daycares.filter((item) => item.lifecycle_status === 'ACTIVE').map((item) => [item.allocation_unit_id, item]));
+  const isOrganization = activeDashboardUnit.allocation_unit_id === 'organization';
+  const selectedParents = isOrganization ? model.transactions.filter((item) => selectedReportingMonths.has(month(item.transaction_date))) : [...new Set(model.allocations.filter((item) => selectedUnits.has(item.allocation_unit_id) && selectedReportingMonths.has(month(item.budget_month))).map((item) => item.bank_transaction_id))].map((id) => txById.get(id)).filter(Boolean);
+  const selectedParentIds = new Set(selectedParents.map((item) => item.bank_transaction_id));
+  const selectedAllocations = model.allocations.filter((item) => selectedParentIds.has(item.bank_transaction_id) && (isOrganization ? true : selectedUnits.has(item.allocation_unit_id)));
+  const analyses = selectedParents.map((transaction) => {
+    const rows = isOrganization ? allocationsByTx.get(transaction.bank_transaction_id) || [] : selectedAllocations.filter((item) => item.bank_transaction_id === transaction.bank_transaction_id);
+    const validType = rows.some((item) => ['INCOME', 'EXPENSE', 'INTERNAL'].includes(categoryById.get(item.budget_category_id)?.category_type));
+    const allocationTotal = sum(rows, (item) => Math.abs(Number(item.allocation_amount)));
+    const difference = Math.abs(Number(transaction.amount)) - allocationTotal;
+    const missing = { type: !validType, budgetMonth: !rows.length || rows.some((item) => !item.budget_month), allocationUnit: !rows.length || rows.some((item) => !item.allocation_unit_id), daycare: rows.some((item) => model.units.find((unit) => unit.allocation_unit_id === item.allocation_unit_id)?.allocation_unit_type === 'DAYCARE' && !unitDaycare.has(item.allocation_unit_id)), split: rows.length > 0 && Math.abs(difference) > .01 };
+    const statuses = [...new Set(rows.map((item) => item.accounting_status).filter(Boolean))];
+    const complete = rows.length > 0 && rows.every((item) => ['SENT_TO_ACCOUNTING', 'NO_SUPPORTING_DOCUMENT_REQUIRED'].includes(item.accounting_status));
+    const attention = Object.values(missing).some(Boolean) || rows.some((item) => ['PENDING_SUBMISSION', 'MISSING_DOCUMENTS'].includes(item.accounting_status));
+    return { transaction, rows, allocationTotal, difference, missing, statuses, complete, attention };
+  });
+  const missingCards = [
+    ['missing-type', 'חסר סוג תנועה', 'סוג התנועה אינו מוגדר כהכנסה, הוצאה או פנימי.', 'בודקים האם קיימת הקצאה עם קטגוריה עסקית תקפה.', 'type'],
+    ['missing-month', 'חסר חודש תקציבי', 'לא הוגדר חודש תקציבי לטיפול בתנועה.', 'סופרים תנועות ללא הקצאה או עם הקצאה ללא חודש תקציבי.', 'budgetMonth'],
+    ['missing-unit', 'חסרה יחידת הקצאה', 'התנועה עדיין אינה משויכת ליחידה ארגונית.', 'סופרים תנועות ללא שורת הקצאה או ללא יחידת הקצאה.', 'allocationUnit'],
+    ['missing-daycare', 'חסר מעון', 'יחידת הקצאה מסוג מעון אינה מחוברת לרשומת מעון פעילה.', 'נבדקת רק הקצאה ליחידה מסוג מעון.', 'daycare'],
+    ['invalid-split', 'פיצול לא תקין', 'סכום ההקצאות אינו תואם לסכום תנועת־האב.', 'משווים את הערך המוחלט של תנועת־האב לסך ההקצאות.', 'split']
+  ].map(([id, title, description, calculation, key]) => { const rows = analyses.filter((item) => item.missing[key]); return { id, title, primary: rows.length, formatter: number.format, utilization: rows.length ? 101 : 0, definition: { title, description, calculation, source: 'תנועות בנק והקצאות תנועה' }, details: rows.map((item) => ({ ...accountingTransactionRow(item.transaction, model, item.rows), פער: key === 'split' ? money.format(item.difference) : 'דורש השלמה' })), records: rows.flatMap((item) => [accountingTransactionRow(item.transaction, model, item.rows), ...item.rows.map((row) => ({ חודש: row.budget_month || 'לא הוגדר', יחידה: model.units.find((unit) => unit.allocation_unit_id === row.allocation_unit_id)?.display_name || 'לא שויך', סטטוס: accountingStatusLabels[row.accounting_status] || 'ללא סטטוס', סכום: money.format(row.allocation_amount) }))]) }; });
+  const workflowCards = [...new Set(selectedAllocations.map((item) => item.accounting_status).filter(Boolean))].map((status) => { const rows = selectedAllocations.filter((item) => item.accounting_status === status); const title = accountingStatusLabels[status] || status; return { id: `status-${status}`, title, primary: rows.length, formatter: number.format, utilization: status === 'MISSING_DOCUMENTS' || status === 'PENDING_SUBMISSION' ? 101 : 0, definition: { title, description: `הקצאות הנמצאות בסטטוס ${title}.`, calculation: 'ספירת שורות הקצאה בסטטוס הקיים במקור.', source: 'סטטוס הנהלת החשבונות של שורות ההקצאה' }, details: rows.map((row) => ({ חודש: row.budget_month, יחידה: model.units.find((unit) => unit.allocation_unit_id === row.allocation_unit_id)?.display_name || 'לא שויך', סכום: money.format(row.allocation_amount), סטטוס: title })), records: rows.map((row) => ({ ...accountingTransactionRow(txById.get(row.bank_transaction_id), model, [row]), חודש: row.budget_month, יחידה: model.units.find((unit) => unit.allocation_unit_id === row.allocation_unit_id)?.display_name || 'לא שויך', סטטוס: title })) }; });
+  const topCards = [
+    { id: 'parents', title: 'תנועות בנק', primary: analyses.length, formatter: number.format, utilization: null, definition: { title: 'תנועות בנק', description: 'מספר תנועות־האב בתקופה.', calculation: 'כל תנועת בנק נספרת פעם אחת, גם אם פוצלה למספר הקצאות.', source: 'תנועות בנק מקור' }, details: analyses.map((item) => accountingTransactionRow(item.transaction, model, item.rows)), records: analyses.map((item) => accountingTransactionRow(item.transaction, model, item.rows)) },
+    { id: 'allocated', title: 'תנועות שהוקצו', primary: analyses.filter((item) => item.rows.length).length, formatter: number.format, utilization: analyses.length ? analyses.filter((item) => item.rows.length).length / analyses.length * 100 : null, definition: { title: 'תנועות שהוקצו', description: 'תנועות־אב שלפחות הקצאה אחת משויכת אליהן.', calculation: 'סופרים תנועות־אב ייחודיות עם שורת הקצאה אחת או יותר.', source: 'תנועות בנק והקצאות' }, details: analyses.filter((item) => item.rows.length).map((item) => accountingTransactionRow(item.transaction, model, item.rows)), records: analyses.filter((item) => item.rows.length).map((item) => accountingTransactionRow(item.transaction, model, item.rows)) },
+    { id: 'complete', title: 'תנועות שהושלמו', primary: analyses.filter((item) => item.complete).length, formatter: number.format, utilization: analyses.length ? analyses.filter((item) => item.complete).length / analyses.length * 100 : null, definition: { title: 'תנועות שהושלמו', description: 'תנועות שכל ההקצאות שלהן הועברו להנהלת החשבונות או אינן דורשות מסמך תומך.', calculation: 'כל שורות ההקצאה חייבות להיות בסטטוס קיים של נשלח להנהלת חשבונות או אין צורך במסמך תומך.', source: 'סטטוס הנהלת החשבונות של ההקצאות' }, details: analyses.filter((item) => item.complete).map((item) => accountingTransactionRow(item.transaction, model, item.rows)), records: analyses.filter((item) => item.complete).map((item) => accountingTransactionRow(item.transaction, model, item.rows)) },
+    { id: 'attention', title: 'דורש תשומת לב', primary: analyses.filter((item) => item.attention).length, formatter: number.format, utilization: analyses.some((item) => item.attention) ? 101 : 0, definition: { title: 'דורש תשומת לב', description: 'תנועות עם מידע חסר, פיצול לא תקין או סטטוס טיפול פתוח.', calculation: 'סופרים תנועות־אב עם לפחות בעיה אחת.', source: 'תנועות, הקצאות וסטטוס הנהלת החשבונות' }, details: analyses.filter((item) => item.attention).map((item) => accountingTransactionRow(item.transaction, model, item.rows)), records: analyses.filter((item) => item.attention).map((item) => accountingTransactionRow(item.transaction, model, item.rows)) }
+  ];
+  const cards = [...topCards, ...missingCards, ...workflowCards];
+  accountingModel.currentKpis = Object.fromEntries(cards.map((item) => [item.id, item]));
+  $('#kpis').innerHTML = cards.map((item, index) => kpiCardTemplate({ ...item, row: index < 4 ? 'primary' : 'secondary' })).join('');
+  const year = model.years.find((item) => item.school_year_id === selectedSchoolYearId); const yearMonths = model.months.filter((item) => item.school_year_id === selectedSchoolYearId); const period = yearMonths.filter((item) => selectedReportingMonths.has(month(item.start_date))).map((item) => item.month_label);
+  const schoolYearMonths = new Set(yearMonths.map((item) => month(item.start_date)));
+  const ytdParents = isOrganization
+    ? model.transactions.filter((item) => schoolYearMonths.has(month(item.transaction_date)))
+    : [...new Set(model.allocations.filter((item) => selectedUnits.has(item.allocation_unit_id) && schoolYearMonths.has(month(item.budget_month))).map((item) => item.bank_transaction_id))].map((id) => txById.get(id)).filter(Boolean);
+  const ytdAnalyses = ytdParents.map((transaction) => {
+    const rows = isOrganization ? allocationsByTx.get(transaction.bank_transaction_id) || [] : model.allocations.filter((item) => item.bank_transaction_id === transaction.bank_transaction_id && selectedUnits.has(item.allocation_unit_id));
+    const difference = Math.abs(Number(transaction.amount)) - sum(rows, (item) => Math.abs(Number(item.allocation_amount)));
+    const missing = !rows.length || rows.some((item) => !item.budget_month || !item.allocation_unit_id) || Math.abs(difference) > .01;
+    return { transaction, rows, complete: rows.length > 0 && rows.every((item) => ['SENT_TO_ACCOUNTING', 'NO_SUPPORTING_DOCUMENT_REQUIRED'].includes(item.accounting_status)), attention: missing || rows.some((item) => ['PENDING_SUBMISSION', 'MISSING_DOCUMENTS'].includes(item.accounting_status)) };
+  });
+  const latest = [...new Set((isOrganization ? ytdParents.map((item) => month(item.transaction_date)) : model.allocations.filter((item) => selectedUnits.has(item.allocation_unit_id) && schoolYearMonths.has(month(item.budget_month))).map((item) => month(item.budget_month)))).filter(Boolean)].sort().at(-1);
+  $('#context-year').textContent = year?.display_name || 'No Data'; $('#context-period').textContent = period.join(', ') || 'No Data'; $('#summary-range').textContent = yearMonths.length && latest ? `${yearMonths[0].month_label} → ${yearMonths.find((item) => month(item.start_date) === latest)?.month_label || latest}` : 'No Data'; $('#summary-month').textContent = latest || 'No Data';
+  const ytdAllocationRows = ytdAnalyses.flatMap((item) => item.rows);
+  const ytdMetrics = [['תנועות־אב', ytdAnalyses.length], ['הוקצו למחלקות', ytdAnalyses.filter((item) => item.rows.length).length], ['הושלמו', ytdAnalyses.filter((item) => item.complete).length], ['דורשות תשומת לב', ytdAnalyses.filter((item) => item.attention).length]];
+  if (isOrganization) ytdMetrics.push(['שורות הקצאה', ytdAllocationRows.length], ['סכום תנועות־אב', money.format(sum(ytdAnalyses, (item) => Math.abs(Number(item.transaction.amount))))], ['סכום הקצאות', money.format(sum(ytdAllocationRows, (item) => Math.abs(Number(item.allocation_amount))))]);
+  $('#school-year-metrics').innerHTML = ytdMetrics.map(([label,value]) => `<span><small>${label}</small><strong>${typeof value === 'number' ? number.format(value) : value}</strong></span>`).join('');
+  $('#last-updated').textContent = new Intl.DateTimeFormat('he-IL', { dateStyle: 'short', timeStyle: 'short' }).format(accountingLastUpdated);
+  const byUnit = (field, label) => sourceRowsTemplate([...new Map(selectedAllocations.map((row) => { const key = row[field] || 'missing'; const name = field === 'allocation_unit_id' ? model.units.find((item) => item.allocation_unit_id === row[field])?.display_name || 'לא שויך' : key; return [key, { [label]: name }]; })).values()]);
+  $('#detail-daycare').innerHTML = sourceRowsTemplate(model.daycares.filter((daycare) => selectedUnits.has(daycare.allocation_unit_id)).map((daycare) => { const rows = selectedAllocations.filter((item) => item.allocation_unit_id === daycare.allocation_unit_id); return { מעון: daycare.display_name, 'תנועות־אב': number.format(new Set(rows.map((item) => item.bank_transaction_id)).size), הקצאות: number.format(rows.length) }; }));
+  $('#detail-unit').innerHTML = sourceRowsTemplate(model.units.filter((unit) => selectedUnits.has(unit.allocation_unit_id)).map((unit) => { const rows = selectedAllocations.filter((item) => item.allocation_unit_id === unit.allocation_unit_id); return { יחידת הקצאה: unit.display_name, 'תנועות־אב': number.format(new Set(rows.map((item) => item.bank_transaction_id)).size), הקצאות: number.format(rows.length) }; }));
+  $('#detail-account').innerHTML = sourceRowsTemplate([...new Map(analyses.map((item) => [item.transaction.bank_account_id, item])).values()].map((item) => { const account = model.accounts.find((row) => row.bank_account_id === item.transaction.bank_account_id); const rows = analyses.filter((entry) => entry.transaction.bank_account_id === item.transaction.bank_account_id); return { חשבון: account?.display_name || 'לא שויך', 'תנועות־אב': number.format(rows.length) }; }));
+  $('#detail-status').innerHTML = sourceRowsTemplate(workflowCards.map((item) => ({ סטטוס: item.title, הקצאות: number.format(item.primary) })));
+  $('#detail-attention').innerHTML = sourceRowsTemplate(topCards[3].details);
+  $('#detail-split').innerHTML = isOrganization
+    ? sourceRowsTemplate(analyses.filter((item) => item.rows.length > 1).map((item) => ({ ...accountingTransactionRow(item.transaction, model, item.rows), 'סכום אב': money.format(Math.abs(Number(item.transaction.amount))), 'סך הקצאות': money.format(item.allocationTotal), פער: money.format(item.difference), מצב: Math.abs(item.difference) <= .01 ? 'תקין' : 'לא תקין', __status: Math.abs(item.difference) <= .01 ? 'good' : 'exception' })))
+    : '<div class="empty-state compact">בתצוגת מעון מוצגות הקצאות בלבד. בדיקת סכום תנועת־האב זמינה בכלל הארגון.</div>';
+  $('#general-state').hidden = true; $('#general-dashboard').hidden = false; bindDashboardDynamicInteractions();
+}
+
 function showToast(message) {
   const toast = $('#export-message');
   toast.textContent = message;
@@ -701,7 +849,8 @@ function printKpi(id) {
 }
 
 function exportKpiCsv(id) {
-  const card = id.startsWith('budget:') ? generalModel.budgetCells?.[id.slice(7)] : generalModel.currentKpis?.[id];
+  const activeModel = dashboardMode === 'accounting' ? accountingModel : generalModel;
+  const card = id.startsWith('budget:') ? activeModel.budgetCells?.[id.slice(7)] : activeModel.currentKpis?.[id];
   if (!card?.records?.length) { showToast('אין רשומות מקור זמינות לייצוא.'); return; }
   const rows = card.records.map((row) => Object.fromEntries(Object.entries(row).filter(([, value]) => typeof value !== 'object')));
   const headers = [...new Set(rows.flatMap((row) => Object.keys(row)))];
@@ -716,7 +865,8 @@ function exportKpiCsv(id) {
 }
 
 function exportDashboardCsv() {
-  const rows = Object.entries(generalModel.currentKpis || {}).flatMap(([id, card]) => card.records.map((row) => ({ מדד: kpiDefinitions[id].title, ...Object.fromEntries(Object.entries(row).filter(([, value]) => typeof value !== 'object')) })));
+  const activeModel = dashboardMode === 'accounting' ? accountingModel : generalModel;
+  const rows = Object.entries(activeModel.currentKpis || {}).flatMap(([id, card]) => card.records.map((row) => ({ מדד: card.title || kpiDefinitions[id]?.title || id, ...Object.fromEntries(Object.entries(row).filter(([, value]) => typeof value !== 'object')) })));
   if (!rows.length) { showToast('אין רשומות מקור זמינות לייצוא.'); return; }
   const headers = [...new Set(rows.flatMap((row) => Object.keys(row)))];
   const escapeCsv = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
@@ -724,7 +874,7 @@ function exportDashboardCsv() {
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = `דשבורד-כספים-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.download = `דשבורד-${dashboardMode === 'accounting' ? 'הנהלת-חשבונות' : 'כספים'}-${new Date().toISOString().slice(0, 10)}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }

@@ -1120,3 +1120,35 @@ Validation:
 - Browser coverage confirmed no console or page errors in the organization Financial Dashboard flow.
 - Live Supabase verification confirmed both existing payroll rows resolve to employee names and effective assignments.
 - Full `npx playwright test` regression passed: 334 passed, 6 intentionally skipped.
+
+## 2026-07-16 - Accounting Dashboard
+
+Objective: Add the permanent `/new/` Accounting Dashboard for control of bank-transaction completeness and accounting workflow quality, without changing authentication, RLS, schema, API contracts, or approved financial calculations.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `tests/new-portal-dashboards.spec.mjs`
+- `tests/new-portal-screenshots.spec.mjs`
+- `tests/new-portal-test-data.mjs`
+- `PROJECT_LOG.md`
+
+Implementation:
+
+- Added a dedicated Accounting Dashboard route that reuses the Financial Dashboard shell, filters, refresh behavior, Information Center, exports, and responsive RTL layout.
+- Added parent-bank-transaction KPIs for transaction count, allocated transactions, completed transactions, and transactions requiring attention; allocation rows are not counted as parent transactions.
+- Added data-completeness KPIs for transaction type, budget month, allocation unit, required daycare linkage, and split validation, followed by only statuses that actually occur in the source data.
+- Added expandable transaction breakdowns by daycare, allocation unit, bank account, accounting status, attention condition, and split validation.
+- Added organization summary metrics for parent transaction count, allocation-row count, parent amount, and allocation amount. Allocation-unit views intentionally do not expose parent transaction amount directly.
+- Added KPI drill-down to readable transaction/allocation details and source rows, without raw IDs as the only context.
+- Added desktop, tablet, and mobile Accounting Dashboard screenshot targets and test fixtures for bank accounts and accounting statuses.
+
+Scope preserved:
+
+- No authentication, RLS, database schema, Supabase configuration, API, production, approved calculation, or `cmh-ops` changes.
+
+Validation:
+
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `npm run build` passed.
+- Focused Playwright Accounting Dashboard validation was attempted, but the existing session-mock setup remained on the login screen before the dashboard route loaded. This must be resolved before claiming browser-regression success; no production or Preview deployment was performed from this unverified state.

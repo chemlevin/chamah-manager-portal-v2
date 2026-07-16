@@ -1,13 +1,16 @@
 import { mkdir } from 'node:fs/promises';
 import { test, expect } from '@playwright/test';
-import { activeDaycareId, mockNewPortalSupabase, openNewPortal } from './new-portal-test-data.mjs';
+import { activeDaycareId, activeOfficeId, mockNewPortalSupabase, openNewPortal } from './new-portal-test-data.mjs';
 
 const screenshots = [
   { name: 'desktop-organizational-units', width: 1440, height: 900, route: 'dashboards', ready: '.unit-card' },
   { name: 'tablet-financial-dashboard', width: 820, height: 1180, route: `dashboards/unit/${activeDaycareId}/finance`, ready: '#general-dashboard' },
   { name: 'desktop-organization-finance', width: 1440, height: 900, route: 'dashboards/unit/organization/finance', ready: '#general-dashboard' },
+  { name: 'desktop-organization-accounting', width: 1440, height: 900, route: 'dashboards/unit/organization/accounting', ready: '#general-dashboard' },
+  { name: 'tablet-accounting-dashboard', width: 820, height: 1180, route: `dashboards/unit/${activeOfficeId}/accounting`, ready: '#general-dashboard' },
   { name: 'mobile-organizational-units', width: 390, height: 844, route: 'dashboards', ready: '.unit-card' },
-  { name: 'mobile-financial-dashboard', width: 390, height: 844, route: `dashboards/unit/${activeDaycareId}/finance`, ready: '#general-dashboard' }
+  { name: 'mobile-financial-dashboard', width: 390, height: 844, route: `dashboards/unit/${activeDaycareId}/finance`, ready: '#general-dashboard' },
+  { name: 'mobile-accounting-dashboard', width: 390, height: 844, route: `dashboards/unit/${activeOfficeId}/accounting`, ready: '#general-dashboard' }
 ];
 
 test('captures the new portal foundation at required viewport sizes', async ({ page }, testInfo) => {

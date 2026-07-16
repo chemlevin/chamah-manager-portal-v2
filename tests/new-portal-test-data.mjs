@@ -33,13 +33,13 @@ const generalResponses = {
     { payroll_allocation_id: 'pa-3', payroll_record_id: 'pay-1', allocation_unit_id: activeOfficeId, role_id: 'role-manager', allocation_amount: 30000, allocated_hours: 350, budget_category_id: 'cat-fixed' }
   ],
   bank_transactions: [
-    { bank_transaction_id: 'bank-1', transaction_date: '2026-09-03', description: 'הכנסה', amount: 120000 },
-    { bank_transaction_id: 'bank-2', transaction_date: '2026-09-05', description: 'הוצאה', amount: -30000 }
+    { bank_transaction_id: 'bank-1', bank_account_id: 'account-1', transaction_date: '2026-09-03', description: 'הכנסה', reference_number: '100', amount: 120000, debit_amount: 0, credit_amount: 120000 },
+    { bank_transaction_id: 'bank-2', bank_account_id: 'account-1', transaction_date: '2026-09-05', description: 'הוצאה', reference_number: '200', amount: -30000, debit_amount: 30000, credit_amount: 0 }
   ],
   bank_allocations: [
-    { bank_allocation_id: 'ba-1', bank_transaction_id: 'bank-1', allocation_unit_id: activeDaycareId, budget_month: '2026-09-01', allocation_amount: 90000, budget_category_id: 'cat-income' },
-    { bank_allocation_id: 'ba-2', bank_transaction_id: 'bank-1', allocation_unit_id: activeOfficeId, budget_month: '2026-09-01', allocation_amount: 30000, budget_category_id: 'cat-income' },
-    { bank_allocation_id: 'ba-3', bank_transaction_id: 'bank-2', allocation_unit_id: activeDaycareId, budget_month: '2026-09-01', allocation_amount: -30000, budget_category_id: 'cat-expense' }
+    { bank_allocation_id: 'ba-1', bank_transaction_id: 'bank-1', allocation_unit_id: activeDaycareId, budget_month: '2026-09-01', allocation_amount: 90000, budget_category_id: 'cat-income', accounting_status: 'NO_SUPPORTING_DOCUMENT_REQUIRED' },
+    { bank_allocation_id: 'ba-2', bank_transaction_id: 'bank-1', allocation_unit_id: activeOfficeId, budget_month: '2026-09-01', allocation_amount: 30000, budget_category_id: 'cat-income', accounting_status: 'PENDING_SUBMISSION' },
+    { bank_allocation_id: 'ba-3', bank_transaction_id: 'bank-2', allocation_unit_id: activeDaycareId, budget_month: '2026-09-01', allocation_amount: -30000, budget_category_id: 'cat-expense', accounting_status: 'MISSING_DOCUMENTS' }
   ],
   budget_categories: [
     { budget_category_id: 'cat-income', budget_category_code: 'CAT-TUITION', display_name: 'שכר לימוד', category_type: 'INCOME', lifecycle_status: 'ACTIVE' },
@@ -47,6 +47,7 @@ const generalResponses = {
     { budget_category_id: 'cat-payroll', budget_category_code: 'CAT-PAYROLL-STAFF', display_name: 'שכר צוות', category_type: 'EXPENSE', lifecycle_status: 'ACTIVE' },
     { budget_category_id: 'cat-fixed', budget_category_code: 'CAT-PAYROLL-NONSTAFF', display_name: 'שכר קבוע', category_type: 'EXPENSE', lifecycle_status: 'ACTIVE' }
   ],
+  bank_accounts: [{ bank_account_id: 'account-1', display_name: 'חשבון תפעולי', bank_account_code: 'BANK-1', lifecycle_status: 'ACTIVE' }],
   age_groups: [{ age_group_id: 'age-infant', age_group_code: 'INFANT', display_name: 'תינוקות', lifecycle_status: 'ACTIVE' }],
   roles: [{ role_id: 'role-caregiver', role_code: 'ROLE-CAREGIVER', display_name: 'מטפלת' }, { role_id: 'role-manager', role_code: 'ROLE-MANAGER', display_name: 'מנהלת' }],
   employments: [{ employment_id: 'employment-1', employee_id: 'employee-1', employment_start_date: '2026-01-01', employment_end_date: null, employment_status: 'ACTIVE' }],
@@ -74,7 +75,7 @@ const generalResponses = {
 
 export async function mockNewPortalSupabase(page, units = allocationUnits) {
   const requestedTables = [];
-  await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/auth/v1/user', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'test-user' }) }));
+  await page.route('**/auth/v1/user**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'test-user' }) }));
   await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/rest/v1/**', async (route) => {
     const url = new URL(route.request().url());
     const table = url.pathname.split('/').pop();

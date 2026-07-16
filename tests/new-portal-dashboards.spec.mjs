@@ -34,13 +34,22 @@ test.describe('new portal organizational dashboards', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'איזו יחידה ארגונית ברצונך לבדוק?' })).toBeVisible();
   });
 
-  test('preserves unit and dashboard type in a direct stable destination', async ({ page }) => {
+  test('opens the Accounting Dashboard in a direct stable destination', async ({ page }) => {
+    const consoleErrors = [];
+    page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
+    page.on('pageerror', (error) => consoleErrors.push(error.message));
     await mockNewPortalSupabase(page);
     await openNewPortal(page, `dashboards/unit/${activeOfficeId}/accounting`);
-    await expect(page.getByRole('heading', { level: 1, name: 'דשבורד הנה״ח' })).toBeVisible();
-    await expect(page.getByText('דשבורד הנה״ח עבור יחידה פעילה ב', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'דשבורד הנהלת חשבונות · יחידה פעילה ב' })).toBeVisible();
     await expect(page.locator('#breadcrumbs')).toContainText('עמוד הבית/דשבורדים/יחידה פעילה ב/דשבורד הנה״ח');
-    await expect(page.getByText('בקרוב', { exact: true })).toBeVisible();
+    await expect(page.locator('[data-kpi-card="parents"]')).toBeVisible();
+    await expect(page.locator('[data-kpi-card="missing-type"]')).toBeVisible();
+    await expect(page.locator('[data-kpi-card="parents"] .kpi-open')).toContainText('1');
+    await expect(page.locator('#detail-split')).toContainText('בתצוגת מעון מוצגות הקצאות בלבד');
+    await page.locator('[data-kpi-card="parents"] .kpi-info-button').click();
+    await expect(page.locator('#kpi-panel')).toBeVisible();
+    await expect(page.locator('#kpi-source')).toContainText('תנועות בנק מקור');
+    expect(consoleErrors).toEqual([]);
   });
 
   test('opens the reusable financial dashboard for the organization', async ({ page }) => {
