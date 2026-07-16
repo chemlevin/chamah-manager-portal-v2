@@ -24,8 +24,8 @@ const generalResponses = {
     { monthly_enrollment_id: 'enroll-3', classroom_id: 'class-1', reporting_month: '2026-11-01', age_group_id: 'age-infant', children_count: 21 }
   ],
   payroll_records: [
-    { payroll_record_id: 'pay-1', payroll_month: '2026-09-01', employer_cost: 80000, regular_hours: 900, overtime_hours: 50 },
-    { payroll_record_id: 'pay-2', payroll_month: '2026-10-01', employer_cost: 85000, regular_hours: 920, overtime_hours: 60 }
+    { payroll_record_id: 'pay-1', employment_id: 'employment-1', source_employee_identifier: 'EMP-1', payroll_month: '2026-09-01', employer_cost: 80000, regular_hours: 900, overtime_hours: 50 },
+    { payroll_record_id: 'pay-2', employment_id: 'employment-1', source_employee_identifier: 'EMP-1', payroll_month: '2026-10-01', employer_cost: 85000, regular_hours: 920, overtime_hours: 60 }
   ],
   payroll_allocations: [
     { payroll_allocation_id: 'pa-1', payroll_record_id: 'pay-1', allocation_unit_id: activeDaycareId, role_id: 'role-caregiver', allocation_amount: 50000, allocated_hours: 600, budget_category_id: 'cat-payroll' },
@@ -49,6 +49,9 @@ const generalResponses = {
   ],
   age_groups: [{ age_group_id: 'age-infant', age_group_code: 'INFANT', display_name: 'תינוקות', lifecycle_status: 'ACTIVE' }],
   roles: [{ role_id: 'role-caregiver', role_code: 'ROLE-CAREGIVER', display_name: 'מטפלת' }, { role_id: 'role-manager', role_code: 'ROLE-MANAGER', display_name: 'מנהלת' }],
+  employments: [{ employment_id: 'employment-1', employee_id: 'employee-1', employment_start_date: '2026-01-01', employment_end_date: null, employment_status: 'ACTIVE' }],
+  employees: [{ employee_id: 'employee-1', first_name: 'שרה', last_name: 'כהן', lifecycle_status: 'ACTIVE' }],
+  employee_assignments: [{ assignment_id: 'assignment-1', employment_id: 'employment-1', allocation_unit_id: activeDaycareId, daycare_id: 'daycare-1', classroom_id: 'class-1', role_id: 'role-caregiver', effective_from: '2026-01-01', effective_to: null, is_primary: true }],
   monthly_work_calendars: [
     { school_year_month_id: 'month-9', sun_thu_hours_per_day: 8.5, friday_hours_per_day: 4.5, sun_thu_workdays: 22, friday_workdays: 4 },
     { school_year_month_id: 'month-10', sun_thu_hours_per_day: 8.5, friday_hours_per_day: 4.5, sun_thu_workdays: 21, friday_workdays: 5 },

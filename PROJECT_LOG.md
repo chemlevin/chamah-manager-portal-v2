@@ -1080,3 +1080,43 @@ Validation:
 - Full `npx playwright test` regression passed: 330 passed, 6 intentionally skipped.
 - Live Supabase verification confirmed the SY-2026-2027 cost/formula and 20 occupancy rows covering all 6 active daycares in each of September, October, and November 2026.
 - Supabase security advisor reported no migration-specific RLS issue. Existing project-level password-protection and performance advisories remain outside this sprint.
+
+## 2026-07-16 - Financial Dashboard Post-Sprint 3.2 Improvements
+
+Objective: Refine the existing `/new/` Financial Dashboard for fast management review and consistent drill-down without changing authentication, RLS, schemas, APIs, or approved business calculations.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/styles.css`
+- `tests/new-portal-dashboards.spec.mjs`
+- `tests/new-portal-test-data.mjs`
+- `PROJECT_LOG.md`
+
+Implementation:
+
+- Replaced the KPI grid with a four-card management row for Income, Expenses, Required Hours, and Payroll, each showing actual, budget, utilization, and threshold status.
+- Added a second row for Monthly Balance, latest-month Children, and financial issues Requiring Attention. Removed operating and budget-result values from the Income card.
+- Expanded the permanent School-Year summary to accumulate only Income, Expenses, Payroll, and Required Hours through the latest available data month. Snapshot counts are not accumulated and missing values display `No Data`.
+- Replaced each KPI action menu with one `מידע` action opening a shared Information Center with Explanation, Business Calculation, Details, Source Data, and Actions tabs.
+- Added printable/PDF and Excel actions inside the Information Center and preserved the drill-down path from KPI to readable details and original source rows.
+- Expanded Children details to Month, Daycare, Classroom, Age Group, and Children Count.
+- Expanded Payroll details through existing Supabase relationships to Employee, Role, Classroom, Hours, and Payroll Cost without displaying raw IDs.
+- Added category-level Budget, Actual, Remaining, Utilization, threshold colors, and a summary row.
+- Added an organization-level Budget Category by Daycare matrix. Each cell opens the same Information Center scoped to that category and daycare with its readable source rows.
+- Kept detailed tables below the initial management view and preserved the same Financial Dashboard component for organization and individual Allocation Unit routes.
+
+Scope preserved:
+
+- No authentication, RLS, database schema, API, approved calculation, package, `cmh-ops`, or production-site changes.
+
+Validation:
+
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `npm run build` passed.
+- Focused Financial Dashboard and calculation coverage passed across desktop, laptop, and mobile: 57 passed, 3 intentionally skipped.
+- Screenshot generation passed; desktop 1440x900, tablet 820x1180, and mobile 390x844 screenshots were updated and visually reviewed.
+- Responsive coverage confirmed RTL rendering and no page-level horizontal overflow.
+- Browser coverage confirmed no console or page errors in the organization Financial Dashboard flow.
+- Live Supabase verification confirmed both existing payroll rows resolve to employee names and effective assignments.
+- Full `npx playwright test` regression passed: 334 passed, 6 intentionally skipped.
