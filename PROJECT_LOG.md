@@ -1160,3 +1160,10 @@ Validation:
 - `node --check`, `npm run build`, and the focused desktop Accounting Dashboard test passed.
 - Screenshot validation passed at desktop, tablet, and mobile sizes through the authenticated session-reuse flow.
 - A full regression initially reported eight Financial Dashboard timing failures; the shared Playwright helper now waits for dashboard readiness, and all eight affected desktop, laptop, and mobile tests passed on rerun.
+
+## 2026-07-16 - Accounting Calendar-Year Model
+
+- Accounting Dashboard now reads selectable calendar years from `calendar_years` and uses Gregorian January–December month keys based solely on bank transaction cash date.
+- Corrected the month-key root cause: Hebrew locale date formatting had produced a Hebrew-calendar month key (`2025-12`) for calendar year 2026. Labels now use `he-IL-u-ca-gregory` and filter keys are explicit Gregorian `YYYY-MM` values.
+- `budget_month` remains source-detail information and no longer controls the Accounting period filter.
+- Validation passed: syntax, build, focused Accounting dashboard test, screenshot capture, and full Playwright suite (334 passed, 6 skipped).

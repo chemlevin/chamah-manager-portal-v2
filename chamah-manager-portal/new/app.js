@@ -40,6 +40,7 @@ let accountingLastUpdated = null;
 let dashboardMode = 'finance';
 let activeDashboardUnit = null;
 let selectedSchoolYearId = '';
+let selectedCalendarYearId = '';
 let selectedReportingMonths = new Set();
 let selectedDashboardUnitIds = new Set();
 let recoveryRequestPending = false;
@@ -305,12 +306,19 @@ function accountingDashboardShell(unit) {
   return `<section class="financial-heading"><div><p class="eyebrow">דשבורד הנהלת חשבונות</p><h1>דשבורד הנהלת חשבונות · ${escapeHtml(unit.display_name)}</h1><p>בקרה על שלמות תנועות הבנק ותהליך הטיפול החשבונאי.</p></div><div class="dashboard-context"><span><small>יחידת הקצאה</small><strong>${escapeHtml(unit.display_name)}</strong></span><span><small>שנת לימודים</small><strong id="context-year">—</strong></span><span><small>תקופה נבחרת</small><strong id="context-period">—</strong></span></div></section>
   <section class="global-toolbar panel" aria-label="פעולות דשבורד"><button id="refresh-dashboard" class="button button-secondary" type="button">↻ רענון נתונים</button><span class="last-updated"><small>עודכן לאחרונה</small><strong id="last-updated">טרם עודכן</strong></span><div class="toolbar-actions"><button class="button button-quiet" type="button" data-export="print">הדפסה</button><button class="button button-quiet" type="button" data-export="pdf">PDF</button><button class="button button-quiet" type="button" data-export="excel">Excel</button></div></section>
   <div id="general-state" class="dashboard-skeleton" aria-live="polite">${Array.from({ length: 8 }, () => '<span></span>').join('')}</div>
-  <div id="general-dashboard" hidden><section class="school-year-summary panel"><div><p class="eyebrow">סיכום שנת הלימודים</p><h2>מתחילת שנת הלימודים</h2><p id="summary-range">—</p></div><div id="school-year-metrics" class="summary-metrics"></div><div><small>עד חודש הנתונים האחרון</small><strong id="summary-month">—</strong></div></section><section class="period-panel panel"><div><h2>בחירת תקופה</h2><p>בחרי יחידות וחודש אחד או מספר חודשים. הסיכום השנתי נשאר קבוע.</p></div><div class="chip-filters"><fieldset id="unit-filter-group" hidden><legend>יחידות</legend><div id="unit-chips" class="filter-chips"></div></fieldset><fieldset><legend>שנת לימודים</legend><div id="year-chips" class="filter-chips"></div></fieldset><fieldset><legend>חודשים</legend><div id="month-chips" class="filter-chips month-chips"></div></fieldset></div></section><section id="kpis" class="financial-kpis accounting-kpis" aria-label="מדדי הנהלת חשבונות"></section><section class="expandable-sections" aria-label="פירוט הנהלת חשבונות">${[['daycare','תנועות לפי מעון'],['unit','תנועות לפי יחידת הקצאה'],['account','תנועות לפי חשבון בנק'],['status','תנועות לפי סטטוס הנה״ח'],['attention','תנועות הדורשות תשומת לב'],['split','תנועות מפוצלות']].map(([id, label]) => `<details class="dashboard-detail panel"><summary>${label}<span>פתיחת פירוט</span></summary><div id="detail-${id}" class="detail-content"></div></details>`).join('')}</section></div>
+  <div id="general-dashboard" hidden><section class="school-year-summary panel"><div><p class="eyebrow">סיכום שנה קלנדרית</p><h2>מתחילת השנה הקלנדרית</h2><p id="summary-range">—</p></div><div id="school-year-metrics" class="summary-metrics"></div><div><small>עד היום</small><strong id="summary-month">—</strong></div></section><section class="period-panel panel"><div><h2>בחירת תקופה</h2><p>בחרי יחידות וחודש אחד או מספר חודשים. הסיכום השנתי הקלנדרי נשאר קבוע.</p></div><div class="chip-filters"><fieldset id="unit-filter-group" hidden><legend>יחידות</legend><div id="unit-chips" class="filter-chips"></div></fieldset><fieldset><legend>שנה קלנדרית</legend><div id="year-chips" class="filter-chips"></div></fieldset><fieldset><legend>חודשים</legend><div id="month-chips" class="filter-chips month-chips"></div></fieldset></div></section><section id="kpis" class="financial-kpis accounting-kpis" aria-label="מדדי הנהלת חשבונות"></section><section class="expandable-sections" aria-label="פירוט הנהלת חשבונות">${[['daycare','תנועות לפי מעון'],['unit','תנועות לפי יחידת הקצאה'],['account','תנועות לפי חשבון בנק'],['status','תנועות לפי סטטוס הנה״ח'],['attention','תנועות הדורשות תשומת לב'],['split','תנועות מפוצלות']].map(([id, label]) => `<details class="dashboard-detail panel"><summary>${label}<span>פתיחת פירוט</span></summary><div id="detail-${id}" class="detail-content"></div></details>`).join('')}</section></div>
   <aside id="kpi-panel" class="kpi-panel" hidden aria-labelledby="kpi-panel-title"><button id="close-kpi-panel" class="icon-button" type="button" aria-label="סגירת מרכז המידע">×</button><p class="eyebrow">מרכז מידע</p><h2 id="kpi-panel-title"></h2><p id="kpi-filters" class="kpi-context"></p><div class="info-tabs" role="tablist">${[['explanation','הסבר'],['calculation','חישוב עסקי'],['details','פירוט'],['source','נתוני מקור'],['actions','פעולות']].map(([id,label], index) => `<button type="button" role="tab" data-info-tab="${id}" aria-selected="${index === 0}">${label}</button>`).join('')}</div><section class="info-tab-panel" data-info-panel="explanation"><p id="kpi-description"></p></section><section class="info-tab-panel" data-info-panel="calculation" hidden><p id="kpi-calculation"></p></section><section class="info-tab-panel" data-info-panel="details" hidden><div id="kpi-details" class="source-records"></div></section><section class="info-tab-panel" data-info-panel="source" hidden><p id="kpi-source" class="source-note"></p><div id="kpi-records" class="source-records"></div></section><section class="info-tab-panel" data-info-panel="actions" hidden><div class="info-actions"><button class="button button-secondary" type="button" data-info-action="print">הדפסה</button><button class="button button-secondary" type="button" data-info-action="pdf">ייצוא PDF</button><button class="button button-secondary" type="button" data-info-action="excel">ייצוא Excel</button></div></section></aside><button id="kpi-backdrop" class="kpi-backdrop" type="button" aria-label="סגירת מרכז המידע" hidden></button><div id="export-message" class="toast" role="status" hidden></div>`;
 }
 
 const sum = (items, getter) => items.reduce((total, item) => total + Number(getter(item) || 0), 0);
 const month = (date) => String(date || '').slice(0, 7);
+function accountingCashDate(transaction) {
+  const value = String(transaction?.cashDate || transaction?.cash_date || transaction?.transaction_date || '');
+  const israeli = value.match(/^(\d{1,2})[/.](\d{1,2})[/.](\d{4})$/);
+  if (israeli) return `${israeli[3]}-${israeli[2].padStart(2, '0')}-${israeli[1].padStart(2, '0')}`;
+  return value.slice(0, 10);
+}
+const accountingMonth = (transaction) => month(accountingCashDate(transaction));
 
 async function loadGeneralDashboard() {
   if (generalStatus === 'loading' || generalStatus === 'ready') return;
@@ -653,7 +661,7 @@ async function render() {
 
 function bindDashboardDynamicInteractions() {
   const rerenderDashboard = () => dashboardMode === 'accounting' ? renderAccountingData() : renderGeneralData();
-  document.querySelectorAll('[data-year]').forEach((button) => button.addEventListener('click', () => { selectedSchoolYearId = button.dataset.year; selectedReportingMonths = new Set(); rerenderDashboard(); }));
+  document.querySelectorAll('[data-year]').forEach((button) => button.addEventListener('click', () => { if (dashboardMode === 'accounting') selectedCalendarYearId = button.dataset.year; else selectedSchoolYearId = button.dataset.year; selectedReportingMonths = new Set(); rerenderDashboard(); }));
   document.querySelectorAll('[data-month]').forEach((button) => button.addEventListener('click', () => {
     const value = button.dataset.month;
     if (selectedReportingMonths.has(value) && selectedReportingMonths.size > 1) selectedReportingMonths.delete(value); else selectedReportingMonths.add(value);
@@ -675,8 +683,8 @@ function openKpiPanel(id) {
   const card = isBudgetCell ? activeModel.budgetCells?.[id.slice(7)] : activeModel.currentKpis?.[id];
   const definition = card?.definition || kpiDefinitions[id];
   if (!definition || !card) return;
-  const selectedYear = activeModel.years.find((item) => item.school_year_id === selectedSchoolYearId)?.display_name || 'אין נתונים זמינים';
-  const period = activeModel.months.filter((item) => selectedReportingMonths.has(month(item.start_date))).map((item) => item.month_label).join(', ');
+  const selectedYear = dashboardMode === 'accounting' ? activeModel.years.find((item) => item.calendar_year_id === selectedCalendarYearId)?.display_name : activeModel.years.find((item) => item.school_year_id === selectedSchoolYearId)?.display_name;
+  const period = dashboardMode === 'accounting' ? [...selectedReportingMonths].join(', ') : activeModel.months.filter((item) => selectedReportingMonths.has(month(item.start_date))).map((item) => item.month_label).join(', ');
   $('#kpi-panel-title').textContent = definition.title;
   $('#kpi-description').textContent = definition.description;
   $('#kpi-calculation').textContent = definition.calculation;
@@ -716,9 +724,8 @@ async function loadAccountingDashboard() {
   if (accountingStatus === 'loading' || accountingStatus === 'ready') return;
   accountingStatus = 'loading'; accountingError = '';
   try {
-    const [years, months, transactions, allocations, accounts, units, daycares, categories] = await Promise.all([
-      rest('school_years', 'select=school_year_id,display_name,start_date,end_date,is_default,is_selectable&is_selectable=eq.true&order=start_date.desc'),
-      rest('school_year_months', 'select=school_year_month_id,school_year_id,month_label,start_date,school_year_sequence&order=school_year_sequence'),
+    const [years, transactions, allocations, accounts, units, daycares, categories] = await Promise.all([
+      rest('calendar_years', 'select=calendar_year_id,calendar_year_code,display_name,start_date,end_date,status,is_selectable&is_selectable=eq.true&order=start_date.desc'),
       rest('bank_transactions', 'select=bank_transaction_id,bank_account_id,transaction_date,description,reference_number,amount,debit_amount,credit_amount&order=transaction_date.desc'),
       rest('bank_allocations', 'select=bank_allocation_id,bank_transaction_id,allocation_unit_id,budget_month,budget_category_id,allocation_amount,accounting_status,notes'),
       rest('bank_accounts', 'select=bank_account_id,display_name,bank_account_code,lifecycle_status'),
@@ -726,7 +733,7 @@ async function loadAccountingDashboard() {
       rest('daycares', 'select=daycare_id,allocation_unit_id,display_name,lifecycle_status,display_order&order=display_order'),
       rest('budget_categories', 'select=budget_category_id,display_name,category_type,lifecycle_status&lifecycle_status=eq.ACTIVE')
     ]);
-    accountingModel = { years, months, transactions, allocations, accounts, units: activeUnits(units), daycares, categories };
+    accountingModel = { years, transactions, allocations, accounts, units: activeUnits(units), daycares, categories };
     accountingStatus = 'ready'; accountingLastUpdated = new Date();
   } catch (error) { accountingStatus = 'error'; accountingError = error.message; }
 }
@@ -734,12 +741,14 @@ async function loadAccountingDashboard() {
 function setupAccountingFilters() {
   const model = accountingModel;
   if (!model.years?.length) return;
-  if (!selectedSchoolYearId || !model.years.some((item) => item.school_year_id === selectedSchoolYearId)) selectedSchoolYearId = (model.years.find((item) => item.is_default) || model.years[0]).school_year_id;
-  const available = model.months.filter((item) => item.school_year_id === selectedSchoolYearId);
+  if (!selectedCalendarYearId || !model.years.some((item) => item.calendar_year_id === selectedCalendarYearId)) selectedCalendarYearId = (model.years.find((item) => item.status === 'OPEN') || model.years[0]).calendar_year_id;
+  const year = model.years.find((item) => item.calendar_year_id === selectedCalendarYearId);
+  const gregorianYear = Number(year.start_date.slice(0, 4));
+  const available = Array.from({ length: 12 }, (_, index) => { const key = `${gregorianYear}-${String(index + 1).padStart(2, '0')}`; return { start_date: `${key}-01`, month_label: new Intl.DateTimeFormat('he-IL-u-ca-gregory', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${key}-01T00:00:00Z`)) }; });
   const availableKeys = new Set(available.map((item) => month(item.start_date)));
   selectedReportingMonths = new Set([...selectedReportingMonths].filter((item) => availableKeys.has(item)));
   if (!selectedReportingMonths.size && available.length) {
-    const source = activeDashboardUnit?.allocation_unit_id === 'organization' ? model.transactions.map((item) => month(item.transaction_date)) : model.allocations.filter((item) => item.allocation_unit_id === activeDashboardUnit?.allocation_unit_id).map((item) => month(item.budget_month));
+    const source = model.transactions.map(accountingMonth);
     selectedReportingMonths.add(source.filter((item) => availableKeys.has(item)).sort().at(-1) || month(available[0].start_date));
   }
   const unitFilter = $('#unit-filter-group');
@@ -750,13 +759,13 @@ function setupAccountingFilters() {
     if (!selectedDashboardUnitIds.size) selectedDashboardUnitIds = new Set(selectable.map((item) => item.allocation_unit_id));
     $('#unit-chips').innerHTML = selectable.map((item) => `<button class="filter-chip${selectedDashboardUnitIds.has(item.allocation_unit_id) ? ' selected' : ''}" type="button" data-dashboard-unit="${escapeHtml(item.allocation_unit_id)}" aria-pressed="${selectedDashboardUnitIds.has(item.allocation_unit_id)}">${escapeHtml(item.display_name)}</button>`).join('');
   } else { unitFilter.hidden = true; selectedDashboardUnitIds = new Set(activeDashboardUnit ? [activeDashboardUnit.allocation_unit_id] : []); }
-  $('#year-chips').innerHTML = model.years.map((item) => `<button class="filter-chip${item.school_year_id === selectedSchoolYearId ? ' selected' : ''}" type="button" data-year="${escapeHtml(item.school_year_id)}" aria-pressed="${item.school_year_id === selectedSchoolYearId}">${escapeHtml(item.display_name)}</button>`).join('');
+  $('#year-chips').innerHTML = model.years.map((item) => `<button class="filter-chip${item.calendar_year_id === selectedCalendarYearId ? ' selected' : ''}" type="button" data-year="${escapeHtml(item.calendar_year_id)}" aria-pressed="${item.calendar_year_id === selectedCalendarYearId}">${escapeHtml(item.display_name || item.calendar_year_code)}</button>`).join('');
   $('#month-chips').innerHTML = available.map((item) => { const value = month(item.start_date); return `<button class="filter-chip${selectedReportingMonths.has(value) ? ' selected' : ''}" type="button" data-month="${value}" aria-pressed="${selectedReportingMonths.has(value)}">${escapeHtml(item.month_label)}</button>`; }).join('');
 }
 
 function accountingTransactionRow(transaction, model, allocations = []) {
   const account = model.accounts.find((item) => item.bank_account_id === transaction.bank_account_id);
-  return { תאריך: transaction.transaction_date, חשבון: account?.display_name || 'לא שויך', תיאור: transaction.description, אסמכתא: transaction.reference_number || '—', סכום: money.format(transaction.amount), הקצאות: number.format(allocations.length) };
+  return { תאריך: accountingCashDate(transaction), חשבון: account?.display_name || 'לא שויך', תיאור: transaction.description, אסמכתא: transaction.reference_number || '—', סכום: money.format(transaction.amount), הקצאות: number.format(allocations.length) };
 }
 
 function renderAccountingData() {
@@ -770,7 +779,7 @@ function renderAccountingData() {
   model.allocations.forEach((item) => { if (allocationsByTx.has(item.bank_transaction_id)) allocationsByTx.get(item.bank_transaction_id).push(item); });
   const unitDaycare = new Map(model.daycares.filter((item) => item.lifecycle_status === 'ACTIVE').map((item) => [item.allocation_unit_id, item]));
   const isOrganization = activeDashboardUnit.allocation_unit_id === 'organization';
-  const selectedParents = isOrganization ? model.transactions.filter((item) => selectedReportingMonths.has(month(item.transaction_date))) : [...new Set(model.allocations.filter((item) => selectedUnits.has(item.allocation_unit_id) && selectedReportingMonths.has(month(item.budget_month))).map((item) => item.bank_transaction_id))].map((id) => txById.get(id)).filter(Boolean);
+  const selectedParents = isOrganization ? model.transactions.filter((item) => selectedReportingMonths.has(accountingMonth(item))) : [...new Set(model.allocations.filter((item) => selectedUnits.has(item.allocation_unit_id)).map((item) => item.bank_transaction_id))].map((id) => txById.get(id)).filter((item) => selectedReportingMonths.has(accountingMonth(item)));
   const selectedParentIds = new Set(selectedParents.map((item) => item.bank_transaction_id));
   const selectedAllocations = model.allocations.filter((item) => selectedParentIds.has(item.bank_transaction_id) && (isOrganization ? true : selectedUnits.has(item.allocation_unit_id)));
   const analyses = selectedParents.map((transaction) => {
@@ -801,19 +810,19 @@ function renderAccountingData() {
   const cards = [...topCards, ...missingCards, ...workflowCards];
   accountingModel.currentKpis = Object.fromEntries(cards.map((item) => [item.id, item]));
   $('#kpis').innerHTML = cards.map((item, index) => kpiCardTemplate({ ...item, row: index < 4 ? 'primary' : 'secondary' })).join('');
-  const year = model.years.find((item) => item.school_year_id === selectedSchoolYearId); const yearMonths = model.months.filter((item) => item.school_year_id === selectedSchoolYearId); const period = yearMonths.filter((item) => selectedReportingMonths.has(month(item.start_date))).map((item) => item.month_label);
+  const year = model.years.find((item) => item.calendar_year_id === selectedCalendarYearId); const gregorianYear = Number(year.start_date.slice(0, 4)); const yearStart = new Date(`${year.start_date}T00:00:00`); const yearEnd = new Date(`${year.end_date}T23:59:59`); const yearMonths = Array.from({ length: 12 }, (_, index) => { const key = `${gregorianYear}-${String(index + 1).padStart(2, '0')}`; return { start_date: `${key}-01`, month_label: new Intl.DateTimeFormat('he-IL-u-ca-gregory', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${key}-01T00:00:00Z`)) }; }); const period = yearMonths.filter((item) => selectedReportingMonths.has(month(item.start_date))).map((item) => item.month_label);
   const schoolYearMonths = new Set(yearMonths.map((item) => month(item.start_date)));
   const ytdParents = isOrganization
-    ? model.transactions.filter((item) => schoolYearMonths.has(month(item.transaction_date)))
-    : [...new Set(model.allocations.filter((item) => selectedUnits.has(item.allocation_unit_id) && schoolYearMonths.has(month(item.budget_month))).map((item) => item.bank_transaction_id))].map((id) => txById.get(id)).filter(Boolean);
+    ? model.transactions.filter((item) => schoolYearMonths.has(accountingMonth(item)))
+    : [...new Set(model.allocations.filter((item) => selectedUnits.has(item.allocation_unit_id)).map((item) => item.bank_transaction_id))].map((id) => txById.get(id)).filter((item) => item && schoolYearMonths.has(accountingMonth(item)));
   const ytdAnalyses = ytdParents.map((transaction) => {
     const rows = isOrganization ? allocationsByTx.get(transaction.bank_transaction_id) || [] : model.allocations.filter((item) => item.bank_transaction_id === transaction.bank_transaction_id && selectedUnits.has(item.allocation_unit_id));
     const difference = Math.abs(Number(transaction.amount)) - sum(rows, (item) => Math.abs(Number(item.allocation_amount)));
     const missing = !rows.length || rows.some((item) => !item.budget_month || !item.allocation_unit_id) || Math.abs(difference) > .01;
     return { transaction, rows, complete: rows.length > 0 && rows.every((item) => ['SENT_TO_ACCOUNTING', 'NO_SUPPORTING_DOCUMENT_REQUIRED'].includes(item.accounting_status)), attention: missing || rows.some((item) => ['PENDING_SUBMISSION', 'MISSING_DOCUMENTS'].includes(item.accounting_status)) };
   });
-  const latest = [...new Set(isOrganization ? ytdParents.map((item) => month(item.transaction_date)) : model.allocations.filter((item) => selectedUnits.has(item.allocation_unit_id) && schoolYearMonths.has(month(item.budget_month))).map((item) => month(item.budget_month)))].filter(Boolean).sort().at(-1);
-  $('#context-year').textContent = year?.display_name || 'No Data'; $('#context-period').textContent = period.join(', ') || 'No Data'; $('#summary-range').textContent = yearMonths.length && latest ? `${yearMonths[0].month_label} → ${yearMonths.find((item) => month(item.start_date) === latest)?.month_label || latest}` : 'No Data'; $('#summary-month').textContent = latest || 'No Data';
+  const currentDate = new Date(); const ytdEnd = currentDate >= yearStart && currentDate <= yearEnd ? currentDate : yearEnd; const latest = [...new Set(ytdParents.filter((item) => new Date(`${accountingCashDate(item)}T00:00:00`) <= ytdEnd).map(accountingMonth))].filter(Boolean).sort().at(-1);
+  $('#context-year').textContent = year?.display_name || year?.calendar_year_code || 'No Data'; $('#context-period').textContent = period.join(', ') || 'No Data'; $('#summary-range').textContent = `${year.start_date} → ${ytdEnd.toISOString().slice(0, 10)}`; $('#summary-month').textContent = latest || 'No Data';
   const ytdAllocationRows = ytdAnalyses.flatMap((item) => item.rows);
   const ytdMetrics = [['תנועות־אב', ytdAnalyses.length], ['הוקצו למחלקות', ytdAnalyses.filter((item) => item.rows.length).length], ['הושלמו', ytdAnalyses.filter((item) => item.complete).length], ['דורשות תשומת לב', ytdAnalyses.filter((item) => item.attention).length]];
   if (isOrganization) ytdMetrics.push(['שורות הקצאה', ytdAllocationRows.length], ['סכום תנועות־אב', money.format(sum(ytdAnalyses, (item) => Math.abs(Number(item.transaction.amount))))], ['סכום הקצאות', money.format(sum(ytdAllocationRows, (item) => Math.abs(Number(item.allocation_amount))))]);

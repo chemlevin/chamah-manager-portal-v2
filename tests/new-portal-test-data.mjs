@@ -9,6 +9,7 @@ export const allocationUnits = [
 ];
 
 const generalResponses = {
+  calendar_years: [{ calendar_year_id: 'calendar-2026', calendar_year_code: 'CY-2026', display_name: '2026', start_date: '2026-01-01', end_date: '2026-12-31', status: 'OPEN', is_selectable: true }, { calendar_year_id: 'calendar-2027', calendar_year_code: 'CY-2027', display_name: '2027', start_date: '2027-01-01', end_date: '2027-12-31', status: 'FUTURE', is_selectable: false }],
   school_years: [{ school_year_id: 'year-1', display_name: 'תשפ״ז', start_date: '2026-09-01', end_date: '2027-08-31', is_default: true, is_selectable: true }],
   school_year_months: [
     { school_year_month_id: 'month-9', school_year_id: 'year-1', month_label: 'ספטמבר 2026', start_date: '2026-09-01', school_year_sequence: 1 },
@@ -85,7 +86,9 @@ export async function mockNewPortalSupabase(page, units = allocationUnits) {
     const url = new URL(route.request().url());
     const table = url.pathname.split('/').pop();
     requestedTables.push({ table, search: url.search });
-    const body = table === 'allocation_units' && url.searchParams.get('lifecycle_status') === 'eq.ACTIVE'
+    const body = table === 'calendar_years' && url.searchParams.get('is_selectable') === 'eq.true'
+      ? generalResponses.calendar_years.filter((item) => item.is_selectable)
+      : table === 'allocation_units' && url.searchParams.get('lifecycle_status') === 'eq.ACTIVE'
       ? units
       : table === 'allocation_units'
         ? []
