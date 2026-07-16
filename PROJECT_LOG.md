@@ -1182,3 +1182,16 @@ Validation:
 - Replaced the employee-list table with compact, responsive employee cards limited to the operational fields required for an immediate decision. Each card opens the existing shared Information Center.
 - Workforce analysis continues to show headcount by role only; it makes no cross-role salary comparison.
 - Added tablet and mobile Staff & Licensing screenshot coverage.
+
+## 2026-07-16 - New Portal Salary Calculator
+
+- Added the protected route `#/calculators/salary` with live RTL inputs, breakdown, reset, print, and scenario A/B comparison.
+- The calculator reads only active `compensation_factors`, `compensation_rules`, and selectable `school_years`; it refuses to calculate when required rules are missing or conflict with the requested contract.
+- Read-only Supabase verification found no Havraa rule and found active Class Management rules requiring `CLASS_MANAGER=TRUE`, while the requested calculator requires automatic seniority-only eligibility. The UI reports both conflicts instead of inventing a value or changing shared rules.
+- Added pure rule-boundary coverage for hourly/monthly components, comparison inputs, Havraa, 78–82% net range, and breakdown integrity.
+
+## 2026-07-16 - Salary Calculator Havraa Completion
+
+- Read-only verification confirmed active `HAVRAA-GLOBAL_MONTHLY` rules for `SY-2026-2027`, beginning at 12 recognized seniority months.
+- Havraa is now calculated from the selected full-time monthly rule as `amount × min(monthly_hours / 182, 1)` and appears in the breakdown.
+- Class Management is no longer treated as a rule conflict; it is calculated only when the explicit `CLASS_MANAGER=TRUE` eligibility input is selected.

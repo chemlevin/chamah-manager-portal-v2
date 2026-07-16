@@ -237,6 +237,19 @@ p { line-height: 1.65; }
 .staff-issue-group { display: grid; gap: 6px; margin-block-start: 8px; padding: 10px; border-inline-start: 4px solid; border-radius: var(--radius-sm); }
 .staff-issue-group.status-warning { border-color: #d49b24; }
 .staff-issue-group.status-exception { border-color: var(--danger); }
+.salary-calculator { display: grid; gap: 14px; }
+.salary-inputs { display: grid; gap: 12px; padding: 16px; }
+.salary-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.salary-results { display: grid; gap: 14px; }
+.salary-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.salary-summary article, .salary-component, .salary-comparison > div:last-child > div { min-width: 0; display: grid; gap: 5px; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.salary-summary span, .salary-component span, .salary-comparison small { color: var(--text-muted); font-size: .82rem; }
+.salary-summary strong { font-size: clamp(1rem, 4vw, 1.45rem); overflow-wrap: anywhere; }
+.salary-breakdown, .salary-comparison { padding: 16px; }
+.salary-component { grid-template-columns: minmax(0, 1fr) auto; align-items: center; margin-block-start: 8px; }
+.salary-comparison { display: grid; gap: 12px; }
+.salary-comparison > div:nth-child(2), .salary-comparison > div:last-child { display: flex; flex-wrap: wrap; gap: 8px; }
+.salary-comparison > div:last-child > div { min-width: 145px; flex: 1 1 145px; }
 .kpi-panel { width: min(760px, 96vw); height: 100dvh; padding: 26px 22px; background: var(--surface); box-shadow: var(--shadow-md); position: fixed; inset-block: 0; inset-inline-end: 0; z-index: 70; overflow-y: auto; }
 .kpi-panel .icon-button { margin-inline-start: auto; }
 .kpi-context, .source-note { color: var(--text-muted); }
@@ -310,6 +323,7 @@ p { line-height: 1.65; }
   .financial-kpi.kpi-secondary { grid-column: span 4; }
   .daycare-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .staff-filters { grid-template-columns: minmax(220px, 2fr) repeat(2, minmax(150px, 1fr)); align-items: end; }
+  .salary-inputs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (min-width: 1280px) {

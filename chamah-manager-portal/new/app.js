@@ -1,4 +1,5 @@
 import { calculateBudgetModel, summarizeBudget } from './budget-calculations.js';
+import { calculateSalary, salaryRuleIssues } from './salary-calculations.js';
 
 const SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
@@ -52,6 +53,7 @@ let recoveryRequestPending = false;
 const protectedRequests = new Set();
 let authPending = false;
 let recoveryPending = false;
+let salaryModel = { status: 'idle', factors: [], rules: [], years: [], error: '' };
 
 function readSession() {
   try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { return null; }
@@ -234,6 +236,7 @@ function parseRoute() {
   const parts = location.hash.slice(1).split('/').filter(Boolean).map(decodeURIComponent);
   if (!parts.length || parts[0] === 'home') return { section: 'home' };
   if (parts[0] === 'dashboards') return { section: 'dashboards', unitId: parts[1] === 'unit' ? parts[2] : null, dashboardType: parts[1] === 'unit' ? parts[3] : null };
+  if (parts[0] === 'calculators' && parts[1] === 'salary') return { section: 'calculators', calculator: 'salary' };
   return simpleRoutes[parts[0]] ? { section: parts[0] } : { section: 'home' };
 }
 
@@ -264,6 +267,33 @@ function homeTemplate() {
 
 function comingSoonTemplate(module) {
   return `<section class="page-heading"><div><p class="eyebrow">${module.title}</p><h1>${module.title}</h1><p>${module.description}</p></div><span class="status-badge status-neutral">בתכנון</span></section><section class="coming-soon panel"><span class="coming-icon" aria-hidden="true">${module.icon}</span><span class="status-badge status-info">בקרוב</span><h2>המודול נמצא בהכנה</h2><p>אנחנו בונים עבורך סביבת עבודה מקצועית, מהירה וברורה. היא תתווסף לפורטל באחד הספרינטים הקרובים.</p><div class="next-action"><strong>הפעולה הבאה</strong><span>אפשר לחזור לעמוד הבית ולבחור תחום אחר.</span></div><a class="button button-primary" href="#home">חזרה לעמוד הבית</a></section>`;
+}
+
+function calculatorsTemplate() {
+  return `<section class="page-heading"><div><p class="eyebrow">מחשבונים</p><h1>מחשבונים</h1><p>כלי עזר לחישוב ולתכנון על בסיס כללי הארגון הפעילים.</p></div></section><section class="module-grid"><a class="module-card card" href="#calculators/salary"><span class="module-icon">₪</span><div><h3>מחשבון שכר</h3><p>אומדן שכר חודשי לפי כללי השכר הפעילים.</p></div><span class="card-action">פתיחה ←</span></a></section>`;
+}
+
+async function loadSalaryRules() {
+  if (salaryModel.status === 'loading' || salaryModel.status === 'ready') return;
+  salaryModel.status = 'loading';
+  try {
+    const [factors, rules, years] = await Promise.all([
+      rest('compensation_factors', 'select=compensation_factor_id,compensation_factor_code,display_name,value_type,lifecycle_status,display_order&lifecycle_status=eq.ACTIVE&order=display_order'),
+      rest('compensation_rules', 'select=compensation_rule_id,compensation_factor_id,school_year_id,effective_from,effective_to,minimum_seniority_months,maximum_seniority_months,amount,eligibility_condition,proration_method,lifecycle_status&lifecycle_status=eq.ACTIVE'),
+      rest('school_years', 'select=school_year_id,school_year_code,display_name,start_date,end_date,is_default,is_selectable&is_selectable=eq.true')
+    ]);
+    salaryModel = { status: 'ready', factors, rules, years, error: '' };
+  } catch (error) { salaryModel = { status: 'error', factors: [], rules: [], years: [], error: error.message }; }
+}
+
+function salaryCalculatorTemplate() {
+  return `<section class="page-heading"><div><p class="eyebrow">מחשבונים / מחשבון שכר</p><h1>מחשבון שכר</h1><p>החישוב מבוסס על כללי שכר פעילים בלבד.</p></div><a class="button button-secondary" href="#calculators">חזרה למחשבונים</a></section><div id="salary-state" class="state panel">טוען כללי שכר פעילים…</div><section id="salary-calculator" class="salary-calculator" hidden><form id="salary-form" class="panel salary-inputs"><label class="field">תעריף שעתי<input name="hourlyRate" type="number" min="0" step="0.01" value="50" required></label><label class="field">שעות חודשיות<input name="monthlyHours" type="number" min="1" step="0.5" value="160" required></label><label class="field">וותק מוכר (חודשים)<input name="seniorityMonths" type="number" min="0" step="1" value="0" required></label><label class="field">אחראית כיתה<select name="classManager"><option value="true">כן</option><option value="false" selected>לא</option></select></label><label class="field">תעודה<select name="certificate"><option value="YES">כן</option><option value="COMMITMENT">התחייבות</option><option value="NO">לא</option></select></label><label class="field">תואר<select name="degree"><option value="true">כן</option><option value="false">לא</option></select></label><label class="field">מצוינות<select name="excellence"><option value="true">כן</option><option value="false">לא</option></select></label><label class="field">נסיעות<select name="travel"><option value="true">כן</option><option value="false">לא</option></select></label><div class="salary-actions"><button class="button button-quiet" type="reset">איפוס</button><button class="button button-secondary" type="button" data-salary-print>הדפסה</button></div></form><section class="salary-results"><div class="salary-summary"><article><span>ברוטו חודשי</span><strong id="salary-gross">—</strong></article><article><span>עלות אפקטיבית לשעה</span><strong id="salary-effective">—</strong></article><article><span>נטו משוער</span><strong id="salary-net">—</strong></article></div><div class="panel salary-breakdown"><h2>פירוט חישוב</h2><p id="salary-certificate-note" class="muted"></p><div id="salary-components"></div></div><section class="panel salary-comparison"><div><h2>השוואת תרחישים A / B</h2><p>שמרי את התרחיש הנוכחי, עדכני ערכים והשווי.</p></div><div><button class="button button-secondary" type="button" data-scenario="A">שמירת תרחיש A</button><button class="button button-secondary" type="button" data-scenario="B">שמירת תרחיש B</button></div><div id="salary-scenarios"></div></section></section></section>`;
+}
+
+function bindSalaryCalculator() {
+  const form = $('#salary-form'); let scenarios = {};
+  const update = () => { const values = Object.fromEntries(new FormData(form)); const input = { ...values, hourlyRate: Number(values.hourlyRate), monthlyHours: Number(values.monthlyHours), seniorityMonths: Number(values.seniorityMonths), degree: values.degree === 'true', excellence: values.excellence === 'true', travel: values.travel === 'true' }; const result = calculateSalary(input, salaryModel.factors, salaryModel.rules, salaryModel.years); if (result.issues.length) { $('#salary-state').hidden = false; $('#salary-state').className = 'state error panel'; $('#salary-state').textContent = result.issues.join(' '); $('#salary-calculator').hidden = true; return null; } $('#salary-state').hidden = true; $('#salary-calculator').hidden = false; $('#salary-gross').textContent = money.format(result.gross); $('#salary-effective').textContent = money.format(result.effectiveHourly); $('#salary-net').textContent = `${money.format(result.netMin)}–${money.format(result.netMax)}`; $('#salary-certificate-note').textContent = input.certificate === 'COMMITMENT' ? 'תוספת התעודה חושבה לפי כלל ההתחייבות הפעיל.' : 'הסכומים מחושבים לפי הכללים הפעילים בשנת הלימודים שנבחרה.'; $('#salary-components').innerHTML = result.components.map((item) => `<div class="salary-component"><span>${escapeHtml(item.name)}</span><strong>${money.format(item.amount)}</strong></div>`).join(''); return { input, result }; };
+  form.addEventListener('input', update); form.addEventListener('change', update); form.addEventListener('reset', () => setTimeout(update)); $('[data-salary-print]').addEventListener('click', () => window.print()); document.querySelectorAll('[data-scenario]').forEach((button) => button.addEventListener('click', () => { const current = update(); if (!current) return; scenarios[button.dataset.scenario] = current; const rows = Object.entries(scenarios).map(([key, value]) => `<div><strong>תרחיש ${key}</strong><span>${money.format(value.result.gross)}</span><small>${money.format(value.result.effectiveHourly)} לשעה</small></div>`); if (scenarios.A && scenarios.B) rows.push(`<div><strong>פער</strong><span>${money.format(scenarios.B.result.gross - scenarios.A.result.gross)}</span></div>`); $('#salary-scenarios').innerHTML = rows.join(''); })); update();
 }
 
 function loadingTemplate(label = 'טוען נתונים…') {
@@ -648,6 +678,7 @@ function renderGeneralData() {
 function breadcrumbsTemplate(route, unit, type) {
   const parts = ['<a href="#home">עמוד הבית</a>'];
   if (route.section === 'home') return '<span aria-current="page">עמוד הבית</span>';
+  if (route.section === 'calculators' && route.calculator === 'salary') return `${parts.join('')}<span aria-hidden="true">/</span><a href="#calculators">מחשבונים</a><span aria-hidden="true">/</span><span aria-current="page">מחשבון שכר</span>`;
   if (route.section !== 'dashboards') return `${parts.join('')}<span aria-hidden="true">/</span><span aria-current="page">${simpleRoutes[route.section].title}</span>`;
   parts.push('<span aria-hidden="true">/</span>', route.unitId ? '<a href="#dashboards">דשבורדים</a>' : '<span aria-current="page">דשבורדים</span>');
   if (unit) parts.push('<span aria-hidden="true">/</span>', type ? `<a href="${unitRoute(unit.allocation_unit_id)}">${escapeHtml(unit.display_name)}</a>` : `<span aria-current="page">${escapeHtml(unit.display_name)}</span>`);
@@ -657,10 +688,12 @@ function breadcrumbsTemplate(route, unit, type) {
 
 async function render() {
   const route = parseRoute();
-  let title = route.section === 'home' ? 'עמוד הבית' : route.section === 'dashboards' ? 'דשבורדים' : simpleRoutes[route.section].title;
+  let title = route.calculator === 'salary' ? 'מחשבון שכר' : route.section === 'home' ? 'עמוד הבית' : route.section === 'dashboards' ? 'דשבורדים' : simpleRoutes[route.section].title;
   let unit = null;
   let type = null;
   if (route.section === 'home') $('#page-content').innerHTML = homeTemplate();
+  else if (route.section === 'calculators' && route.calculator === 'salary') { $('#page-content').innerHTML = salaryCalculatorTemplate(); await loadSalaryRules(); if (parseRoute().calculator === 'salary') { if (salaryModel.status === 'error') { $('#salary-state').className = 'state error panel'; $('#salary-state').textContent = 'לא ניתן לטעון את כללי השכר הפעילים. נסי שוב מאוחר יותר.'; } else { bindSalaryCalculator(); } } }
+  else if (route.section === 'calculators') $('#page-content').innerHTML = calculatorsTemplate();
   else if (route.section !== 'dashboards') $('#page-content').innerHTML = comingSoonTemplate(simpleRoutes[route.section]);
   else {
     if (unitState.status === 'idle') { $('#page-content').innerHTML = unitsHubTemplate(); loadUnits().then(render); }
