@@ -270,6 +270,7 @@ p { line-height: 1.65; }
 .occupancy-metric dt, .occupancy-overall dt, .occupancy-guidance, .occupancy-recommendation span, .occupancy-overall > span { color: var(--text-muted); font-size: .82rem; }
 .occupancy-metric dd, .occupancy-overall dd { min-width: 0; margin: 0; overflow-wrap: anywhere; font-weight: 700; }
 .occupancy-metric details, .occupancy-recommendation details { margin-block-start: 6px; }
+.occupancy-exception-reason { margin: 4px 0 0; padding: 10px; color: var(--danger); background: #fff3f2; border-radius: var(--radius-sm); font-weight: 700; }
 .occupancy-metric summary, .occupancy-recommendation summary { min-height: 44px; display: flex; align-items: center; color: var(--primary-700); font-weight: 700; cursor: pointer; }
 .occupancy-guidance { padding: 12px; background: var(--primary-50); border-radius: var(--radius-sm); }
 .occupancy-overall { display: grid; gap: 8px; padding: 16px; border-inline-start: 5px solid; }

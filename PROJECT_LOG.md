@@ -1242,3 +1242,10 @@ Remaining issues:
 - Results now always show overall, child, area, classroom-composition, staffing, income, efficiency, optional payroll, balance, limiting-factor, recommendation, and legal-alternative information with required/actual/difference fields.
 - Added dynamic input guidance, collapsible calculation explanations, and retained print/PDF and CSV exports.
 - Focused engine and responsive UI validation passed after rebuilding the static output.
+
+## 2026-07-17 - Occupancy Calculator Live Guidance Refinement
+
+- Results now appear and recalculate immediately as soon as a usable area or child count is entered.
+- Guidance remembers whether the manager started with area or children and explains the resulting calculation direction when the second value is added.
+- Invalid child, area, and classroom-composition checks now state the specific shortage, excess, or disallowed combination in management language.
+- Overall compliance now summarizes only the three licensing validations while staffing and financial indicators remain continuously visible.
