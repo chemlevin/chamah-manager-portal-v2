@@ -1321,3 +1321,25 @@ Remaining work:
 
 - Commit and deploy a clean Preview candidate.
 - Retest a fresh live Supabase invitation against the new Preview deployment.
+
+## 2026-07-17 — Occupancy Calculator Rule Audit
+
+Scope:
+
+- Audited the legacy and unified calculators against project documentation and the active Supabase licensing, staffing, tuition, school-year, and staffing-hours rows.
+- Corrected occupancy rule selection and calculation gaps without changing database data or unrelated business logic.
+
+Confirmed gaps fixed:
+
+- Staffing metadata was not loaded and mixed-age staffing fractions were rounded only after summing, despite the active database rule `CEIL_PER_AGE_GROUP`.
+- Staffing and tuition selection was not restricted to the active school year, canonical category, calculation method, and selected standard.
+- The active database includes a general tuition fallback, but the calculator excluded it when an age-specific standard price was unavailable.
+- Legal alternatives included single-age classrooms only and omitted mixed compositions explicitly allowed by `allowed_mixed_with`.
+- Occupancy loading still fetched legacy existing-classroom datasets that the single unified calculator no longer uses.
+- Missing or unknown database rounding methods silently fell back to a legacy floor rule.
+- Mixed-alternative deduplication was quadratic and could block immediate result rendering; it now uses a linear keyed pass.
+
+Validation:
+
+- Focused occupancy engine, UI, and screenshot suite passed with 37 tests and 3 expected screenshot-project skips across desktop, laptop, and two mobile profiles.
+- UI coverage verifies a single mode-free calculator, live area-to-children results, children-to-area validation, required status labels and comparison fields, dynamic guidance, exports, legal mixed alternatives, and horizontal-overflow protection.

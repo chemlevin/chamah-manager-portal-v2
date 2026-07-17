@@ -6,6 +6,7 @@ test.describe('new portal occupancy calculator', () => {
     await mockNewPortalSupabase(page);
     await openNewPortal(page, 'calculators/occupancy');
     await expect(page.locator('#occupancy-calculator')).toBeVisible();
+    await expect(page.locator('[name="mode"]')).toHaveCount(0);
   });
 
   test('calculates children from area and always shows the required result sections', async ({ page }) => {
@@ -18,6 +19,7 @@ test.describe('new portal occupancy calculator', () => {
     await expect(page.locator('#occupancy-overall')).toContainText('סטטוס כללי');
     await expect(page.locator('#occupancy-recommendation')).toContainText('גורם מגביל');
     await expect(page.locator('#occupancy-alternatives')).toContainText('תינוקות');
+    await expect(page.locator('#occupancy-alternatives')).toContainText('פעוטות');
   });
 
   test('calculates required area, validates both values, and keeps exports', async ({ page }) => {

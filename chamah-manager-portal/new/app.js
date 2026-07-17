@@ -290,21 +290,15 @@ async function loadOccupancyRules() {
   if (occupancyModel.status === 'loading' || occupancyModel.status === 'ready') return;
   occupancyModel = { status: 'loading', error: '' };
   try {
-    const [ages, licensing, rules, categories, parameters, years, daycares, daycareYears, classrooms, capacities, enrollments, months] = await Promise.all([
+    const [ages, licensing, rules, categories, parameters, years] = await Promise.all([
       rest('age_groups', 'select=age_group_id,age_group_code,display_name,display_order,lifecycle_status&lifecycle_status=eq.ACTIVE&order=display_order'),
       rest('classroom_licensing_rules', 'select=classroom_licensing_rule_id,age_group,sqm_per_child,max_children,allowed_mixed_with,valid_from,valid_to,rounding_method,lifecycle_status&lifecycle_status=eq.ACTIVE'),
-      rest('budget_rules', 'select=budget_rule_id,budget_category_id,school_year_id,age_group_id,effective_from,effective_to,numeric_value,lifecycle_status,parameter_1,standard_type&lifecycle_status=eq.ACTIVE'),
+      rest('budget_rules', 'select=budget_rule_id,budget_category_id,school_year_id,age_group_id,effective_from,effective_to,numeric_value,lifecycle_status,calculation_method,parameter_1,standard_type,rounding_method&lifecycle_status=eq.ACTIVE'),
       rest('budget_categories', 'select=budget_category_id,budget_category_code,category_type,lifecycle_status&lifecycle_status=eq.ACTIVE'),
       rest('staffing_budget_parameters', 'select=staffing_budget_parameter_id,school_year_id,monthly_hours_per_fte,lifecycle_status&lifecycle_status=eq.ACTIVE'),
-      rest('school_years', 'select=school_year_id,display_name,start_date,end_date,is_default,is_selectable'),
-      rest('daycares', 'select=daycare_id,display_name,lifecycle_status,display_order&lifecycle_status=eq.ACTIVE&order=display_order'),
-      rest('daycare_school_years', 'select=daycare_school_year_id,daycare_id,school_year_id,is_operating,staffing_standard_type'),
-      rest('classrooms', 'select=classroom_id,daycare_school_year_id,display_name,licensed_capacity,lifecycle_status,display_order&lifecycle_status=eq.ACTIVE&order=display_order'),
-      rest('classroom_capacity_breakdowns', 'select=classroom_id,age_group_id,licensed_capacity,lifecycle_status&lifecycle_status=eq.ACTIVE'),
-      rest('monthly_enrollment', 'select=classroom_id,reporting_month,age_group_id,children_count'),
-      rest('school_year_months', 'select=school_year_month_id,school_year_id,month_label,start_date,school_year_sequence&order=start_date')
+      rest('school_years', 'select=school_year_id,display_name,start_date,end_date,is_default,is_selectable&is_selectable=eq.true')
     ]);
-    occupancyModel = { status: 'ready', error: '', ages, licensing, rules, categories, parameters, years, daycares, daycareYears, classrooms, capacities, enrollments, months };
+    occupancyModel = { status: 'ready', error: '', ages, licensing, rules, categories, parameters, years };
   } catch (error) { occupancyModel = { status: 'error', error: error.message }; }
 }
 
@@ -410,8 +404,9 @@ function bindUnifiedOccupancyCalculator() {
   const ageByCode = new Map(model.ages.map((age) => [age.age_group_code, age]));
   const categoryById = new Map(model.categories.map((item) => [item.budget_category_id, item]));
   const activeYear = model.years.find((year) => year.is_default) || model.years.find((year) => year.is_selectable) || model.years[0];
-  const licensing = model.licensing.map((rule) => ({ ...rule, age_group: rule.age_group }));
-  const standardTypes = [...new Set(model.rules.map((rule) => rule.standard_type).filter(Boolean))];
+  const overlapsActiveYear = (from, to) => !activeYear || (!from || from <= activeYear.end_date) && (!to || to >= activeYear.start_date);
+  const licensing = model.licensing.filter((rule) => overlapsActiveYear(rule.valid_from, rule.valid_to)).map((rule) => ({ ...rule, age_group: rule.age_group }));
+  const standardTypes = [...new Set(model.rules.filter((rule) => categoryById.get(rule.budget_category_id)?.budget_category_code === 'CAT-PAYROLL-STAFF' && rule.school_year_id === activeYear?.school_year_id && rule.calculation_method === 'STAFFING_RATIO' && overlapsActiveYear(rule.effective_from, rule.effective_to)).map((rule) => rule.standard_type).filter(Boolean))];
   const numberValue = (name) => Number(form.elements[name]?.value || 0);
   const options = (rows, value, label) => rows.map((row) => `<option value="${escapeHtml(value(row))}">${escapeHtml(label(row))}</option>`).join('');
   form.elements.capacityAge.innerHTML = options(model.ages, (row) => row.age_group_code, (row) => row.display_name);
@@ -419,8 +414,8 @@ function bindUnifiedOccupancyCalculator() {
   $('#occupancy-age-inputs').innerHTML = model.ages.map((age) => `<label class="field">${escapeHtml(age.display_name)}<input name="age_${escapeHtml(age.age_group_code)}" type="number" min="0" step="1" value="0"></label>`).join('');
   const request = (composition = null) => {
     const standardType = form.elements.standardType.value;
-    const budgetRules = model.rules.filter((rule) => rule.standard_type === standardType && rule.parameter_1 != null).map((rule) => ({ ...rule, age_group: ageById.get(rule.age_group_id)?.age_group_code }));
-    const tuitionRules = model.rules.filter((rule) => categoryById.get(rule.budget_category_id)?.category_type === 'INCOME' && rule.numeric_value != null).map((rule) => ({ ...rule, age_group: ageById.get(rule.age_group_id)?.age_group_code }));
+    const budgetRules = model.rules.filter((rule) => categoryById.get(rule.budget_category_id)?.budget_category_code === 'CAT-PAYROLL-STAFF' && rule.school_year_id === activeYear?.school_year_id && rule.standard_type === standardType && rule.calculation_method === 'STAFFING_RATIO' && rule.parameter_1 != null && overlapsActiveYear(rule.effective_from, rule.effective_to)).map((rule) => ({ ...rule, age_group: ageById.get(rule.age_group_id)?.age_group_code }));
+    const tuitionRules = model.rules.filter((rule) => categoryById.get(rule.budget_category_id)?.budget_category_code === 'CAT-TUITION' && rule.school_year_id === activeYear?.school_year_id && (!rule.standard_type || rule.standard_type === standardType) && rule.calculation_method === 'TUITION_MONTHLY' && rule.numeric_value != null && overlapsActiveYear(rule.effective_from, rule.effective_to)).map((rule) => ({ ...rule, age_group: ageById.get(rule.age_group_id)?.age_group_code }));
     const monthlyOperatingHours = model.parameters.find((row) => !activeYear || row.school_year_id === activeYear.school_year_id)?.monthly_hours_per_fte || 0;
     return { composition: composition || Object.fromEntries(model.ages.map((age) => [age.age_group_code, numberValue(`age_${age.age_group_code}`)])), area: numberValue('area'), capacityAge: form.elements.capacityAge.value, standardType, hourlyWage: form.elements.hourlyWage.value, budgetRules, licensingRules: licensing, tuitionRules, monthlyOperatingHours };
   };
@@ -433,10 +428,24 @@ function bindUnifiedOccupancyCalculator() {
   const signed = (value, suffix = '') => `${value > 0 ? '+' : ''}${number.format(value)}${suffix}`;
   const metric = ({ label, ok, required, actual, difference, explanation, issue }) => `<article class="occupancy-metric ${ok ? 'status-good' : 'status-exception'}"><header><h3>${label}</h3><strong>${ok ? '🟢 תקין' : '🔴 לא תקין'}</strong></header><dl><div><dt>נדרש</dt><dd>${required}</dd></div><div><dt>בפועל</dt><dd>${actual}</dd></div><div><dt>הפרש</dt><dd>${difference}</dd></div></dl>${!ok && issue ? `<p class="occupancy-exception-reason">${issue}</p>` : ''}<details><summary>הסבר החישוב</summary><p>${explanation}</p></details></article>`;
   let current = null;
-  const legalAlternatives = () => licensing.map((license) => {
-    const base = request(numberValue('area') ? {} : { [license.age_group]: Number(license.max_children || 0) });
-    return calculateOccupancyModel({ ...base, capacityAge: license.age_group });
-  }).filter((row) => row.compliant).sort((a, b) => b.revenue - a.revenue || b.efficiencyScore - a.efficiencyScore).slice(0, 6);
+  const legalAlternatives = () => {
+    const alternatives = licensing.map((license) => ({ composition: { [license.age_group]: Number(license.max_children || 0) }, capacityAge: license.age_group }));
+    licensing.forEach((first, index) => licensing.slice(index + 1).forEach((second) => {
+      const mutuallyAllowed = (first.allowed_mixed_with || []).includes(second.age_group) && (second.allowed_mixed_with || []).includes(first.age_group);
+      if (!mutuallyAllowed) return;
+      for (let firstCount = 1; firstCount <= Number(first.max_children || 0); firstCount += 1) {
+        for (let secondCount = 1; secondCount <= Number(second.max_children || 0); secondCount += 1) alternatives.push({ composition: { [first.age_group]: firstCount, [second.age_group]: secondCount }, capacityAge: first.age_group });
+      }
+    }));
+    if (numberValue('area')) licensing.forEach((license) => alternatives.push({ composition: {}, capacityAge: license.age_group }));
+    const signature = (row) => row.details.map((detail) => `${detail.age}:${detail.children}`).sort().join('|');
+    const unique = new Map();
+    alternatives.forEach((alternative) => {
+      const row = calculateOccupancyModel({ ...request(alternative.composition), capacityAge: alternative.capacityAge });
+      if (row.compliant && !unique.has(signature(row))) unique.set(signature(row), row);
+    });
+    return [...unique.values()].sort((a, b) => b.revenue - a.revenue || b.efficiencyScore - a.efficiencyScore).slice(0, 6);
+  };
   const render = (event = null) => {
     event?.preventDefault();
     if (event && !form.reportValidity()) return;
