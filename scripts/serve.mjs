@@ -6,7 +6,6 @@ const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   let pathname = decodeURIComponent(url.pathname);
-  if (pathname === '/new' || pathname === '/new/') { res.writeHead(307, { Location: '/' }); res.end(); return; }
   if (pathname.endsWith('/')) pathname += 'index.html';
   const file = normalize(join(root, pathname));
   if (!file.startsWith(normalize(root))) { res.writeHead(403); res.end('Forbidden'); return; }

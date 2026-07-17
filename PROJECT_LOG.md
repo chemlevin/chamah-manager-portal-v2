@@ -1286,3 +1286,38 @@ Validation before deployment:
 - The first full regression passed 387 tests with 9 intentional skips; its only four failures were the obsolete legacy-home assertion at `/` across four viewports.
 - After removing that obsolete target, the focused legacy visual suite passed 20 tests across all configured viewports.
 - Final full regression passed: 387 passed and 9 intentionally skipped.
+## 2026-07-17 - Preserve Supabase Invitation Tokens Through Legacy `/new/` Redirect
+
+Objective: Ensure invitation callbacks sent to the temporary `/new/` path retain their Supabase session tokens and present initial password setup at the portal root.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `scripts/serve.mjs`
+- `tests/new-portal-auth.spec.mjs`
+- `vercel.json`
+- `PROJECT_LOG.md`
+
+Technical decisions:
+
+- Removed the HTTP 307 redirect for `/new/` because URL fragments are not sent to the server and therefore cannot be preserved by a Vercel routing redirect.
+- Kept `/new/` as a temporary client-side redirect using the existing static portal shell, which copies the complete query string and fragment to `/` before authentication initialization.
+- Added regression coverage for the real `/new/#access_token=...&type=invite` callback shape and verified the session is stored before initial password setup.
+
+Business decisions:
+
+- None. Authentication behavior was corrected without changing portal permissions, business rules, APIs, calculations, or Production routing.
+
+Validation:
+
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `node --check scripts/serve.mjs` passed.
+- `npm run build` passed.
+- `npx playwright test tests/new-portal-auth.spec.mjs` passed with 52 tests across four browser profiles.
+- The first full-suite attempt hit the command's 10-minute execution ceiling before Playwright emitted its buffered result; it did not report a test failure.
+- The repeated full suite completed successfully with 391 passed and 9 intentionally skipped (400 total).
+
+Remaining work:
+
+- Commit and deploy a clean Preview candidate.
+- Retest a fresh live Supabase invitation against the new Preview deployment.

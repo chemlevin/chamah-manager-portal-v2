@@ -166,6 +166,19 @@ test.describe('new portal Supabase authentication', () => {
     await expect(page.locator('#login-view')).toBeVisible();
   });
 
+  test('preserves an invitation callback while moving /new/ to the root', async ({ page }) => {
+    await page.route(`${supabaseUrl}/auth/v1/user`, async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'invited-user' }) });
+    });
+    await page.goto('/new/#access_token=invite-access&refresh_token=invite-refresh&expires_in=3600&token_type=bearer&type=invite');
+    await expect(page).toHaveURL(/\/#reset-password$/);
+    await expect(page.locator('#recovery-view')).toBeVisible();
+    await expect(page.locator('#recovery-title')).toHaveText('השלמת ההזמנה');
+    const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), sessionKey);
+    expect(stored.access_token).toBe('invite-access');
+    expect(stored.refresh_token).toBe('invite-refresh');
+  });
+
   test('validates recovery password strength and confirmation before updating', async ({ page }) => {
     const generatedSecret = await generatedStrongPassword(page);
     const differentSecret = await generatedStrongPassword(page);

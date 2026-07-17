@@ -77,6 +77,11 @@ function cleanRecoveryUrl(route = 'reset-password') {
   history.replaceState({}, '', `${location.pathname}#${route}`);
 }
 
+function preserveLegacyCallbackAtRoot() {
+  if (location.pathname !== '/new' && location.pathname !== '/new/') return;
+  history.replaceState({}, '', `/${location.search}${location.hash}`);
+}
+
 function recoveryErrorMessage(value = {}) {
   const detail = `${value.error_code || ''} ${value.error_description || ''} ${value.error || ''}`.toLowerCase();
   if (detail.includes('expired')) return 'תוקף הקישור פג. יש לשלוח קישור איפוס חדש דרך Supabase.';
@@ -1310,6 +1315,7 @@ window.addEventListener('hashchange', render);
 window.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMenu(); });
 
 async function initializeAuth() {
+  preserveLegacyCallbackAtRoot();
   const recovery = parseRecoveryCallback();
   if (recovery.isRecovery) {
     if (recovery.error) { showRecoveryView(recovery.error, recovery.mode); return; }
