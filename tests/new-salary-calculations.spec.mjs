@@ -22,6 +22,7 @@ test('keeps gross, breakdown, effective hourly and net range internally consiste
 });
 test('includes prorated Havraa in the breakdown and keeps class management explicitly eligible-only', () => {
   expect(calculateSalary(input, factors, rules, [year]).components.find((item) => item.key === 'HAVRAA').amount).toBeCloseTo(120 * 160 / 182, 8);
+  expect(calculateSalary({ ...input, seniorityMonths: 240 }, factors, rules, [year]).components.find((item) => item.key === 'HAVRAA').amount).toBeCloseTo(120 * 160 / 182, 8);
   expect(calculateSalary({ ...input, classManager: true }, factors, rules, [year]).components.find((item) => item.key === 'CLASS_MANAGEMENT').amount).toBe(240);
   expect(calculateSalary(input, factors, rules, [year]).components.find((item) => item.key === 'CLASS_MANAGEMENT').amount).toBe(0);
   expect(salaryRuleIssues(factors.filter((item) => item.compensation_factor_id !== 'havraa'), rules, [year]).join(' ')).toContain('HAVRAA');

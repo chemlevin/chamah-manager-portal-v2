@@ -17,6 +17,10 @@ function selectRule(rows, seniorityMonths) {
   return rows.find((rule) => seniorityMonths >= Number(rule.minimum_seniority_months || 0) && (rule.maximum_seniority_months === null || rule.maximum_seniority_months === undefined || seniorityMonths <= Number(rule.maximum_seniority_months)));
 }
 
+function firstEntitlementRule(rows) {
+  return [...rows].sort((left, right) => Number(left.minimum_seniority_months || 0) - Number(right.minimum_seniority_months || 0))[0];
+}
+
 function amount(rule, hours) { return String(rule.factor?.value_type || rule.value_type).toUpperCase() === 'HOURLY' ? Number(rule.amount) * hours : Number(rule.amount); }
 
 export function calculateSalary(inputs, factors, rules, schoolYears) {
@@ -30,7 +34,9 @@ export function calculateSalary(inputs, factors, rules, schoolYears) {
   const hours = Number(inputs.monthlyHours);
   const component = (key, eligible = true) => { const rule = selectRule(grouped.get(key) || [], seniorityMonths); return { key, name: rule?.factor?.display_name || key, amount: eligible && rule ? amount(rule, hours) : 0, rule }; };
   const certificate = component('CERTIFICATE', inputs.certificate !== 'NO');
-  const havraa = component('HAVRAA');
+  // The standalone calculator always simulates the first-year (five-day) Havraa entitlement.
+  const havraaRule = firstEntitlementRule(grouped.get('HAVRAA') || []);
+  const havraa = { key: 'HAVRAA', name: havraaRule?.factor?.display_name || 'HAVRAA', amount: 0, rule: havraaRule };
   if (havraa.rule) havraa.amount = Number(havraa.rule.amount) * Math.min(hours / 182, 1);
   const components = [
     { key: 'BASE', name: 'שכר בסיס', amount: Number(inputs.hourlyRate) * hours },

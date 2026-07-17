@@ -1196,6 +1196,12 @@ Validation:
 - Havraa is now calculated from the selected full-time monthly rule as `amount × min(monthly_hours / 182, 1)` and appears in the breakdown.
 - Class Management is no longer treated as a rule conflict; it is calculated only when the explicit `CLASS_MANAGER=TRUE` eligibility input is selected.
 
+## 2026-07-16 - Salary Calculator First-Year Havraa Assumption
+
+- The standalone Salary Calculator now always selects the first active Havraa entitlement bracket (five-day / first-year entitlement), independently of recognized seniority.
+- Havraa proration remains `full-time monthly amount × min(monthly hours / 182, 1)`.
+- The calculator UI explicitly states the first-year Havraa assumption. Future employee-specific calculations may instead use employment start date.
+
 ## 2026-07-16 - New Portal Occupancy Calculator UI
 
 Objective: Connect the completed occupancy calculation engine to the new portal under Calculators → Occupancy, Staffing and Profitability.
