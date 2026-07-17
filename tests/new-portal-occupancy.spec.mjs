@@ -8,30 +8,28 @@ test.describe('new portal occupancy calculator', () => {
     await expect(page.locator('#occupancy-calculator')).toBeVisible();
   });
 
-  test('loads an existing classroom and shows unified efficiency results without wage', async ({ page }) => {
-    await expect(page.locator('[name="age_INFANT"]')).toHaveValue('18');
-    await page.locator('[name="area"]').fill('60');
+  test('calculates children from area and always shows the required result sections', async ({ page }) => {
+    await page.locator('[name="capacityAge"]').selectOption('INFANT');
+    await page.locator('[name="area"]').fill('30');
     await page.getByRole('button', { name: 'חישוב' }).click();
     await expect(page.locator('#occupancy-results')).toBeVisible();
-    await expect(page.locator('#occupancy-summary')).toContainText('תקינת ילדים');
-    await expect(page.locator('#occupancy-summary')).toContainText('תקינת שטח');
-    await expect(page.locator('#occupancy-summary')).toContainText('צוות נדרש');
-    await expect(page.locator('#occupancy-summary')).toContainText('הכנסה');
-    await expect(page.locator('#occupancy-summary')).toContainText('יעילות');
-    await expect(page.locator('#occupancy-financial')).toContainText('לא הוזן שכר שעתי');
+    await expect(page.locator('#occupancy-result-context')).toContainText('מ״ר ← ילדים');
+    for (const label of ['תקינת ילדים','תקינת שטח','תקינת הרכב כיתה','צוות נדרש','הכנסה','יעילות','עלות שכר אופציונלית','יתרה משוערת']) await expect(page.locator('#occupancy-summary')).toContainText(label);
+    await expect(page.locator('#occupancy-overall')).toContainText('סטטוס כללי');
+    await expect(page.locator('#occupancy-recommendation')).toContainText('גורם מגביל');
     await expect(page.locator('#occupancy-alternatives')).toContainText('תינוקות');
   });
 
-  test('supports planning composition, optional wage, print and CSV', async ({ page }) => {
-    await page.getByLabel('כיתה חדשה / תכנון').check();
-    await expect(page.locator('#occupancy-existing-fields')).toBeHidden();
+  test('calculates required area, validates both values, and keeps exports', async ({ page }) => {
     await page.locator('[name="age_INFANT"]').fill('7');
     await page.locator('[name="age_TODDLER"]').fill('10');
-    await page.locator('[name="area"]').fill('50');
+    await page.locator('[name="area"]').fill('40');
     await page.locator('[name="hourlyWage"]').fill('60');
     await page.getByRole('button', { name: 'חישוב' }).click();
-    await expect(page.locator('#occupancy-financial')).toContainText('עלות שכר');
-    await expect(page.locator('#occupancy-financial')).toContainText('עודף');
+    await expect(page.locator('#occupancy-result-context')).toContainText('בדיקת שטח ומספר ילדים');
+    await expect(page.locator('#occupancy-summary')).toContainText('🔴 לא תקין');
+    await expect(page.locator('#occupancy-summary')).toContainText('עלות שכר אופציונלית');
+    await expect(page.locator('#occupancy-summary details').first()).toBeVisible();
     const download = page.waitForEvent('download');
     await page.getByRole('button', { name: 'CSV' }).click();
     expect((await download).suggestedFilename()).toBe('occupancy-calculator.csv');

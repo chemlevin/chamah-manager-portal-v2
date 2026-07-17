@@ -259,12 +259,25 @@ p { line-height: 1.65; }
 .occupancy-fields, #occupancy-age-inputs { display: grid; gap: 12px; }
 .occupancy-actions, .occupancy-result-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .occupancy-result-heading { justify-content: space-between; }
-.occupancy-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.occupancy-summary { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .occupancy-metric { min-width: 0; display: grid; gap: 5px; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-block-start: 4px solid; border-radius: var(--radius-md); }
 .occupancy-metric.status-good { border-block-start-color: var(--success); }
 .occupancy-metric.status-exception { border-block-start-color: var(--danger); }
-.occupancy-metric span, .occupancy-metric small { color: var(--text-muted); }
-.occupancy-metric strong { overflow-wrap: anywhere; font-size: clamp(1rem, 4vw, 1.4rem); }
+.occupancy-metric header { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
+.occupancy-metric h3 { margin: 0; }
+.occupancy-metric dl, .occupancy-overall dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 8px 0 0; }
+.occupancy-metric dl div, .occupancy-overall dl div { min-width: 0; display: grid; gap: 3px; padding: 9px; background: var(--surface-muted); border-radius: var(--radius-sm); }
+.occupancy-metric dt, .occupancy-overall dt, .occupancy-guidance, .occupancy-recommendation span, .occupancy-overall > span { color: var(--text-muted); font-size: .82rem; }
+.occupancy-metric dd, .occupancy-overall dd { min-width: 0; margin: 0; overflow-wrap: anywhere; font-weight: 700; }
+.occupancy-metric details, .occupancy-recommendation details { margin-block-start: 6px; }
+.occupancy-metric summary, .occupancy-recommendation summary { min-height: 44px; display: flex; align-items: center; color: var(--primary-700); font-weight: 700; cursor: pointer; }
+.occupancy-guidance { padding: 12px; background: var(--primary-50); border-radius: var(--radius-sm); }
+.occupancy-overall { display: grid; gap: 8px; padding: 16px; border-inline-start: 5px solid; }
+.occupancy-overall.status-good { border-inline-start-color: var(--success); }
+.occupancy-overall.status-exception { border-inline-start-color: var(--danger); }
+.occupancy-overall > strong { font-size: 1.35rem; }
+.occupancy-recommendation { display: grid; gap: 14px; padding: 16px; }
+.occupancy-recommendation > div { display: grid; gap: 4px; }
 .occupancy-financial, .occupancy-alternatives { min-width: 0; padding: 16px; }
 .occupancy-financial > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .occupancy-financial span { display: grid; gap: 4px; padding: 12px; background: var(--surface-muted); border-radius: var(--radius-sm); }
@@ -320,6 +333,7 @@ p { line-height: 1.65; }
   .dashboard-skeleton { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .school-year-summary { grid-template-columns: minmax(180px, .7fr) minmax(320px, 1.3fr) minmax(150px, .5fr); align-items: center; }
   .summary-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .occupancy-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (min-width: 900px) {
@@ -344,7 +358,7 @@ p { line-height: 1.65; }
   .staff-filters { grid-template-columns: minmax(220px, 2fr) repeat(2, minmax(150px, 1fr)); align-items: end; }
   .salary-inputs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .occupancy-fields, #occupancy-age-inputs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .occupancy-summary { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .occupancy-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (min-width: 1280px) {

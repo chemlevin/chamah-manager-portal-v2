@@ -302,13 +302,15 @@ Fact: Training/compliance statuses include caregiver certificate, graduation, fi
 
 ## Occupancy
 
-Fact: Occupancy calculator has quick and full modes.
+Fact: Occupancy calculator uses one unified flow without existing/planning or quick/full modes.
+
+Fact: Occupancy supports area-to-children, children-to-required-area, and validation when both values are supplied.
 
 Fact: Default rules include age groups for infants, toddlers, and older children.
 
 Fact: Mixed classrooms allow adjacent age combinations only; invalid non-adjacent combinations are not recommended.
 
-Fact: Area-aware alternatives require classroom area. If area is missing, area alternatives are not shown.
+Fact: Occupancy legal alternatives are generated only from active database licensing, staffing, tuition, and operating-hours rules.
 
 Fact: Scenario recommendations rank valid compositions and account for monthly balance.
 

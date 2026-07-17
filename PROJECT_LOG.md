@@ -1233,3 +1233,12 @@ Validation:
 Remaining issues:
 
 - None known within the requested occupancy calculator scope.
+
+## 2026-07-17 - Unified Occupancy Calculator Redesign
+
+- Replaced the existing/planning and quick/full mode concepts with one mobile-first calculator flow.
+- Added bidirectional area-to-children and children-to-required-area calculations, plus compliance validation when both inputs are supplied.
+- Kept licensing, staffing, tuition, capacity, and operating-hour values bound to active database rules; no business values or entities were added to the UI.
+- Results now always show overall, child, area, classroom-composition, staffing, income, efficiency, optional payroll, balance, limiting-factor, recommendation, and legal-alternative information with required/actual/difference fields.
+- Added dynamic input guidance, collapsible calculation explanations, and retained print/PDF and CSV exports.
+- Focused engine and responsive UI validation passed after rebuilding the static output.
