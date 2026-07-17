@@ -7,7 +7,7 @@ const SUPABASE_KEY = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
 const SESSION_KEY = 'chamah.portal.session';
 const SESSION_REFRESH_LEEWAY_SECONDS = 60;
 const MIN_PASSWORD_LENGTH = 10;
-const CANONICAL_PORTAL_URL = 'https://chamah-manager-portal-v2-preview.vercel.app/new/';
+const CANONICAL_PORTAL_URL = 'https://chamah-manager-portal-v2.vercel.app/';
 const $ = (selector) => document.querySelector(selector);
 const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 });
 const number = new Intl.NumberFormat('he-IL', { maximumFractionDigits: 1 });
@@ -89,12 +89,14 @@ function parseRecoveryCallback() {
   const error = hash.get('error') || search.get('error');
   const errorCode = hash.get('error_code') || search.get('error_code');
   const errorDescription = hash.get('error_description') || search.get('error_description');
-  const isRecovery = hash.get('type') === 'recovery' || search.get('type') === 'recovery' || location.hash === '#reset-password' || Boolean(error || errorCode || errorDescription);
+  const callbackType = hash.get('type') || search.get('type');
+  const mode = callbackType === 'invite' ? 'invite' : 'recovery';
+  const isRecovery = callbackType === 'recovery' || callbackType === 'invite' || location.hash === '#reset-password' || Boolean(error || errorCode || errorDescription);
   if (!isRecovery) return { isRecovery: false, error: '' };
   if (error || errorCode || errorDescription) {
     saveSession(null);
     cleanRecoveryUrl();
-    return { isRecovery: true, error: recoveryErrorMessage({ error, error_code: errorCode, error_description: errorDescription }) };
+    return { isRecovery: true, mode, error: recoveryErrorMessage({ error, error_code: errorCode, error_description: errorDescription }) };
   }
   if (hash.get('access_token') && hash.get('refresh_token')) {
     saveSession({
@@ -105,7 +107,7 @@ function parseRecoveryCallback() {
     });
     cleanRecoveryUrl();
   }
-  return { isRecovery: true, error: '' };
+  return { isRecovery: true, mode, error: '' };
 }
 
 function authErrorMessage(response, value, fallback) {
@@ -174,10 +176,14 @@ async function updateRecoveryPassword(password) {
   }
 }
 
-function showRecoveryView(error = '') {
+function showRecoveryView(error = '', mode = 'recovery') {
   $('#login-view').style.display = 'none';
   $('#app-view').hidden = true;
   $('#recovery-view').hidden = false;
+  $('#recovery-title').textContent = mode === 'invite' ? 'השלמת ההזמנה' : 'הגדרת סיסמה חדשה';
+  $('#recovery-description').textContent = mode === 'invite'
+    ? 'בחרי סיסמה כדי להשלים את ההזמנה ולהיכנס לפורטל.'
+    : 'בחרי סיסמה חדשה הכוללת לפחות 10 תווים, אות אחת ומספר אחד.';
   $('#recovery-message').textContent = error;
   $('#recovery-fields').hidden = Boolean(error);
   if (!error) $('#new-password').focus();
@@ -1306,9 +1312,9 @@ window.addEventListener('keydown', (event) => { if (event.key === 'Escape') clos
 async function initializeAuth() {
   const recovery = parseRecoveryCallback();
   if (recovery.isRecovery) {
-    if (recovery.error) { showRecoveryView(recovery.error); return; }
-    if (!await validateSession()) { showRecoveryView('קישור האיפוס אינו תקף או שפג תוקפו. יש לשלוח קישור חדש דרך Supabase.'); return; }
-    showRecoveryView();
+    if (recovery.error) { showRecoveryView(recovery.error, recovery.mode); return; }
+    if (!await validateSession()) { showRecoveryView('קישור האימות אינו תקף או שפג תוקפו. יש לבקש קישור חדש.', recovery.mode); return; }
+    showRecoveryView('', recovery.mode);
     return;
   }
   if (!await validateSession()) {

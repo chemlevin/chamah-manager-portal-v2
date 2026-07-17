@@ -31,6 +31,13 @@
   ],
   "routes": [
     {
+      "src": "/new/?",
+      "status": 307,
+      "headers": {
+        "Location": "/"
+      }
+    },
+    {
       "src": "/api/employees",
       "dest": "/api/employees.js"
     },

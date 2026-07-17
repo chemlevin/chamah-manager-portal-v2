@@ -1,7 +1,6 @@
 import { expect } from '@playwright/test';
 
 export const pages = [
-  { path: '/', name: 'home' },
   { path: '/calculators/', name: 'calculators' },
   { path: '/occupancy/', name: 'occupancy' },
   { path: '/salary/', name: 'salary' },

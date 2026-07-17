@@ -1255,3 +1255,34 @@ Remaining issues:
 - Guidance remembers whether the manager started with area or children and explains the resulting calculation direction when the second value is added.
 - Invalid child, area, and classroom-composition checks now state the specific shortage, excess, or disallowed combination in management language.
 - Overall compliance now summarizes only the three licensing validations while staffing and financial indicators remain continuously visible.
+
+## 2026-07-17 - New Portal Production Root Cutover Preparation
+
+Objective: Prepare the Supabase-backed new portal to become the only Production site at the repository root while preserving the existing Vercel Preview project and a reversible domain cutover.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/index.html`
+- `scripts/build.mjs`
+- `scripts/serve.mjs`
+- `tests/new-portal-auth.spec.mjs`
+- `tests/qa-helpers.mjs`
+- `vercel.json`
+- `PROJECT_LOG.md`
+
+Implementation:
+
+- The static build now overlays the new portal bundle at `dist/`, so `/` serves the protected new portal without moving or duplicating its maintained source files.
+- Added a temporary HTTP 307 redirect from `/new/` to `/` in Vercel and the local test server.
+- Password-recovery requests now use `https://chamah-manager-portal-v2.vercel.app/` as the canonical callback.
+- The existing callback flow now recognizes Supabase `invite` callbacks, validates the session, requires a strong initial password, and enters the portal after the password is saved.
+- Retired the obsolete legacy-home visual assertion because the Production root now intentionally belongs to the new portal; legacy deep-page visual coverage remains unchanged.
+
+Validation before deployment:
+
+- JavaScript syntax checks and `npm.cmd run build` passed.
+- Authentication coverage passed across desktop, laptop, and two mobile profiles: 48 passed, covering login, logout, session persistence and refresh, recovery request/completion, invitation completion, invalid callbacks, and `/new/` redirection.
+- The first full regression passed 387 tests with 9 intentional skips; its only four failures were the obsolete legacy-home assertion at `/` across four viewports.
+- After removing that obsolete target, the focused legacy visual suite passed 20 tests across all configured viewports.
+- Final full regression passed: 387 passed and 9 intentionally skipped.

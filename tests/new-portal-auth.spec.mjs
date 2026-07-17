@@ -24,7 +24,7 @@ test.describe('new portal Supabase authentication', () => {
   test('shows login and performs no protected reads without a session', async ({ page }) => {
     let protectedReads = 0;
     await page.route(`${supabaseUrl}/rest/v1/**`, (route) => { protectedReads += 1; return route.abort(); });
-    await page.goto('/new/');
+    await page.goto('/');
     await expect(page.locator('#login-view')).toBeVisible();
     await expect(page.locator('#app-view')).toBeHidden();
     await expect(page.getByLabel('כתובת מייל')).toBeVisible();
@@ -40,7 +40,7 @@ test.describe('new portal Supabase authentication', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ access_token: 'password-access', refresh_token: 'password-refresh', expires_in: 3600, token_type: 'bearer' }) });
     });
     await page.route(`${supabaseUrl}/auth/v1/user`, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'password-user' }) }));
-    await page.goto('/new/');
+    await page.goto('/');
     await page.locator('#email').fill('existing@example.org');
     await page.locator('#password').fill(generatedSecret);
     await page.locator('#login-submit').click();
@@ -58,7 +58,7 @@ test.describe('new portal Supabase authentication', () => {
   test('toggles password visibility and shows a clear Hebrew invalid-credentials error', async ({ page }) => {
     const generatedSecret = await page.evaluate(() => Array.from(crypto.getRandomValues(new Uint8Array(18)), (value) => value.toString(16).padStart(2, '0')).join(''));
     await page.route(`${supabaseUrl}/auth/v1/token?grant_type=password`, (route) => route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error_code: 'invalid_credentials', msg: 'Invalid login credentials' }) }));
-    await page.goto('/new/');
+    await page.goto('/');
     await page.locator('#email').fill('existing@example.org');
     await page.locator('#password').fill(generatedSecret);
     await page.locator('#toggle-password').click();
@@ -77,7 +77,7 @@ test.describe('new portal Supabase authentication', () => {
       await new Promise((resolve) => setTimeout(resolve, 250));
       await route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error_code: 'invalid_credentials' }) });
     });
-    await page.goto('/new/');
+    await page.goto('/');
     await page.locator('#email').fill('existing@example.org');
     await page.locator('#password').fill(generatedSecret);
     await page.locator('#login-submit').dblclick();
@@ -93,13 +93,13 @@ test.describe('new portal Supabase authentication', () => {
       recoveryBody = route.request().postDataJSON();
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
-    await page.goto('/new/');
+    await page.goto('/');
     await page.locator('#email').fill('existing@example.org');
     await page.locator('#forgot-password').click();
     await page.locator('#request-recovery').click();
     await expect(page.locator('#recovery-request-message')).toContainText('אם הכתובת מורשית במערכת');
     expect(recoveryBody).toEqual({ email: 'existing@example.org' });
-    expect(new URL(recoveryUrl).searchParams.get('redirect_to')).toBe('https://chamah-manager-portal-v2-preview.vercel.app/new/');
+    expect(new URL(recoveryUrl).searchParams.get('redirect_to')).toBe('https://chamah-manager-portal-v2.vercel.app/');
     await expect(page.locator('#login-submit')).toBeVisible();
   });
 
@@ -122,20 +122,48 @@ test.describe('new portal Supabase authentication', () => {
       unitsAuthorization = route.request().headers().authorization;
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
-    await page.goto('/new/#access_token=recovery-access&refresh_token=recovery-refresh&expires_in=3600&token_type=bearer&type=recovery');
+    await page.goto('/#access_token=recovery-access&refresh_token=recovery-refresh&expires_in=3600&token_type=bearer&type=recovery');
     await expect(page.locator('#recovery-view')).toBeVisible();
-    await expect(page).toHaveURL(/\/new\/#reset-password$/);
+    await expect(page).toHaveURL(/\/#reset-password$/);
     await page.locator('#new-password').fill(generatedSecret);
     await page.locator('#confirm-password').fill(generatedSecret);
     await page.locator('#save-password').click();
     await expect(page.locator('#app-view')).toBeVisible();
-    await expect(page).toHaveURL(/\/new\/#home$/);
+    await expect(page).toHaveURL(/\/#home$/);
     expect(typeof updateBody.password).toBe('string');
     expect(updateBody.password.length).toBeGreaterThanOrEqual(10);
-    await page.goto('/new/#dashboards');
+    await page.goto('/#dashboards');
     await expect.poll(() => unitsAuthorization).toBe('Bearer recovery-access');
     await page.reload();
     await expect(page.locator('#app-view')).toBeVisible();
+  });
+
+  test('accepts an invitation callback at the Production root and establishes a password', async ({ page }) => {
+    const generatedSecret = await generatedStrongPassword(page);
+    let updateBody;
+    await page.route(`${supabaseUrl}/auth/v1/user`, async (route) => {
+      if (route.request().method() === 'PUT') {
+        updateBody = route.request().postDataJSON();
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'invited-user' }) });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'invited-user' }) });
+    });
+    await page.goto('/#access_token=invite-access&refresh_token=invite-refresh&expires_in=3600&token_type=bearer&type=invite');
+    await expect(page.locator('#recovery-view')).toBeVisible();
+    await expect(page.locator('#recovery-title')).toHaveText('השלמת ההזמנה');
+    await page.locator('#new-password').fill(generatedSecret);
+    await page.locator('#confirm-password').fill(generatedSecret);
+    await page.locator('#save-password').click();
+    await expect(page.locator('#app-view')).toBeVisible();
+    await expect(page).toHaveURL(/\/#home$/);
+    expect(updateBody).toEqual({ password: generatedSecret });
+  });
+
+  test('redirects the temporary /new/ path to the Production root', async ({ page }) => {
+    await page.goto('/new/');
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.locator('#login-view')).toBeVisible();
   });
 
   test('validates recovery password strength and confirmation before updating', async ({ page }) => {
@@ -147,7 +175,7 @@ test.describe('new portal Supabase authentication', () => {
       if (route.request().method() === 'PUT') updates += 1;
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'recovery-user' }) });
     });
-    await page.goto('/new/#access_token=recovery-access&refresh_token=recovery-refresh&expires_in=3600&type=recovery');
+    await page.goto('/#access_token=recovery-access&refresh_token=recovery-refresh&expires_in=3600&type=recovery');
     await page.locator('#new-password').fill(await page.evaluate(() => String.fromCharCode(65)));
     await page.locator('#confirm-password').fill(await page.evaluate(() => String.fromCharCode(65)));
     await page.locator('#save-password').click();
@@ -160,11 +188,11 @@ test.describe('new portal Supabase authentication', () => {
   });
 
   test('shows a clear Hebrew error for an expired or already-used recovery link', async ({ page }) => {
-    await page.goto('/new/#error=access_denied&error_code=expired&error_description=Recovery+link+has+expired');
+    await page.goto('/#error=access_denied&error_code=expired&error_description=Recovery+link+has+expired');
     await expect(page.locator('#recovery-view')).toBeVisible();
     await expect(page.locator('#recovery-fields')).toBeHidden();
     await expect(page.locator('#recovery-message')).toContainText('תוקף הקישור פג');
-    await expect(page).toHaveURL(/\/new\/#reset-password$/);
+    await expect(page).toHaveURL(/\/#reset-password$/);
   });
 
   test('refreshes an expired access token before validation and protected reads', async ({ page }) => {
@@ -179,7 +207,7 @@ test.describe('new portal Supabase authentication', () => {
       authorization = route.request().headers().authorization;
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
-    await page.goto('/new/#dashboards');
+    await page.goto('/#dashboards');
     await expect(page.locator('#app-view')).toBeVisible();
     await expect.poll(() => authorization).toBe('Bearer fresh-access');
     const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), sessionKey);
@@ -194,7 +222,7 @@ test.describe('new portal Supabase authentication', () => {
       logoutAuthorization = route.request().headers().authorization;
       await route.fulfill({ status: 204, body: '' });
     });
-    await page.goto('/new/');
+    await page.goto('/');
     await expect(page.locator('#app-view')).toBeVisible();
     await page.locator('#logout').click();
     await expect(page.locator('#login-view')).toBeVisible();
