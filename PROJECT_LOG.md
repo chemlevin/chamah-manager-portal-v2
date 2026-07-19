@@ -1384,3 +1384,7 @@ Validation:
 - Persistence now uses 0–1 years at ₪1/hour, 2–4 at ₪2/hour, 5–7 at ₪3/hour, 8–10 at ₪550/month, 11–20 at ₪600/month, and 21+ at ₪700/month.
 - Kept the database storage adapter separate from the year-based calculator contract; UI labels, inputs, explanations, and calculation variables use years only.
 - HAVRAA remains excluded from required factors, calculation, and breakdown.
+## 2026-07-19 - Remote Completion Workflow Rule
+
+- Added a permanent requirement that every completed task must be pushed to its remote branch before completion is reported.
+- Preview URLs may no longer be reported for code that exists only locally.

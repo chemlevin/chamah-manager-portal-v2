@@ -181,6 +181,7 @@ APIs and engines are separate. Preserve this separation: API handlers handle tra
 - Never fake tests or claim tests were run when they were not.
 - If tests cannot be run, report that clearly.
 - Prefer implementation evidence over stale documentation.
+- Every completed task must be pushed to its remote branch before reporting completion. Never report completion or provide a Preview URL for code that exists only locally.
 
 # Business Rules
 
