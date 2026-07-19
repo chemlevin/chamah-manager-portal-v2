@@ -12,7 +12,7 @@ const staffingContribution = (children, rule) => {
   const ratio = value(rule?.parameter_1);
   if (!ratio) return null;
   const fraction = value(children) / ratio;
-  if (rule.rounding_method === 'CEIL_PER_AGE_GROUP') return Math.ceil(fraction - Number.EPSILON);
+  if (rule.rounding_method === 'CEIL_PER_AGE_GROUP') return Math.max(value(rule.minimum_staff), Math.ceil(fraction - Number.EPSILON));
   if (rule.rounding_method === 'CEIL_AFTER_TOTAL') return fraction;
   return null;
 };

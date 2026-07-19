@@ -17,6 +17,7 @@ test.describe('new portal occupancy calculator', () => {
     await expect(page.locator('#occupancy-result-context')).toContainText('מ״ר ← ילדים');
     for (const label of ['תקינת ילדים','תקינת שטח','תקינת הרכב כיתה','צוות נדרש','הכנסה','יעילות','עלות שכר אופציונלית','יתרה משוערת']) await expect(page.locator('#occupancy-summary')).toContainText(label);
     await expect(page.locator('#occupancy-overall')).toContainText('סטטוס כללי');
+    await expect(page.locator('#occupancy-financial-impact')).toContainText('השפעה כספית');
     await expect(page.locator('#occupancy-recommendation')).toContainText('גורם מגביל');
     await expect(page.locator('#occupancy-alternatives')).toContainText('תינוקות');
     await expect(page.locator('#occupancy-alternatives')).toContainText('פעוטות');
@@ -30,6 +31,7 @@ test.describe('new portal occupancy calculator', () => {
     await expect(page.locator('#occupancy-result-context')).toContainText('בדיקת שטח ומספר ילדים');
     await expect(page.locator('#occupancy-summary')).toContainText('🔴 לא תקין');
     await expect(page.locator('#occupancy-summary')).toContainText('עלות שכר אופציונלית');
+    await expect(page.locator('#occupancy-financial-impact')).toContainText('עלות שכר משוערת');
     await expect(page.locator('#occupancy-summary details').first()).toBeVisible();
     await page.locator('[name="area"]').fill('50');
     await expect(page.locator('#occupancy-summary')).not.toContainText('חסרים 5.6 מ״ר');

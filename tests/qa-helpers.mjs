@@ -2,7 +2,6 @@ import { expect } from '@playwright/test';
 
 export const pages = [
   { path: '/calculators/', name: 'calculators' },
-  { path: '/occupancy/', name: 'occupancy' },
   { path: '/salary/', name: 'salary' },
   { path: '/dashboard/', name: 'dashboard' },
   { path: '/employees/', name: 'employees' }
@@ -36,7 +35,7 @@ export async function expectCoreLayoutInsideViewport(page) {
   const problems = await page.evaluate(() => {
     const selectors = [
       '.portal-shell', '.global-nav', '.app-home-hero', '.app-module-card',
-      '.calculator-hub-hero', '.calculator-card', '.occupancy-form',
+      '.calculator-hub-hero', '.calculator-card',
       '.result-card', '.salary-form-panel', '.dashboard-section', '.filter-bar', '.employees-hero', '.employee-card', '.employee-detail-panel'
     ];
     const width = document.documentElement.clientWidth;

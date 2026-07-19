@@ -252,10 +252,8 @@ p { line-height: 1.65; }
 .salary-comparison > div:last-child > div { min-width: 145px; flex: 1 1 145px; }
 .occupancy-calculator, .occupancy-results { min-width: 0; display: grid; gap: 14px; }
 .occupancy-inputs { display: grid; gap: 16px; padding: 16px; }
-.mode-switch, .age-composition { min-width: 0; margin: 0; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-md); }
-.mode-switch { display: flex; flex-wrap: wrap; gap: 12px 22px; }
-.mode-switch legend, .age-composition legend { padding-inline: 6px; font-weight: 700; }
-.mode-switch label { min-height: 44px; display: flex; align-items: center; gap: 7px; font-weight: 700; }
+.age-composition { min-width: 0; margin: 0; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-md); }
+.age-composition legend { padding-inline: 6px; font-weight: 700; }
 .occupancy-fields, #occupancy-age-inputs { display: grid; gap: 12px; }
 .occupancy-actions, .occupancy-result-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .occupancy-result-heading { justify-content: space-between; }

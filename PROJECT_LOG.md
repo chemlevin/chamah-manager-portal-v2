@@ -1344,6 +1344,32 @@ Validation:
 - Focused occupancy engine, UI, and screenshot suite passed with 37 tests and 3 expected screenshot-project skips across desktop, laptop, and two mobile profiles.
 - UI coverage verifies a single mode-free calculator, live area-to-children results, children-to-area validation, required status labels and comparison fields, dynamic guidance, exports, legal mixed alternatives, and horizontal-overflow protection.
 
+## 2026-07-19 — Single Occupancy Management Calculator
+
+Objective: Keep one database-driven Occupancy Calculator and remove the legacy calculator implementations.
+
+Implementation:
+
+- Removed the standalone legacy `/occupancy/` source, its mirrored deployable source, and its legacy Playwright specification.
+- Removed the dormant existing/planning calculator template and binder from the new portal; only the management calculator remains.
+- Updated the legacy calculators index links to open the maintained `#calculators/occupancy` route instead of the removed standalone path.
+- Kept live area-to-children, children-to-area, combined compliance validation, management recommendation, legal alternatives, print/PDF, and CSV behavior.
+- Added a dedicated Financial Impact panel and a controlled unavailable state when required database configuration is incomplete.
+- Loaded and applied the database `minimum_staff` contract instead of assuming the ratio result is always sufficient.
+- Removed obsolete mode-switch styling and legacy visual-QA targets.
+
+Database verification:
+
+- Read-only Supabase verification confirmed the active selectable school year, licensing area/capacity/mixing/rounding rules, staffing ratios and rounding methods, tuition rules and fallback, and monthly staffing-hours configuration.
+- No database data, schema, RLS, authentication, environment variables, or Supabase configuration changed.
+
+Validation:
+
+- `node --check` passed for the maintained occupancy application and calculation modules.
+- `npm.cmd run build` passed.
+- Focused engine, UI, and responsive screenshot coverage passed across desktop, laptop, and two mobile profiles: 41 passed and 3 expected screenshot-project skips.
+- Mobile 390px screenshot was visually reviewed; management results, Financial Impact, recommendation, and legal alternatives render without horizontal overflow.
+- Full Playwright regression passed after legacy route removal: 375 passed and 9 intentionally skipped.
 ## 2026-07-19 - Salary Calculator Persistence Fix
 
 - Changed the standalone Salary Calculator seniority input from months to years and converted years to rule months inside the calculation boundary.
