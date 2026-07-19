@@ -51,9 +51,11 @@ export function calculateOccupancyModel({ composition, area, capacityAge, standa
       : details.reduce((sum, row) => sum + row.staffingContribution, 0);
   const revenue = details.reduce((sum, row) => sum + row.revenue, 0);
   const allowed = details.reduce((sum, row) => sum + row.maxChildren, 0);
+  const hasArea = value(area) > 0;
+  const singleAgeAreaCapacity = hasArea && details.length === 1 ? roundCapacity(value(area) / value(details[0].license?.sqm_per_child), details[0].license?.rounding_method) : null;
+  const maximumLegalCapacity = singleAgeAreaCapacity == null ? allowed : Math.min(allowed, singleAgeAreaCapacity);
   const childrenCompliant = details.length > 0 && details.every((row) => row.children <= row.maxChildren);
   const compositionCompliant = details.length > 0 && validMix;
-  const hasArea = value(area) > 0;
   const areaCompliant = !hasArea || value(area) >= requiredSqm;
   const compliant = childrenCompliant && compositionCompliant && areaCompliant;
   const staffingHours = requiredStaff == null ? null : requiredStaff * value(monthlyOperatingHours);
@@ -65,5 +67,35 @@ export function calculateOccupancyModel({ composition, area, capacityAge, standa
     ...(hasArea ? [{ key: 'area', ok: areaCompliant, difference: value(area) - requiredSqm }] : [])
   ];
   const limitingFactor = constraints.find((item) => !item.ok)?.key || constraints.sort((a, b) => a.difference - b.difference)[0]?.key || 'children';
-  return { validMix, compliant, childrenCompliant, areaCompliant, compositionCompliant, inputMethod: inferredChildren ? 'area-to-children' : hasArea ? 'validation' : 'children-to-area', inferredChildren, children, allowedChildren: allowed, remainingChildren: allowed - children, requiredSqm, actualSqm: hasArea ? value(area) : requiredSqm, remainingSqm: hasArea ? value(area) - requiredSqm : 0, requiredStaff, revenue, staffingHours, revenuePerStaffingHour: staffingHours ? revenue / staffingHours : null, revenuePerCaregiver: requiredStaff ? revenue / requiredStaff : null, efficiencyScore: allowed ? children / allowed * 100 : null, payrollCost, surplus, surplusPercent: payrollCost == null || !revenue ? null : surplus / revenue * 100, limitingFactor, details };
+  return { validMix, compliant, childrenCompliant, areaCompliant, compositionCompliant, staffingCompliant: requiredStaff != null, inputMethod: inferredChildren ? 'area-to-children' : hasArea ? 'validation' : 'children-to-area', inferredChildren, children, allowedChildren: allowed, maximumLegalCapacity, remainingChildren: allowed - children, requiredSqm, actualSqm: hasArea ? value(area) : requiredSqm, remainingSqm: hasArea ? value(area) - requiredSqm : 0, requiredStaff, revenue, staffingHours, revenuePerStaffingHour: staffingHours ? revenue / staffingHours : null, revenuePerCaregiver: requiredStaff ? revenue / requiredStaff : null, efficiencyScore: allowed ? children / allowed * 100 : null, payrollCost, surplus, surplusPercent: payrollCost == null || !revenue ? null : surplus / revenue * 100, limitingFactor, details };
+}
+
+export function buildLegalOccupancyAlternatives(request, limit = 4) {
+  const baseline = calculateOccupancyModel(request);
+  const composition = Object.fromEntries(baseline.details.map((row) => [row.age, row.children]));
+  const activeAges = Object.keys(composition);
+  if (!activeAges.length || !baseline.compositionCompliant) return [];
+
+  const candidates = [];
+  for (const age of activeAges) {
+    for (const change of [-1, 1]) {
+      const next = { ...composition, [age]: value(composition[age]) + change };
+      if (next[age] <= 0) continue;
+      candidates.push(next);
+    }
+  }
+
+  const unique = new Map();
+  for (const nextComposition of candidates) {
+    const result = calculateOccupancyModel({ ...request, composition: nextComposition, capacityAge: activeAges[0] });
+    const hasUsefulCapacity = result.remainingChildren > 0;
+    const fullyValidated = result.childrenCompliant && result.areaCompliant && result.compositionCompliant && result.staffingCompliant;
+    if (!fullyValidated || !hasUsefulCapacity) continue;
+    const signature = result.details.map((row) => `${row.age}:${row.children}`).sort().join('|');
+    if (!unique.has(signature)) unique.set(signature, result);
+  }
+
+  return [...unique.values()]
+    .sort((a, b) => (b.surplus ?? b.revenue) - (a.surplus ?? a.revenue) || b.efficiencyScore - a.efficiencyScore)
+    .slice(0, limit);
 }

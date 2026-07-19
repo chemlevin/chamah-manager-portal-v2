@@ -12,13 +12,14 @@ test('captures occupancy calculator at desktop, tablet, and mobile sizes', async
   test.skip(testInfo.project.name !== 'desktop-1440', 'A single browser project produces the canonical screenshots.');
   await mkdir('screenshots/new-portal-occupancy', { recursive: true });
   await mockNewPortalSupabase(page);
-
   for (const viewport of viewports) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await openNewPortal(page, 'calculators/occupancy');
     await expect(page.locator('#occupancy-calculator')).toBeVisible();
+    await page.locator('[name="classroomType"][value="TODDLER"]').check();
+    await page.locator('[name="knownType"][value="BOTH"]').check();
     await page.locator('[name="area"]').fill('60');
-    await page.getByRole('button', { name: 'חישוב' }).click();
+    await page.locator('[name="age_TODDLER"]').fill('20');
     await expect(page.locator('#occupancy-results')).toBeVisible();
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
     await page.evaluate(() => { scrollTo(0, 0); document.querySelector('#mobile-nav').style.position = 'absolute'; });

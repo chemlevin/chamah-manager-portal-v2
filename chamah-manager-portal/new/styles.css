@@ -252,6 +252,30 @@ p { line-height: 1.65; }
 .salary-comparison > div:last-child > div { min-width: 145px; flex: 1 1 145px; }
 .occupancy-calculator, .occupancy-results { min-width: 0; display: grid; gap: 14px; }
 .occupancy-inputs { display: grid; gap: 16px; padding: 16px; }
+.guided-step { display: grid; gap: 14px; padding-block-end: 16px; border-block-end: 1px solid var(--border); }
+.guided-step:last-child { padding-block-end: 0; border-block-end: 0; }
+.guided-step-heading { display: flex; align-items: flex-start; gap: 10px; }
+.guided-step-heading > span { flex: 0 0 34px; min-height: 34px; display: grid; place-items: center; color: white; background: var(--primary-700); border-radius: 50%; font-weight: 800; }
+.guided-step-heading h2, .guided-step-heading p { margin: 0; }
+.guided-step-heading p { margin-block-start: 3px; color: var(--text-muted); }
+.occupancy-choice-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.occupancy-choice { position: relative; min-width: 0; min-height: 88px; display: grid; align-content: center; gap: 4px; padding: 14px 48px 14px 14px; border: 2px solid var(--border); border-radius: var(--radius-md); cursor: pointer; }
+.occupancy-choice:has(input:checked) { border-color: var(--primary-600); background: var(--primary-50); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-600) 15%, transparent); }
+.occupancy-choice input { position: absolute; inset-inline-start: 16px; inset-block-start: 50%; width: 20px; height: 20px; margin: -10px 0 0; }
+.occupancy-choice small, .field small, .mixed-selector p { color: var(--text-muted); }
+.mixed-selector { display: grid; gap: 8px; padding: 14px; background: var(--surface-muted); border-radius: var(--radius-md); }
+.mixed-selector p { margin: 0; }
+.mixed-age-choices { display: grid; gap: 8px; }
+.mixed-age-choices label { min-height: 48px; display: flex; align-items: center; gap: 9px; padding: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
+.mixed-age-choices input { width: 20px; height: 20px; }
+.occupancy-calculated-fields { display: grid; gap: 12px; padding: 14px; background: #eaf7ef; border-radius: var(--radius-md); }
+.occupancy-calculated-fields input[readonly] { font-weight: 800; background: var(--surface); }
+.inline-validation { padding: 12px; color: var(--danger); background: #fff3f2; border-radius: var(--radius-sm); font-weight: 700; }
+.inline-validation p { margin: 0; }
+.inline-validation p + p { margin-block-start: 5px; }
+.occupancy-usage { padding: 14px 16px; }
+.occupancy-usage summary { min-height: 44px; display: flex; align-items: center; color: var(--primary-700); font-weight: 800; cursor: pointer; }
+.occupancy-usage li + li { margin-block-start: 6px; }
 .age-composition { min-width: 0; margin: 0; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-md); }
 .age-composition legend { padding-inline: 6px; font-weight: 700; }
 .occupancy-fields, #occupancy-age-inputs { display: grid; gap: 12px; }
@@ -281,6 +305,15 @@ p { line-height: 1.65; }
 .occupancy-financial > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .occupancy-financial span { display: grid; gap: 4px; padding: 12px; background: var(--surface-muted); border-radius: var(--radius-sm); }
 .occupancy-financial strong { font-size: 1.15rem; }
+.occupancy-alternative-grid { display: grid; gap: 12px; }
+.occupancy-alternative-card { min-width: 0; display: grid; gap: 10px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+.occupancy-alternative-card:first-child { border: 2px solid var(--success); }
+.occupancy-alternative-card header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.occupancy-alternative-card p { margin: 0; color: var(--text-muted); }
+.occupancy-alternative-card dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.occupancy-alternative-card dl div { min-width: 0; display: grid; gap: 3px; padding: 9px; background: var(--surface-muted); border-radius: var(--radius-sm); }
+.occupancy-alternative-card dt { color: var(--text-muted); font-size: .8rem; }
+.occupancy-alternative-card dd { margin: 0; font-weight: 800; overflow-wrap: anywhere; }
 .kpi-panel { width: min(760px, 96vw); height: 100dvh; padding: 26px 22px; background: var(--surface); box-shadow: var(--shadow-md); position: fixed; inset-block: 0; inset-inline-end: 0; z-index: 70; overflow-y: auto; }
 .kpi-panel .icon-button { margin-inline-start: auto; }
 .kpi-context, .source-note { color: var(--text-muted); }
@@ -333,6 +366,10 @@ p { line-height: 1.65; }
   .school-year-summary { grid-template-columns: minmax(180px, .7fr) minmax(320px, 1.3fr) minmax(150px, .5fr); align-items: center; }
   .summary-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .occupancy-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .occupancy-choice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .known-choice-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .mixed-age-choices, .occupancy-calculated-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .occupancy-alternative-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (min-width: 900px) {
@@ -357,6 +394,8 @@ p { line-height: 1.65; }
   .staff-filters { grid-template-columns: minmax(220px, 2fr) repeat(2, minmax(150px, 1fr)); align-items: end; }
   .salary-inputs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .occupancy-fields, #occupancy-age-inputs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .occupancy-choice-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .known-choice-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .occupancy-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 

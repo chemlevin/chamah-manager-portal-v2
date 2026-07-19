@@ -1384,6 +1384,37 @@ Validation:
 - Persistence now uses 0–1 years at ₪1/hour, 2–4 at ₪2/hour, 5–7 at ₪3/hour, 8–10 at ₪550/month, 11–20 at ₪600/month, and 21+ at ₪700/month.
 - Kept the database storage adapter separate from the year-based calculator contract; UI labels, inputs, explanations, and calculation variables use years only.
 - HAVRAA remains excluded from required factors, calculation, and breakdown.
+
+## 2026-07-19 - Guided Occupancy Calculator Workflow
+
+Objective: Rebuild the new-portal Occupancy Calculator around the manager's actual area/children workflow and prevent unvalidated alternatives.
+
+Implementation:
+
+- Replaced the raw all-fields form with three guided steps: classroom type, known information, and only the required classroom inputs.
+- Added database-driven single-age choices plus one mixed-classroom workflow; mixed classrooms require exactly two mutually allowed age groups and a positive child count for each selected group, including the area-led path.
+- Added read-only calculated capacity and required-area fields, live calculations after valid input, concise inline validation, usage guidance, and management-language result explanations.
+- Kept status, required/actual/difference, staffing, income, efficiency, optional payroll, balance, recommendation, print/PDF, and CSV results.
+- Replaced the alternatives table with responsive cards and moved alternative generation into the pure engine.
+- Alternatives now remain within the selected composition, are useful nearby scenarios, and must pass child limit, area, composition, and staffing validation. Maximum-capacity endpoints are excluded from suggestions, preventing the reported 22-infant alternative.
+- Corrected maximum legal capacity display to use the lower of the area-derived capacity and the active database child ceiling for a single-age classroom with known area.
+
+Database sources verified read-only:
+
+- Active `classroom_licensing_rules` for square meters per child, maximum children, allowed mixed combinations, and capacity rounding.
+- Active `budget_rules` joined to `budget_categories` and `age_groups` for staffing ratios, staffing rounding, minimum staffing, and monthly tuition.
+- Selectable default `school_years` and active `staffing_budget_parameters.monthly_hours_per_fte`.
+- No Supabase data, schema, RLS, authentication, project setting, or environment value changed.
+
+Validation:
+
+- JavaScript syntax checks passed for the new-portal application and occupancy engine.
+- `npm.cmd run build` passed.
+- Focused engine, guided UI, and screenshot coverage passed across desktop, laptop, and two mobile profiles: 77 passed and 3 expected screenshot-project skips.
+- Coverage includes all three single-age classroom types, legal/illegal mixed classrooms, area-only, children-only, combined validation, live updates, read-only outputs, exports, responsive overflow, and rejection of illegal/max-endpoint alternatives.
+- Desktop 1440px, tablet 820px, and mobile 390px screenshots were generated; desktop and mobile were visually reviewed with no clipping or horizontal overflow.
+- One sandboxed rerun could not launch Chromium (`spawn EPERM`); the same focused suite passed outside the sandbox.
+- Full Playwright regression passed: 411 passed and 9 intentionally skipped.
 ## 2026-07-19 - Remote Completion Workflow Rule
 
 - Added a permanent requirement that every completed task must be pushed to its remote branch before completion is reported.

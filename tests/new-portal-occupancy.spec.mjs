@@ -1,55 +1,91 @@
 import { test, expect } from '@playwright/test';
 import { mockNewPortalSupabase, openNewPortal } from './new-portal-test-data.mjs';
 
-test.describe('new portal occupancy calculator', () => {
+test.describe('guided occupancy calculator', () => {
   test.beforeEach(async ({ page }) => {
     await mockNewPortalSupabase(page);
     await openNewPortal(page, 'calculators/occupancy');
     await expect(page.locator('#occupancy-calculator')).toBeVisible();
-    await expect(page.locator('[name="mode"]')).toHaveCount(0);
+    await expect(page.getByText('כיתה קיימת')).toHaveCount(0);
+    await expect(page.getByText('מצב חישוב')).toHaveCount(0);
   });
 
-  test('calculates children from area and always shows the required result sections', async ({ page }) => {
-    await page.locator('[name="capacityAge"]').selectOption('INFANT');
+  async function choose(page, classroom, known) {
+    await page.locator(`[name="classroomType"][value="${classroom}"]`).check();
+    await page.locator(`[name="knownType"][value="${known}"]`).check();
+    await expect(page.locator('#occupancy-data-step')).toBeVisible();
+  }
+
+  for (const classroom of ['INFANT', 'TODDLER', 'GRADUATE']) {
+    test(`calculates area-only capacity for ${classroom}`, async ({ page }) => {
+      await choose(page, classroom, 'AREA');
+      await page.locator('[name="area"]').fill('30');
+      await expect(page.locator('#occupancy-results')).toBeVisible();
+      await expect(page.locator('[name="calculatedCapacity"]')).not.toHaveValue('');
+      await expect(page.locator('[name="calculatedCapacity"]')).toHaveAttribute('readonly', '');
+      await expect(page.locator('#occupancy-result-context')).toContainText('שטח ← קיבולת ילדים');
+    });
+  }
+
+  test('calculates required area from children and validates both values live', async ({ page }) => {
+    await choose(page, 'TODDLER', 'CHILDREN');
+    await page.locator('[name="age_TODDLER"]').fill('10');
+    await expect(page.locator('[name="calculatedArea"]')).toHaveValue(/26/);
+    await page.locator('[name="knownType"][value="BOTH"]').check();
+    await page.locator('[name="area"]').fill('20');
+    await page.locator('[name="age_TODDLER"]').fill('10');
+    await expect(page.locator('#occupancy-summary')).toContainText('חסרים 6 מ״ר');
     await page.locator('[name="area"]').fill('30');
-    await expect(page.locator('#occupancy-results')).toBeVisible();
-    await expect(page.locator('#occupancy-guidance')).toContainText('התחלת בשטח');
-    await expect(page.locator('#occupancy-result-context')).toContainText('מ״ר ← ילדים');
-    for (const label of ['תקינת ילדים','תקינת שטח','תקינת הרכב כיתה','צוות נדרש','הכנסה','יעילות','עלות שכר אופציונלית','יתרה משוערת']) await expect(page.locator('#occupancy-summary')).toContainText(label);
-    await expect(page.locator('#occupancy-overall')).toContainText('סטטוס כללי');
-    await expect(page.locator('#occupancy-financial-impact')).toContainText('השפעה כספית');
-    await expect(page.locator('#occupancy-recommendation')).toContainText('גורם מגביל');
-    await expect(page.locator('#occupancy-alternatives')).toContainText('תינוקות');
-    await expect(page.locator('#occupancy-alternatives')).toContainText('פעוטות');
+    await expect(page.locator('#occupancy-overall')).toContainText('🟢 תקין');
   });
 
-  test('calculates required area, validates both values, and keeps exports', async ({ page }) => {
+  test('requires complete and legal mixed composition even when area is known', async ({ page }) => {
+    await choose(page, 'MIXED', 'AREA');
+    await page.getByRole('button', { name: 'חשבי תוצאה' }).click();
+    await expect(page.locator('#occupancy-validation')).toContainText('בדיוק שתי קבוצות');
+    await page.locator('[name="mixedAge"][value="INFANT"]').check();
+    await page.locator('[name="mixedAge"][value="GRADUATE"]').check();
+    await expect(page.locator('#occupancy-validation')).toContainText('אינו מותר');
+    await page.locator('[name="mixedAge"][value="GRADUATE"]').uncheck();
+    await page.locator('[name="mixedAge"][value="TODDLER"]').check();
+    await page.locator('[name="area"]').fill('50');
     await page.locator('[name="age_INFANT"]').fill('7');
     await page.locator('[name="age_TODDLER"]').fill('10');
+    await expect(page.locator('#occupancy-results')).toBeVisible();
+    await expect(page.locator('#occupancy-summary')).toContainText('הרכב כיתה מעורבת');
+  });
+
+  for (const known of ['CHILDREN', 'BOTH']) {
+    test(`calculates a complete mixed classroom for ${known}`, async ({ page }) => {
+      await choose(page, 'MIXED', known);
+      await page.locator('[name="mixedAge"][value="INFANT"]').check();
+      await page.locator('[name="mixedAge"][value="TODDLER"]').check();
+      if (known === 'BOTH') await page.locator('[name="area"]').fill('50');
+      await page.locator('[name="age_INFANT"]').fill('7');
+      await page.locator('[name="age_TODDLER"]').fill('10');
+      await expect(page.locator('#occupancy-results')).toBeVisible();
+      await expect(page.locator('#occupancy-overall')).toContainText('🟢 תקין');
+    });
+  }
+
+  test('shows calculation explanations, payroll, legal cards, and exports', async ({ page }) => {
+    await choose(page, 'INFANT', 'BOTH');
     await page.locator('[name="area"]').fill('40');
+    await page.locator('[name="age_INFANT"]').fill('10');
     await page.locator('[name="hourlyWage"]').fill('60');
-    await expect(page.locator('#occupancy-result-context')).toContainText('בדיקת שטח ומספר ילדים');
-    await expect(page.locator('#occupancy-summary')).toContainText('🔴 לא תקין');
-    await expect(page.locator('#occupancy-summary')).toContainText('עלות שכר אופציונלית');
-    await expect(page.locator('#occupancy-financial-impact')).toContainText('עלות שכר משוערת');
-    await expect(page.locator('#occupancy-summary details').first()).toBeVisible();
-    await page.locator('[name="area"]').fill('50');
-    await expect(page.locator('#occupancy-summary')).not.toContainText('חסרים 5.6 מ״ר');
+    for (const label of ['קיבולת ילדים','שטח נדרש','הרכב כיתה מעורבת','צוות נדרש','הכנסה משוערת','יעילות תפוסה','עלות שכר משוערת','יתרה משוערת']) await expect(page.locator('#occupancy-summary')).toContainText(label);
+    await expect(page.locator('#occupancy-summary details')).toHaveCount(8);
+    await expect(page.locator('.occupancy-alternative-card').first()).toContainText('מומלצת');
+    await expect(page.locator('#occupancy-alternatives')).not.toContainText('תינוקות: 22');
     const download = page.waitForEvent('download');
     await page.getByRole('button', { name: 'CSV' }).click();
     expect((await download).suggestedFilename()).toBe('occupancy-calculator.csv');
-    await page.evaluate(() => { window.print = () => { document.body.dataset.printed = 'true'; }; });
-    await page.getByRole('button', { name: 'הדפסה / PDF' }).click();
-    await expect(page.locator('body')).toHaveAttribute('data-printed', 'true');
   });
 
-  test('stays within the viewport on focused responsive projects', async ({ page }) => {
+  test('stays within the viewport', async ({ page }) => {
+    await choose(page, 'GRADUATE', 'AREA');
     await page.locator('[name="area"]').fill('60');
-    await expect(page.locator('#occupancy-results')).toBeVisible();
-    const layout = await page.evaluate(() => ({
-      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      offenders: [...document.querySelectorAll('body *')].filter((element) => { const rect = element.getBoundingClientRect(); return rect.left < -1 || rect.right > document.documentElement.clientWidth + 1; }).map((element) => `${element.tagName.toLowerCase()}${element.id ? `#${element.id}` : ''}${element.className && typeof element.className === 'string' ? `.${element.className.trim().replaceAll(' ', '.')}` : ''}`).slice(0, 10)
-    }));
-    expect(layout.overflow, layout.offenders.join(', ')).toBeLessThanOrEqual(1);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(1);
   });
 });

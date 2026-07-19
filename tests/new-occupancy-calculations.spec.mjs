@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { calculateOccupancyModel } from '../chamah-manager-portal/new/occupancy-calculations.js';
+import { buildLegalOccupancyAlternatives, calculateOccupancyModel } from '../chamah-manager-portal/new/occupancy-calculations.js';
 const active = { lifecycle_status: 'ACTIVE' };
 const licensingRules = [{ ...active, age_group: 'INFANT', sqm_per_child: 2.8, max_children: 22, allowed_mixed_with: ['TODDLER'], rounding_method: 'FLOOR_AFTER_TOTAL' }, { ...active, age_group: 'TODDLER', sqm_per_child: 2.6, max_children: 27, allowed_mixed_with: ['INFANT','GRADUATE'], rounding_method: 'FLOOR_AFTER_TOTAL' }, { ...active, age_group: 'GRADUATE', sqm_per_child: 2.2, max_children: 33, allowed_mixed_with: ['TODDLER'], rounding_method: 'FLOOR_AFTER_TOTAL' }];
 const budgetRules = [{ ...active, standard_type: 'BASIC', age_group: 'INFANT', parameter_1: 6, rounding_method: 'CEIL_PER_AGE_GROUP' }, { ...active, standard_type: 'BASIC', age_group: 'TODDLER', parameter_1: 9, rounding_method: 'CEIL_PER_AGE_GROUP' }, { ...active, standard_type: 'BASIC', age_group: 'GRADUATE', parameter_1: 11, rounding_method: 'CEIL_PER_AGE_GROUP' }];
@@ -10,4 +10,18 @@ test('honors a database minimum staffing value', () => { const result = calculat
 test('uses the database tuition fallback when no age-specific standard rule exists', () => { const result = calculateOccupancyModel({ composition:{ INFANT:2 },area:10,standardType:'BASIC',budgetRules,licensingRules,tuitionRules:[{ ...active, age_group:null, standard_type:null, numeric_value:2800 }],monthlyOperatingHours:100 }); expect(result.revenue).toBe(5600); });
 test('rejects unapproved mix and supports efficiency without wage', () => { const result = calculateOccupancyModel({ composition:{ INFANT:2,GRADUATE:2 },area:20,standardType:'BASIC',budgetRules,licensingRules,tuitionRules,monthlyOperatingHours:100 }); expect(result.validMix).toBeFalsy(); expect(result.payrollCost).toBeNull(); expect(result.efficiencyScore).toBeGreaterThan(0); });
 test('derives children from area using the canonical licensing rule', () => { const result = calculateOccupancyModel({ composition:{},area:30,capacityAge:'INFANT',standardType:'BASIC',budgetRules,licensingRules,tuitionRules,monthlyOperatingHours:100 }); expect(result.inputMethod).toBe('area-to-children'); expect(result.children).toBe(10); expect(result.inferredChildren).toBe(10); expect(result.compliant).toBeTruthy(); });
+test('reports maximum legal capacity as the lower area or licensing limit', () => { const result = calculateOccupancyModel({ composition:{ TODDLER:20 },area:60,capacityAge:'TODDLER',standardType:'BASIC',budgetRules,licensingRules,tuitionRules,monthlyOperatingHours:100 }); expect(result.maximumLegalCapacity).toBe(23); expect(result.allowedChildren).toBe(27); });
 test('derives required area from children and validates when both values exist', () => { const derived = calculateOccupancyModel({ composition:{ TODDLER:10 },area:0,standardType:'BASIC',budgetRules,licensingRules,tuitionRules,monthlyOperatingHours:100 }); expect(derived.inputMethod).toBe('children-to-area'); expect(derived.requiredSqm).toBe(26); expect(derived.actualSqm).toBe(26); const invalid = calculateOccupancyModel({ composition:{ TODDLER:10 },area:20,standardType:'BASIC',budgetRules,licensingRules,tuitionRules,monthlyOperatingHours:100 }); expect(invalid.inputMethod).toBe('validation'); expect(invalid.areaCompliant).toBeFalsy(); expect(invalid.limitingFactor).toBe('area'); });
+test('rejects every illegal alternative and never recommends a maximum-capacity endpoint', () => {
+  const request = { composition:{ INFANT:21 },area:59,capacityAge:'INFANT',standardType:'BASIC',hourlyWage:'',budgetRules,licensingRules,tuitionRules,monthlyOperatingHours:100 };
+  const alternatives = buildLegalOccupancyAlternatives(request);
+  expect(alternatives.every((row) => row.childrenCompliant && row.areaCompliant && row.compositionCompliant && row.staffingCompliant)).toBeTruthy();
+  expect(alternatives.every((row) => row.remainingChildren > 0)).toBeTruthy();
+  expect(alternatives.some((row) => row.details.some((detail) => detail.age === 'INFANT' && detail.children === 22))).toBeFalsy();
+});
+test('keeps mixed alternatives within the selected legal composition', () => {
+  const request = { composition:{ INFANT:7,TODDLER:10 },area:50,capacityAge:'INFANT',standardType:'BASIC',hourlyWage:60,budgetRules,licensingRules,tuitionRules,monthlyOperatingHours:100 };
+  const alternatives = buildLegalOccupancyAlternatives(request);
+  expect(alternatives.length).toBeGreaterThan(0);
+  expect(alternatives.every((row) => row.details.length === 2 && row.validMix)).toBeTruthy();
+});

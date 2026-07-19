@@ -1,6 +1,6 @@
 import { calculateBudgetModel, summarizeBudget } from './budget-calculations.js';
 import { calculateSalary, salaryRuleIssues } from './salary-calculations.js';
-import { calculateOccupancyModel } from './occupancy-calculations.js';
+import { buildLegalOccupancyAlternatives, calculateOccupancyModel } from './occupancy-calculations.js';
 
 const SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
@@ -303,7 +303,7 @@ async function loadOccupancyRules() {
 }
 
 function occupancyManagementCalculatorTemplate() {
-  return `<section class="page-heading"><div><p class="eyebrow">מחשבונים / תפוסה, תקינה ורווחיות</p><h1>תפוסה, תקינה ורווחיות</h1><p>מחשבון ניהולי אחד לבדיקת כיתה ולתכנון קיבולת לפי הכללים הפעילים במערכת.</p></div><a class="button button-secondary" href="#calculators">חזרה למחשבונים</a></section><div id="occupancy-state" class="state panel">טוען כללים פעילים…</div><section id="occupancy-calculator" class="occupancy-calculator" hidden><form id="occupancy-form" class="panel occupancy-inputs"><div class="occupancy-fields"><label class="field">קבוצת גיל לחישוב לפי שטח<select name="capacityAge"></select></label><label class="field">סוג תקינה<select name="standardType"></select></label><label class="field">שטח כיתה במ״ר — אופציונלי<input name="area" type="number" min="0" step="0.1" placeholder="אפשר לחשב לפי ילדים בלבד"></label><label class="field">שכר שעתי — אופציונלי<input name="hourlyWage" type="number" min="0" step="0.01" placeholder="ללא אומדן עלות שכר"></label></div><fieldset class="age-composition"><legend>הרכב ילדים — אופציונלי בחישוב לפי שטח</legend><div id="occupancy-age-inputs"></div></fieldset><div id="occupancy-guidance" class="occupancy-guidance" role="status"></div><div class="occupancy-actions"><button class="button button-primary" type="submit">חישוב</button><button class="button button-quiet" type="reset">איפוס</button></div></form><section id="occupancy-results" class="occupancy-results" hidden aria-live="polite"><div class="occupancy-result-heading"><div><h2>תוצאות</h2><p id="occupancy-result-context" class="muted"></p></div><div class="occupancy-actions"><button class="button button-secondary" type="button" data-occupancy-print>הדפסה / PDF</button><button class="button button-secondary" type="button" data-occupancy-csv>CSV</button></div></div><section id="occupancy-overall" class="panel occupancy-overall"></section><div id="occupancy-summary" class="occupancy-summary"></div><section id="occupancy-financial-impact" class="panel occupancy-financial"></section><section id="occupancy-recommendation" class="panel occupancy-recommendation"></section><section class="panel occupancy-alternatives"><div class="section-heading"><div><h2>חלופות חוקיות</h2><p>חלופות המבוססות על כללי הרישוי, השטח והתקינה הפעילים.</p></div></div><div id="occupancy-alternatives"></div></section></section></section>`;
+  return `<section class="page-heading"><div><p class="eyebrow">מחשבונים / תפוסה, תקינה ורווחיות</p><h1>תפוסה, תקינה ורווחיות</h1><p>שלושה צעדים קצרים לבדיקת הכיתה ולקבלת החלטה ניהולית.</p></div><a class="button button-secondary" href="#calculators">חזרה למחשבונים</a></section><div id="occupancy-state" class="state panel">טוען כללים פעילים…</div><section id="occupancy-calculator" class="occupancy-calculator" hidden><form id="occupancy-form" class="panel occupancy-inputs" novalidate><section class="guided-step"><div class="guided-step-heading"><span>1</span><div><h2>איזו כיתה בודקים?</h2><p>בחרי את קבוצת הגיל של הכיתה. בכיתה מעורבת תבחרי גם את ההרכב.</p></div></div><div id="occupancy-classroom-choices" class="occupancy-choice-grid" role="radiogroup" aria-label="סוג כיתה"></div></section><section class="guided-step"><div class="guided-step-heading"><span>2</span><div><h2>מה ידוע לך?</h2><p>הבחירה קובעת אילו נתונים צריך להזין ומה המחשבון יחזיר.</p></div></div><div class="occupancy-choice-grid known-choice-grid" role="radiogroup" aria-label="נתונים ידועים"><label class="occupancy-choice"><input type="radio" name="knownType" value="AREA"><strong>יש לי שטח כיתה</strong><small>נחשב כמה ילדים מותר לשבץ.</small></label><label class="occupancy-choice"><input type="radio" name="knownType" value="CHILDREN"><strong>יש לי מספר ילדים</strong><small>נחשב כמה שטח נדרש.</small></label><label class="occupancy-choice"><input type="radio" name="knownType" value="BOTH"><strong>יש לי גם שטח וגם מספר ילדים</strong><small>נבדוק אם הכיתה עומדת בדרישות.</small></label></div></section><section id="occupancy-data-step" class="guided-step" hidden><div class="guided-step-heading"><span>3</span><div><h2>נתוני הכיתה</h2><p id="occupancy-data-help"></p></div></div><div id="occupancy-mixed-selector" class="mixed-selector" hidden></div><div id="occupancy-required-fields" class="occupancy-fields"></div><label class="field">שכר שעתי — לא חובה<input name="hourlyWage" type="number" min="0" step="0.01" inputmode="decimal" placeholder="אם ידוע, נחשב עלות שכר ויתרה"><small>אפשר להשאיר ריק. שכר יוסיף אומדן עלות ויתרה בלבד.</small></label><div id="occupancy-calculated-fields" class="occupancy-calculated-fields" hidden><label class="field">קיבולת חוקית מרבית<input name="calculatedCapacity" readonly aria-readonly="true"></label><label class="field">שטח חוקי נדרש<input name="calculatedArea" readonly aria-readonly="true"></label></div><div id="occupancy-validation" class="inline-validation" role="alert" hidden></div><div id="occupancy-guidance" class="occupancy-guidance" role="status"></div><div class="occupancy-actions"><button class="button button-primary" type="submit">חשבי תוצאה</button><button class="button button-quiet" type="reset">איפוס</button></div></section></form><details class="panel occupancy-usage"><summary>איך משתמשים במחשבון?</summary><ol><li>בוחרים סוג כיתה.</li><li>בוחרים אם ידוע השטח, מספר הילדים או שניהם.</li><li>מזינים רק את הנתונים שהתבקשו. בכיתה מעורבת מזינים ילדים בכל קבוצת גיל שנבחרה.</li></ol></details><section id="occupancy-results" class="occupancy-results" hidden aria-live="polite"><div class="occupancy-result-heading"><div><h2>תוצאות</h2><p id="occupancy-result-context" class="muted"></p></div><div class="occupancy-actions"><button class="button button-secondary" type="button" data-occupancy-print>הדפסה / PDF</button><button class="button button-secondary" type="button" data-occupancy-csv>CSV</button></div></div><section id="occupancy-overall" class="panel occupancy-overall"></section><div id="occupancy-summary" class="occupancy-summary"></div><section id="occupancy-financial-impact" class="panel occupancy-financial"></section><section id="occupancy-recommendation" class="panel occupancy-recommendation"></section><section class="panel occupancy-alternatives"><div class="section-heading"><div><h2>חלופות חוקיות ושימושיות</h2><p>כל חלופה נבדקה מול קיבולת, שטח, הרכב ותקינת צוות.</p></div></div><div id="occupancy-alternatives"></div></section></section></section>`;
 }
 
 function bindOccupancyManagementCalculator() {
@@ -314,99 +314,118 @@ function bindOccupancyManagementCalculator() {
   const categoryById = new Map(model.categories.map((item) => [item.budget_category_id, item]));
   const activeYear = model.years.find((year) => year.is_default) || model.years.find((year) => year.is_selectable) || model.years[0];
   const overlapsActiveYear = (from, to) => !activeYear || (!from || from <= activeYear.end_date) && (!to || to >= activeYear.start_date);
-  const licensing = model.licensing.filter((rule) => overlapsActiveYear(rule.valid_from, rule.valid_to)).map((rule) => ({ ...rule, age_group: rule.age_group }));
-  const standardTypes = [...new Set(model.rules.filter((rule) => categoryById.get(rule.budget_category_id)?.budget_category_code === 'CAT-PAYROLL-STAFF' && rule.school_year_id === activeYear?.school_year_id && rule.calculation_method === 'STAFFING_RATIO' && overlapsActiveYear(rule.effective_from, rule.effective_to)).map((rule) => rule.standard_type).filter(Boolean))];
-  if (!activeYear || !licensing.length || !standardTypes.length) {
+  const licensing = model.licensing.filter((rule) => overlapsActiveYear(rule.valid_from, rule.valid_to));
+  const standardType = model.rules.find((rule) => categoryById.get(rule.budget_category_id)?.budget_category_code === 'CAT-PAYROLL-STAFF' && rule.school_year_id === activeYear?.school_year_id && rule.calculation_method === 'STAFFING_RATIO' && overlapsActiveYear(rule.effective_from, rule.effective_to))?.standard_type;
+  if (!activeYear || !licensing.length || !standardType) {
     $('#occupancy-state').className = 'state error panel';
     $('#occupancy-state').textContent = 'לא ניתן להפעיל את המחשבון ללא שנת לימודים וכללי רישוי ותקינה פעילים.';
     return;
   }
+
+  const classroomChoices = [...model.ages.map((age) => ({ value: age.age_group_code, title: age.display_name, help: 'כיתה לקבוצת גיל אחת.' })), { value: 'MIXED', title: 'מעורבת', help: 'שתי קבוצות גיל שמותר לשלב לפי הכללים.' }];
+  $('#occupancy-classroom-choices').innerHTML = classroomChoices.map((choice) => `<label class="occupancy-choice"><input type="radio" name="classroomType" value="${escapeHtml(choice.value)}"><strong>${escapeHtml(choice.title)}</strong><small>${escapeHtml(choice.help)}</small></label>`).join('');
+
   const numberValue = (name) => Number(form.elements[name]?.value || 0);
-  const options = (rows, value, label) => rows.map((row) => `<option value="${escapeHtml(value(row))}">${escapeHtml(label(row))}</option>`).join('');
-  form.elements.capacityAge.innerHTML = options(model.ages, (row) => row.age_group_code, (row) => row.display_name);
-  form.elements.standardType.innerHTML = options(standardTypes, (row) => row, (row) => row === 'EXTENDED' ? 'מורחבת' : row === 'BASIC' ? 'בסיסית' : row);
-  $('#occupancy-age-inputs').innerHTML = model.ages.map((age) => `<label class="field">${escapeHtml(age.display_name)}<input name="age_${escapeHtml(age.age_group_code)}" type="number" min="0" step="1" value="0"></label>`).join('');
-  const request = (composition = null) => {
-    const standardType = form.elements.standardType.value;
-    const budgetRules = model.rules.filter((rule) => categoryById.get(rule.budget_category_id)?.budget_category_code === 'CAT-PAYROLL-STAFF' && rule.school_year_id === activeYear?.school_year_id && rule.standard_type === standardType && rule.calculation_method === 'STAFFING_RATIO' && rule.parameter_1 != null && overlapsActiveYear(rule.effective_from, rule.effective_to)).map((rule) => ({ ...rule, age_group: ageById.get(rule.age_group_id)?.age_group_code }));
-    const tuitionRules = model.rules.filter((rule) => categoryById.get(rule.budget_category_id)?.budget_category_code === 'CAT-TUITION' && rule.school_year_id === activeYear?.school_year_id && (!rule.standard_type || rule.standard_type === standardType) && rule.calculation_method === 'TUITION_MONTHLY' && rule.numeric_value != null && overlapsActiveYear(rule.effective_from, rule.effective_to)).map((rule) => ({ ...rule, age_group: ageById.get(rule.age_group_id)?.age_group_code }));
-    const monthlyOperatingHours = model.parameters.find((row) => !activeYear || row.school_year_id === activeYear.school_year_id)?.monthly_hours_per_fte || 0;
-    return { composition: composition || Object.fromEntries(model.ages.map((age) => [age.age_group_code, numberValue(`age_${age.age_group_code}`)])), area: numberValue('area'), capacityAge: form.elements.capacityAge.value, standardType, hourlyWage: form.elements.hourlyWage.value, budgetRules, licensingRules: licensing, tuitionRules, monthlyOperatingHours };
+  const selected = (name) => form.elements[name]?.value || '';
+  const selectedMixedAges = () => [...form.querySelectorAll('[name="mixedAge"]:checked')].map((input) => input.value);
+  const activeInputAges = () => selected('classroomType') === 'MIXED' ? selectedMixedAges() : [selected('classroomType')].filter(Boolean);
+  const needsArea = () => ['AREA', 'BOTH'].includes(selected('knownType'));
+  const needsChildren = () => ['CHILDREN', 'BOTH'].includes(selected('knownType')) || selected('classroomType') === 'MIXED';
+  const ruleRequest = (composition) => {
+    const budgetRules = model.rules.filter((rule) => categoryById.get(rule.budget_category_id)?.budget_category_code === 'CAT-PAYROLL-STAFF' && rule.school_year_id === activeYear.school_year_id && rule.standard_type === standardType && rule.calculation_method === 'STAFFING_RATIO' && rule.parameter_1 != null && overlapsActiveYear(rule.effective_from, rule.effective_to)).map((rule) => ({ ...rule, age_group: ageById.get(rule.age_group_id)?.age_group_code }));
+    const tuitionRules = model.rules.filter((rule) => categoryById.get(rule.budget_category_id)?.budget_category_code === 'CAT-TUITION' && rule.school_year_id === activeYear.school_year_id && (!rule.standard_type || rule.standard_type === standardType) && rule.calculation_method === 'TUITION_MONTHLY' && rule.numeric_value != null && overlapsActiveYear(rule.effective_from, rule.effective_to)).map((rule) => ({ ...rule, age_group: ageById.get(rule.age_group_id)?.age_group_code }));
+    return { composition, area: needsArea() ? numberValue('area') : 0, capacityAge: activeInputAges()[0], standardType, hourlyWage: form.elements.hourlyWage.value, budgetRules, licensingRules: licensing, tuitionRules, monthlyOperatingHours: model.parameters.find((row) => row.school_year_id === activeYear.school_year_id)?.monthly_hours_per_fte || 0 };
   };
-  let firstInputKind = '';
-  const guidance = () => {
-    const children = model.ages.reduce((sum, age) => sum + numberValue(`age_${age.age_group_code}`), 0);
-    const area = numberValue('area');
-    $('#occupancy-guidance').textContent = area && children && firstInputKind === 'area' ? 'התחלת בשטח: נחשב את קיבולת הילדים ונבדוק את המספר שהוזן.' : area && children && firstInputKind === 'children' ? 'התחלת בילדים: נחשב את השטח הנדרש ונבדוק את השטח שהוזן.' : area ? 'התחלת בשטח: מספר הילדים יחושב לפי קבוצת הגיל והכלל הפעיל.' : children ? 'התחלת בילדים: השטח הנדרש יחושב לפי הרכב הכיתה והכללים הפעילים.' : 'הזינו שטח או מספר ילדים כדי להתחיל.';
+  const currentComposition = () => Object.fromEntries(activeInputAges().map((age) => [age, numberValue(`age_${age}`)]));
+
+  let current = null;
+  const configureFields = () => {
+    const classroomType = selected('classroomType');
+    const knownType = selected('knownType');
+    $('#occupancy-data-step').hidden = !(classroomType && knownType);
+    if (!classroomType || !knownType) return;
+    const mixed = classroomType === 'MIXED';
+    $('#occupancy-mixed-selector').hidden = !mixed;
+    $('#occupancy-mixed-selector').innerHTML = mixed ? `<strong>אילו קבוצות גיל נמצאות יחד?</strong><p>בחרי שתי קבוצות. רק שילוב שמאושר בכללי הרישוי יוכל להמשיך לחישוב.</p><div class="mixed-age-choices">${model.ages.map((age) => `<label><input type="checkbox" name="mixedAge" value="${escapeHtml(age.age_group_code)}"><span>${escapeHtml(age.display_name)}</span></label>`).join('')}</div>` : '';
+    renderRequiredFields();
+  };
+  const renderRequiredFields = () => {
+    const ages = activeInputAges();
+    const fields = [];
+    if (needsArea()) fields.push(`<label class="field">שטח הכיתה במ״ר<input name="area" type="number" min="0.1" step="0.1" inputmode="decimal" placeholder="לדוגמה: 55" required><small>השטח הפנוי בפועל לשימוש הכיתה.</small></label>`);
+    if (needsChildren()) ages.forEach((age) => fields.push(`<label class="field">מספר ${escapeHtml(ageByCode.get(age)?.display_name || age)}<input name="age_${escapeHtml(age)}" type="number" min="1" step="1" inputmode="numeric" placeholder="הזיני מספר ילדים" required><small>מספר הילדים בפועל בקבוצת גיל זו.</small></label>`));
+    $('#occupancy-required-fields').innerHTML = fields.join('');
+    $('#occupancy-data-help').textContent = selected('classroomType') === 'MIXED' ? 'בכיתה מעורבת חייבים לבחור שתי קבוצות ולהזין מספר ילדים לכל אחת.' : selected('knownType') === 'AREA' ? 'הזיני שטח בלבד ונחשב קיבולת מרבית.' : selected('knownType') === 'CHILDREN' ? 'הזיני מספר ילדים ונחשב את השטח הנדרש.' : 'הזיני שטח ומספר ילדים ונבדוק התאמה.';
+    validateAndRender();
+  };
+  const validate = () => {
+    const errors = [];
+    const ages = activeInputAges();
+    if (!selected('classroomType')) errors.push('יש לבחור סוג כיתה.');
+    if (!selected('knownType')) errors.push('יש לבחור מה ידוע לך.');
+    if (selected('classroomType') === 'MIXED') {
+      if (ages.length !== 2) errors.push('בכיתה מעורבת יש לבחור בדיוק שתי קבוצות גיל.');
+      else {
+        const licenses = ages.map((age) => licensing.find((rule) => rule.age_group === age));
+        if (!licenses.every((rule, index) => (rule?.allowed_mixed_with || []).includes(ages[1 - index]))) errors.push('שילוב קבוצות הגיל שנבחר אינו מותר בכיתה מעורבת.');
+      }
+    }
+    if (needsArea() && numberValue('area') <= 0) errors.push('יש להזין שטח כיתה גדול מאפס.');
+    if (needsChildren()) ages.forEach((age) => { if (!Number.isInteger(numberValue(`age_${age}`)) || numberValue(`age_${age}`) <= 0) errors.push(`יש להזין מספר ילדים שלם וחיובי עבור ${ageByCode.get(age)?.display_name || age}.`); });
+    return errors;
   };
   const signed = (value, suffix = '') => `${value > 0 ? '+' : ''}${number.format(value)}${suffix}`;
-  const metric = ({ label, ok, required, actual, difference, explanation, issue }) => `<article class="occupancy-metric ${ok ? 'status-good' : 'status-exception'}"><header><h3>${label}</h3><strong>${ok ? '🟢 תקין' : '🔴 לא תקין'}</strong></header><dl><div><dt>נדרש</dt><dd>${required}</dd></div><div><dt>בפועל</dt><dd>${actual}</dd></div><div><dt>הפרש</dt><dd>${difference}</dd></div></dl>${!ok && issue ? `<p class="occupancy-exception-reason">${issue}</p>` : ''}<details><summary>הסבר החישוב</summary><p>${explanation}</p></details></article>`;
-  let current = null;
-  const legalAlternatives = () => {
-    const alternatives = licensing.map((license) => ({ composition: { [license.age_group]: Number(license.max_children || 0) }, capacityAge: license.age_group }));
-    licensing.forEach((first, index) => licensing.slice(index + 1).forEach((second) => {
-      const mutuallyAllowed = (first.allowed_mixed_with || []).includes(second.age_group) && (second.allowed_mixed_with || []).includes(first.age_group);
-      if (!mutuallyAllowed) return;
-      for (let firstCount = 1; firstCount <= Number(first.max_children || 0); firstCount += 1) {
-        for (let secondCount = 1; secondCount <= Number(second.max_children || 0); secondCount += 1) alternatives.push({ composition: { [first.age_group]: firstCount, [second.age_group]: secondCount }, capacityAge: first.age_group });
-      }
-    }));
-    if (numberValue('area')) licensing.forEach((license) => alternatives.push({ composition: {}, capacityAge: license.age_group }));
-    const signature = (row) => row.details.map((detail) => `${detail.age}:${detail.children}`).sort().join('|');
-    const unique = new Map();
-    alternatives.forEach((alternative) => {
-      const row = calculateOccupancyModel({ ...request(alternative.composition), capacityAge: alternative.capacityAge });
-      if (row.compliant && !unique.has(signature(row))) unique.set(signature(row), row);
-    });
-    return [...unique.values()].sort((a, b) => b.revenue - a.revenue || b.efficiencyScore - a.efficiencyScore).slice(0, 6);
-  };
-  const render = (event = null) => {
-    event?.preventDefault();
-    if (event && !form.reportValidity()) return;
-    const calculationRequest = request();
-    if (!calculationRequest.area && !Object.values(calculationRequest.composition).some(Number)) { guidance(); return; }
-    const result = calculateOccupancyModel(calculationRequest);
+  const metric = ({ label, ok, required, actual, difference, explanation, issue }) => `<article class="occupancy-metric ${ok ? 'status-good' : 'status-exception'}"><header><h3>${label}</h3><strong>${ok ? '🟢 תקין' : '🔴 לא תקין'}</strong></header><dl><div><dt>נדרש</dt><dd>${required}</dd></div><div><dt>בפועל</dt><dd>${actual}</dd></div><div><dt>הפרש</dt><dd>${difference}</dd></div></dl>${!ok && issue ? `<p class="occupancy-exception-reason">${issue}</p>` : ''}<details><summary>איך חושב?</summary><p>${explanation}</p></details></article>`;
+  const renderResult = (calculationRequest, result) => {
     current = { request: calculationRequest, result };
-    const composition = result.details.map((detail) => `${escapeHtml(ageByCode.get(detail.age)?.display_name || detail.age)}: ${number.format(detail.children)}`).join(', ');
-    const childExcess = result.details.filter((detail) => detail.children > detail.maxChildren).map((detail) => `${escapeHtml(ageByCode.get(detail.age)?.display_name || detail.age)}: ${number.format(detail.children - detail.maxChildren)} ילדים מעל המותר`).join('; ');
+    form.elements.calculatedCapacity.value = `${number.format(result.maximumLegalCapacity)} ילדים`;
+    form.elements.calculatedArea.value = `${number.format(result.requiredSqm)} מ״ר`;
+    $('#occupancy-calculated-fields').hidden = false;
+    const compositionLabel = result.details.map((detail) => `${escapeHtml(ageByCode.get(detail.age)?.display_name || detail.age)}: ${number.format(detail.children)}`).join(', ');
+    const excess = result.details.filter((detail) => detail.children > detail.maxChildren).map((detail) => `${escapeHtml(ageByCode.get(detail.age)?.display_name || detail.age)}: חריגה של ${number.format(detail.children - detail.maxChildren)}`).join('; ');
     const metrics = [
-      { label: 'תקינת ילדים', ok: result.childrenCompliant, required: `עד ${number.format(result.allowedChildren)}`, actual: number.format(result.children), difference: signed(result.remainingChildren), issue: childExcess || 'מספר הילדים חורג מהקיבולת המותרת.', explanation: 'המספר בפועל נבדק מול הקיבולת הפעילה לכל קבוצת גיל.' },
-      { label: 'תקינת שטח', ok: result.areaCompliant, required: `${number.format(result.requiredSqm)} מ״ר`, actual: `${number.format(result.actualSqm)} מ״ר${calculationRequest.area ? '' : ' (מחושב)'}`, difference: signed(result.remainingSqm, ' מ״ר'), issue: `חסרים ${number.format(Math.abs(result.remainingSqm))} מ״ר כדי לעמוד בדרישה.`, explanation: 'השטח הנדרש הוא סכום הילדים בכל קבוצת גיל כפול מ״ר לילד לפי כלל הרישוי הפעיל.' },
-      { label: 'תקינת הרכב כיתה', ok: result.compositionCompliant, required: 'הרכב גילאים מורשה', actual: composition || 'לא הוזן', difference: result.compositionCompliant ? '0 חריגות' : '1- חריגה', issue: 'שילוב קבוצות הגיל שהוזן אינו מאושר לכיתה משותפת.', explanation: 'שילוב קבוצות הגיל נבדק מול כללי הרישוי הפעילים.' },
-      { label: 'צוות נדרש', ok: result.requiredStaff != null, required: result.requiredStaff == null ? 'כלל פעיל' : number.format(result.requiredStaff), actual: result.requiredStaff == null ? 'לא ניתן לחשב' : number.format(result.requiredStaff), difference: result.requiredStaff == null ? 'חסר כלל' : '0', explanation: 'סכום יחסי התקינה לפי קבוצת גיל מעוגל באמצעות מנגנון התקינה הקנוני.' },
-      { label: 'הכנסה', ok: result.revenue > 0, required: 'כללי שכר לימוד פעילים', actual: money.format(result.revenue), difference: '—', explanation: 'מספר הילדים בכל קבוצת גיל מוכפל בכלל ההכנסה הפעיל שלה.' },
-      { label: 'יעילות', ok: result.efficiencyScore != null, required: 'עד 100%', actual: result.efficiencyScore == null ? '—' : `${number.format(result.efficiencyScore)}%`, difference: result.efficiencyScore == null ? '—' : signed(result.efficiencyScore - 100, '%'), explanation: 'שיעור הילדים בפועל מתוך קיבולת הילדים החוקית.' },
-      { label: 'עלות שכר אופציונלית', ok: result.payrollCost == null || result.payrollCost <= result.revenue, required: result.payrollCost == null ? 'לא נדרש לחישוב' : `עד ${money.format(result.revenue)}`, actual: result.payrollCost == null ? 'לא הוזן שכר שעתי' : money.format(result.payrollCost), difference: result.payrollCost == null ? '—' : money.format(result.revenue - result.payrollCost), explanation: 'צוות נדרש כפול שעות הפעלה חודשיות כפול השכר השעתי שהוזן.' },
-      { label: 'יתרה משוערת', ok: result.surplus == null || result.surplus >= 0, required: '0 ₪ ומעלה', actual: money.format(result.surplus ?? result.revenue), difference: money.format(result.surplus ?? result.revenue), explanation: result.surplus == null ? 'ללא שכר שעתי מוצגת ההכנסה לפני עלות שכר.' : 'הכנסה פחות אומדן עלות השכר בלבד.' }
+      { label: 'קיבולת ילדים', ok: result.childrenCompliant, required: `עד ${number.format(result.maximumLegalCapacity)}`, actual: number.format(result.children), difference: signed(result.maximumLegalCapacity - result.children), issue: excess || 'מספר הילדים חורג מהקיבולת החוקית.', explanation: 'בכיתה חד-גילאית עם שטח ידוע, הקיבולת היא הנמוך מבין מגבלת הילדים הפעילה לבין הקיבולת שהשטח מאפשר.' },
+      { label: 'שטח נדרש', ok: result.areaCompliant, required: `${number.format(result.requiredSqm)} מ״ר`, actual: `${number.format(result.actualSqm)} מ״ר${needsArea() ? '' : ' (מחושב)'}`, difference: signed(result.remainingSqm, ' מ״ר'), issue: `חסרים ${number.format(Math.abs(result.remainingSqm))} מ״ר.`, explanation: 'לכל קבוצת גיל: מספר הילדים כפול המ״ר לילד שבכלל הרישוי הפעיל; בכיתה מעורבת מחברים את התוצאות.' },
+      { label: 'הרכב כיתה מעורבת', ok: result.compositionCompliant, required: 'שילוב מאושר', actual: compositionLabel, difference: result.compositionCompliant ? '0 חריגות' : '1- חריגה', issue: 'שילוב הגילים אינו מאושר לפי כללי הרישוי הפעילים.', explanation: 'כל זוג קבוצות נבדק הדדית מול רשימת השילובים המותרים בבסיס הנתונים.' },
+      { label: 'צוות נדרש', ok: result.staffingCompliant, required: result.requiredStaff == null ? 'כלל פעיל' : number.format(result.requiredStaff), actual: result.requiredStaff == null ? 'לא ניתן לחשב' : number.format(result.requiredStaff), difference: result.requiredStaff == null ? 'חסר כלל' : '0', explanation: 'מספר הילדים בכל קבוצת גיל מחולק ביחס התקינה הפעיל ומעוגל בשיטת העיגול הפעילה.' },
+      { label: 'הכנסה משוערת', ok: result.revenue > 0, required: 'כלל שכר לימוד פעיל', actual: money.format(result.revenue), difference: '—', explanation: 'מספר הילדים בכל קבוצת גיל מוכפל בשכר הלימוד החודשי הפעיל.' },
+      { label: 'יעילות תפוסה', ok: result.efficiencyScore != null, required: 'עד 100%', actual: `${number.format(result.efficiencyScore || 0)}%`, difference: signed((result.efficiencyScore || 0) - 100, '%'), explanation: 'מספר הילדים בפועל חלקי הקיבולת החוקית של ההרכב.' },
+      { label: 'עלות שכר משוערת', ok: result.payrollCost == null || result.payrollCost <= result.revenue, required: result.payrollCost == null ? 'לא חובה' : `עד ${money.format(result.revenue)}`, actual: result.payrollCost == null ? 'לא הוזן שכר' : money.format(result.payrollCost), difference: result.payrollCost == null ? '—' : money.format(result.revenue - result.payrollCost), explanation: 'הצוות הנדרש כפול שעות התקן החודשיות הפעילות כפול השכר השעתי שהוזן.' },
+      { label: 'יתרה משוערת', ok: result.surplus == null || result.surplus >= 0, required: '0 ₪ ומעלה', actual: result.surplus == null ? 'נדרש שכר שעתי' : money.format(result.surplus), difference: result.surplus == null ? '—' : money.format(result.surplus), explanation: 'הכנסה משוערת פחות אומדן עלות השכר. הוצאות אחרות אינן נכללות.' }
     ];
-    $('#occupancy-overall').className = `panel occupancy-overall ${result.compliant ? 'status-good' : 'status-exception'}`;
-    const validationFailures = [result.childrenCompliant, result.areaCompliant, result.compositionCompliant].filter((ok) => !ok).length;
-    $('#occupancy-overall').innerHTML = `<span>סטטוס כללי</span><strong>${result.compliant ? '🟢 תקין' : '🔴 לא תקין'}</strong><dl><div><dt>נדרש</dt><dd>3 מתוך 3 בדיקות תקינות</dd></div><div><dt>בפועל</dt><dd>${3 - validationFailures} מתוך 3 תקינות</dd></div><div><dt>הפרש</dt><dd>${validationFailures} חריגות</dd></div></dl>${validationFailures ? '<p class="occupancy-exception-reason">יש לטפל בחריגות המסומנות באדום לפני אישור הכיתה.</p>' : ''}`;
+    const failures = [result.childrenCompliant, result.areaCompliant, result.compositionCompliant, result.staffingCompliant].filter((ok) => !ok).length;
+    $('#occupancy-overall').className = `panel occupancy-overall ${result.compliant && result.staffingCompliant ? 'status-good' : 'status-exception'}`;
+    $('#occupancy-overall').innerHTML = `<span>סטטוס כללי</span><strong>${result.compliant && result.staffingCompliant ? '🟢 תקין' : '🔴 לא תקין'}</strong><dl><div><dt>נדרש</dt><dd>4 בדיקות תקינות</dd></div><div><dt>בפועל</dt><dd>${4 - failures} בדיקות תקינות</dd></div><div><dt>הפרש</dt><dd>${failures} חריגות</dd></div></dl>`;
     $('#occupancy-summary').innerHTML = metrics.map(metric).join('');
-    $('#occupancy-financial-impact').innerHTML = result.payrollCost == null
-      ? `<h2>השפעה כספית</h2><p>הכנסה חודשית משוערת: <strong>${money.format(result.revenue)}</strong>. להזנת עלות שכר והשפעה על היתרה, יש להזין שכר שעתי.</p>`
-      : `<h2>השפעה כספית</h2><div><span>הכנסה משוערת<strong>${money.format(result.revenue)}</strong></span><span>עלות שכר משוערת<strong>${money.format(result.payrollCost)}</strong></span><span>יתרה משוערת<strong>${money.format(result.surplus)}</strong></span></div>`;
-    const factorLabels = { composition: 'הרכב הכיתה', children: 'קיבולת הילדים', area: 'שטח הכיתה' };
-    const recommendation = !result.compositionCompliant ? 'יש לבחור הרכב גילאים המותר לפי כללי הרישוי.' : !result.childrenCompliant ? 'יש להפחית ילדים או לבחור חלופה חוקית בעלת קיבולת מתאימה.' : !result.areaCompliant ? `נדרשים עוד ${number.format(Math.abs(result.remainingSqm))} מ״ר לפחות.` : result.surplus != null && result.surplus < 0 ? 'הכיתה תקינה, אך אומדן עלות השכר גבוה מההכנסה.' : 'הכיתה עומדת בבדיקות. אפשר להשוות לחלופות החוקיות לפני החלטה.';
-    $('#occupancy-recommendation').innerHTML = `<div><span>גורם מגביל</span><strong>${factorLabels[result.limitingFactor] || 'קיבולת הילדים'}</strong></div><div><span>המלצה</span><strong>${recommendation}</strong></div><details><summary>הסבר ההמלצה</summary><p>ההמלצה נקבעת לפי חריגות בהרכב, בקיבולת ובשטח, ולאחר מכן לפי אומדן היתרה.</p></details>`;
-    const candidates = legalAlternatives();
-    $('#occupancy-alternatives').innerHTML = candidates.length ? `<div class="table-wrap"><table class="data-table"><thead><tr><th>הרכב</th><th>ילדים</th><th>שטח נדרש</th><th>צוות</th><th>הכנסה</th><th>יעילות</th></tr></thead><tbody>${candidates.map((row) => `<tr><td>${row.details.map((detail) => `${escapeHtml(ageByCode.get(detail.age)?.display_name || detail.age)}: ${number.format(detail.children)}`).join(', ')}</td><td>${number.format(row.children)}</td><td>${number.format(row.requiredSqm)} מ״ר</td><td>${number.format(row.requiredStaff)}</td><td>${money.format(row.revenue)}</td><td>${number.format(row.efficiencyScore)}%</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty-state compact">לא נמצאו חלופות חוקיות לפי הכללים הפעילים.</div>';
-    $('#occupancy-result-context').textContent = result.inputMethod === 'area-to-children' ? 'חישוב מ״ר ← ילדים' : result.inputMethod === 'children-to-area' ? 'חישוב ילדים ← מ״ר' : 'בדיקת שטח ומספר ילדים';
+    $('#occupancy-financial-impact').innerHTML = result.payrollCost == null ? `<h2>השפעה כספית</h2><p>הכנסה חודשית משוערת: <strong>${money.format(result.revenue)}</strong>. הוסיפי שכר שעתי לקבלת עלות שכר ויתרה.</p>` : `<h2>השפעה כספית</h2><div><span>הכנסה<strong>${money.format(result.revenue)}</strong></span><span>עלות שכר<strong>${money.format(result.payrollCost)}</strong></span><span>יתרה<strong>${money.format(result.surplus)}</strong></span></div><details><summary>איך חושבה היתרה?</summary><p>הכנסה משוערת פחות צוות נדרש כפול שעות חודשיות כפול השכר השעתי.</p></details>`;
+    const recommendation = !result.compositionCompliant ? 'יש לבחור שתי קבוצות גיל שהשילוב ביניהן מאושר.' : !result.childrenCompliant ? 'יש להפחית את מספר הילדים עד לקיבולת החוקית.' : !result.areaCompliant ? `יש להוסיף לפחות ${number.format(Math.abs(result.remainingSqm))} מ״ר או להפחית ילדים.` : !result.staffingCompliant ? 'לא ניתן לאשר את הכיתה עד להשלמת כלל תקינת הצוות.' : result.surplus != null && result.surplus < 0 ? 'הכיתה תקינה, אך אומדן השכר גבוה מההכנסה.' : 'הכיתה עומדת בדרישות לפי הנתונים שהוזנו.';
+    $('#occupancy-recommendation').innerHTML = `<div><span>המלצה ניהולית</span><strong>${recommendation}</strong></div>`;
+    const alternatives = buildLegalOccupancyAlternatives(calculationRequest);
+    $('#occupancy-alternatives').innerHTML = alternatives.length ? `<div class="occupancy-alternative-grid">${alternatives.map((row, index) => `<article class="occupancy-alternative-card"><header>${index === 0 ? '<span class="status-badge status-good">מומלצת</span>' : ''}<strong>${row.details.map((detail) => `${escapeHtml(ageByCode.get(detail.age)?.display_name || detail.age)}: ${number.format(detail.children)}`).join(' + ')}</strong></header><p>${index === 0 ? 'האפשרות החוקית בעלת ההשפעה הכספית הטובה ביותר מבין החלופות שנבדקו.' : 'חלופה חוקית קרובה לנתונים שהזנת.'}</p><dl><div><dt>שטח נדרש</dt><dd>${number.format(row.requiredSqm)} מ״ר</dd></div><div><dt>צוות</dt><dd>${number.format(row.requiredStaff)}</dd></div><div><dt>הכנסה</dt><dd>${money.format(row.revenue)}</dd></div><div><dt>יעילות</dt><dd>${number.format(row.efficiencyScore)}%</dd></div></dl></article>`).join('')}</div>` : '<div class="empty-state compact">אין חלופה קרובה שעברה את כל בדיקות החוקיות והתקינה.</div>';
+    $('#occupancy-result-context').textContent = selected('knownType') === 'AREA' ? 'שטח ← קיבולת ילדים' : selected('knownType') === 'CHILDREN' ? 'ילדים ← שטח נדרש' : 'בדיקת שטח ומספר ילדים';
     $('#occupancy-results').hidden = false;
   };
-  form.addEventListener('submit', render);
-  form.addEventListener('input', (event) => {
-    if (!firstInputKind && Number(event.target.value) > 0) firstInputKind = event.target.name === 'area' ? 'area' : event.target.name?.startsWith('age_') ? 'children' : '';
-    guidance();
-    const calculationRequest = request();
-    if (calculationRequest.area || Object.values(calculationRequest.composition).some(Number)) render();
-    else { current = null; $('#occupancy-results').hidden = true; }
+  function validateAndRender(showErrors = false) {
+    const errors = validate();
+    $('#occupancy-validation').hidden = !showErrors || !errors.length;
+    $('#occupancy-validation').innerHTML = errors.map((error) => `<p>${escapeHtml(error)}</p>`).join('');
+    $('#occupancy-guidance').textContent = selected('knownType') === 'AREA' ? 'נחשב את מספר הילדים המרבי שהשטח מאפשר, בלי לעבור את מגבלת הרישוי.' : selected('knownType') === 'CHILDREN' ? 'נחשב את השטח החוקי הנדרש לפי מספר הילדים.' : selected('knownType') === 'BOTH' ? 'נבדוק את מספר הילדים מול השטח ומול מגבלות הכיתה.' : 'בחרי מה ידוע לך כדי להמשיך.';
+    if (errors.length) { current = null; $('#occupancy-results').hidden = true; $('#occupancy-calculated-fields').hidden = true; return false; }
+    const composition = needsChildren() ? currentComposition() : {};
+    const calculationRequest = ruleRequest(composition);
+    renderResult(calculationRequest, calculateOccupancyModel(calculationRequest));
+    return true;
+  }
+  form.addEventListener('change', (event) => {
+    if (event.target.name === 'classroomType' || event.target.name === 'knownType') configureFields();
+    else if (event.target.name === 'mixedAge') renderRequiredFields();
+    else validateAndRender();
   });
-  form.addEventListener('change', () => { if (current) render(); });
-  form.addEventListener('reset', () => setTimeout(() => { firstInputKind = ''; current = null; $('#occupancy-results').hidden = true; guidance(); }));
+  form.addEventListener('input', () => validateAndRender());
+  form.addEventListener('submit', (event) => { event.preventDefault(); validateAndRender(true); });
+  form.addEventListener('reset', () => setTimeout(() => { current = null; $('#occupancy-data-step').hidden = true; $('#occupancy-results').hidden = true; $('#occupancy-calculated-fields').hidden = true; $('#occupancy-validation').hidden = true; }));
   $('[data-occupancy-print]').addEventListener('click', () => window.print());
-  $('[data-occupancy-csv]').addEventListener('click', () => { if (!current) return; const r = current.result; const rows = [['מדד','נדרש','בפועל','הפרש'],['סטטוס כללי','תקין',r.compliant ? 'תקין' : 'לא תקין',''],['ילדים',r.allowedChildren,r.children,r.remainingChildren],['שטח',r.requiredSqm,r.actualSqm,r.remainingSqm],['הרכב','חוקי',r.compositionCompliant ? 'חוקי' : 'לא חוקי',''],['צוות',r.requiredStaff,r.requiredStaff,0],['הכנסה','כלל פעיל',r.revenue,''],['יעילות',100,r.efficiencyScore,(r.efficiencyScore ?? 100)-100],['עלות שכר','אופציונלי',r.payrollCost ?? '',''],['יתרה','0 ומעלה',r.surplus ?? r.revenue,r.surplus ?? r.revenue],['גורם מגביל','',r.limitingFactor,'']]; const blob = new Blob(['\uFEFF' + rows.map((row) => row.map((cell) => `"${String(cell ?? '').replaceAll('"','""')}"`).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'occupancy-calculator.csv'; link.click(); URL.revokeObjectURL(link.href); });
-  guidance();
+  $('[data-occupancy-csv]').addEventListener('click', () => { if (!current) return; const r = current.result; const rows = [['מדד','נדרש','בפועל','הפרש'],['סטטוס כללי','תקין',r.compliant && r.staffingCompliant ? 'תקין' : 'לא תקין',''],['ילדים',r.allowedChildren,r.children,r.remainingChildren],['שטח',r.requiredSqm,r.actualSqm,r.remainingSqm],['הרכב','חוקי',r.compositionCompliant ? 'חוקי' : 'לא חוקי',''],['צוות',r.requiredStaff,r.requiredStaff,0],['הכנסה','כלל פעיל',r.revenue,''],['יעילות',100,r.efficiencyScore,(r.efficiencyScore ?? 100)-100],['עלות שכר','אופציונלי',r.payrollCost ?? '',''],['יתרה','0 ומעלה',r.surplus ?? '',r.surplus ?? '']]; const blob = new Blob(['\uFEFF' + rows.map((row) => row.map((cell) => `"${String(cell ?? '').replaceAll('"','""')}"`).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'occupancy-calculator.csv'; link.click(); URL.revokeObjectURL(link.href); });
   $('#occupancy-state').hidden = true;
   $('#occupancy-calculator').hidden = false;
 }
