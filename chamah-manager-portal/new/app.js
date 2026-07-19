@@ -420,7 +420,12 @@ async function loadSalaryRules() {
       rest('compensation_rules', 'select=compensation_rule_id,compensation_factor_id,school_year_id,effective_from,effective_to,minimum_seniority_months,maximum_seniority_months,amount,eligibility_condition,proration_method,lifecycle_status&lifecycle_status=eq.ACTIVE'),
       rest('school_years', 'select=school_year_id,school_year_code,display_name,start_date,end_date,is_default,is_selectable&is_selectable=eq.true')
     ]);
-    salaryModel = { status: 'ready', factors, rules, years, error: '' };
+    const yearRules = rules.map((rule) => ({
+      ...rule,
+      minimum_seniority_years: Math.ceil(Number(rule.minimum_seniority_months || 0) / 12),
+      maximum_seniority_years: rule.maximum_seniority_months == null ? null : Math.floor(Number(rule.maximum_seniority_months) / 12)
+    }));
+    salaryModel = { status: 'ready', factors, rules: yearRules, years, error: '' };
   } catch (error) { salaryModel = { status: 'error', factors: [], rules: [], years: [], error: error.message }; }
 }
 

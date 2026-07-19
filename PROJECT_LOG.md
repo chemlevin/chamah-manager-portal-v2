@@ -1378,3 +1378,9 @@ Validation:
 - Removed Havraa from required inputs, calculation, explanatory text, and the result breakdown.
 - Added stable Hebrew result labels for compensation factors, including persistence and class management.
 - Focused salary calculation validation passed across all four Playwright projects (20 tests), including the requested 182-hour examples; JavaScript syntax checks and the production build also passed.
+## 2026-07-19 - Salary Calculator Whole-Year Correction
+
+- Corrected the Salary Calculator to normalize seniority as a non-negative whole-year value and calculate persistence directly from year tiers without converting the entered value to months.
+- Persistence now uses 0–1 years at ₪1/hour, 2–4 at ₪2/hour, 5–7 at ₪3/hour, 8–10 at ₪550/month, 11–20 at ₪600/month, and 21+ at ₪700/month.
+- Kept the database storage adapter separate from the year-based calculator contract; UI labels, inputs, explanations, and calculation variables use years only.
+- HAVRAA remains excluded from required factors, calculation, and breakdown.
