@@ -315,10 +315,21 @@ function bindOccupancyManagementCalculator() {
   const activeYear = model.years.find((year) => year.is_default) || model.years.find((year) => year.is_selectable) || model.years[0];
   const overlapsActiveYear = (from, to) => !activeYear || (!from || from <= activeYear.end_date) && (!to || to >= activeYear.start_date);
   const licensing = model.licensing.filter((rule) => overlapsActiveYear(rule.valid_from, rule.valid_to));
-  const standardType = model.rules.find((rule) => categoryById.get(rule.budget_category_id)?.budget_category_code === 'CAT-PAYROLL-STAFF' && rule.school_year_id === activeYear?.school_year_id && rule.calculation_method === 'STAFFING_RATIO' && overlapsActiveYear(rule.effective_from, rule.effective_to))?.standard_type;
-  if (!activeYear || !licensing.length || !standardType) {
+  const staffingRows = model.rules.filter((rule) => categoryById.get(rule.budget_category_id)?.budget_category_code === 'CAT-PAYROLL-STAFF' && rule.school_year_id === activeYear?.school_year_id && rule.calculation_method === 'STAFFING_RATIO' && rule.parameter_1 != null && overlapsActiveYear(rule.effective_from, rule.effective_to));
+  const tuitionRows = model.rules.filter((rule) => categoryById.get(rule.budget_category_id)?.budget_category_code === 'CAT-TUITION' && rule.school_year_id === activeYear?.school_year_id && rule.calculation_method === 'TUITION_MONTHLY' && rule.numeric_value != null && overlapsActiveYear(rule.effective_from, rule.effective_to));
+  const monthlyOperatingHours = model.parameters.find((row) => row.school_year_id === activeYear?.school_year_id)?.monthly_hours_per_fte || 0;
+  const standardTypes = [...new Set(staffingRows.map((rule) => rule.standard_type).filter(Boolean))];
+  const completeStandards = standardTypes.map((type) => {
+    const staffingAges = new Set(staffingRows.filter((rule) => rule.standard_type === type).map((rule) => ageById.get(rule.age_group_id)?.age_group_code));
+    const specificTuitionAges = new Set(tuitionRows.filter((rule) => rule.standard_type === type).map((rule) => ageById.get(rule.age_group_id)?.age_group_code).filter(Boolean));
+    const hasGeneralTuition = tuitionRows.some((rule) => !rule.age_group_id && (!rule.standard_type || rule.standard_type === type));
+    const complete = model.ages.every((age) => staffingAges.has(age.age_group_code) && (specificTuitionAges.has(age.age_group_code) || hasGeneralTuition));
+    return { type, complete, specificity: specificTuitionAges.size };
+  }).filter((row) => row.complete).sort((a, b) => b.specificity - a.specificity || a.type.localeCompare(b.type));
+  const standardType = completeStandards[0]?.type;
+  if (!activeYear || !licensing.length || !standardType || !monthlyOperatingHours) {
     $('#occupancy-state').className = 'state error panel';
-    $('#occupancy-state').textContent = 'לא ניתן להפעיל את המחשבון ללא שנת לימודים וכללי רישוי ותקינה פעילים.';
+    $('#occupancy-state').textContent = 'לא ניתן להפעיל את המחשבון עד להשלמת כללי רישוי, תקינה, שכר לימוד ושעות פעילות לכל קבוצות הגיל.';
     return;
   }
 
@@ -332,9 +343,9 @@ function bindOccupancyManagementCalculator() {
   const needsArea = () => ['AREA', 'BOTH'].includes(selected('knownType'));
   const needsChildren = () => ['CHILDREN', 'BOTH'].includes(selected('knownType')) || selected('classroomType') === 'MIXED';
   const ruleRequest = (composition) => {
-    const budgetRules = model.rules.filter((rule) => categoryById.get(rule.budget_category_id)?.budget_category_code === 'CAT-PAYROLL-STAFF' && rule.school_year_id === activeYear.school_year_id && rule.standard_type === standardType && rule.calculation_method === 'STAFFING_RATIO' && rule.parameter_1 != null && overlapsActiveYear(rule.effective_from, rule.effective_to)).map((rule) => ({ ...rule, age_group: ageById.get(rule.age_group_id)?.age_group_code }));
-    const tuitionRules = model.rules.filter((rule) => categoryById.get(rule.budget_category_id)?.budget_category_code === 'CAT-TUITION' && rule.school_year_id === activeYear.school_year_id && (!rule.standard_type || rule.standard_type === standardType) && rule.calculation_method === 'TUITION_MONTHLY' && rule.numeric_value != null && overlapsActiveYear(rule.effective_from, rule.effective_to)).map((rule) => ({ ...rule, age_group: ageById.get(rule.age_group_id)?.age_group_code }));
-    return { composition, area: needsArea() ? numberValue('area') : 0, capacityAge: activeInputAges()[0], standardType, hourlyWage: form.elements.hourlyWage.value, budgetRules, licensingRules: licensing, tuitionRules, monthlyOperatingHours: model.parameters.find((row) => row.school_year_id === activeYear.school_year_id)?.monthly_hours_per_fte || 0 };
+    const budgetRules = staffingRows.filter((rule) => rule.standard_type === standardType).map((rule) => ({ ...rule, age_group: ageById.get(rule.age_group_id)?.age_group_code }));
+    const tuitionRules = tuitionRows.filter((rule) => !rule.standard_type || rule.standard_type === standardType).map((rule) => ({ ...rule, age_group: ageById.get(rule.age_group_id)?.age_group_code }));
+    return { composition, area: needsArea() ? numberValue('area') : 0, capacityAge: activeInputAges()[0], standardType, hourlyWage: form.elements.hourlyWage.value, budgetRules, licensingRules: licensing, tuitionRules, monthlyOperatingHours };
   };
   const currentComposition = () => Object.fromEntries(activeInputAges().map((age) => [age, numberValue(`age_${age}`)]));
 

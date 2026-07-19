@@ -82,6 +82,37 @@ test.describe('guided occupancy calculator', () => {
     expect((await download).suggestedFilename()).toBe('occupancy-calculator.csv');
   });
 
+  test('returns the complete management result for all 12 classroom and input workflows', async ({ page }) => {
+    test.setTimeout(180_000);
+    const scenarios = [
+      ...['INFANT', 'TODDLER', 'GRADUATE'].flatMap((classroom) => ['AREA', 'CHILDREN', 'BOTH'].map((known) => ({ classroom, known }))),
+      ...['AREA', 'CHILDREN', 'BOTH'].map((known) => ({ classroom: 'MIXED', known }))
+    ];
+    for (const scenario of scenarios) {
+      await choose(page, scenario.classroom, scenario.known);
+      if (scenario.classroom === 'MIXED') {
+        await page.locator('[name="mixedAge"][value="INFANT"]').check();
+        await page.locator('[name="mixedAge"][value="TODDLER"]').check();
+      }
+      if (['AREA', 'BOTH'].includes(scenario.known)) await page.locator('[name="area"]').fill('60');
+      if (scenario.known !== 'AREA' || scenario.classroom === 'MIXED') {
+        const ages = scenario.classroom === 'MIXED' ? ['INFANT', 'TODDLER'] : [scenario.classroom];
+        for (const age of ages) await page.locator(`[name="age_${age}"]`).fill(age === 'INFANT' ? '8' : '12');
+      }
+      await page.locator('[name="hourlyWage"]').fill('60');
+      await expect(page.locator('#occupancy-results')).toBeVisible();
+      await expect(page.locator('[name="calculatedCapacity"]')).not.toHaveValue('');
+      await expect(page.locator('[name="calculatedArea"]')).not.toHaveValue('');
+      const summary = page.locator('#occupancy-summary');
+      for (const label of ['קיבולת ילדים', 'שטח נדרש', 'הרכב כיתה מעורבת', 'צוות נדרש', 'הכנסה משוערת', 'יעילות תפוסה', 'עלות שכר משוערת', 'יתרה משוערת']) await expect(summary).toContainText(label);
+      await expect(summary).not.toContainText('לא ניתן לחשב');
+      await expect(summary).not.toContainText('חסר כלל');
+      await expect(page.locator('#occupancy-financial-impact')).toContainText('עלות שכר');
+      await expect(page.locator('#occupancy-financial-impact')).toContainText('יתרה');
+      await expect(page.locator('#occupancy-recommendation')).not.toBeEmpty();
+    }
+  });
+
   test('stays within the viewport', async ({ page }) => {
     await choose(page, 'GRADUATE', 'AREA');
     await page.locator('[name="area"]').fill('60');

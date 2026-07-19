@@ -1419,3 +1419,36 @@ Validation:
 
 - Added a permanent requirement that every completed task must be pushed to its remote branch before completion is reported.
 - Preview URLs may no longer be reported for code that exists only locally.
+
+## 2026-07-19 - Occupancy Preview Functional Contract
+
+Objective: Prove and enforce complete calculations for every guided Occupancy Calculator workflow before Production.
+
+Root cause:
+
+- The calculator selected the first staffing standard returned by an unordered database response.
+- Although the existing live rows currently allowed calculations through tuition fallback, the runtime did not deliberately require one complete staffing, tuition, licensing, and operating-hours contract before activating the calculator.
+- Previous browser coverage exercised the individual workflow families but did not assert the complete management result across the full 4 classroom types × 3 input directions matrix.
+
+Implementation:
+
+- Runtime now evaluates every active staffing standard against all active age groups and activates only a standard with complete staffing and tuition coverage.
+- When several standards are complete, runtime deterministically prefers the standard with the greatest age-specific tuition coverage.
+- Calculator activation now also requires active licensing rules and monthly operating hours; incomplete canonical configuration produces one explicit blocking state instead of partial results.
+- Added an exhaustive browser matrix covering infants, toddlers, graduates, and mixed classrooms across area-only, children-only, and area-plus-children workflows.
+- Every matrix path supplies an hourly salary and asserts resolved capacity, required area, staffing, income, efficiency, payroll, balance, recommendation, and absence of missing-rule states.
+
+Live database verification:
+
+- Read-only verification against Supabase project `vyyfuaqmbxvfqgbfqooc` confirmed three active age groups, complete active EXTENDED staffing and age-specific tuition rows, active licensing rules, and 160 monthly operating hours for the selectable default School Year.
+- The pure engine was executed against those live rule values for all 12 workflows; every path returned finite complete management values.
+- No database, RLS, authentication, environment, or Supabase configuration was changed.
+
+Validation:
+
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `npm.cmd run build` passed.
+- Exhaustive 12-workflow browser matrix passed across desktop, laptop, 390px mobile, and 430px mobile: 4 passed.
+- Complete focused occupancy engine, UI, and screenshot suite passed: 81 passed and 3 expected screenshot-project skips.
+- An initial exhaustive test attempt exceeded its timeout because the test tried to click a deliberately hidden Reset control between scenarios; removing that unnecessary test action resolved the harness delay without an application change.
+- The first full-regression command reached its 15-minute wrapper limit without reporting a test failure; the repeated run with an adequate window completed successfully: 415 passed and 9 intentionally skipped.
