@@ -1,4 +1,13 @@
-const REQUIRED_FACTORS = ['SENIORITY', 'PERSISTENCE', 'CLASS_MANAGEMENT', 'CERTIFICATE', 'DEGREE', 'EXCELLENCE', 'TRAVEL', 'HAVRAA'];
+const REQUIRED_FACTORS = ['SENIORITY', 'PERSISTENCE', 'CLASS_MANAGEMENT', 'CERTIFICATE', 'DEGREE', 'EXCELLENCE', 'TRAVEL'];
+const FACTOR_LABELS = {
+  SENIORITY: 'תוספת ותק',
+  PERSISTENCE: 'מענק התמדה',
+  CLASS_MANAGEMENT: 'אחריות כיתה',
+  CERTIFICATE: 'תוספת תעודה',
+  DEGREE: 'תוספת תואר',
+  EXCELLENCE: 'מענק מצוינות',
+  TRAVEL: 'נסיעות'
+};
 
 const factorKey = (row) => String(row.compensation_factor_code || '').toUpperCase().replace(/[-_](HOURLY|GLOBAL_MONTHLY|MONTHLY)$/g, '');
 const isActive = (row) => String(row.lifecycle_status || 'ACTIVE').toUpperCase() === 'ACTIVE';
@@ -17,10 +26,6 @@ function selectRule(rows, seniorityMonths) {
   return rows.find((rule) => seniorityMonths >= Number(rule.minimum_seniority_months || 0) && (rule.maximum_seniority_months === null || rule.maximum_seniority_months === undefined || seniorityMonths <= Number(rule.maximum_seniority_months)));
 }
 
-function firstEntitlementRule(rows) {
-  return [...rows].sort((left, right) => Number(left.minimum_seniority_months || 0) - Number(right.minimum_seniority_months || 0))[0];
-}
-
 function amount(rule, hours) { return String(rule.factor?.value_type || rule.value_type).toUpperCase() === 'HOURLY' ? Number(rule.amount) * hours : Number(rule.amount); }
 
 export function calculateSalary(inputs, factors, rules, schoolYears) {
@@ -30,18 +35,17 @@ export function calculateSalary(inputs, factors, rules, schoolYears) {
   const byId = new Map(factors.map((factor) => [factor.compensation_factor_id, factor]));
   const grouped = new Map();
   rules.filter((rule) => isActive(rule) && rule.school_year_id === year.school_year_id).forEach((rule) => { const key = factorKey(byId.get(rule.compensation_factor_id) || {}); grouped.set(key, [...(grouped.get(key) || []), { ...rule, factor: byId.get(rule.compensation_factor_id) }]); });
-  const seniorityMonths = Number(inputs.seniorityMonths);
+  const seniorityYears = Math.max(0, Number(inputs.seniorityYears) || 0);
+  const seniorityMonths = seniorityYears * 12;
+  // Zero seniority represents the employee's first year for persistence eligibility only.
+  const persistenceMonths = Math.max(1, seniorityYears) * 12;
   const hours = Number(inputs.monthlyHours);
-  const component = (key, eligible = true) => { const rule = selectRule(grouped.get(key) || [], seniorityMonths); return { key, name: rule?.factor?.display_name || key, amount: eligible && rule ? amount(rule, hours) : 0, rule }; };
+  const component = (key, eligible = true, ruleSeniorityMonths = seniorityMonths) => { const rule = selectRule(grouped.get(key) || [], ruleSeniorityMonths); return { key, name: FACTOR_LABELS[key] || rule?.factor?.display_name || key, amount: eligible && rule ? amount(rule, hours) : 0, rule }; };
   const certificate = component('CERTIFICATE', inputs.certificate !== 'NO');
-  // The standalone calculator always simulates the first-year (five-day) Havraa entitlement.
-  const havraaRule = firstEntitlementRule(grouped.get('HAVRAA') || []);
-  const havraa = { key: 'HAVRAA', name: havraaRule?.factor?.display_name || 'HAVRAA', amount: 0, rule: havraaRule };
-  if (havraa.rule) havraa.amount = Number(havraa.rule.amount) * Math.min(hours / 182, 1);
   const components = [
     { key: 'BASE', name: 'שכר בסיס', amount: Number(inputs.hourlyRate) * hours },
-    component('SENIORITY'), component('PERSISTENCE'), component('CLASS_MANAGEMENT', inputs.classManager === true || inputs.classManager === 'true'), certificate,
-    component('DEGREE', inputs.degree), component('EXCELLENCE', inputs.excellence), component('TRAVEL', inputs.travel), havraa
+    component('SENIORITY'), component('PERSISTENCE', true, persistenceMonths), component('CLASS_MANAGEMENT', inputs.classManager === true || inputs.classManager === 'true'), certificate,
+    component('DEGREE', inputs.degree), component('EXCELLENCE', inputs.excellence), component('TRAVEL', inputs.travel)
   ];
   const gross = components.reduce((total, item) => total + item.amount, 0);
   return { issues: [], year, components, gross, effectiveHourly: gross / hours, netMin: gross * .78, netMax: gross * .82 };

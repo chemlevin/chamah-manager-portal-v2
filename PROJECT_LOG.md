@@ -1343,3 +1343,12 @@ Validation:
 
 - Focused occupancy engine, UI, and screenshot suite passed with 37 tests and 3 expected screenshot-project skips across desktop, laptop, and two mobile profiles.
 - UI coverage verifies a single mode-free calculator, live area-to-children results, children-to-area validation, required status labels and comparison fields, dynamic guidance, exports, legal mixed alternatives, and horizontal-overflow protection.
+
+## 2026-07-19 - Salary Calculator Persistence Fix
+
+- Changed the standalone Salary Calculator seniority input from months to years and converted years to rule months inside the calculation boundary.
+- Treated zero years as the first year for persistence eligibility only, while preserving zero seniority for other compensation factors.
+- Kept persistence amounts and hourly/monthly behavior sourced from active compensation rules, covering years 1, 2–4, 5–7, 8–10, 11–20, and 21+.
+- Removed Havraa from required inputs, calculation, explanatory text, and the result breakdown.
+- Added stable Hebrew result labels for compensation factors, including persistence and class management.
+- Focused salary calculation validation passed across all four Playwright projects (20 tests), including the requested 182-hour examples; JavaScript syntax checks and the production build also passed.
