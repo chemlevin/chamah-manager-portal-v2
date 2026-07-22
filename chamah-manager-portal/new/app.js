@@ -1,6 +1,8 @@
 import { calculateBudgetModel, summarizeBudget } from './budget-calculations.js';
 import { calculateSalary, salaryRuleIssues } from './salary-calculations.js';
 import { buildLegalOccupancyAlternatives, calculateOccupancyModel } from './occupancy-calculations.js';
+import { RULE_CATEGORIES, SYSTEM_RULES } from './management-catalog.generated.js';
+import { DOCUMENTED_STATUS_RULES, REFERENCE_TABLES, VARIABLE_RULE_TABLES } from './management-data.js';
 
 const SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
@@ -61,6 +63,7 @@ const protectedRequests = new Set();
 let authPending = false;
 let recoveryPending = false;
 let salaryModel = { status: 'idle', factors: [], rules: [], years: [], error: '' };
+const managementData = new Map();
 
 function readSession() {
   try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { return null; }
@@ -257,7 +260,7 @@ function parseRoute() {
   if (parts[0] === 'calculators' && ['salary', 'occupancy'].includes(parts[1])) return { section: 'calculators', calculator: parts[1] };
   if (parts[0] === 'payroll' && parts[1] === 'calculations' && ['new', 'existing', 'history'].includes(parts[2])) return { section: 'payroll', page: 'calculations', child: parts[2] };
   if (parts[0] === 'payroll' && parts[1] === 'calculations') return { section: 'payroll', page: 'calculations' };
-  if (parts[0] === 'training' && ['guides', 'permissions'].includes(parts[1])) return { section: 'training', page: parts[1] };
+  if (parts[0] === 'training') return { section: 'training', page: parts[1] || '', child: parts[2] || '' };
   return simpleRoutes[parts[0]] ? { section: parts[0] } : { section: 'home' };
 }
 
@@ -300,10 +303,18 @@ const portalSections = {
     title: 'הרשאות וטבלאות',
     description: 'טבלאות וכלי הרשאות ארגוניים במקום אחד.',
     cards: [
-      { route: 'training/guides', icon: '◫', title: 'טבלאות', description: 'מרכז הטבלאות הארגוניות.' },
-      { route: 'training/permissions', icon: '⚿', title: 'הרשאות', description: 'מרכז מידע עתידי לניהול הרשאות.' }
+      { route: 'training/permissions', icon: '⚿', title: 'הרשאות', description: 'ניהול משתמשים, תפקידים והרשאות — ללא שינוי מנגנוני האבטחה.' },
+      { route: 'training/rules', icon: '§', title: 'כללים', description: 'קטלוג כללי המערכת המתועדים.' },
+      { route: 'training/tables', icon: '▦', title: 'טבלאות', description: 'טבלאות חישוב וכללים משתנים.' },
+      { route: 'training/audit', icon: '◷', title: 'יומן שינויים', description: 'היסטוריית שינויים גלובלית לפי אובייקט.' }
     ]
   }
+};
+
+const managementPages = {
+  permissions: { title: 'הרשאות', cards: [{ route: 'training/permissions/users', icon: '👥', title: 'רשימת משתמשים והרשאות', description: 'תצוגת ניהול עתידית למשתמשים, תפקידים והרשאות.' }] },
+  rules: { title: 'כללים', cards: [{ route: 'training/rules/system', icon: '§', title: 'כללי מערכת', description: `${SYSTEM_RULES.length} כללים אמיתיים מתוך מסמכי ה־Handbook.` }] },
+  tables: { title: 'טבלאות', cards: [{ route: 'training/tables/calculation', icon: '▦', title: 'טבלאות חישוב', description: 'נתוני יסוד וטבלאות ייחוס יציבות.' }, { route: 'training/tables/variables', icon: '⇄', title: 'כללים משתנים', description: 'פרמטרים עסקיים לפי תוקף וגרסה.' }] }
 };
 
 const payrollCalculationCards = [
@@ -319,6 +330,77 @@ function sectionCardsTemplate(section, cards = portalSections[section].cards, ti
 
 function placeholderTemplate(title, parentRoute, parentTitle) {
   return `<section class="page-heading"><div><p class="eyebrow">${parentTitle} / ${title}</p><h1>${title}</h1><p>עמוד זה הוכן להרחבה עתידית.</p></div><span class="status-badge status-neutral">בתכנון</span></section><section class="coming-soon panel"><span class="status-badge status-info">בקרוב</span><h2>העמוד נמצא בהכנה</h2><p>זהו עמוד מציין מקום בלבד. לא נוספו נתונים, חיבורים או לוגיקה עסקית.</p><a class="button button-primary" href="#${parentRoute}">חזרה אל ${parentTitle}</a></section>`;
+}
+
+function managementHubTemplate(page) {
+  const item = managementPages[page];
+  return sectionCardsTemplate('training', item.cards, item.title, `בחירת מסך עבודה בתחום ${item.title}.`);
+}
+
+function usersPermissionsTemplate() {
+  return `<section class="page-heading"><div><p class="eyebrow">הרשאות / ניהול משתמשים</p><h1>רשימת משתמשים והרשאות</h1><p>מסך ניהול מוכן להצגת משתמשים, תפקידים והרשאות כאשר יוגדר מקור נתונים מורשה.</p></div><span class="status-badge status-neutral">קריאה בלבד</span></section><section class="management-summary"><article class="panel"><span>משתמשים</span><strong>אין נתונים זמינים</strong></article><article class="panel"><span>תפקידי מערכת</span><strong>לא תועדו</strong></article><article class="panel"><span>הרשאות</span><strong>לא תועדו</strong></article></section><section class="panel management-empty"><h2>לא נמצא מקור נתונים מתועד לרשימת משתמשים והרשאות</h2><p>מסמכי המאגר אינם מגדירים קטלוג משתמשים, תפקידי Auth או מטריצת הרשאות. לכן לא מוצגים משתמשים או הרשאות לדוגמה.</p><p>לא בוצע שינוי ב־Auth, ב־RLS או בלוגיקת האבטחה.</p></section>`;
+}
+
+function documentedText(value) {
+  return escapeHtml(value).replace(/^###? (.+)$/gm, '<strong>$1</strong>').replace(/^[-*] (.+)$/gm, '• $1').replace(/\n/g, '<br>');
+}
+
+function systemRulesTemplate() {
+  return `<section class="page-heading"><div><p class="eyebrow">כללים / מקור: docs/handbook</p><h1>כללי מערכת</h1><p>${SYSTEM_RULES.length} כללים מתועדים, ללא שלושת המזהים השמורים (Reserved).</p></div><span class="status-badge status-success">קריאה בלבד</span></section><section class="management-filters panel"><label>חיפוש<input id="rules-search" type="search" placeholder="מזהה, שם או תוכן כלל"></label><label>תחום<select id="rules-category"><option value="all">כל התחומים</option>${RULE_CATEGORIES.map((category) => `<option value="${category.id}">${category.label} (${category.count})</option>`).join('')}</select></label><span id="rules-count" class="filter-result"></span></section><section id="rules-list" class="rules-list">${SYSTEM_RULES.map((rule) => `<details class="rule-card panel" data-rule data-category="${rule.category}" data-search="${escapeHtml(`${rule.id} ${rule.title} ${rule.details}`.toLowerCase())}"><summary><span><strong>${rule.id}</strong><span>${escapeHtml(rule.title)}</span></span><small>${rule.categoryLabel}</small></summary><div class="rule-details"><p class="source-note">מקור: ${rule.source}</p><div>${documentedText(rule.details)}</div></div></details>`).join('')}</section>`;
+}
+
+function bindSystemRules() {
+  const search = $('#rules-search'); const category = $('#rules-category'); const count = $('#rules-count');
+  const update = () => { const query = search.value.trim().toLowerCase(); let visible = 0; document.querySelectorAll('[data-rule]').forEach((item) => { const show = (!query || item.dataset.search.includes(query)) && (category.value === 'all' || item.dataset.category === category.value); item.hidden = !show; if (show) visible += 1; }); count.textContent = `${visible} כללים`; };
+  search.addEventListener('input', update); category.addEventListener('change', update); update();
+}
+
+function managementTableShell(title, description) {
+  return `<section class="page-heading"><div><p class="eyebrow">הרשאות וטבלאות</p><h1>${title}</h1><p>${description}</p></div><span class="status-badge status-success">קריאה בלבד</span></section><div id="management-table-state" class="state panel">טוען נתונים זמינים…</div><section id="management-tables" class="management-tables" hidden></section>`;
+}
+
+function displayValue(value) {
+  if (value == null || value === '') return '—';
+  if (typeof value === 'boolean') return value ? 'כן' : 'לא';
+  if (Array.isArray(value)) return value.join(', ') || '—';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+function dataTableTemplate(descriptor, rows) {
+  const body = rows.length ? `<div class="management-table-scroll"><table><thead><tr>${descriptor.columns.map(([, label]) => `<th>${label}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${descriptor.columns.map(([key]) => `<td>${escapeHtml(displayValue(row[key]))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : '<p class="empty-inline">אין רשומות זמינות במקור הנתונים.</p>';
+  return `<details class="management-table-card panel" open><summary><span><strong>${descriptor.title}</strong><small>${descriptor.description}</small></span><span>${rows.length} רשומות</span></summary>${body}</details>`;
+}
+
+async function loadManagementTables(kind) {
+  const descriptors = kind === 'reference' ? REFERENCE_TABLES : VARIABLE_RULE_TABLES;
+  const cacheKey = `tables:${kind}`;
+  if (!managementData.has(cacheKey)) managementData.set(cacheKey, Promise.all(descriptors.map(async (descriptor) => { try { return { descriptor, rows: await rest(descriptor.table, 'select=*&limit=500') }; } catch (error) { return { descriptor, rows: [], error: error.message }; } })));
+  const results = await managementData.get(cacheKey);
+  if (parseRoute().section !== 'training') return;
+  const container = $('#management-tables'); if (!container) return;
+  const cards = results.map(({ descriptor, rows, error }) => error ? `<details class="management-table-card panel"><summary><span><strong>${descriptor.title}</strong><small>${descriptor.description}</small></span><span>לא זמין</span></summary><p class="empty-inline">מקור הנתונים אינו זמין למשתמש הנוכחי.</p></details>` : dataTableTemplate(descriptor, rows));
+  if (kind === 'reference') {
+    const statusRules = SYSTEM_RULES.filter((rule) => DOCUMENTED_STATUS_RULES.includes(rule.id));
+    cards.push(`<details class="management-table-card panel"><summary><span><strong>סטטוסים וסיווגים מתועדים</strong><small>ערכי סטטוס שהוגדרו ב־Handbook.</small></span><span>${statusRules.length} קבוצות</span></summary><div class="documented-statuses">${statusRules.map((rule) => `<article><strong>${rule.id} — ${escapeHtml(rule.title)}</strong><div>${documentedText(rule.details)}</div></article>`).join('')}</div></details>`);
+  }
+  container.innerHTML = cards.join(''); container.hidden = false; $('#management-table-state').hidden = true;
+}
+
+function auditLogTemplate() {
+  return `<section class="page-heading"><div><p class="eyebrow">הרשאות וטבלאות</p><h1>יומן שינויים</h1><p>היסטוריה גלובלית לפי סוג אובייקט ומזהה אובייקט.</p></div><span class="status-badge status-success">קריאה בלבד</span></section><section class="management-filters panel"><label>חיפוש<input id="audit-search" type="search" placeholder="אובייקט, פעולה או מזהה"></label></section><div id="audit-state" class="state panel">טוען אירועי ביקורת…</div><section id="audit-list" class="audit-list" hidden></section>`;
+}
+
+async function loadAuditLog() {
+  let rows = []; let error = '';
+  try { rows = await rest('audit_events', 'select=*&order=created_at.desc&limit=500'); } catch (caught) { error = caught.message; }
+  if (parseRoute().page !== 'audit') return;
+  const state = $('#audit-state'); const list = $('#audit-list');
+  if (error) { state.className = 'state error panel'; state.textContent = 'יומן השינויים אינו זמין למשתמש הנוכחי.'; return; }
+  if (!rows.length) { state.innerHTML = '<strong>אין אירועי ביקורת זמינים</strong><p>לא נוצרה היסטוריה לדוגמה. אירועים יופיעו כאן רק כאשר מקור הביקורת יכיל נתונים אמיתיים.</p>'; return; }
+  state.hidden = true; list.hidden = false;
+  list.innerHTML = rows.map((row) => `<article class="audit-card panel" data-audit-search="${escapeHtml(JSON.stringify(row).toLowerCase())}"><div><strong>${escapeHtml(displayValue(row.entity_type || row.object_type))}</strong><span>${escapeHtml(displayValue(row.action_type || row.action))}</span></div><dl><div><dt>מזהה אובייקט</dt><dd>${escapeHtml(displayValue(row.entity_id || row.object_id))}</dd></div><div><dt>מועד</dt><dd>${escapeHtml(displayValue(row.created_at))}</dd></div><div><dt>מבצע</dt><dd>${escapeHtml(displayValue(row.actor_user_id || row.changed_by))}</dd></div></dl></article>`).join('');
+  $('#audit-search').addEventListener('input', (event) => { const query = event.target.value.trim().toLowerCase(); document.querySelectorAll('[data-audit-search]').forEach((item) => { item.hidden = query && !item.dataset.auditSearch.includes(query); }); });
 }
 
 function calculatorsTemplate() {
@@ -897,7 +979,13 @@ function breadcrumbsTemplate(route, unit, type) {
     if (route.child) parts.push('<span aria-hidden="true">/</span>', `<span aria-current="page">${payrollCalculationCards.find((item) => item.route.endsWith(route.child)).title}</span>`);
     return parts.join('');
   }
-  if (route.section === 'training' && route.page) return `${parts.join('')}<span aria-hidden="true">/</span><a href="#training">הרשאות וטבלאות</a><span aria-hidden="true">/</span><span aria-current="page">${route.page === 'guides' ? 'טבלאות' : 'הרשאות'}</span>`;
+  if (route.section === 'training') {
+    const labels = { permissions: 'הרשאות', rules: 'כללים', tables: 'טבלאות', audit: 'יומן שינויים', users: 'רשימת משתמשים והרשאות', system: 'כללי מערכת', calculation: 'טבלאות חישוב', variables: 'כללים משתנים' };
+    parts.push('<span aria-hidden="true">/</span>', route.page ? '<a href="#training">הרשאות וטבלאות</a>' : '<span aria-current="page">הרשאות וטבלאות</span>');
+    if (route.page) parts.push('<span aria-hidden="true">/</span>', route.child ? `<a href="#training/${route.page}">${labels[route.page]}</a>` : `<span aria-current="page">${labels[route.page]}</span>`);
+    if (route.child) parts.push('<span aria-hidden="true">/</span>', `<span aria-current="page">${labels[route.child]}</span>`);
+    return parts.join('');
+  }
   if (route.section !== 'dashboards') return `${parts.join('')}<span aria-hidden="true">/</span><span aria-current="page">${simpleRoutes[route.section].title}</span>`;
   if (route.dashboardType === 'staffing' || route.dashboardType === 'accounting') {
     const label = route.dashboardType === 'staffing' ? 'צוות ורישוי' : 'הנה״ח';
@@ -914,7 +1002,8 @@ function breadcrumbsTemplate(route, unit, type) {
 
 async function render() {
   const route = parseRoute();
-  let title = route.calculator === 'salary' ? 'מחשבון שכר' : route.calculator === 'occupancy' ? 'תפוסה, תקינה ורווחיות' : route.child ? payrollCalculationCards.find((item) => item.route.endsWith(route.child)).title : route.section === 'training' && route.page ? (route.page === 'guides' ? 'טבלאות' : 'הרשאות') : route.section === 'payroll' && route.page ? 'חישובי שכר' : route.section === 'home' ? 'עמוד הבית' : route.section === 'dashboards' ? 'דשבורדים' : simpleRoutes[route.section].title;
+  const managementLabels = { permissions: 'הרשאות', rules: 'כללים', tables: 'טבלאות', audit: 'יומן שינויים', users: 'רשימת משתמשים והרשאות', system: 'כללי מערכת', calculation: 'טבלאות חישוב', variables: 'כללים משתנים' };
+  let title = route.calculator === 'salary' ? 'מחשבון שכר' : route.calculator === 'occupancy' ? 'תפוסה, תקינה ורווחיות' : route.section === 'training' && (route.child || route.page) ? managementLabels[route.child || route.page] : route.child ? payrollCalculationCards.find((item) => item.route.endsWith(route.child)).title : route.section === 'payroll' && route.page ? 'חישובי שכר' : route.section === 'home' ? 'עמוד הבית' : route.section === 'dashboards' ? 'דשבורדים' : simpleRoutes[route.section].title;
   let unit = null;
   let type = null;
   if (route.section === 'home') $('#page-content').innerHTML = homeTemplate();
@@ -924,7 +1013,12 @@ async function render() {
   else if (route.section === 'payroll' && route.child) $('#page-content').innerHTML = placeholderTemplate(title, 'payroll/calculations', 'חישובי שכר');
   else if (route.section === 'payroll' && route.page === 'calculations') $('#page-content').innerHTML = sectionCardsTemplate('payroll', payrollCalculationCards, 'חישובי שכר', 'בחירת מסלול לחישוב חדש, עבודה קיימת או טבלאות עבר.');
   else if (route.section === 'payroll') $('#page-content').innerHTML = sectionCardsTemplate('payroll');
-  else if (route.section === 'training' && route.page) $('#page-content').innerHTML = placeholderTemplate(title, 'training', 'הרשאות וטבלאות');
+  else if (route.section === 'training' && route.page === 'permissions' && route.child === 'users') $('#page-content').innerHTML = usersPermissionsTemplate();
+  else if (route.section === 'training' && route.page === 'rules' && route.child === 'system') { $('#page-content').innerHTML = systemRulesTemplate(); bindSystemRules(); }
+  else if (route.section === 'training' && route.page === 'tables' && route.child === 'calculation') { $('#page-content').innerHTML = managementTableShell('טבלאות חישוב', 'נתוני יסוד וטבלאות ייחוס יציבות בשפה עסקית.'); await loadManagementTables('reference'); }
+  else if (route.section === 'training' && route.page === 'tables' && route.child === 'variables') { $('#page-content').innerHTML = managementTableShell('כללים משתנים', 'פרמטרים עסקיים עם שדות תוקף, גרסאות והיסטוריה כאשר הם קיימים במקור.'); await loadManagementTables('variable'); }
+  else if (route.section === 'training' && route.page === 'audit') { $('#page-content').innerHTML = auditLogTemplate(); await loadAuditLog(); }
+  else if (route.section === 'training' && managementPages[route.page]) $('#page-content').innerHTML = managementHubTemplate(route.page);
   else if (route.section === 'training') $('#page-content').innerHTML = sectionCardsTemplate('training');
   else if (route.section !== 'dashboards') $('#page-content').innerHTML = comingSoonTemplate(simpleRoutes[route.section]);
   else {
@@ -960,6 +1054,8 @@ async function render() {
   $('#breadcrumbs').innerHTML = breadcrumbsTemplate(route, unit, type);
   const navigationRoute = route.section === 'dashboards' && ['staffing', 'accounting'].includes(route.dashboardType) ? route.dashboardType : route.section;
   document.querySelectorAll('[data-route]').forEach((item) => item.classList.toggle('active', item.dataset.route === navigationRoute));
+  const mobileQuickRoutes = new Set(['home', 'dashboards', 'staffing', 'accounting']);
+  $('#mobile-more').classList.toggle('active', !mobileQuickRoutes.has(navigationRoute));
   const retryButton = $('[data-retry-units]');
   if (retryButton) retryButton.addEventListener('click', () => { unitState = { status: 'idle', items: [], error: '' }; render(); });
   $('#close-kpi-panel')?.addEventListener('click', closeKpiPanel);

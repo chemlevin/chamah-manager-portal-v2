@@ -1541,3 +1541,45 @@ Validation:
 - `npm.cmd run build` passed.
 - Focused responsive section coverage passed: 40 tests across desktop 1440, laptop 1280, mobile 390, and mobile 430.
 - Full Playwright regression passed: 455 passed and 9 intentionally skipped (464 total).
+
+## 2026-07-22 - Permissions, Rules, Tables, and Audit Management Area
+
+Objective: Replace the shallow Permissions/Tables placeholders with a read-only management hierarchy backed by documented rules and existing read sources.
+
+Implementation:
+
+- Added management routes for permissions, system rules, calculation tables, variable rules, and the global audit log.
+- Added a build-time catalog generator that reads `docs/handbook/*.md`, excludes the three explicitly reserved identifiers, and generates 178 real documented rules across 17 handbook business areas.
+- Added read-only rule search, category filtering, counts, source attribution, and expandable full details.
+- Added business-language views over 13 existing stable reference sources: school years, calendar years, school-year months, legal entity types, legal entities, allocation units/departments, daycares, age groups, classrooms, payroll roles, certificate types, budget categories, and bank accounts.
+- Added the documented status/classification catalog from the exact handbook rules that define those values.
+- Added read-only views over five variable-rule sources: classroom licensing rules, budget/tuition/staffing rules, staffing budget parameters, compensation factors, and compensation rules.
+- Preserved effective-date, lifecycle, and history-related fields when available in each source.
+- Added a read-only `audit_events` view grouped by object identity; when no audit rows exist, the UI explicitly reports that no history is available and generates no synthetic records.
+- Prepared the users/roles/permissions screen with truthful missing-source states because the repository documentation does not define an Auth user catalog, Auth role catalog, or permission matrix.
+- Updated hierarchical breadcrumbs and the mobile “more” active state.
+- Did not change Auth, RLS, security logic, Supabase schema/data, APIs, calculations, Budget behavior, or existing workflows.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/styles.css`
+- `chamah-manager-portal/new/management-data.js`
+- `chamah-manager-portal/new/management-catalog.generated.js`
+- `scripts/generate-management-catalog.mjs`
+- `scripts/build.mjs`
+- `tests/new-portal-sections.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- JavaScript syntax checks passed for the application, management descriptors, catalog generator, and focused tests.
+- `git diff --check` passed.
+- `npm run build` passed; the build generated 178 documented rules across 17 categories and built the portal root.
+- Focused portal management coverage passed: 84 tests across desktop 1440, laptop 1280, mobile 390, and mobile 430.
+- Full Playwright regression passed: 487 passed and 9 intentionally skipped (496 total).
+
+Known missing sources:
+
+- No documented or portal-accessible Auth user list, Auth role list, or permission matrix exists; the management page reports this instead of inventing entries.
+- Audit history depends on real `audit_events` rows. No example history is generated when the source is empty.
