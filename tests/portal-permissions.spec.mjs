@@ -30,14 +30,19 @@ test('permission management renders real controls and saves through the secured 
   await expect(page.locator('[data-screen]')).toHaveCount(portalAccessFixture.sections.length);
   await expect(page.locator('.permission-screen-name').first()).toHaveText('עמוד הבית');
   await expect(page.getByText('home', { exact: true })).toHaveCount(0);
+  await expect(page.locator('.permission-group')).toHaveCount(portalAccessFixture.sections.filter((item) => !item.screen_code.includes('.')).length);
+  await expect(page.getByLabel('רמת הרשאה')).toHaveValue('PORTAL');
+  await expect(page.getByText('בירושה', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /החלה|הסתרת כל המסכים|הרחבת הכול/ })).toHaveCount(0);
+  await expect(page.locator('[data-permission]').first()).toHaveValue('VIEW');
+  await expect(page.locator('[data-permission]').nth(1)).toHaveValue('HIDDEN');
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
-  await page.locator('#permission-search').fill('home');
-  await expect(page.locator('[data-screen]:visible')).toHaveCount(1);
-  await page.locator('#permission-search').fill('');
-  await page.locator('#hide-all-permissions').click();
+  await page.locator('[data-permission]').nth(1).selectOption('EDIT');
   await page.locator('#permissions-form button[type="submit"]').click();
   await expect.poll(() => saved?.permissions?.length).toBe(portalAccessFixture.sections.length);
-  expect(saved.permissions.every((item) => item.permission_level === 'HIDDEN')).toBe(true);
+  expect(saved.permissions.find((item) => item.screen_code === 'home')?.permission_level).toBe('VIEW');
+  expect(saved.permissions[1].permission_level).toBe('EDIT');
+  expect(saved.permissions.every((item) => ['HIDDEN', 'VIEW', 'EDIT'].includes(item.permission_level))).toBe(true);
   await expect(page.locator('#permissions-feedback')).toContainText('נשמרו בהצלחה');
 });
 

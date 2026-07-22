@@ -1797,3 +1797,35 @@ Validation:
 Residual risk:
 
 - Prototype changes are intentionally non-persistent and reset on refresh. Persistence, real database entities, calculation-engine integration, and atomic audit behavior require separately authorized tracks.
+## 2026-07-22 - TRACK: 008 iPhone UI and Explicit Permissions
+
+Objective: Resolve the remaining Hebrew rendering issues reported on real iPhones and simplify the `/new/` permissions editor without changing the permissions API or enforcement model.
+
+Implementation:
+
+- Made the local Hebrew screen-label catalog authoritative for every user-facing screen label. Unknown future screen codes now receive the neutral Hebrew label `מסך נוסף` instead of leaking raw codes or damaged remote metadata.
+- Replaced the manager checkbox with the retained top-level `רמת הרשאה` field and Hebrew portal-user / super-admin options.
+- Removed inheritance, branch application, collapse/expand, screen search, and bulk hide controls from the permissions UI.
+- Grouped every portal screen by its top-level section and limited each screen to exactly one explicit permission: `מוסתר`, `צפייה`, or `עריכה`.
+- Defaulted missing stored screen rows to explicit `HIDDEN` values in the editor and submit all screen permissions on every save.
+- Kept the existing permissions endpoint, screen codes, authorization enforcement, organizational scope model, Supabase schema, RLS, and Production unchanged.
+
+Files changed for TRACK 008:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/styles.css`
+- `tests/portal-permissions.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- JavaScript syntax checks and `git diff --check` passed.
+- `npm.cmd run build` passed.
+- Focused permissions coverage passed across desktop 1440, laptop 1280, iPhone 390, and iPhone 430: 12 passed.
+- Administration framework and permissions responsive coverage passed: 33 passed and 3 viewport-independent checks intentionally skipped.
+- Broad `/new/` regression passed 218 tests before seven load-sensitive management-table failures under the combined run; the complete affected sections suite then passed in isolation across all four viewports: 76 passed.
+- In-app browser verification confirmed UTF-8 metadata, Hebrew RTL, no detected mojibake, no horizontal overflow, and no browser warnings/errors at desktop 1440 and iPhone 390.
+
+Residual risk:
+
+- Future screen codes must still be added to the authoritative Hebrew catalog to receive a specific name; until then they display `מסך נוסף` safely.
