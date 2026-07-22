@@ -1829,3 +1829,37 @@ Validation:
 Residual risk:
 
 - Future screen codes must still be added to the authoritative Hebrew catalog to receive a specific name; until then they display `מסך נוסף` safely.
+
+## 2026-07-22 - TRACK: 009A Metadata-Driven Variables and Rules
+
+Objective: Upgrade the Variables and Calculation Rules prototypes with structured, dependent source metadata while remaining demo-only.
+
+Implementation:
+
+- Added a local source catalog for `MONTHLY_OCCUPANCY`, `PAYROLL`, `BANK_TRANSACTIONS`, `EMPLOYEES`, `CLASSROOMS`, and `DAYCARES`.
+- Defined stable English source/field codes with Hebrew labels, field data types, and allowed operations.
+- Added required variable metadata: stable code, Hebrew title, Hebrew description, data type, unit, and status.
+- Replaced technical free text in Variables and Calculation Rules with selectors for source, field, related section, condition, time period, and aggregation.
+- Added dependent selector behavior: source changes reset field/operation; field choices are source-specific; operation choices are field-specific.
+- Moved English variable/rule codes into a collapsed technical area and removed technical codes from the primary table view.
+- Extended the Administration Framework metadata contract with record-derived options, dependent `onChange` behavior, disabled empty selectors, conditional visibility, and technical fields.
+- Kept all data in memory and did not connect Supabase, portal business data, APIs, Dashboard, Payroll, Budget, or calculation engines.
+
+Files changed:
+
+- `chamah-manager-portal/new/admin-framework.js`
+- `chamah-manager-portal/new/administration-prototype.js`
+- `docs/architecture/administration-framework.md`
+- `tests/administration-prototype.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- JavaScript syntax checks passed.
+- `npm.cmd run build` passed.
+- Administration Framework and TRACK 009A prototype coverage passed across desktop 1440, laptop 1280, mobile 390, and mobile 430: 45 passed, 3 viewport-independent checks intentionally skipped.
+- Broader `/new/` portal-section regression passed across all four responsive projects: 76 passed.
+
+Residual risk:
+
+- The source catalog is intentionally demo metadata. A future adapter must map inspected portal/Supabase schema metadata into the same catalog contract before real persistence or calculations are introduced.

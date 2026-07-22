@@ -10,6 +10,8 @@ Last updated: 2026-07-22
 
 TRACK 009 uses this boundary for three demo-only screens: Variables, Calculation Tables, and Calculation Rules. Their repositories are memory-only, reset on refresh, and do not call Dashboard, Payroll, Budget, Supabase business tables, or calculation engines.
 
+TRACK 009A adds a demo source catalog for Variables and Calculation Rules. Each source publishes stable English codes, Hebrew labels, fields, data types, and allowed operations. Form fields can derive options from the current record, reset dependent selections through `onChange`, and place stable technical codes inside a collapsed advanced area. A future metadata adapter can replace the demo catalog with portal metadata or an inspected Supabase schema without changing the selector contract.
+
 ## Architecture
 
 The framework has three boundaries:
