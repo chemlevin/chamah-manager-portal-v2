@@ -1829,3 +1829,10 @@ Validation:
 Residual risk:
 
 - Future screen codes must still be added to the authoritative Hebrew catalog to receive a specific name; until then they display `מסך נוסף` safely.
+## 2026-07-22 - TRACK 010 BANK_TRANSACTIONS workspace design prototype
+
+- Replaced the Accounting/BANKS dashboard presentation with a desktop-first spreadsheet workspace using realistic local mock data only.
+- Added compact summary cards, smart one-click filters, business-only spreadsheet columns, separate debit and credit columns, expandable split transactions, keyboard navigation, and a persistent right-side detail panel.
+- Moved notes, future Google Drive documents, history, and technical metadata out of the grid and into the detail panel.
+- Kept root and deploy-source Accounting files synchronized; no API, backend, Supabase, CRUD, validation, calculation, or production behavior was added.
+- Added a focused Playwright test and desktop screenshots for the prototype.

@@ -1,89 +1,60 @@
 <!doctype html>
 <html lang="he" dir="rtl">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>הנה"ח - חמה</title>
-    <link rel="stylesheet" href="../assets/styles.css" />
-  </head>
-  <body>
-    <main class="portal-shell executive-dashboard management-dashboard management-dashboard-v2 accounting-page">
-      <header class="global-nav" aria-label="ניווט ראשי">
-        <a class="global-brand" href="../" aria-label="עמוד הבית של מערכת הניהול">
-          <img src="../assets/chamah-logo.svg" alt="Chamah" />
-          <span>מערכת ניהול חמה</span>
-        </a>
-        <input class="nav-toggle" id="nav-toggle" type="checkbox" aria-hidden="true" />
-        <label class="hamburger-button" for="nav-toggle" aria-label="פתיחת תפריט" role="button"><span></span><span></span><span></span></label>
-        <nav class="desktop-nav" aria-label="עמודים">
-          <a class="global-nav-item" href="../"><span>בית</span></a>
-          <a class="global-nav-item" href="../calculators/"><span>מחשבונים</span></a>
-          <a class="global-nav-item" href="../employees/"><span>עובדים</span></a>
-          <a class="global-nav-item" href="../dashboard/"><span>לוח ניהול</span></a>
-          <a class="global-nav-item current" href="../accounting/"><span>הנה"ח</span></a>
-          <a class="global-nav-item" href="../maintenance/"><span>תחזוקה</span></a>
-          <a class="global-nav-item" href="../tasks/"><span>משימות</span></a>
-        </nav>
-        <label class="nav-backdrop" for="nav-toggle" aria-hidden="true"></label>
-        <aside class="mobile-drawer" aria-label="תפריט נייד">
-          <div class="drawer-brand"><img src="../assets/chamah-logo.svg" alt="Chamah" /><strong>מערכת ניהול חמה</strong></div>
-          <nav class="mobile-drawer-nav" aria-label="עמודים בנייד">
-            <a class="global-nav-item" href="../"><span>בית</span></a>
-            <a class="global-nav-item" href="../calculators/"><span>מחשבונים</span></a>
-            <a class="global-nav-item" href="../employees/"><span>עובדים</span></a>
-            <a class="global-nav-item" href="../dashboard/"><span>לוח ניהול</span></a>
-            <a class="global-nav-item current" href="../accounting/"><span>הנה"ח</span></a>
-            <a class="global-nav-item" href="../maintenance/"><span>תחזוקה</span></a>
-            <a class="global-nav-item" href="../tasks/"><span>משימות</span></a>
-          </nav>
-          <small class="drawer-version">גרסה 1.0</small>
-        </aside>
-      </header>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>תנועות בנק | מערכת ניהול חמה</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+</head>
+<body class="bank-workspace-body">
+  <main class="bank-workspace">
+    <header class="bank-topbar">
+      <a class="bank-brand" href="../"><img src="../assets/chamah-logo.svg" alt="Chamah" /><span>מערכת ניהול חמה</span></a>
+      <nav aria-label="ניווט ראשי"><a href="../dashboard/">לוח ניהול</a><a class="active" href="./">הנה״ח</a><a href="../employees/">עובדים</a></nav>
+      <div class="bank-user"><span>מזכירות</span><b>מ</b></div>
+    </header>
 
-      <section class="dashboard-hero management-hero control-room-hero" aria-labelledby="accounting-title">
-        <div><p class="eyebrow">BANKS</p><h1 id="accounting-title">הנה"ח</h1><p class="subtitle">בקרת שורות בנק לפי חשבון, חודש שיוך וסטטוס הנה"ח.</p></div>
-        <div class="dashboard-period management-status-card accounting-refresh-card" aria-label="מקור נתונים"><span>מקור נתונים</span><strong>BANKS</strong><small id="accounting-last-update">עודכן לאחרונה: נטען</small><button class="secondary-button compact-action accounting-refresh-button" type="button" id="refresh-accounting-data">רענן נתונים</button></div>
-      </section>
+    <section class="bank-heading">
+      <div><p class="bank-kicker">הנהלת חשבונות / תנועות בנק</p><h1>תנועות בנק</h1><p>סביבת עבודה מהירה לשיוך, השלמת מסמכים והעברה להנה״ח.</p></div>
+      <div class="bank-heading-actions"><span class="bank-sync"><i></i> נתוני הדגמה · עודכן עכשיו</span><button type="button" class="bank-primary" disabled title="פעולה עתידית">＋ תנועה חדשה</button></div>
+    </section>
 
-      <section class="filter-bar management-filter-bar control-filter-bar accounting-filter-bar" aria-label="מסנני הנהח">
-        <label><span>חשבון</span><select id="bank-filter"></select></label>
-        <label><span>חודש</span><select id="month-filter"></select></label>
-        <label><span>סטטוס</span><select id="status-filter"></select></label>
-      </section>
+    <section class="bank-summary" aria-label="סיכום">
+      <button class="summary-card active" data-quick="all"><span>כל התנועות</span><strong>248</strong><small>יולי 2026</small></button>
+      <button class="summary-card" data-quick="open"><span>דורש טיפול</span><strong>18</strong><small class="warn">7 חסרי מסמך</small></button>
+      <button class="summary-card" data-quick="split"><span>תנועות מפוצלות</span><strong>12</strong><small>4 ממתינות להשלמה</small></button>
+      <article class="summary-card money"><span>זכות החודש</span><strong>₪184,620</strong><small>32 תנועות</small></article>
+      <article class="summary-card money"><span>חובה החודש</span><strong>₪127,430</strong><small>216 תנועות</small></article>
+    </section>
 
-      <section class="dashboard-section period-summary-section" aria-labelledby="monthly-title">
-        <div class="section-title-row compact-title-row"><div><p class="eyebrow">חודש נבחר</p><h2 id="monthly-title">מדדי הנה"ח לחודש</h2></div><span class="section-chip" id="monthly-label">נטען</span></div>
-        <div class="management-status-grid compact-kpi-grid accounting-kpi-grid" id="monthly-grid"></div>
-        <div class="management-status-grid compact-kpi-grid accounting-amount-grid" id="amount-grid"></div>
-      </section>
+    <section class="bank-toolbar" aria-label="סינון וחיפוש">
+      <label class="bank-search"><span>⌕</span><input id="bank-search" type="search" placeholder="חיפוש תיאור, אסמכתא או סכום…" /><kbd>/</kbd></label>
+      <div class="filter-group">
+        <label><span>חשבון</span><select id="account-filter"><option value="all">כל החשבונות</option><option>בנק הפועלים • 1842</option><option>בנק לאומי • 7731</option></select></label>
+        <label><span>חודש</span><select id="month-filter"><option value="all">יולי 2026</option><option>יוני 2026</option></select></label>
+        <label><span>סטטוס</span><select id="status-filter"><option value="all">כל הסטטוסים</option><option value="open">דורש טיפול</option><option value="sent">נשלח להנה״ח</option></select></label>
+        <button type="button" class="icon-button" id="clear-filters" title="ניקוי מסננים">↻</button>
+      </div>
+      <div class="view-actions"><span id="visible-count">7 תנועות</span><button type="button" class="icon-button" title="הגדרות תצוגה">☷</button><button type="button" class="icon-button" title="ייצוא עתידי" disabled>⇩</button></div>
+    </section>
 
-      <section class="dashboard-section school-year-section" aria-labelledby="ytd-title">
-        <div class="section-title-row compact-title-row"><div><p class="eyebrow">מתחילת השנה</p><h2 id="ytd-title">מדדי הנה"ח מצטברים</h2></div><span class="section-chip" id="ytd-label">ספטמבר עד החודש הנבחר</span></div>
-        <div class="management-status-grid compact-kpi-grid accounting-kpi-grid" id="ytd-grid"></div>
-      </section>
+    <section class="bank-main">
+      <div class="sheet-shell" aria-label="גיליון תנועות בנק">
+        <div class="sheet-scroll">
+          <table class="bank-sheet">
+            <thead><tr><th class="check-col"><input type="checkbox" aria-label="בחירת הכל" /></th><th class="date-col">תאריך <span>↓</span></th><th class="desc-col">תיאור תנועה</th><th>אסמכתא</th><th>חשבון</th><th>חובה</th><th>זכות</th><th>שיוך</th><th>חודש דיווח</th><th>סטטוס</th><th class="attach-col">מסמך</th></tr></thead>
+            <tbody id="bank-rows"></tbody>
+          </table>
+        </div>
+        <footer class="sheet-footer"><span>שורות 1–7 מתוך 248</span><span>↑↓ מעבר בין שורות · Enter פתיחת פיצול · / חיפוש</span><div><button disabled>הקודם</button><b>1</b><button>הבא</button></div></footer>
+      </div>
 
-      <section class="dashboard-section unit-section" aria-labelledby="daycare-overview-title">
-        <div class="section-title-row compact-title-row"><div><p class="eyebrow">חשבונות</p><h2 id="daycare-overview-title">סקירת טיפול לפי חשבון</h2></div><span class="section-chip" id="daycare-count-label">נטען</span></div>
-        <div class="daycare-card-grid management-unit-grid accounting-daycare-grid" id="daycare-grid"></div>
-      </section>
-
-      <section class="dashboard-section supporting-details-section" aria-labelledby="source-title">
-        <div class="section-title-row compact-title-row"><div><p class="eyebrow">שורות מקור</p><h2 id="source-title">שורות BANKS</h2></div><span class="section-chip" id="source-count-label">נטען</span></div>
-        <div class="source-drawer-actions accounting-table-actions"><button class="secondary-button compact-action" type="button" id="copy-source-table">העתק טבלה</button><button class="print-button compact-action" type="button" id="export-source-csv">יצוא CSV</button></div>
-        <div class="dashboard-table-wrap accounting-source-wrap"><table class="dashboard-table accounting-source-table"><thead><tr><th>חשבון</th><th>תאריך</th><th>תיאור תנועה</th><th>אסמכתא</th><th>סכום</th><th>הגדרה</th><th>עבור מחלקה</th><th>עבור חודש</th><th>הנה"ח</th><th>הערות</th></tr></thead><tbody id="source-table-body"></tbody></table></div>
-      </section>
-    </main>
-
-    <div class="explain-overlay" id="explain-overlay" hidden>
-      <section class="explain-modal" role="dialog" aria-modal="true" aria-labelledby="explain-title">
-        <button class="explain-close" type="button" data-close-explain aria-label="סגור">x</button>
-        <p class="eyebrow">הסבר מספר</p><h2 id="explain-title"></h2>
-        <dl class="explain-summary-grid"><div><dt>ערך מוצג</dt><dd id="explain-value"></dd></div><div><dt>טווח</dt><dd id="explain-scope"></dd></div><div><dt>מקור</dt><dd id="explain-source"></dd></div><div><dt>סך לבדיקה</dt><dd id="explain-total"></dd></div></dl>
-        <div class="explain-rule"><h3>כלל חישוב</h3><p id="explain-rule"></p></div><div class="explain-rule"><h3>סיכום</h3><p id="explain-text"></p></div>
-        <div class="explain-actions"><button class="primary-button compact-action" type="button" data-close-explain>סגור</button></div>
-      </section>
-    </div>
-    <script src="script.js"></script>
-    <script src="../assets/navigation.js"></script>
-  </body>
+      <aside class="bank-details" id="bank-details" aria-live="polite">
+        <div class="details-head"><div><span class="details-eyebrow">פרטי תנועה</span><h2 id="detail-title"></h2></div><button type="button" class="icon-button" id="close-details" aria-label="סגירת פרטים">×</button></div>
+        <div id="detail-content"></div>
+      </aside>
+    </section>
+  </main>
+  <script src="script.js"></script>
+</body>
 </html>

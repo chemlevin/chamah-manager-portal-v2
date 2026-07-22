@@ -1,312 +1,60 @@
-const API_ENDPOINT = '/api/allocations';
-const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
-const CALENDAR_MONTHS = ['01/2026', '02/2026', '03/2026', '04/2026', '05/2026', '06/2026', '07/2026', '08/2026', '09/2026', '10/2026', '11/2026', '12/2026', '01/2027', '02/2027', '03/2027', '04/2027', '05/2027', '06/2027', '07/2027', '08/2027', '09/2027', '10/2027', '11/2027', '12/2027'];
-const UNASSIGNED_UNIT = 'לא שויך';
-const SENT_STATUS = 'נשלח להנה"ח';
-const STATUS_VALUES = ['ממתין לשליחה', SENT_STATUS, 'חסר מסמכים', 'פעולה ללא אסמכתא'];
-const EXPLANATIONS = {
-  total: 'כל שורות הבנק שנמצאות במערכת לפי הבחירה.',
-  assigned: 'שורות שיש בהן סטטוס הנה"ח.',
-  unassigned: 'שורות ללא סטטוס הנה"ח.',
-  waiting: 'שורות שסומנו כממתינות לשליחה להנה"ח.',
-  missing: 'שורות שחסר עבורן מסמך.',
-  sent: 'שורות שסומנו כנשלחו להנה"ח.',
-  noReference: 'פעולה שסומנה ללא אסמכתא.',
-};
-const moneyFormatter = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 });
-const numberFormatter = new Intl.NumberFormat('he-IL');
-const state = { bank: 'all', month: 'all', status: 'all', rows: [], isRefreshing: false, refreshTimer: null };
-const els = {
-  bankFilter: document.querySelector('#bank-filter'),
-  monthFilter: document.querySelector('#month-filter'),
-  statusFilter: document.querySelector('#status-filter'),
-  lastUpdate: document.querySelector('#accounting-last-update'),
-  refreshData: document.querySelector('#refresh-accounting-data'),
-  monthlyLabel: document.querySelector('#monthly-label'),
-  monthlyGrid: document.querySelector('#monthly-grid'),
-  amountGrid: document.querySelector('#amount-grid'),
-  ytdLabel: document.querySelector('#ytd-label'),
-  ytdGrid: document.querySelector('#ytd-grid'),
-  daycareCountLabel: document.querySelector('#daycare-count-label'),
-  daycareGrid: document.querySelector('#daycare-grid'),
-  sourceCountLabel: document.querySelector('#source-count-label'),
-  sourceTableBody: document.querySelector('#source-table-body'),
-  copySourceTable: document.querySelector('#copy-source-table'),
-  exportSourceCsv: document.querySelector('#export-source-csv'),
-  explainOverlay: document.querySelector('#explain-overlay'),
-  explainTitle: document.querySelector('#explain-title'),
-  explainValue: document.querySelector('#explain-value'),
-  explainScope: document.querySelector('#explain-scope'),
-  explainSource: document.querySelector('#explain-source'),
-  explainTotal: document.querySelector('#explain-total'),
-  explainRule: document.querySelector('#explain-rule'),
-  explainText: document.querySelector('#explain-text'),
-};
-function clean(value) { return String(value ?? '').trim(); }
-function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[char])); }
-function safeNumber(value) { const number = Number(value); return Number.isFinite(number) ? number : 0; }
-function formatMoney(value) { return moneyFormatter.format(safeNumber(value)); }
-function option(value, label) { return '<option value="' + escapeHtml(value) + '">' + escapeHtml(label) + '</option>'; }
-function rawValue(raw, names) {
-  const keys = Object.keys(raw || {});
-  const normalized = names.map((name) => clean(name).replace(/\s+/g, ' ').toLowerCase());
-  const key = keys.find((candidate) => normalized.includes(clean(candidate).replace(/\s+/g, ' ').toLowerCase()));
-  return key ? clean(raw[key]) : '';
+const transactions = [
+  { id: 1, date: '21.07.2026', description: 'ארנונה עיריית ירושלים', reference: '782941', account: 'בנק הפועלים • 1842', debit: 8420, credit: 0, allocation: 'מפוצל ל־3', month: '07/2026', status: 'open', statusLabel: 'דורש השלמה', attachment: true, note: 'יש להשלים שיוך של היתרה למשרד.', history: ['היום, 09:42 · נפתח לבדיקה על ידי מרים', '20.07.2026 · נקלט מקובץ הבנק'], splits: [{ allocation: 'מעון נאות', category: 'ארנונה', amount: 4200 }, { allocation: 'מעון מחנה', category: 'ארנונה', amount: 3000 }, { allocation: 'טרם שויך', category: '—', amount: 1220 }] },
+  { id: 2, date: '20.07.2026', description: 'העברה — משרד העבודה', reference: '601128', account: 'בנק לאומי • 7731', debit: 0, credit: 48600, allocation: 'מעון נאות', month: '07/2026', status: 'sent', statusLabel: 'נשלח להנה״ח', attachment: true, note: 'תמיכה חודשית עבור חודש יולי.', history: ['היום, 08:15 · נשלח להנה״ח', '20.07.2026 · שויך למעון נאות'] },
+  { id: 3, date: '19.07.2026', description: 'סופר נקי בע״מ', reference: '88402', account: 'בנק הפועלים • 1842', debit: 1280, credit: 0, allocation: 'מעון מחנה', month: '07/2026', status: 'missing', statusLabel: 'חסר מסמך', attachment: false, note: 'ממתינים לחשבונית מהספק.', history: ['19.07.2026 · סומן כחסר מסמך'] },
+  { id: 4, date: '18.07.2026', description: 'משכורות יולי', reference: 'PAY-0726', account: 'בנק הפועלים • 1842', debit: 72140, credit: 0, allocation: 'מפוצל ל־4', month: '07/2026', status: 'sent', statusLabel: 'נשלח להנה״ח', attachment: true, note: 'קובץ השכר מצורף.', history: ['18.07.2026 · נשלח להנה״ח'], splits: [{ allocation: 'מעון נאות', category: 'שכר', amount: 24600 }, { allocation: 'מעון מחנה', category: 'שכר', amount: 22140 }, { allocation: 'מעון אשקלון', category: 'שכר', amount: 17400 }, { allocation: 'משרד', category: 'שכר', amount: 8000 }] },
+  { id: 5, date: '17.07.2026', description: 'עמלות בנק', reference: '4419', account: 'בנק לאומי • 7731', debit: 185, credit: 0, allocation: 'משרד', month: '07/2026', status: 'sent', statusLabel: 'נשלח להנה״ח', attachment: false, note: '', history: ['17.07.2026 · שויך אוטומטית למשרד'] },
+  { id: 6, date: '16.07.2026', description: 'תרומה — קרן ירושלים', reference: 'DON-2184', account: 'בנק לאומי • 7731', debit: 0, credit: 25000, allocation: 'פיתוח', month: '07/2026', status: 'open', statusLabel: 'ממתין לשליחה', attachment: true, note: 'יש לאשר את קטגוריית ההכנסה.', history: ['16.07.2026 · נקלט מקובץ הבנק'] },
+  { id: 7, date: '15.07.2026', description: 'חשמל — חברת החשמל', reference: '992774', account: 'בנק הפועלים • 1842', debit: 3940, credit: 0, allocation: 'מעון אשקלון', month: '07/2026', status: 'sent', statusLabel: 'נשלח להנה״ח', attachment: true, note: '', history: ['15.07.2026 · נשלח להנה״ח'] }
+];
+
+const state = { selected: 1, expanded: new Set([1]), quick: 'all', query: '', account: 'all', status: 'all' };
+const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 });
+const rowsEl = document.querySelector('#bank-rows');
+const detailsEl = document.querySelector('#bank-details');
+
+function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c])); }
+function filteredRows() {
+  const q = state.query.trim().toLowerCase();
+  return transactions.filter(row => (state.quick !== 'open' || ['open', 'missing'].includes(row.status)) && (state.quick !== 'split' || row.splits) && (state.status === 'all' || (state.status === 'open' ? ['open', 'missing'].includes(row.status) : row.status === state.status)) && (state.account === 'all' || row.account === state.account) && (!q || [row.description, row.reference, row.allocation, row.debit, row.credit].some(v => String(v).toLowerCase().includes(q))));
 }
-function parseIsraeliBankDate(value) {
-  const text = clean(value);
-  if (!text) return null;
-  const match = text.match(/^(\d{1,2})[/.](\d{1,2})[/.](\d{4})$/);
-  if (!match) return null;
-  const day = Number(match[1]);
-  const month = Number(match[2]);
-  const year = Number(match[3]);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
-  return date;
+function statusClass(status) { return status === 'sent' ? 'done' : status === 'missing' ? 'danger' : 'pending'; }
+function renderRows() {
+  const rows = filteredRows();
+  document.querySelector('#visible-count').textContent = `${rows.length} תנועות`;
+  rowsEl.innerHTML = rows.map(row => {
+    const expandable = Boolean(row.splits);
+    const expanded = state.expanded.has(row.id);
+    const parent = `<tr tabindex="0" data-id="${row.id}" class="transaction-row ${state.selected === row.id ? 'selected' : ''}"><td class="check-col"><input type="checkbox" aria-label="בחירת תנועה" /></td><td>${row.date}</td><td class="description-cell">${expandable ? `<button class="expand-button" data-expand="${row.id}" aria-label="${expanded ? 'סגירה' : 'פתיחה'}">${expanded ? '⌄' : '‹'}</button>` : '<span class="expand-spacer"></span>'}<span class="merchant-mark">${escapeHtml(row.description.slice(0, 1))}</span><strong>${escapeHtml(row.description)}</strong></td><td class="mono">${escapeHtml(row.reference)}</td><td>${escapeHtml(row.account)}</td><td class="amount debit">${row.debit ? money.format(row.debit) : '—'}</td><td class="amount credit">${row.credit ? money.format(row.credit) : '—'}</td><td><span class="allocation ${expandable ? 'split' : ''}">${escapeHtml(row.allocation)}</span></td><td>${row.month}</td><td><span class="status ${statusClass(row.status)}"><i></i>${escapeHtml(row.statusLabel)}</span></td><td class="attach-col"><span class="attachment ${row.attachment ? 'has-file' : ''}" title="${row.attachment ? 'יש מסמך' : 'אין מסמך'}">⌕</span></td></tr>`;
+    const children = expanded ? row.splits.map((split, index) => `<tr class="split-row"><td></td><td></td><td><span class="split-line"></span><small>פיצול ${index + 1}</small></td><td></td><td></td><td class="amount debit">${money.format(split.amount)}</td><td>—</td><td><span class="allocation">${escapeHtml(split.allocation)}</span><small class="category">${escapeHtml(split.category)}</small></td><td>${row.month}</td><td></td><td></td></tr>`).join('') : '';
+    return parent + children;
+  }).join('') || '<tr><td colspan="11" class="empty-row">לא נמצאו תנועות במסננים הנוכחיים.</td></tr>';
+  renderDetails();
 }
-function normalizeRow(row, fallbackIndex) {
-  const raw = row.raw || {};
-  const account = rawValue(raw, ['חשבון', 'account']);
-  const unit = clean(account);
-  const debit = safeNumber(row.debit);
-  const credit = safeNumber(row.credit);
-  const amountRaw = rawValue(raw, ['סכום', 'amount']);
-  return {
-    rowIndex: row.rowIndex || fallbackIndex + 2,
-    account: unit || UNASSIGNED_UNIT,
-    unit: unit || UNASSIGNED_UNIT,
-    cashDate: clean(row.cashDate || rawValue(raw, ['תאריך', 'תאריך בנק', 'תאריך פעולה'])),
-    description: rawValue(raw, ['תיאור תנועה', 'תיאור', 'description']) || clean(row.accountingCategory),
-    reference: clean(row.reference || rawValue(raw, ['אסמכתא', 'מספר אסמכתא'])),
-    amount: amountRaw || String(credit || debit || row.netCash || ''),
-    amountNumber: amountRaw ? safeNumber(String(amountRaw).replace(/[₪,\s]/g, '')) : safeNumber(row.netCash || credit - debit),
-    debit,
-    credit,
-    definition: clean(row.definition || rawValue(raw, ['הגדרה'])),
-    department: rawValue(raw, ['עבור מחלקה', 'מחלקה', 'department']),
-    businessMonth: clean(row.businessMonth || rawValue(raw, ['עבור חודש', 'חודש', 'חודש שיוך'])),
-    accountingStatus: clean(row.accountingStatus || rawValue(raw, ['הנה"ח', 'הנהח', 'סטטוס הנה"ח'])),
-    notes: clean(row.notes || rawValue(raw, ['הערות'])),
-  };
+function renderDetails() {
+  const row = transactions.find(item => item.id === state.selected) || filteredRows()[0];
+  if (!row) { detailsEl.hidden = true; return; }
+  detailsEl.hidden = false;
+  document.querySelector('#detail-title').textContent = row.description;
+  document.querySelector('#detail-content').innerHTML = `<div class="detail-amount"><span>${row.debit ? 'חובה' : 'זכות'}</span><strong class="${row.debit ? 'debit' : 'credit'}">${money.format(row.debit || row.credit)}</strong><small>${row.date} · ${escapeHtml(row.account)}</small></div><dl class="detail-grid"><div><dt>אסמכתא</dt><dd>${escapeHtml(row.reference)}</dd></div><div><dt>חודש דיווח</dt><dd>${row.month}</dd></div><div><dt>שיוך</dt><dd>${escapeHtml(row.allocation)}</dd></div><div><dt>סטטוס</dt><dd><span class="status ${statusClass(row.status)}"><i></i>${escapeHtml(row.statusLabel)}</span></dd></div></dl><section class="detail-section"><div class="detail-section-title"><h3>מסמכים</h3><button disabled>＋ הוספה</button></div>${row.attachment ? '<div class="document-row"><span>▱</span><div><strong>אסמכתא סרוקה.pdf</strong><small>Google Drive · מסמך הדגמה</small></div><button disabled>↗</button></div>' : '<div class="document-empty"><span>⌕</span><p>טרם צורף מסמך</p><small>בעתיד יוצגו כאן מסמכי Google Drive</small></div>'}</section><section class="detail-section"><h3>הערות</h3><p class="note-box">${escapeHtml(row.note || 'אין הערות לתנועה זו.')}</p></section><section class="detail-section"><h3>היסטוריה</h3><ul class="history-list">${row.history.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></section><details class="technical-info"><summary>מידע טכני</summary><p>מזהה פנימי, מקור יבוא ושדות בקרה יוצגו כאן בהרשאה מתאימה.</p></details>`;
 }
-function normalizePayload(payload) {
-  const rows = [...(Array.isArray(payload.rows) ? payload.rows : []), ...(Array.isArray(payload.unmappedRows) ? payload.unmappedRows : [])];
-  return rows.map(normalizeRow).filter((row) => row.businessMonth || row.cashDate || row.account || row.reference);
-}
-function accountingMonthFromDate(row) {
-  const date = parseIsraeliBankDate(row.cashDate);
-  if (!date) return '';
-  return String(date.getUTCMonth() + 1).padStart(2, '0') + '/' + date.getUTCFullYear();
-}
-function accountOptions() {
-  const values = [];
-  state.rows.forEach((row) => {
-    const unit = clean(row.unit) || UNASSIGNED_UNIT;
-    if (!values.includes(unit)) values.push(unit);
-  });
-  if (state.bank !== 'all' && state.bank && !values.includes(state.bank)) values.push(state.bank);
-  return values;
-}
-function rowsForBankAndMonth(month) {
-  return state.rows.filter((row) => (state.bank === 'all' || row.unit === state.bank) && (month === 'all' || accountingMonthFromDate(row) === month));
-}
-function parseMonthValue(month) {
-  const match = clean(month).match(/^(\d{2})\/(\d{4})$/);
-  return match ? { month: Number(match[1]), year: Number(match[2]) } : null;
-}
-function ytdMonths() {
-  if (state.month === 'all') return CALENDAR_MONTHS;
-  const selected = parseMonthValue(state.month);
-  if (!selected) return [];
-  return CALENDAR_MONTHS.filter((month) => {
-    const parsed = parseMonthValue(month);
-    return parsed && parsed.year === selected.year && parsed.month <= selected.month;
-  });
-}
-function ytdRows() {
-  if (state.month === 'all') return state.rows.filter((row) => state.bank === 'all' || row.unit === state.bank);
-  const months = new Set(ytdMonths());
-  return state.rows.filter((row) => (state.bank === 'all' || row.unit === state.bank) && months.has(accountingMonthFromDate(row)));
-}
-function bankDateTime(value) { return parseIsraeliBankDate(value)?.getTime() ?? Number.NEGATIVE_INFINITY; }
-function sourceRows() {
-  return rowsForBankAndMonth(state.month).filter((row) => state.status === 'all' || (state.status === '__empty' ? !row.accountingStatus : row.accountingStatus === state.status)).sort((a, b) => bankDateTime(b.cashDate) - bankDateTime(a.cashDate));
-}
-function metrics(rows) {
-  const countStatus = (status) => rows.filter((row) => row.accountingStatus === status).length;
-  const assigned = rows.filter((row) => row.accountingStatus).length;
-  return { total: rows.length, assigned, unassigned: rows.length - assigned, waiting: countStatus('ממתין לשליחה'), missing: countStatus('חסר מסמכים'), sent: countStatus(SENT_STATUS), noReference: countStatus('פעולה ללא אסמכתא') };
-}
-function amountMetrics(rows) {
-  const income = rows.reduce((total, row) => total + row.credit, 0);
-  const expenses = rows.reduce((total, row) => total + row.debit, 0);
-  const open = rows.filter((row) => row.accountingStatus !== SENT_STATUS).reduce((total, row) => total + row.credit - row.debit, 0);
-  return { income, expenses, open };
-}
-function explainButton(metricId) { return '<button class="explain-trigger" type="button" data-explain="' + escapeHtml(metricId) + '">הסבר</button>'; }
-function kpiCard(label, value, sub, tone, metricId) { return '<article class="kpi-card cashflow-kpi management-kpi ' + tone + '-kpi"><span class="kpi-icon" aria-hidden="true">' + escapeHtml(label.slice(0, 1)) + '</span><div><p>' + escapeHtml(label) + '</p><strong>' + escapeHtml(value) + '</strong><span>' + escapeHtml(sub) + '</span></div>' + (metricId ? explainButton(metricId) : '') + '</article>'; }
-function kpiCards(metric, scope) {
-  return [
-    ['שורות במערכת', metric.total, 'כל שורות BANKS', 'secondary', 'total'],
-    ['שורות משובצות', metric.assigned, 'סטטוס הנה"ח קיים', 'balance', 'assigned'],
-    ['שורות לא משובצות', metric.unassigned, 'ללא סטטוס הנה"ח', metric.unassigned ? 'expense' : 'balance', 'unassigned'],
-    ['ממתין לשליחה', metric.waiting, 'טרם נשלח', metric.waiting ? 'expense' : 'secondary', 'waiting'],
-    ['חסר מסמכים', metric.missing, 'דורש השלמה', metric.missing ? 'attention' : 'balance', 'missing'],
-    [SENT_STATUS, metric.sent, 'טופל', 'balance', 'sent'],
-    ['פעולה ללא אסמכתא', metric.noReference, 'סומן ב-BANKS', metric.noReference ? 'attention' : 'secondary', 'noReference'],
-  ].map(([label, value, sub, tone, id]) => kpiCard(label, numberFormatter.format(value), scope + ' · ' + sub, tone, id)).join('');
-}
-function renderKpis() {
-  const monthlyRows = rowsForBankAndMonth(state.month);
-  const ytd = ytdRows();
-  els.monthlyLabel.textContent = (state.bank === 'all' ? 'כל הבנקים' : state.bank) + ' · ' + (state.month === 'all' ? 'כל החודשים' : state.month);
-  els.monthlyGrid.innerHTML = kpiCards(metrics(monthlyRows), 'חודש');
-  const amounts = amountMetrics(monthlyRows);
-  els.amountGrid.innerHTML = [
-    kpiCard('סה"כ הכנסות', formatMoney(amounts.income), 'לפי שדות BANKS הקיימים', 'balance', ''),
-    kpiCard('סה"כ הוצאות', formatMoney(amounts.expenses), 'לפי שדות BANKS הקיימים', 'expense', ''),
-    kpiCard('סכום פתוח', formatMoney(amounts.open), 'שורות שטרם נשלחו להנה"ח', amounts.open ? 'attention' : 'balance', ''),
-  ].join('');
-  els.ytdLabel.textContent = state.month === 'all' ? 'כל חודשי 2026-2027' : ytdMonths()[0] + ' עד ' + state.month;
-  els.ytdGrid.innerHTML = kpiCards(metrics(ytd), 'שנה');
-}
-function renderDaycareOverview() {
-  const rows = ytdRows();
-  const units = state.bank === 'all' ? accountOptions().filter((unit) => rows.some((row) => row.unit === unit)) : [state.bank];
-  els.daycareCountLabel.textContent = numberFormatter.format(units.length) + ' מעונות';
-  els.daycareGrid.innerHTML = units.map((unit) => {
-    const unitRows = rows.filter((row) => row.unit === unit);
-    const metric = metrics(unitRows);
-    const treatment = metric.total ? Math.round(metric.assigned / metric.total * 100) : 0;
-    return '<article class="management-unit-card compact-unit-card accounting-daycare-card"><div class="compact-unit-head"><h3>' + escapeHtml(unit) + '</h3><b>' + escapeHtml(numberFormatter.format(treatment)) + '%</b><span>טיפול</span></div><dl class="unit-status-list compressed">' +
-      '<div><dt>סה"כ</dt><dd>' + numberFormatter.format(metric.total) + '</dd></div>' +
-      '<div><dt>משובץ</dt><dd>' + numberFormatter.format(metric.assigned) + '</dd></div>' +
-      '<div><dt>פתוח</dt><dd>' + numberFormatter.format(metric.unassigned) + '</dd></div>' +
-      '<div><dt>ממתין</dt><dd>' + numberFormatter.format(metric.waiting) + '</dd></div>' +
-      '<div><dt>חסר</dt><dd>' + numberFormatter.format(metric.missing) + '</dd></div>' +
-      '<div><dt>נשלח</dt><dd>' + numberFormatter.format(metric.sent) + '</dd></div>' +
-      '<div><dt>ללא אסמכתא</dt><dd>' + numberFormatter.format(metric.noReference) + '</dd></div>' +
-      '</dl></article>';
-  }).join('');
-}
-function renderSourceTable() {
-  const rows = sourceRows();
-  els.sourceCountLabel.textContent = rows.length ? numberFormatter.format(rows.length) + ' שורות' : 'אין שורות';
-  els.sourceTableBody.innerHTML = rows.length ? rows.map((row) => '<tr><td data-label="חשבון">' + escapeHtml(row.account) + '</td><td data-label="תאריך">' + escapeHtml(row.cashDate) + '</td><td data-label="תיאור תנועה">' + escapeHtml(row.description) + '</td><td data-label="אסמכתא">' + escapeHtml(row.reference) + '</td><td data-label="סכום">' + escapeHtml(row.amount) + '</td><td data-label="הגדרה">' + escapeHtml(row.definition) + '</td><td data-label="עבור מחלקה">' + escapeHtml(row.department) + '</td><td data-label="עבור חודש">' + escapeHtml(displayBusinessMonth(row)) + '</td><td data-label="הנה&quot;ח">' + escapeHtml(row.accountingStatus) + '</td><td data-label="הערות">' + escapeHtml(row.notes) + '</td></tr>').join('') : '<tr><td colspan="10">אין שורות BANKS להצגה במסננים הנוכחיים.</td></tr>';
-}
-function renderFilters() {
-  els.bankFilter.innerHTML = option('all', 'הכל') + accountOptions().map((unit) => option(unit, unit)).join('');
-  els.monthFilter.innerHTML = option('all', 'הכל') + CALENDAR_MONTHS.map((month) => option(month, month)).join('');
-  els.statusFilter.innerHTML = option('all', 'הכל') + option('__empty', 'ללא סטטוס') + STATUS_VALUES.map((status) => option(status, status)).join('');
-  els.bankFilter.value = state.bank;
-  els.monthFilter.value = state.month;
-  els.statusFilter.value = state.status;
-}
-function displayBusinessMonth(row) { return row.businessMonth || 'לא שויך לחודש'; }
-function syncRefreshButton() {
-  if (!els.refreshData) return;
-  els.refreshData.disabled = state.isRefreshing;
-  els.refreshData.textContent = state.isRefreshing ? 'מרענן נתונים...' : 'רענן נתונים';
-}
-function renderAll() { renderFilters(); syncRefreshButton(); renderKpis(); renderDaycareOverview(); renderSourceTable(); }
-function csvEscape(value) { const text = String(value ?? ''); return /[",\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text; }
-function sourceCsv() {
-  const columns = ['חשבון', 'תאריך', 'תיאור תנועה', 'אסמכתא', 'סכום', 'הגדרה', 'עבור מחלקה', 'עבור חודש', 'הנה"ח', 'הערות'];
-  const rows = sourceRows().map((row) => [row.account, row.cashDate, row.description, row.reference, row.amount, row.definition, row.department, displayBusinessMonth(row), row.accountingStatus, row.notes]);
-  return [columns, ...rows].map((line) => line.map(csvEscape).join(',')).join('\n');
-}
-async function copyText(text) {
-  if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
-  const textarea = document.createElement('textarea'); textarea.value = text; document.body.append(textarea); textarea.select(); document.execCommand('copy'); textarea.remove();
-}
-function downloadCsv() {
-  const blob = new Blob([sourceCsv()], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a'); link.href = url; link.download = 'accounting-banks-' + state.month.replace('/', '-') + '.csv'; link.click(); URL.revokeObjectURL(url);
-}
-function openExplanation(metricId) {
-  const monthly = metrics(rowsForBankAndMonth(state.month));
-  const labels = { total: 'שורות במערכת', assigned: 'שורות משובצות', unassigned: 'שורות לא משובצות', waiting: 'ממתין לשליחה', missing: 'חסר מסמכים', sent: SENT_STATUS, noReference: 'פעולה ללא אסמכתא' };
-  els.explainTitle.textContent = labels[metricId] || 'הסבר';
-  els.explainValue.textContent = numberFormatter.format(monthly[metricId] || 0);
-  els.explainScope.textContent = els.monthlyLabel.textContent;
-  els.explainSource.textContent = 'BANKS';
-  els.explainTotal.textContent = numberFormatter.format(rowsForBankAndMonth(state.month).length) + ' שורות';
-  els.explainRule.textContent = EXPLANATIONS[metricId] || 'לפי שורות BANKS במסננים הנוכחיים.';
-  els.explainText.textContent = EXPLANATIONS[metricId] || '';
-  els.explainOverlay.dataset.metricId = metricId;
-  els.explainOverlay.hidden = false;
-}
-function captureUiState() {
-  return {
-    bank: state.bank,
-    month: state.month,
-    status: state.status,
-    explanationOpen: Boolean(els.explainOverlay && !els.explainOverlay.hidden),
-    explanationMetric: els.explainOverlay && !els.explainOverlay.hidden ? els.explainOverlay.dataset.metricId || '' : '',
-  };
-}
-function restoreUiState(snapshot) {
-  if (!snapshot) return;
-  state.bank = snapshot.bank || 'all';
-  state.month = snapshot.month || 'all';
-  state.status = snapshot.status || 'all';
-}
-function markSuccessfulRefresh() {
-  els.lastUpdate.textContent = 'עודכן לאחרונה: ' + new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
-}
-async function fetchAccountingRows() {
-  const response = await fetch(API_ENDPOINT, { headers: { Accept: 'application/json' } });
-  if (!response.ok) throw new Error('Allocations returned ' + response.status);
-  return normalizePayload(await response.json());
-}
-async function refreshAccountingData() {
-  if (state.isRefreshing) return;
-  const snapshot = captureUiState();
-  state.isRefreshing = true;
-  syncRefreshButton();
-  try {
-    state.rows = await fetchAccountingRows();
-    restoreUiState(snapshot);
-    markSuccessfulRefresh();
-    renderAll();
-    if (snapshot.explanationOpen && snapshot.explanationMetric) openExplanation(snapshot.explanationMetric);
-  } finally {
-    state.isRefreshing = false;
-    syncRefreshButton();
-  }
-}
-async function loadAccountingData() {
-  renderFilters();
-  await refreshAccountingData();
-}
-function scheduleAutoRefresh() {
-  window.clearInterval(state.refreshTimer);
-  state.refreshTimer = window.setInterval(() => {
-    refreshAccountingData().catch((error) => console.error(error));
-  }, REFRESH_INTERVAL_MS);
-}
-function bindEvents() {
-  els.bankFilter.addEventListener('change', (event) => { state.bank = event.target.value; renderAll(); });
-  els.monthFilter.addEventListener('change', (event) => { state.month = event.target.value; renderAll(); });
-  els.statusFilter.addEventListener('change', (event) => { state.status = event.target.value; renderAll(); });
-  if (els.refreshData) els.refreshData.addEventListener('click', () => { refreshAccountingData().catch((error) => console.error(error)); });
-  els.copySourceTable.addEventListener('click', () => copyText(sourceCsv()));
-  els.exportSourceCsv.addEventListener('click', downloadCsv);
-  document.addEventListener('click', (event) => {
-    const explain = event.target.closest('[data-explain]');
-    if (explain) openExplanation(explain.dataset.explain);
-    if (event.target.closest('[data-close-explain]') || event.target === els.explainOverlay) { els.explainOverlay.hidden = true; els.explainOverlay.dataset.metricId = ''; }
-  });
-}
-bindEvents();
-scheduleAutoRefresh();
-window.addEventListener('pageshow', (event) => {
-  if (event.persisted) refreshAccountingData().catch((error) => console.error(error));
+function selectRow(id) { state.selected = id; renderRows(); document.querySelector(`[data-id="${id}"]`)?.focus({ preventScroll: true }); }
+document.addEventListener('click', event => {
+  const expand = event.target.closest('[data-expand]');
+  if (expand) { event.stopPropagation(); const id = Number(expand.dataset.expand); state.expanded.has(id) ? state.expanded.delete(id) : state.expanded.add(id); state.selected = id; renderRows(); return; }
+  const row = event.target.closest('.transaction-row'); if (row) selectRow(Number(row.dataset.id));
+  const quick = event.target.closest('[data-quick]'); if (quick) { state.quick = quick.dataset.quick; document.querySelectorAll('[data-quick]').forEach(el => el.classList.toggle('active', el === quick)); renderRows(); }
 });
-loadAccountingData().catch((error) => {
-  els.lastUpdate.textContent = 'עודכן לאחרונה: שגיאה';
-  els.monthlyGrid.innerHTML = '<p class="empty-state">לא ניתן לטעון כרגע את נתוני BANKS.</p>';
-  console.error(error);
+document.addEventListener('keydown', event => {
+  if (event.key === '/' && document.activeElement?.tagName !== 'INPUT') { event.preventDefault(); document.querySelector('#bank-search').focus(); return; }
+  if (!['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key) || ['INPUT', 'SELECT'].includes(document.activeElement?.tagName)) return;
+  const rows = filteredRows(); const index = rows.findIndex(row => row.id === state.selected);
+  if (event.key === 'Enter') { const row = rows[index]; if (row?.splits) { state.expanded.has(row.id) ? state.expanded.delete(row.id) : state.expanded.add(row.id); renderRows(); } return; }
+  event.preventDefault(); const next = event.key === 'ArrowDown' ? Math.min(index + 1, rows.length - 1) : Math.max(index - 1, 0); if (rows[next]) selectRow(rows[next].id);
 });
+document.querySelector('#bank-search').addEventListener('input', event => { state.query = event.target.value; renderRows(); });
+document.querySelector('#account-filter').addEventListener('change', event => { state.account = event.target.value; renderRows(); });
+document.querySelector('#status-filter').addEventListener('change', event => { state.status = event.target.value; renderRows(); });
+document.querySelector('#clear-filters').addEventListener('click', () => { state.query = ''; state.account = 'all'; state.status = 'all'; state.quick = 'all'; document.querySelector('#bank-search').value = ''; document.querySelector('#account-filter').value = 'all'; document.querySelector('#status-filter').value = 'all'; document.querySelectorAll('[data-quick]').forEach(el => el.classList.toggle('active', el.dataset.quick === 'all')); renderRows(); });
+document.querySelector('#close-details').addEventListener('click', () => { detailsEl.hidden = true; });
+renderRows();
