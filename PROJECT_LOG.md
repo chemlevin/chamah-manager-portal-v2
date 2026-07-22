@@ -1761,3 +1761,39 @@ Validation:
 Residual risk:
 
 - Canonical presentation labels cover every current `portal_sections` screen code. A future screen code should add its Hebrew label to the same catalog when introduced.
+
+## 2026-07-22 - TRACK: 009 Administration Prototype
+
+Objective: Build the first working Administration prototype for Variables, Calculation Tables, and Calculation Rules inside `/new/` using demo data only.
+
+Implementation:
+
+- Added three Hebrew RTL, memory-backed screens using the existing metadata-driven Administration Framework.
+- Added Chamah demo examples for staffing ratios, seniority, persistence bonus, and food costs.
+- Extended the shared framework with duplicate and enable/disable row actions alongside list, add, edit, delete, search, filters, sorting, and pagination.
+- Kept all prototype writes in browser memory; refresh resets the demo data.
+- Did not connect Dashboard, Payroll, Budget, Supabase business tables, APIs, or real calculation engines.
+- Reused the existing permission catalog screen codes; no schema, RLS, Auth, permission, or API contract changes were made.
+
+Files changed:
+
+- `chamah-manager-portal/new/admin-framework.js`
+- `chamah-manager-portal/new/administration-prototype.js`
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/index.html`
+- `docs/architecture/administration-framework.md`
+- `tests/admin-framework.spec.mjs`
+- `tests/administration-prototype.spec.mjs`
+- `tests/new-portal-sections.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- JavaScript syntax checks passed for changed application and test files.
+- `npm.cmd run build` passed.
+- Focused Administration Framework and prototype tests passed across desktop 1440, laptop 1280, mobile 390, and mobile 430: 37 passed, 3 viewport-independent checks intentionally skipped.
+- Final affected administration and portal-section regression passed across all four responsive projects: 113 passed, 3 viewport-independent checks intentionally skipped.
+
+Residual risk:
+
+- Prototype changes are intentionally non-persistent and reset on refresh. Persistence, real database entities, calculation-engine integration, and atomic audit behavior require separately authorized tracks.

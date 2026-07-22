@@ -1,12 +1,14 @@
 # Administration Framework
 
-Status: Implemented foundation. No business Settings pages are included.
+Status: Implemented foundation with TRACK 009 in-memory prototype screens.
 
 Last updated: 2026-07-22
 
 ## Purpose
 
-`chamah-manager-portal/new/admin-framework.js` creates Hebrew RTL administration pages from metadata. Future Settings pages supply an entity description and a repository; they do not implement their own table, form, search, filter, sorting, pagination, validation, or save/cancel workflow.
+`chamah-manager-portal/new/admin-framework.js` creates Hebrew RTL administration pages from metadata. Settings pages supply an entity description and a repository; they do not implement their own table, form, search, filter, sorting, pagination, validation, save/cancel, duplication, or enable/disable workflow.
+
+TRACK 009 uses this boundary for three demo-only screens: Variables, Calculation Tables, and Calculation Rules. Their repositories are memory-only, reset on refresh, and do not call Dashboard, Payroll, Budget, Supabase business tables, or calculation engines.
 
 ## Architecture
 

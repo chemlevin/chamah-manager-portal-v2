@@ -89,6 +89,18 @@ test.describe('metadata-driven administration framework', () => {
     await expect(page.getByText('הרשומה נמחקה בהצלחה')).toBeVisible();
   });
 
+  test('duplicates and enables or disables records', async ({ page }) => {
+    await mount(page, { rows: rows.slice(0, 1) });
+    await page.getByRole('button', { name: 'שכפול' }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await page.getByLabel('קוד הגדרה *').fill('ALPHACOPY');
+    await page.getByRole('button', { name: 'שמירה' }).click();
+    await expect(page.locator('tbody tr')).toHaveCount(2);
+    await page.getByRole('button', { name: 'השבתה' }).first().click();
+    await expect(page.getByText('הרשומה הושבתה')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'הפעלה' })).toBeVisible();
+  });
+
   test('shows loading, empty and recoverable error states', async ({ page }) => {
     await mount(page, { repositoryMode: 'delayed' });
     await expect(page.getByText('טוען נתונים…')).toBeVisible();

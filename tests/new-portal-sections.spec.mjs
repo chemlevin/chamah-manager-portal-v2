@@ -10,11 +10,12 @@ const routes = [
   ['training', 'הרשאות וטבלאות', ['training/permissions', 'training/rules', 'training/tables', 'training/audit']],
   ['training/permissions', 'הרשאות', ['training/permissions/users']],
   ['training/permissions/users', 'רשימת משתמשים והרשאות', []],
-  ['training/rules', 'כללים', ['training/rules/system']],
+  ['training/rules', 'כללים', ['training/rules/calculation', 'training/rules/system']],
   ['training/rules/system', 'כללי מערכת', []],
+  ['training/rules/calculation', 'כללי חישוב', []],
   ['training/tables', 'טבלאות', ['training/tables/calculation', 'training/tables/variables']],
   ['training/tables/calculation', 'טבלאות חישוב', []],
-  ['training/tables/variables', 'כללים משתנים', []],
+  ['training/tables/variables', 'משתנים', []],
   ['training/audit', 'יומן שינויים', []]
 ];
 
@@ -71,16 +72,16 @@ test.describe('payroll and training portal sections', () => {
     await expect(page.locator('[data-rule]:visible summary')).toContainText('BR-0041');
   });
 
-  test('management tables use real read-only sources and audit does not fake history', async ({ page }) => {
+  test('administration prototypes stay isolated while audit does not fake history', async ({ page }) => {
     await mockNewPortalSupabase(page);
     await openNewPortal(page, 'training/tables/calculation');
-    await expect(page.locator('.management-table-card')).toHaveCount(14);
-    await expect(page.getByText('שנות לימודים', { exact: true })).toBeVisible();
-    await expect(page.getByText('חשבונות בנק', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'טבלאות חישוב' })).toBeVisible();
+    await expect(page.locator('.admin-table tbody tr')).toHaveCount(4);
+    await expect(page.getByText('יחסי תקינה לפי גיל', { exact: true })).toBeVisible();
 
     await page.evaluate(() => { location.hash = 'training/tables/variables'; });
-    await expect(page.getByRole('heading', { level: 1, name: 'כללים משתנים' })).toBeVisible();
-    await expect(page.locator('.management-table-card')).toHaveCount(5);
+    await expect(page.getByRole('heading', { level: 1, name: 'משתנים' })).toBeVisible();
+    await expect(page.locator('.admin-table tbody tr')).toHaveCount(4);
 
     await page.evaluate(() => { location.hash = 'training/audit'; });
     await expect(page.getByRole('heading', { level: 1, name: 'יומן שינויים' })).toBeVisible();
