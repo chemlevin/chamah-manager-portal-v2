@@ -1829,3 +1829,35 @@ Validation:
 Residual risk:
 
 - Future screen codes must still be added to the authoritative Hebrew catalog to receive a specific name; until then they display `מסך נוסף` safely.
+
+## 2026-07-22 - TRACK: 008A Compact Permissions and SUPER_ADMIN Protection
+
+Objective: Continue the real-iPhone permissions UI stabilization with de-duplicated Hebrew labels, a compact explicit-permission table, automatic registered-screen handling, and a safer SUPER_ADMIN workflow.
+
+Implementation:
+
+- De-duplicated registered portal screens by stable `screen_code` before rendering while retaining the authoritative Hebrew label catalog.
+- Accepted a new screen's registered Hebrew display name automatically when it is valid; damaged or missing metadata receives a numbered neutral Hebrew fallback without exposing the raw code.
+- Replaced permission cards and dropdowns with one compact RTL table row per registered screen and three radio choices: `מוסתר`, `צפייה`, and `עריכה`.
+- Kept exactly one selected permission per screen. Registered screens without a stored explicit row default to `HIDDEN` and are included in the save payload automatically.
+- Replaced the permanently visible SUPER_ADMIN selection with a read-only access-level summary and a collapsed `הצג הרשאת משתמש־על` control.
+- Added explicit grant/remove actions, full-access impact copy, confirmation warnings, cancellation handling, and a submit guard that rejects an unconfirmed SUPER_ADMIN change.
+- Preserved the existing secured endpoint, backend SUPER_ADMIN behavior, permission levels, authorization enforcement, organizational scope model, schema, and RLS.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/styles.css`
+- `tests/portal-permissions.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- JavaScript syntax checks, `git diff --check`, and `npm.cmd run build` passed.
+- Focused permissions, duplicate-screen, automatic-new-screen, corrupted-label, and SUPER_ADMIN grant/remove confirmation coverage passed across desktop 1440, laptop 1280, mobile 390, and mobile 430: 24 passed.
+- Portal foundation and all Payroll/Administration section routes passed across the same four responsive projects: 88 passed.
+- In-app browser verification confirmed UTF-8, Hebrew RTL, no visible mojibake, no horizontal overflow, and no browser warnings/errors at desktop 1440 and iPhone 390.
+
+Residual risk:
+
+- Unknown future screens with missing or damaged registered Hebrew metadata receive a safe generic label until their registry metadata is corrected.

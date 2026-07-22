@@ -28,22 +28,84 @@ test('permission management renders real controls and saves through the secured 
   await openWithAccess(page, portalAccessFixture, 'training/permissions/users');
   await expect(page.getByRole('heading', { name: 'רשימת משתמשים והרשאות' })).toBeVisible();
   await expect(page.locator('[data-screen]')).toHaveCount(portalAccessFixture.sections.length);
-  await expect(page.locator('.permission-screen-name').first()).toHaveText('עמוד הבית');
+  await expect(page.locator('[data-screen="home"] .permission-screen-name')).toHaveText('עמוד הבית');
   await expect(page.getByText('home', { exact: true })).toHaveCount(0);
-  await expect(page.locator('.permission-group')).toHaveCount(portalAccessFixture.sections.filter((item) => !item.screen_code.includes('.')).length);
-  await expect(page.getByLabel('רמת הרשאה')).toHaveValue('PORTAL');
+  await expect(page.locator('.permission-group')).toHaveCount(0);
+  await expect(page.locator('#permissions-form select')).toHaveCount(0);
+  await expect(page.locator('.permission-table thead th')).toHaveText(['שם העמוד', 'מוסתר', 'צפייה', 'עריכה']);
   await expect(page.getByText('בירושה', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /החלה|הסתרת כל המסכים|הרחבת הכול/ })).toHaveCount(0);
-  await expect(page.locator('[data-permission]').first()).toHaveValue('VIEW');
-  await expect(page.locator('[data-permission]').nth(1)).toHaveValue('HIDDEN');
+  await expect(page.locator('[data-screen="home"] [data-permission]')).toHaveCount(3);
+  await expect(page.locator('[data-screen="home"] [data-permission]:checked')).toHaveValue('VIEW');
+  await expect(page.locator('[data-screen="dashboards"] [data-permission]:checked')).toHaveValue('HIDDEN');
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
-  await page.locator('[data-permission]').nth(1).selectOption('EDIT');
+  await page.locator('[data-screen="dashboards"] [data-permission][value="EDIT"]').check();
   await page.locator('#permissions-form button[type="submit"]').click();
   await expect.poll(() => saved?.permissions?.length).toBe(portalAccessFixture.sections.length);
   expect(saved.permissions.find((item) => item.screen_code === 'home')?.permission_level).toBe('VIEW');
   expect(saved.permissions[1].permission_level).toBe('EDIT');
   expect(saved.permissions.every((item) => ['HIDDEN', 'VIEW', 'EDIT'].includes(item.permission_level))).toBe(true);
   await expect(page.locator('#permissions-feedback')).toContainText('נשמרו בהצלחה');
+});
+
+test('registered screens are de-duplicated and new screens default to HIDDEN', async ({ page }) => {
+  const registeredSections = [...snapshot.sections, { ...snapshot.sections[0], display_order: 999 }, { screen_code: 'future.reports', parent_screen_code: 'future', display_name: 'דוחות חדשים', display_order: 1000 }];
+  const registeredSnapshot = { ...snapshot, sections: registeredSections };
+  await page.route(`${base}/functions/v1/portal-users`, (route) => route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8', body: JSON.stringify(registeredSnapshot) }));
+  await openWithAccess(page, portalAccessFixture, 'training/permissions/users');
+  await expect(page.locator('[data-screen="home"]')).toHaveCount(1);
+  await expect(page.locator('[data-screen="future.reports"]')).toHaveCount(1);
+  await expect(page.locator('[data-screen="future.reports"] .permission-screen-name')).toHaveText('דוחות חדשים');
+  await expect(page.locator('[data-screen="future.reports"] [data-permission]:checked')).toHaveValue('HIDDEN');
+  await expect(page.getByText('future.reports', { exact: true })).toHaveCount(0);
+});
+
+test('SUPER_ADMIN stays collapsed and requires confirmed explicit change', async ({ page }) => {
+  let saved;
+  await page.route(`${base}/functions/v1/portal-users`, async (route) => {
+    if (route.request().method() === 'PATCH') saved = route.request().postDataJSON();
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(snapshot) });
+  });
+  await openWithAccess(page, portalAccessFixture, 'training/permissions/users');
+  await expect(page.getByText('רמת הרשאה', { exact: true })).toBeVisible();
+  await expect(page.locator('#super-admin-control')).toBeHidden();
+  await expect(page.locator('input[name="is_super_admin"]')).toHaveAttribute('type', 'hidden');
+  await page.locator('input[name="is_super_admin"]').evaluate((input) => { input.value = 'true'; });
+  await page.locator('#permissions-form button[type="submit"]').click();
+  await expect(page.locator('#permissions-feedback')).toContainText('יש לאשר במפורש');
+  expect(saved).toBeUndefined();
+  await page.getByRole('button', { name: 'הצג הרשאת משתמש־על' }).click();
+  await expect(page.locator('#super-admin-control')).toBeVisible();
+  await expect(page.locator('#super-admin-control')).toContainText('גישה מלאה לכל המסכים, ההגדרות וכלי הניהול');
+  await page.locator('input[name="is_super_admin"]').evaluate((input) => { input.value = 'false'; });
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'הענקת הרשאת משתמש־על' }).click();
+  await expect(page.locator('#access-level-value')).toHaveText('מנהלת־על');
+  await page.locator('#permissions-form button[type="submit"]').click();
+  await expect.poll(() => saved?.profile?.is_super_admin).toBe(true);
+});
+
+test('removing SUPER_ADMIN also requires confirmation', async ({ page }) => {
+  let saved;
+  const superSnapshot = { ...snapshot, profiles: snapshot.profiles.map((profile) => ({ ...profile, is_super_admin: true, scope_mode: 'ORGANIZATION' })) };
+  await page.route(`${base}/functions/v1/portal-users`, async (route) => {
+    if (route.request().method() === 'PATCH') saved = route.request().postDataJSON();
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(superSnapshot) });
+  });
+  await openWithAccess(page, portalAccessFixture, 'training/permissions/users');
+  await page.getByRole('button', { name: 'הצג הרשאת משתמש־על' }).click();
+  page.once('dialog', (dialog) => dialog.dismiss());
+  await page.getByRole('button', { name: 'הסרת הרשאת משתמש־על' }).click();
+  await expect(page.locator('#access-level-value')).toHaveText('מנהלת־על');
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'הסרת הרשאת משתמש־על' }).click();
+  await expect(page.locator('#access-level-value')).toHaveText('משתמשת פורטל');
+  await expect(page.locator('[data-screen="home"] [data-permission]:checked')).toHaveValue('VIEW');
+  await expect(page.locator('[data-screen="dashboards"] [data-permission]:checked')).toHaveValue('HIDDEN');
+  await expect(page.locator('[data-permission]:disabled')).toHaveCount(0);
+  await page.locator('#permissions-form button[type="submit"]').click();
+  await expect.poll(() => saved?.profile?.is_super_admin).toBe(false);
+  expect(saved.permissions.find((item) => item.screen_code === 'home')?.permission_level).toBe('VIEW');
+  expect(saved.permissions.find((item) => item.screen_code === 'dashboards')?.permission_level).toBe('HIDDEN');
 });
 
 test('HIDDEN removes navigation and blocks the route', async ({ page }) => {
