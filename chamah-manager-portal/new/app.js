@@ -7,7 +7,7 @@ const SUPABASE_KEY = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
 const SESSION_KEY = 'chamah.portal.session';
 const SESSION_REFRESH_LEEWAY_SECONDS = 60;
 const MIN_PASSWORD_LENGTH = 10;
-const CANONICAL_PORTAL_URL = 'https://chamah-manager-portal-v2.vercel.app/';
+const CANONICAL_PORTAL_URL = 'https://chamah-portal.vercel.app/';
 const $ = (selector) => document.querySelector(selector);
 const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 });
 const number = new Intl.NumberFormat('he-IL', { maximumFractionDigits: 1 });

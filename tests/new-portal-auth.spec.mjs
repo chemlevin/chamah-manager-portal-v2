@@ -99,7 +99,7 @@ test.describe('new portal Supabase authentication', () => {
     await page.locator('#request-recovery').click();
     await expect(page.locator('#recovery-request-message')).toContainText('אם הכתובת מורשית במערכת');
     expect(recoveryBody).toEqual({ email: 'existing@example.org' });
-    expect(new URL(recoveryUrl).searchParams.get('redirect_to')).toBe('https://chamah-manager-portal-v2.vercel.app/');
+    expect(new URL(recoveryUrl).searchParams.get('redirect_to')).toBe('https://chamah-portal.vercel.app/');
     await expect(page.locator('#login-submit')).toBeVisible();
   });
 

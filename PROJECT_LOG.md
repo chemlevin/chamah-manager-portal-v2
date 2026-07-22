@@ -1452,3 +1452,19 @@ Validation:
 - Complete focused occupancy engine, UI, and screenshot suite passed: 81 passed and 3 expected screenshot-project skips.
 - An initial exhaustive test attempt exceeded its timeout because the test tried to click a deliberately hidden Reset control between scenarios; removing that unnecessary test action resolved the harness delay without an application change.
 - The first full-regression command reached its 15-minute wrapper limit without reporting a test failure; the repeated run with an adequate window completed successfully: 415 passed and 9 intentionally skipped.
+
+## 2026-07-22 - New Portal Production Callback Cutover
+
+Objective: Point password recovery and invitation completion at the permanent `chamah-portal` Production origin before merging the approved new portal into `main`.
+
+Implementation:
+
+- Changed the canonical portal callback from the legacy `cmh-ops` domain to `https://chamah-portal.vercel.app/`.
+- Updated the authentication regression assertion to enforce the permanent Production callback.
+- Left Supabase schema, RLS, authentication configuration, project data, and the old Vercel project unchanged.
+
+Validation:
+
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `npm.cmd run build` passed and built the new portal at the deployment root.
+- Full `npx.cmd playwright test` regression passed: 415 passed and 9 intentionally skipped.
