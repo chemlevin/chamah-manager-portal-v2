@@ -1652,6 +1652,45 @@ Known remaining boundary:
 
 - The users/permissions area is server-enforced. Other modules use the new navigation/route guards and client-side scope filtering only; their existing broad authenticated PostgREST read policies were deliberately not changed. Server-side scoped access for those modules remains future work, as explicitly requested.
 
+## 2026-07-22 - Reusable Administration Framework
+
+Objective: Build metadata-driven infrastructure for future Settings pages without creating business settings pages or changing existing application behavior.
+
+Implementation:
+
+- Added an isolated administration controller that generates a generic table and form from metadata.
+- Added search, metadata-defined filters, sorting, page-size selection, pagination, field and record validation, CRUD coordination, save/cancel behavior, unsaved-change confirmation, and browser-leave protection.
+- Added loading, empty, no-results, error/retry, saving, success, and validation states.
+- Added isolated RTL responsive styles with mobile card-table rendering and a mobile form sheet.
+- Added an English database field to Hebrew UI label contract through field metadata.
+- Added repository boundaries so future pages can use metadata without custom CRUD UI code.
+- Added a signed-in-user PostgREST repository adapter that preserves existing RLS/privileges and writes centralized `audit_events` rows after successful mutations.
+- Added a memory repository for deterministic tests and future UI development.
+- Added architecture documentation, including the current non-atomic boundary between a Data API mutation and a client-written audit event.
+- Did not add business Settings pages or modify business logic, existing queries, dashboards, payroll, Accounting, Budget Engine, calculators, APIs, permissions, RLS, schema, or existing portal routes.
+
+Files changed:
+
+- `chamah-manager-portal/new/admin-framework.js`
+- `chamah-manager-portal/new/admin-framework.css`
+- `docs/architecture/administration-framework.md`
+- `tests/admin-framework.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- `node --check chamah-manager-portal/new/admin-framework.js` passed.
+- `node --check tests/admin-framework.spec.mjs` passed.
+- `git diff --check` passed for the task files.
+- `npm.cmd run build` passed and copied the framework into the generated deployment root.
+- Focused administration framework suite passed across desktop 1440, laptop 1280, mobile 390, and mobile 430: 21 passed and 3 viewport-independent request-contract checks intentionally skipped.
+- Full Playwright regression executed 528 tests: 514 passed, 12 were intentionally skipped, and 2 existing portal-foundation tests failed before home rendering because the concurrent uncommitted Users & Permissions implementation added a `portal_my_access` request that the older foundation helper does not mock. The administration framework tests all passed inside the full run; no concurrent task files were modified to resolve the unrelated fixture gap.
+- After the independent Users & Permissions commit supplied its completed fixture, the two affected desktop foundation tests and the remaining desktop foundation check passed (3 passed). The administration framework suite was then repeated successfully (21 passed, 3 intentionally skipped).
+
+Remaining risk:
+
+- Generic PostgREST mutation and audit insertion are separate requests. Entities requiring atomic audit history should receive a dedicated database function or trigger in a separately authorized schema/API task.
+
 ## 2026-07-22 - Permissions Infrastructure Preview Deployment
 
 - Deployed commit `0487a44` to Vercel Preview only: `https://chamah-portal-dkpkph61w-chamah.vercel.app`.
