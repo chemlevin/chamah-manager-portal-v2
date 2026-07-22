@@ -7,15 +7,20 @@ const openPortal = async (page, route = 'home') => {
 };
 
 test.describe('new portal foundation', () => {
-  test('renders the Hebrew RTL home and seven navigation cards', async ({ page }) => {
+  test('renders the Hebrew RTL home and all nine top-level sections', async ({ page }) => {
     await openPortal(page);
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.getByRole('heading', { level: 1 })).toContainText('ברוכה הבאה');
-    await expect(page.locator('.module-card')).toHaveCount(7);
+    await expect(page.locator('.module-card')).toHaveCount(9);
     await expect(page.locator('.module-card[href="#dashboards"]')).toBeVisible();
-    await expect(page.locator('.module-card[href="#knowledge"]')).toBeVisible();
+    await expect(page.locator('.module-card[href="#calculators"]')).toBeVisible();
+    await expect(page.locator('.module-card[href="#dashboards/unit/organization/staffing"]')).toContainText('צוות ורישוי');
+    await expect(page.locator('.module-card[href="#dashboards/unit/organization/accounting"]')).toContainText('הנה״ח');
     await expect(page.locator('.module-card[href="#payroll"]')).toBeVisible();
-    await expect(page.locator('.module-card[href="#training"]')).toBeVisible();
+    await expect(page.locator('.module-card[href="#training"]')).toContainText('הרשאות וטבלאות');
+    await expect(page.locator('.module-card[href="#knowledge"]')).toContainText('מרכז הידע למשתמש');
+    await expect(page.locator('.module-card[href="#maintenance"]')).toBeVisible();
+    await expect(page.locator('.module-card[href="#tasks"]')).toBeVisible();
   });
 
   test('opens a consistent coming-soon screen from a module card', async ({ page }) => {

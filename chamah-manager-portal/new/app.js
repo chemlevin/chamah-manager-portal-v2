@@ -15,11 +15,13 @@ const number = new Intl.NumberFormat('he-IL', { maximumFractionDigits: 1 });
 const modules = [
   { route: 'dashboards', icon: '📊', title: 'דשבורדים', description: 'תמונת מצב ניהולית ברורה לפי היחידה הארגונית הרלוונטית.' },
   { route: 'calculators', icon: '🧮', title: 'מחשבונים', description: 'כלי חישוב ותכנון שיסייעו בקבלת החלטות מהירה ומדויקת.' },
+  { route: 'staffing', href: 'dashboards/unit/organization/staffing', icon: '👥', title: 'צוות ורישוי', description: 'תמונת מצב ארגונית של צוות, הכשרות ורישוי.' },
+  { route: 'accounting', href: 'dashboards/unit/organization/accounting', icon: '🧾', title: 'הנה״ח', description: 'בקרה ארגונית על תהליכי הנהלת החשבונות.' },
   { route: 'payroll', icon: '₪', title: 'שכר', description: 'מרכז מודולרי לתהליכי שכר ולחישובי שכר.' },
-  { route: 'training', icon: '🎓', title: 'הדרכה והפעלה', description: 'מדריכים וכלי הפעלה ארגוניים במקום אחד.' },
-  { route: 'tasks', icon: '✅', title: 'משימות', description: 'ריכוז משימות, מעקב אחר ביצוע ותיעדוף העבודה השוטפת.' },
+  { route: 'training', icon: '▤', title: 'הרשאות וטבלאות', description: 'טבלאות וכלי הרשאות ארגוניים במקום אחד.' },
+  { route: 'knowledge', icon: '📚', title: 'מרכז הידע למשתמש', description: 'נהלים, הנחיות מקצועיות ומידע שימושי במקום אחד.' },
   { route: 'maintenance', icon: '🔧', title: 'תחזוקה', description: 'דיווח תקלות, מעקב טיפול וניהול תחזוקת המעונות.' },
-  { route: 'knowledge', icon: '📚', title: 'מרכז ידע והנחיות', description: 'נהלים, הנחיות מקצועיות ומידע ארגוני במקום אחד.' }
+  { route: 'tasks', icon: '✅', title: 'משימות', description: 'ריכוז משימות, מעקב אחר ביצוע ותיעדוף העבודה השוטפת.' }
 ];
 
 const dashboardTypes = [
@@ -29,7 +31,8 @@ const dashboardTypes = [
   { id: 'occupancy', icon: '🏫', title: 'דשבורד תפוסה ותקינה', description: 'מעקב אחר תפוסה, כיתות ודרישות תקינה ביחידה.' }
 ];
 
-const simpleRoutes = Object.fromEntries(modules.filter((module) => module.route !== 'dashboards').map((module) => [module.route, module]));
+const dashboardNavigationRoutes = new Set(['dashboards', 'staffing', 'accounting']);
+const simpleRoutes = Object.fromEntries(modules.filter((module) => !dashboardNavigationRoutes.has(module.route)).map((module) => [module.route, module]));
 simpleRoutes.home = { route: 'home', title: 'עמוד הבית' };
 let session = readSession();
 let unitState = { status: 'idle', items: [], error: '' };
@@ -280,7 +283,7 @@ async function loadUnits() {
 function homeTemplate() {
   return `<section class="page-heading"><div><p class="eyebrow">סביבת העבודה שלך</p><h1>שלום, ברוכה הבאה לפורטל חמ״ה</h1><p>מכאן ניתן להגיע לכל כלי הניהול, המעקב והידע של הארגון.</p></div><span class="status-badge status-success"><span aria-hidden="true">●</span> המערכת זמינה</span></section>
   <section class="attention-panel panel" aria-labelledby="attention-title"><div class="attention-icon" aria-hidden="true">i</div><div><h2 id="attention-title">הפורטל החדש בהקמה</h2><p>מעטפת העבודה מוכנה. המודולים ייפתחו בהדרגה בספרינטים הבאים.</p></div><a class="button button-secondary" href="#knowledge">למידע נוסף</a></section>
-  <section aria-labelledby="modules-title"><div class="section-heading"><div><h2 id="modules-title">לאן תרצי להמשיך?</h2><p>בחרי תחום כדי לפתוח את סביבת העבודה המתאימה.</p></div></div><div class="module-grid">${modules.map((module) => `<a class="module-card card" href="#${module.route}"><span class="module-icon" aria-hidden="true">${module.icon}</span><div><h3>${module.title}</h3><p>${module.description}</p></div><span class="card-action">פתיחה <span aria-hidden="true">←</span></span></a>`).join('')}</div></section>`;
+  <section aria-labelledby="modules-title"><div class="section-heading"><div><h2 id="modules-title">לאן תרצי להמשיך?</h2><p>בחרי תחום כדי לפתוח את סביבת העבודה המתאימה.</p></div></div><div class="module-grid">${modules.map((module) => `<a class="module-card card" href="#${module.href || module.route}"><span class="module-icon" aria-hidden="true">${module.icon}</span><div><h3>${module.title}</h3><p>${module.description}</p></div><span class="card-action">פתיחה <span aria-hidden="true">←</span></span></a>`).join('')}</div></section>`;
 }
 
 function comingSoonTemplate(module) {
@@ -294,10 +297,10 @@ const portalSections = {
     cards: [{ route: 'payroll/calculations', icon: '▤', title: 'חישובי שכר', description: 'פתיחת חישוב חדש, חישובים קיימים וטבלאות עבר.' }]
   },
   training: {
-    title: 'הדרכה והפעלה',
-    description: 'מדריכים וכלי הפעלה ארגוניים במקום אחד.',
+    title: 'הרשאות וטבלאות',
+    description: 'טבלאות וכלי הרשאות ארגוניים במקום אחד.',
     cards: [
-      { route: 'training/guides', icon: '◫', title: 'מדריכים', description: 'מרכז המדריכים הארגוניים.' },
+      { route: 'training/guides', icon: '◫', title: 'טבלאות', description: 'מרכז הטבלאות הארגוניות.' },
       { route: 'training/permissions', icon: '⚿', title: 'הרשאות', description: 'מרכז מידע עתידי לניהול הרשאות.' }
     ]
   }
@@ -894,8 +897,15 @@ function breadcrumbsTemplate(route, unit, type) {
     if (route.child) parts.push('<span aria-hidden="true">/</span>', `<span aria-current="page">${payrollCalculationCards.find((item) => item.route.endsWith(route.child)).title}</span>`);
     return parts.join('');
   }
-  if (route.section === 'training' && route.page) return `${parts.join('')}<span aria-hidden="true">/</span><a href="#training">הדרכה והפעלה</a><span aria-hidden="true">/</span><span aria-current="page">${route.page === 'guides' ? 'מדריכים' : 'הרשאות'}</span>`;
+  if (route.section === 'training' && route.page) return `${parts.join('')}<span aria-hidden="true">/</span><a href="#training">הרשאות וטבלאות</a><span aria-hidden="true">/</span><span aria-current="page">${route.page === 'guides' ? 'טבלאות' : 'הרשאות'}</span>`;
   if (route.section !== 'dashboards') return `${parts.join('')}<span aria-hidden="true">/</span><span aria-current="page">${simpleRoutes[route.section].title}</span>`;
+  if (route.dashboardType === 'staffing' || route.dashboardType === 'accounting') {
+    const label = route.dashboardType === 'staffing' ? 'צוות ורישוי' : 'הנה״ח';
+    const target = unitRoute('organization', route.dashboardType);
+    parts.push('<span aria-hidden="true">/</span>', unit?.allocation_unit_id === 'organization' ? `<span aria-current="page">${label}</span>` : `<a href="${target}">${label}</a>`);
+    if (unit && unit.allocation_unit_id !== 'organization') parts.push('<span aria-hidden="true">/</span>', `<span aria-current="page">${escapeHtml(unit.display_name)}</span>`);
+    return parts.join('');
+  }
   parts.push('<span aria-hidden="true">/</span>', route.unitId ? '<a href="#dashboards">דשבורדים</a>' : '<span aria-current="page">דשבורדים</span>');
   if (unit) parts.push('<span aria-hidden="true">/</span>', type ? `<a href="${unitRoute(unit.allocation_unit_id)}">${escapeHtml(unit.display_name)}</a>` : `<span aria-current="page">${escapeHtml(unit.display_name)}</span>`);
   if (type) parts.push('<span aria-hidden="true">/</span>', `<span aria-current="page">${type.title}</span>`);
@@ -904,7 +914,7 @@ function breadcrumbsTemplate(route, unit, type) {
 
 async function render() {
   const route = parseRoute();
-  let title = route.calculator === 'salary' ? 'מחשבון שכר' : route.calculator === 'occupancy' ? 'תפוסה, תקינה ורווחיות' : route.child ? payrollCalculationCards.find((item) => item.route.endsWith(route.child)).title : route.section === 'training' && route.page ? (route.page === 'guides' ? 'מדריכים' : 'הרשאות') : route.section === 'payroll' && route.page ? 'חישובי שכר' : route.section === 'home' ? 'עמוד הבית' : route.section === 'dashboards' ? 'דשבורדים' : simpleRoutes[route.section].title;
+  let title = route.calculator === 'salary' ? 'מחשבון שכר' : route.calculator === 'occupancy' ? 'תפוסה, תקינה ורווחיות' : route.child ? payrollCalculationCards.find((item) => item.route.endsWith(route.child)).title : route.section === 'training' && route.page ? (route.page === 'guides' ? 'טבלאות' : 'הרשאות') : route.section === 'payroll' && route.page ? 'חישובי שכר' : route.section === 'home' ? 'עמוד הבית' : route.section === 'dashboards' ? 'דשבורדים' : simpleRoutes[route.section].title;
   let unit = null;
   let type = null;
   if (route.section === 'home') $('#page-content').innerHTML = homeTemplate();
@@ -914,7 +924,7 @@ async function render() {
   else if (route.section === 'payroll' && route.child) $('#page-content').innerHTML = placeholderTemplate(title, 'payroll/calculations', 'חישובי שכר');
   else if (route.section === 'payroll' && route.page === 'calculations') $('#page-content').innerHTML = sectionCardsTemplate('payroll', payrollCalculationCards, 'חישובי שכר', 'בחירת מסלול לחישוב חדש, עבודה קיימת או טבלאות עבר.');
   else if (route.section === 'payroll') $('#page-content').innerHTML = sectionCardsTemplate('payroll');
-  else if (route.section === 'training' && route.page) $('#page-content').innerHTML = placeholderTemplate(title, 'training', 'הדרכה והפעלה');
+  else if (route.section === 'training' && route.page) $('#page-content').innerHTML = placeholderTemplate(title, 'training', 'הרשאות וטבלאות');
   else if (route.section === 'training') $('#page-content').innerHTML = sectionCardsTemplate('training');
   else if (route.section !== 'dashboards') $('#page-content').innerHTML = comingSoonTemplate(simpleRoutes[route.section]);
   else {
@@ -948,7 +958,8 @@ async function render() {
   }
   document.title = `${title} | פורטל חמ״ה`;
   $('#breadcrumbs').innerHTML = breadcrumbsTemplate(route, unit, type);
-  document.querySelectorAll('[data-route]').forEach((item) => item.classList.toggle('active', item.dataset.route === route.section));
+  const navigationRoute = route.section === 'dashboards' && ['staffing', 'accounting'].includes(route.dashboardType) ? route.dashboardType : route.section;
+  document.querySelectorAll('[data-route]').forEach((item) => item.classList.toggle('active', item.dataset.route === navigationRoute));
   const retryButton = $('[data-retry-units]');
   if (retryButton) retryButton.addEventListener('click', () => { unitState = { status: 'idle', items: [], error: '' }; render(); });
   $('#close-kpi-panel')?.addEventListener('click', closeKpiPanel);

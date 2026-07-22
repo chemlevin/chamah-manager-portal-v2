@@ -1506,3 +1506,38 @@ Remaining placeholders:
 
 - Payroll calculations: `חדש`, `קיים`, and `טבלאות עבר`.
 - Training and operations: `מדריכים` and `הרשאות`.
+
+## 2026-07-22 - Top-Level Staff, Accounting, and Portal Navigation
+
+Objective: Promote the existing organization-wide Staff & Licensing and Accounting dashboards to top-level portal destinations and apply the approved section names without changing their routes or logic.
+
+Audit findings:
+
+- Staff & Licensing already existed at `#dashboards/unit/organization/staffing`.
+- Accounting already existed at `#dashboards/unit/organization/accounting`.
+- Both destinations used the existing organization dashboard renderer, data sources, and drill-down behavior; only top-level discovery and navigation identity were missing.
+
+Implementation:
+
+- Added top-level home cards and desktop navigation links for `צוות ורישוי` and `הנה״ח`, pointing directly to the existing stable dashboard routes.
+- Added both promoted destinations to the mobile quick navigation while retaining all other sections in the mobile sidebar opened through `עוד`.
+- Kept the dashboard routes and rendering logic intact while mapping their active navigation identity and breadcrumbs to the promoted top-level sections.
+- Renamed `הדרכה והפעלה` to `הרשאות וטבלאות`, its `מדריכים` child to `טבלאות`, and `מרכז ידע והנחיות` to `מרכז הידע למשתמש`.
+- Updated the home grid to the nine required top-level sections in the approved order.
+- Did not change APIs, Supabase, routes, authentication, data, calculations, or business logic.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/index.html`
+- `tests/new-portal-foundation.spec.mjs`
+- `tests/new-portal-sections.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `node --check tests/new-portal-sections.spec.mjs` passed.
+- `npm.cmd run build` passed.
+- Focused responsive section coverage passed: 40 tests across desktop 1440, laptop 1280, mobile 390, and mobile 430.
+- Full Playwright regression passed: 455 passed and 9 intentionally skipped (464 total).
