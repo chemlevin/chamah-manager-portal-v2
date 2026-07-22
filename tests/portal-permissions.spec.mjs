@@ -28,6 +28,9 @@ test('permission management renders real controls and saves through the secured 
   await openWithAccess(page, portalAccessFixture, 'training/permissions/users');
   await expect(page.getByRole('heading', { name: 'רשימת משתמשים והרשאות' })).toBeVisible();
   await expect(page.locator('[data-screen]')).toHaveCount(portalAccessFixture.sections.length);
+  await expect(page.locator('.permission-screen-name').first()).toHaveText('עמוד הבית');
+  await expect(page.getByText('home', { exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   await page.locator('#permission-search').fill('home');
   await expect(page.locator('[data-screen]:visible')).toHaveCount(1);
   await page.locator('#permission-search').fill('');
@@ -45,18 +48,15 @@ test('HIDDEN removes navigation and blocks the route', async ({ page }) => {
   await expect(page.getByText('אין הרשאה לצפות במסך זה')).toBeVisible();
 });
 
-test('section catalog supplies navigation and breadcrumb labels', async ({ page }) => {
-  const labels = new Map([
-    ['home', 'בית מהקטלוג'],
-    ['management', 'ניהול מהקטלוג'],
-    ['management.permissions', 'הרשאות מהקטלוג'],
-    ['management.permissions.users', 'משתמשים מהקטלוג']
-  ]);
-  const access = { ...portalAccessFixture, sections: portalAccessFixture.sections.map((item) => ({ ...item, display_name: labels.get(item.screen_code) || item.display_name })) };
-  await page.route(`${base}/functions/v1/portal-users`, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(snapshot) }));
+test('stable screen codes render canonical Hebrew labels when remote metadata is corrupted', async ({ page }) => {
+  const access = { ...portalAccessFixture, sections: portalAccessFixture.sections.map((item) => ({ ...item, display_name: `×¤×גום-${item.screen_code}` })) };
+  const corruptedSnapshot = { ...snapshot, sections: snapshot.sections.map((item) => ({ ...item, display_name: `×¤×גום-${item.screen_code}` })) };
+  await page.route(`${base}/functions/v1/portal-users`, (route) => route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8', body: JSON.stringify(corruptedSnapshot) }));
   await openWithAccess(page, access, 'training/permissions/users');
-  await expect(page.locator('#primary-nav [data-route="home"] span:last-child')).toHaveText('בית מהקטלוג');
-  await expect(page.locator('#primary-nav [data-route="training"] span:last-child')).toHaveText('ניהול מהקטלוג');
-  await expect(page.locator('#breadcrumbs')).toContainText('בית מהקטלוג/ניהול מהקטלוג/הרשאות מהקטלוג/משתמשים מהקטלוג');
-  await expect(page).toHaveTitle(/משתמשים מהקטלוג/);
+  await expect(page.locator('#primary-nav [data-route="home"] span:last-child')).toHaveText('עמוד הבית');
+  await expect(page.locator('#primary-nav [data-route="training"] span:last-child')).toHaveText('הרשאות וטבלאות');
+  await expect(page.locator('#breadcrumbs')).toContainText('עמוד הבית/הרשאות וטבלאות/הרשאות/רשימת משתמשים והרשאות');
+  await expect(page.getByText(/×¤×גום/)).toHaveCount(0);
+  await expect(page).toHaveTitle(/רשימת משתמשים והרשאות/);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });

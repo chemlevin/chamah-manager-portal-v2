@@ -1726,3 +1726,38 @@ Closure deployment:
 
 - Deployed commit `918f06d` to Vercel Preview only: `https://chamah-portal-kokyizqa5-chamah.vercel.app`.
 - The Vercel build completed successfully. Production was not promoted or replaced.
+
+## 2026-07-22 - TRACK: 007 Administration UI Stabilization
+
+Objective: Stabilize Hebrew rendering and responsive administration UI throughout `/new/` without changing permissions, scope behavior, APIs, RLS, schema, data, or business logic.
+
+Implementation:
+
+- Added a presentation-only Hebrew screen-label catalog keyed by the existing stable English `screen_code` values.
+- Canonicalized screen metadata returned by both the self-access RPC and the users administration endpoint before rendering navigation, home cards, breadcrumbs, titles, or the permission tree.
+- Removed internal English screen codes from the visible permission tree while retaining them in DOM data attributes and request payloads.
+- Clarified Hebrew user, role, scope, permission-level, toolbar, and branch-action labels.
+- Reworked the users administration layout for narrow iPhone widths with zero-width-safe grids, wrapped breadcrumbs, full-width permission controls, touch-sized scope choices, and sticky mobile save/cancel actions.
+- Preserved the established Hebrew navigation label contract, including `הנה״ח`, `חדש`, `קיים`, and `רשימת משתמשים והרשאות`.
+- Did not change Supabase schema/data, migrations, Edge Functions, RLS, APIs, permission rules, scope behavior, calculations, or Production.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/styles.css`
+- `tests/portal-permissions.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `node --check tests/portal-permissions.spec.mjs` passed.
+- `git diff --check` passed.
+- `npm.cmd run build` passed and regenerated the `/new/` deployment artifact.
+- Corrupted-metadata, permission-save, route enforcement, and overflow coverage passed across desktop 1440, laptop 1280, mobile 390, and mobile 430: 12 passed.
+- Broad `/new/`, administration-framework, and permissions run executed 272 tests: 240 passed, 12 intentionally skipped, and 20 label-contract assertions identified labels that were restored before the final rerun.
+- Final affected portal foundation, all management/payroll routes, navigation, breadcrumbs, management data, and permissions coverage passed across all four responsive projects: 96 passed.
+
+Residual risk:
+
+- Canonical presentation labels cover every current `portal_sections` screen code. A future screen code should add its Hebrew label to the same catalog when introduced.
