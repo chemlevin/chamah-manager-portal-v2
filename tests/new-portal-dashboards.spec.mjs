@@ -39,8 +39,8 @@ test.describe('new portal organizational dashboards', () => {
     page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
     page.on('pageerror', (error) => consoleErrors.push(error.message));
     await mockNewPortalSupabase(page);
-    await openNewPortal(page, `dashboards/unit/${activeOfficeId}/accounting`);
-    await expect(page.getByRole('heading', { level: 1, name: 'דשבורד הנהלת חשבונות · יחידה פעילה ב' })).toBeVisible();
+    await openNewPortal(page, `dashboards/unit/${activeOfficeId}/accounting/summary`);
+    await expect(page.getByRole('heading', { level: 1, name: 'דשבורד סיכום · יחידה פעילה ב' })).toBeVisible();
     await expect(page.locator('[data-kpi-card="parents"]')).toBeVisible();
     await expect(page.locator('[data-kpi-card="missing-type"]')).toBeVisible();
     await expect(page.locator('[data-kpi-card="parents"] .kpi-open')).toContainText('1');

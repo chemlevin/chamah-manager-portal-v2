@@ -102,7 +102,8 @@ test.describe('payroll and training portal sections', () => {
 
     await page.locator('[data-route="accounting"]:visible').click();
     await expect(page).toHaveURL(/#dashboards\/unit\/organization\/accounting$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'דשבורד הנהלת חשבונות · כלל הארגון' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'הנה״ח' })).toBeVisible();
+    await expect(page.locator('.accounting-choice-grid .dashboard-type-card')).toHaveCount(2);
     await expect(page.locator('[data-route="accounting"].active')).toHaveCount(2);
     await expect(page.locator('[data-route="dashboards"].active')).toHaveCount(0);
     await expect(page.locator('#breadcrumbs [aria-current="page"]')).toHaveText('הנה״ח');

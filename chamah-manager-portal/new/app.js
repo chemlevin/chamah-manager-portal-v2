@@ -19,7 +19,8 @@ const number = new Intl.NumberFormat('he-IL', { maximumFractionDigits: 1 });
 // remote metadata can never leak into Hebrew navigation or administration views.
 const HEBREW_SCREEN_LABELS = {
   home: 'עמוד הבית', dashboards: 'דשבורדים', 'dashboards.finance': 'דשבורד כספים',
-  'dashboards.accounting': 'הנה״ח', 'dashboards.staffing': 'צוות ורישוי',
+  'dashboards.accounting': 'הנה״ח', 'dashboards.accounting.summary': 'דשבורד סיכום',
+  'dashboards.accounting.banks': 'קובץ בנקים', 'dashboards.staffing': 'צוות ורישוי',
   'dashboards.occupancy': 'תפוסה ותקינה', calculators: 'מחשבונים',
   'calculators.salary': 'מחשבון שכר', 'calculators.occupancy': 'מחשבון תפוסה, תקינה ורווחיות',
   payroll: 'שכר', 'payroll.calculations': 'חישובי שכר', 'payroll.calculations.new': 'חדש',
@@ -32,7 +33,11 @@ const HEBREW_SCREEN_LABELS = {
 };
 
 function canonicalizeSections(sections) {
-  return (sections || []).map((section) => ({ ...section, display_name: HEBREW_SCREEN_LABELS[section.screen_code] || 'מסך נוסף' }));
+  const canonical = (sections || []).map((section) => ({ ...section, display_name: HEBREW_SCREEN_LABELS[section.screen_code] || 'מסך נוסף' }));
+  const accounting = canonical.find((section) => section.screen_code === 'dashboards.accounting');
+  if (accounting && !canonical.some((section) => section.screen_code === 'dashboards.accounting.summary')) canonical.push({ screen_code: 'dashboards.accounting.summary', parent_screen_code: 'dashboards.accounting', route: 'dashboards/unit/organization/accounting/summary', display_name: 'דשבורד סיכום', icon: '▦', description: 'בקרה מסכמת על תהליכי הנהלת החשבונות.', display_order: 23, is_navigation_item: false, is_scope_required: true, permission_level: accounting.permission_level });
+  if (accounting && !canonical.some((section) => section.screen_code === 'dashboards.accounting.banks')) canonical.push({ screen_code: 'dashboards.accounting.banks', parent_screen_code: 'dashboards.accounting', route: 'dashboards/unit/organization/accounting/banks', display_name: 'קובץ בנקים', icon: '▤', description: 'סביבת עבודה לטיפול בתנועות בנק.', display_order: 24, is_navigation_item: false, is_scope_required: true, permission_level: portalAccess?.profile?.is_super_admin ? 'EDIT' : 'HIDDEN' });
+  return canonical.sort((a, b) => Number(a.display_order || 0) - Number(b.display_order || 0));
 }
 
 const modules = [
@@ -49,7 +54,7 @@ const modules = [
 
 const dashboardTypes = [
   { id: 'finance', icon: '₪', title: 'דשבורד כספים', description: 'תמונה כספית ניהולית עבור היחידה שנבחרה.' },
-  { id: 'accounting', icon: '🧾', title: 'דשבורד הנה״ח', description: 'בקרה על תהליכי הנהלת החשבונות של היחידה.' },
+  { id: 'accounting', icon: '🧾', title: 'הנה״ח', description: 'בקרה על תהליכי הנהלת החשבונות של היחידה.' },
   { id: 'staffing', icon: '👥', title: 'דשבורד צוות ורישוי', description: 'תמונת מצב של צוות, הכשרות ורישוי ביחידה.' },
   { id: 'occupancy', icon: '🏫', title: 'דשבורד תפוסה ותקינה', description: 'מעקב אחר תפוסה, כיתות ודרישות תקינה ביחידה.' }
 ];
@@ -306,6 +311,7 @@ function navigationScreenCode(route) {
   return route;
 }
 function routeScreenCode(route) {
+  if (route.section === 'dashboards' && route.dashboardType === 'accounting' && route.dashboardChild) return `dashboards.accounting.${route.dashboardChild}`;
   if (route.section === 'dashboards' && route.dashboardType) return `dashboards.${route.dashboardType}`;
   if (route.section === 'calculators' && route.calculator) return `calculators.${route.calculator}`;
   if (route.section === 'payroll' && route.child) return `payroll.calculations.${route.child}`;
@@ -336,7 +342,7 @@ function escapeHtml(value) {
 function parseRoute() {
   const parts = location.hash.slice(1).split('/').filter(Boolean).map(decodeURIComponent);
   if (!parts.length || parts[0] === 'home') return { section: 'home' };
-  if (parts[0] === 'dashboards') return { section: 'dashboards', unitId: parts[1] === 'unit' ? parts[2] : null, dashboardType: parts[1] === 'unit' ? parts[3] : null };
+  if (parts[0] === 'dashboards') return { section: 'dashboards', unitId: parts[1] === 'unit' ? parts[2] : null, dashboardType: parts[1] === 'unit' ? parts[3] : null, dashboardChild: parts[1] === 'unit' ? parts[4] : null };
   if (parts[0] === 'calculators' && ['salary', 'occupancy'].includes(parts[1])) return { section: 'calculators', calculator: parts[1] };
   if (parts[0] === 'payroll' && parts[1] === 'calculations' && ['new', 'existing', 'history'].includes(parts[2])) return { section: 'payroll', page: 'calculations', child: parts[2] };
   if (parts[0] === 'payroll' && parts[1] === 'calculations') return { section: 'payroll', page: 'calculations' };
@@ -474,7 +480,7 @@ function bindPermissionsAdmin() {
 }
 
 async function loadPermissionsAdmin() {
-  try { usersAdminData = await portalUsersRequest(); $('#permissions-admin-state').hidden = true; renderPermissionsAdmin(); } catch (error) { $('#permissions-admin-state').className = 'state error panel'; $('#permissions-admin-state').textContent = error.message; }
+  try { usersAdminData = await portalUsersRequest(); usersAdminData.sections = canonicalizeSections(usersAdminData.sections); $('#permissions-admin-state').hidden = true; renderPermissionsAdmin(); } catch (error) { $('#permissions-admin-state').className = 'state error panel'; $('#permissions-admin-state').textContent = error.message; }
   $('#invite-user-open')?.addEventListener('click', async () => { const email = prompt('כתובת דוא״ל להזמנה:'); if (!email) return; const displayName = prompt('שם תצוגה (לא חובה):') || ''; $('#permissions-feedback').textContent = 'שולח הזמנה…'; try { usersAdminData = await portalUsersRequest('POST', { email, display_name: displayName }); $('#permissions-feedback').textContent = 'ההזמנה נשלחה בהצלחה.'; renderPermissionsAdmin(); } catch (error) { $('#permissions-feedback').textContent = error.message; } });
 }
 
@@ -756,6 +762,51 @@ function unitHubTemplate(unit) {
   return `<section class="page-heading"><div><p class="eyebrow">דשבורדים · ${escapeHtml(unit.display_name)}</p><h1>${escapeHtml(unit.display_name)}</h1><p>בחרי את סוג הדשבורד שברצונך לפתוח עבור יחידה זו.</p></div><a class="button button-secondary" href="#dashboards">חזרה לכל היחידות</a></section><section class="dashboard-type-grid" aria-label="סוגי דשבורדים">${dashboardTypes.map((type) => `<a class="dashboard-type-card card" data-dashboard-type="${type.id}" href="${unitRoute(unit.allocation_unit_id, type.id)}"><span class="dashboard-type-icon" aria-hidden="true">${type.icon}</span><div><h2>${type.title}</h2><p>${type.description}</p></div><span class="card-action">פתיחת הדשבורד <span aria-hidden="true">←</span></span></a>`).join('')}</section>`;
 }
 
+function accountingHubTemplate(unit) {
+  const cards = [
+    { code: 'dashboards.accounting.summary', child: 'summary', icon: '▦', title: 'דשבורד סיכום', description: 'בקרה מסכמת על סטטוס הטיפול בתנועות והעברה להנהלת חשבונות.' },
+    { code: 'dashboards.accounting.banks', child: 'banks', icon: '▤', title: 'קובץ בנקים', description: 'סביבת עבודה מהירה לשיוך, מסמכים וטיפול בתנועות בנק.' }
+  ];
+  return `<section class="page-heading"><div><p class="eyebrow">הנה״ח</p><h1>הנה״ח</h1><p>בחרי את סביבת העבודה שברצונך לפתוח.</p></div><a class="button button-secondary" href="${unitRoute(unit.allocation_unit_id)}">חזרה לדשבורדי היחידה</a></section><section class="accounting-choice-grid" aria-label="מסכי הנהלת חשבונות">${cards.filter((card) => canView(card.code)).map((card) => `<a class="dashboard-type-card card" data-accounting-screen="${card.child}" href="${unitRoute(unit.allocation_unit_id, `accounting/${card.child}`)}"><span class="dashboard-type-icon" aria-hidden="true">${card.icon}</span><div><h2>${card.title}</h2><p>${card.description}</p></div><span class="card-action">פתיחת המסך <span aria-hidden="true">←</span></span></a>`).join('') || '<section class="empty-state panel">אין מסכי הנה״ח זמינים לפי ההרשאות הנוכחיות.</section>'}</section>`;
+}
+
+const bankWorkspaceRows = [
+  { id: 1, date: '21.07.2026', description: 'ארנונה עיריית ירושלים', reference: '782941', account: 'בנק הפועלים • 1842', debit: 8420, credit: 0, allocation: 'מפוצל ל־3', month: '07/2026', status: 'דורש השלמה', tone: 'warning', document: true, note: 'יש להשלים שיוך של היתרה למשרד.', splits: [['מעון נאות', 4200], ['מעון מחנה', 3000], ['טרם שויך', 1220]] },
+  { id: 2, date: '20.07.2026', description: 'העברה — משרד העבודה', reference: '601128', account: 'בנק לאומי • 7731', debit: 0, credit: 48600, allocation: 'מעון נאות', month: '07/2026', status: 'נשלח להנה״ח', tone: 'success', document: true, note: 'תמיכה חודשית עבור חודש יולי.' },
+  { id: 3, date: '19.07.2026', description: 'סופר נקי בע״מ', reference: '88402', account: 'בנק הפועלים • 1842', debit: 1280, credit: 0, allocation: 'מעון מחנה', month: '07/2026', status: 'חסר מסמך', tone: 'danger', document: false, note: 'ממתינים לחשבונית מהספק.' },
+  { id: 4, date: '18.07.2026', description: 'משכורות יולי', reference: 'PAY-0726', account: 'בנק הפועלים • 1842', debit: 72140, credit: 0, allocation: 'מפוצל ל־4', month: '07/2026', status: 'נשלח להנה״ח', tone: 'success', document: true, note: 'קובץ השכר מצורף.', splits: [['מעון נאות', 24600], ['מעון מחנה', 22140], ['מעון אשקלון', 17400], ['משרד', 8000]] },
+  { id: 5, date: '17.07.2026', description: 'עמלות בנק', reference: '4419', account: 'בנק לאומי • 7731', debit: 185, credit: 0, allocation: 'משרד', month: '07/2026', status: 'נשלח להנה״ח', tone: 'success', document: false, note: '' },
+  { id: 6, date: '16.07.2026', description: 'תרומה — קרן ירושלים', reference: 'DON-2184', account: 'בנק לאומי • 7731', debit: 0, credit: 25000, allocation: 'פיתוח', month: '07/2026', status: 'ממתין לשליחה', tone: 'warning', document: true, note: 'יש לאשר את קטגוריית ההכנסה.' }
+];
+let bankWorkspaceState = { selected: 1, expanded: new Set([1]), quick: 'all', query: '' };
+
+function bankWorkspaceTemplate() {
+  return `<section class="bank-new-heading"><div><p class="eyebrow">הנה״ח / קובץ בנקים</p><h1>קובץ בנקים</h1><p>סביבת עבודה מהירה לשיוך, השלמת מסמכים והעברה להנה״ח.</p></div><span class="bank-mock-label">נתוני הדגמה בלבד</span></section><section class="bank-new-summary"><button class="active" data-bank-quick="all"><span>כל התנועות</span><strong>248</strong><small>יולי 2026</small></button><button data-bank-quick="attention"><span>דורש טיפול</span><strong>18</strong><small>7 חסרי מסמך</small></button><button data-bank-quick="split"><span>תנועות מפוצלות</span><strong>12</strong><small>4 ממתינות להשלמה</small></button><article><span>זכות החודש</span><strong>₪184,620</strong><small>32 תנועות</small></article><article><span>חובה החודש</span><strong>₪127,430</strong><small>216 תנועות</small></article></section><section class="bank-new-toolbar panel"><label class="bank-new-search">⌕ <input id="bank-new-search" type="search" placeholder="חיפוש תיאור או אסמכתא…"><kbd>/</kbd></label><label>חשבון<select><option>כל החשבונות</option><option>בנק הפועלים • 1842</option><option>בנק לאומי • 7731</option></select></label><label>חודש<select><option>יולי 2026</option></select></label><span id="bank-new-count">6 תנועות</span></section><section class="bank-new-main"><div class="bank-new-sheet panel"><div class="bank-new-scroll"><table><thead><tr><th>תאריך</th><th>תיאור תנועה</th><th>אסמכתא</th><th>חשבון</th><th>חובה</th><th>זכות</th><th>שיוך</th><th>חודש דיווח</th><th>סטטוס</th><th>מסמך</th></tr></thead><tbody id="bank-new-rows"></tbody></table></div><footer>↑↓ מעבר בין שורות · Enter פתיחת פיצול · / חיפוש</footer></div><aside class="bank-new-details panel" id="bank-new-details"></aside></section>`;
+}
+
+function bankWorkspaceFilteredRows() {
+  const query = bankWorkspaceState.query.trim().toLocaleLowerCase('he-IL');
+  return bankWorkspaceRows.filter((row) => (bankWorkspaceState.quick !== 'attention' || ['warning', 'danger'].includes(row.tone)) && (bankWorkspaceState.quick !== 'split' || row.splits) && (!query || `${row.description} ${row.reference}`.toLocaleLowerCase('he-IL').includes(query)));
+}
+
+function renderBankWorkspace() {
+  const rows = bankWorkspaceFilteredRows();
+  const table = $('#bank-new-rows'); if (!table) return;
+  $('#bank-new-count').textContent = `${rows.length} תנועות`;
+  table.innerHTML = rows.map((row) => `<tr tabindex="0" data-bank-row="${row.id}" class="${bankWorkspaceState.selected === row.id ? 'selected' : ''}"><td>${row.date}</td><td><strong>${row.splits ? `<button type="button" data-bank-expand="${row.id}" aria-label="פתיחת פיצול">${bankWorkspaceState.expanded.has(row.id) ? '⌄' : '‹'}</button>` : ''}${escapeHtml(row.description)}</strong></td><td>${escapeHtml(row.reference)}</td><td>${escapeHtml(row.account)}</td><td class="bank-debit">${row.debit ? money.format(row.debit) : '—'}</td><td class="bank-credit">${row.credit ? money.format(row.credit) : '—'}</td><td><span class="bank-allocation">${escapeHtml(row.allocation)}</span></td><td>${row.month}</td><td><span class="status-badge status-${row.tone}">${escapeHtml(row.status)}</span></td><td class="bank-document">${row.document ? '⌕' : '—'}</td></tr>${row.splits && bankWorkspaceState.expanded.has(row.id) ? row.splits.map((split, index) => `<tr class="bank-split-row"><td></td><td>└ פיצול ${index + 1}</td><td></td><td></td><td class="bank-debit">${money.format(split[1])}</td><td>—</td><td><span class="bank-allocation">${escapeHtml(split[0])}</span></td><td>${row.month}</td><td></td><td></td></tr>`).join('') : ''}`).join('') || '<tr><td colspan="10">לא נמצאו תנועות.</td></tr>';
+  const selected = bankWorkspaceRows.find((row) => row.id === bankWorkspaceState.selected) || rows[0];
+  if (!selected) return;
+  $('#bank-new-details').innerHTML = `<p class="eyebrow">פרטי תנועה</p><h2>${escapeHtml(selected.description)}</h2><div class="bank-detail-amount"><small>${selected.debit ? 'חובה' : 'זכות'}</small><strong class="${selected.debit ? 'bank-debit' : 'bank-credit'}">${money.format(selected.debit || selected.credit)}</strong><span>${selected.date} · ${escapeHtml(selected.account)}</span></div><dl><div><dt>אסמכתא</dt><dd>${escapeHtml(selected.reference)}</dd></div><div><dt>חודש דיווח</dt><dd>${selected.month}</dd></div><div><dt>שיוך</dt><dd>${escapeHtml(selected.allocation)}</dd></div><div><dt>סטטוס</dt><dd>${escapeHtml(selected.status)}</dd></div></dl><section><h3>מסמכים</h3><div class="bank-document-box">${selected.document ? '▱ אסמכתא סרוקה.pdf<br><small>Google Drive · מסמך הדגמה</small>' : 'טרם צורף מסמך'}</div></section><section><h3>הערות</h3><p>${escapeHtml(selected.note || 'אין הערות לתנועה זו.')}</p></section><section><h3>היסטוריה</h3><p>היום · נפתחה לבדיקה</p><p>נקלטה מקובץ הבנק</p></section><details><summary>מידע טכני</summary><p>שדות טכניים מוסתרים מהגיליון.</p></details>`;
+}
+
+function bindBankWorkspace() {
+  renderBankWorkspace();
+  $('#bank-new-search')?.addEventListener('input', (event) => { bankWorkspaceState.query = event.target.value; renderBankWorkspace(); });
+  document.querySelectorAll('[data-bank-quick]').forEach((button) => button.addEventListener('click', () => { bankWorkspaceState.quick = button.dataset.bankQuick; document.querySelectorAll('[data-bank-quick]').forEach((item) => item.classList.toggle('active', item === button)); renderBankWorkspace(); }));
+  $('#bank-new-rows')?.addEventListener('click', (event) => { const expand = event.target.closest('[data-bank-expand]'); if (expand) { const id = Number(expand.dataset.bankExpand); bankWorkspaceState.expanded.has(id) ? bankWorkspaceState.expanded.delete(id) : bankWorkspaceState.expanded.add(id); bankWorkspaceState.selected = id; renderBankWorkspace(); return; } const row = event.target.closest('[data-bank-row]'); if (row) { bankWorkspaceState.selected = Number(row.dataset.bankRow); renderBankWorkspace(); } });
+  $('#page-content')?.addEventListener('keydown', (event) => { if (event.key === '/' && document.activeElement?.tagName !== 'INPUT') { event.preventDefault(); $('#bank-new-search')?.focus(); return; } if (!['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key) || ['INPUT', 'SELECT'].includes(document.activeElement?.tagName)) return; const rows = bankWorkspaceFilteredRows(); const index = rows.findIndex((row) => row.id === bankWorkspaceState.selected); if (event.key === 'Enter') { const row = rows[index]; if (row?.splits) { bankWorkspaceState.expanded.has(row.id) ? bankWorkspaceState.expanded.delete(row.id) : bankWorkspaceState.expanded.add(row.id); renderBankWorkspace(); } return; } event.preventDefault(); const next = event.key === 'ArrowDown' ? Math.min(index + 1, rows.length - 1) : Math.max(index - 1, 0); if (rows[next]) { bankWorkspaceState.selected = rows[next].id; renderBankWorkspace(); $(`[data-bank-row="${rows[next].id}"]`)?.focus(); } });
+}
+
 function dashboardPlaceholderTemplate(unit, type) {
   return `<section class="page-heading"><div><p class="eyebrow">${escapeHtml(unit.display_name)} · ${type.title}</p><h1>${type.title}</h1><p>הדשבורד יוצג בהקשר של ${escapeHtml(unit.display_name)}.</p></div><a class="button button-secondary" href="${unitRoute(unit.allocation_unit_id)}">חזרה לדשבורדי היחידה</a></section><section class="coming-soon panel"><span class="coming-icon" aria-hidden="true">${type.icon}</span><span class="status-badge status-info">בקרוב</span><h2>${type.title} עבור ${escapeHtml(unit.display_name)}</h2><p>היעד מוכן לטעינת נתונים ייעודיים בספרינט עתידי. בשלב זה לא מוצגים נתונים, מדדים או התראות.</p></section>`;
 }
@@ -769,7 +820,7 @@ function generalDashboardShell(unit) {
 }
 
 function accountingDashboardShell(unit) {
-  return `<section class="financial-heading"><div><p class="eyebrow">דשבורד הנהלת חשבונות</p><h1>דשבורד הנהלת חשבונות · ${escapeHtml(unit.display_name)}</h1><p>בקרה על שלמות תנועות הבנק ותהליך הטיפול החשבונאי.</p></div><div class="dashboard-context"><span><small>יחידת הקצאה</small><strong>${escapeHtml(unit.display_name)}</strong></span><span><small>שנת לימודים</small><strong id="context-year">—</strong></span><span><small>תקופה נבחרת</small><strong id="context-period">—</strong></span></div></section>
+  return `<section class="financial-heading"><div><p class="eyebrow">דשבורד סיכום</p><h1>דשבורד סיכום · ${escapeHtml(unit.display_name)}</h1><p>בקרה על שלמות תנועות הבנק ותהליך הטיפול החשבונאי.</p></div><div class="dashboard-context"><span><small>יחידת הקצאה</small><strong>${escapeHtml(unit.display_name)}</strong></span><span><small>שנת לימודים</small><strong id="context-year">—</strong></span><span><small>תקופה נבחרת</small><strong id="context-period">—</strong></span></div></section>
   <section class="global-toolbar panel" aria-label="פעולות דשבורד"><button id="refresh-dashboard" class="button button-secondary" type="button">↻ רענון נתונים</button><span class="last-updated"><small>עודכן לאחרונה</small><strong id="last-updated">טרם עודכן</strong></span><div class="toolbar-actions"><button class="button button-quiet" type="button" data-export="print">הדפסה</button><button class="button button-quiet" type="button" data-export="pdf">PDF</button><button class="button button-quiet" type="button" data-export="excel">Excel</button></div></section>
   <div id="general-state" class="dashboard-skeleton" aria-live="polite">${Array.from({ length: 8 }, () => '<span></span>').join('')}</div>
   <div id="general-dashboard" hidden><section class="school-year-summary panel"><div><p class="eyebrow">סיכום שנה קלנדרית</p><h2>מתחילת השנה הקלנדרית</h2><p id="summary-range">—</p></div><div id="school-year-metrics" class="summary-metrics"></div><div><small>עד היום</small><strong id="summary-month">—</strong></div></section><section class="period-panel panel"><div><h2>בחירת תקופה</h2><p>בחרי יחידות וחודש אחד או מספר חודשים. הסיכום השנתי הקלנדרי נשאר קבוע.</p></div><div class="chip-filters"><fieldset id="unit-filter-group" hidden><legend>יחידות</legend><div id="unit-chips" class="filter-chips"></div></fieldset><fieldset><legend>שנה קלנדרית</legend><div id="year-chips" class="filter-chips"></div></fieldset><fieldset><legend>חודשים</legend><div id="month-chips" class="filter-chips month-chips"></div></fieldset></div></section><section id="kpis" class="financial-kpis accounting-kpis" aria-label="מדדי הנהלת חשבונות"></section><section class="expandable-sections" aria-label="פירוט הנהלת חשבונות">${[['daycare','תנועות לפי מעון'],['unit','תנועות לפי יחידת הקצאה'],['account','תנועות לפי חשבון בנק'],['status','תנועות לפי סטטוס הנה״ח'],['attention','תנועות הדורשות תשומת לב'],['split','תנועות מפוצלות']].map(([id, label]) => `<details class="dashboard-detail panel"><summary>${label}<span>פתיחת פירוט</span></summary><div id="detail-${id}" class="detail-content"></div></details>`).join('')}</section></div>
@@ -1210,13 +1261,23 @@ async function render() {
         $('#page-content').innerHTML = generalDashboardShell(unit);
         await loadGeneralDashboard();
         if (parseRoute().unitId === unit.allocation_unit_id && parseRoute().dashboardType === 'finance') renderGeneralData();
-      } else if (type.id === 'accounting') {
+      } else if (type.id === 'accounting' && !route.dashboardChild) {
+        title = 'הנה״ח';
+        activeDashboardUnit = unit;
+        $('#page-content').innerHTML = accountingHubTemplate(unit);
+      } else if (type.id === 'accounting' && route.dashboardChild === 'banks') {
+        title = 'קובץ בנקים';
+        activeDashboardUnit = unit;
+        bankWorkspaceState = { selected: 1, expanded: new Set([1]), quick: 'all', query: '' };
+        $('#page-content').innerHTML = bankWorkspaceTemplate();
+        bindBankWorkspace();
+      } else if (type.id === 'accounting' && route.dashboardChild === 'summary') {
         title = type.title;
         dashboardMode = 'accounting';
         activeDashboardUnit = unit;
         $('#page-content').innerHTML = accountingDashboardShell(unit);
         await loadAccountingDashboard();
-        if (parseRoute().unitId === unit.allocation_unit_id && parseRoute().dashboardType === 'accounting') renderAccountingData();
+        if (parseRoute().unitId === unit.allocation_unit_id && parseRoute().dashboardType === 'accounting' && parseRoute().dashboardChild === 'summary') renderAccountingData();
       } else if (type.id === 'staffing') {
         title = type.title; dashboardMode = 'staffing'; activeDashboardUnit = unit; $('#page-content').innerHTML = staffDashboardShell(unit); await loadStaffDashboard(); if (parseRoute().unitId === unit.allocation_unit_id && parseRoute().dashboardType === 'staffing') renderStaffData();
       } else { title = type.title; $('#page-content').innerHTML = dashboardPlaceholderTemplate(unit, type); }

@@ -1829,3 +1829,12 @@ Validation:
 Residual risk:
 
 - Future screen codes must still be added to the authoritative Hebrew catalog to receive a specific name; until then they display `מסך נוסף` safely.
+## 2026-07-22 - TRACK 010A Accounting workspace integration
+
+- Preserved `הנה״ח` as the Accounting parent in `/new/` and changed its destination into a two-choice hub.
+- Registered `דשבורד סיכום` and `קובץ בנקים` as sibling child screens with separate stable client-side permission codes.
+- Kept the existing Accounting dashboard renderer and behavior intact under the new `summary` route, changing only its visible screen title.
+- Integrated the TRACK 010 BANK_TRANSACTIONS spreadsheet workspace under the `banks` route with local realistic mock data only.
+- Defaulted the new Bank File child screen to `HIDDEN` when no explicit catalog permission exists; super-admin test access remains available through the existing super-admin convention.
+- No backend, API, Supabase, CRUD, validation, calculation, or business-logic changes were made.
+- Validation: JavaScript syntax, build, focused Accounting/permission tests, and existing dashboard/navigation regressions.
