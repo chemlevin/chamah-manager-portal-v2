@@ -1468,3 +1468,41 @@ Validation:
 - `node --check chamah-manager-portal/new/app.js` passed.
 - `npm.cmd run build` passed and built the new portal at the deployment root.
 - Full `npx.cmd playwright test` regression passed: 415 passed and 9 intentionally skipped.
+
+## 2026-07-22 - Payroll and Training Portal Sections
+
+Objective: Add extensible top-level Payroll and Training/Operations navigation hierarchies to the current portal without implementing business integrations or permission logic.
+
+Implementation:
+
+- Added `שכר` to the home page, desktop navigation, mobile navigation, active navigation state, and breadcrumbs.
+- Added the `חישובי שכר` hub with `חדש`, `קיים`, and `טבלאות עבר` child routes; all three child pages are presentation-only placeholders.
+- Added `הדרכה והפעלה` to the home page, desktop navigation, mobile navigation, active navigation state, and breadcrumbs.
+- Added `מדריכים` and `הרשאות` presentation-only placeholder routes.
+- Reused the existing module-card, page-heading, coming-soon, RTL, and responsive design patterns.
+- Kept the maintained source under `chamah-manager-portal/new`; no obsolete mirror was added or edited.
+- Did not change APIs, Supabase logic, authentication, authorization, RLS, database schema/data, Sheets integration, payroll calculations, Budget behavior, or other business logic.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/index.html`
+- `chamah-manager-portal/new/styles.css`
+- `tests/new-portal-foundation.spec.mjs`
+- `tests/new-portal-sections.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `node --check tests/new-portal-sections.spec.mjs` passed.
+- `git diff --check` passed.
+- `npm run build` passed and built the maintained new portal at the deployment root.
+- Focused portal foundation and route coverage passed: 48 tests across desktop 1440, laptop 1280, mobile 390, and mobile 430.
+- Focused coverage verified all eight new routes, home/desktop/mobile navigation, active states, breadcrumbs, placeholder content, responsive overflow, and absence of browser console/page errors.
+- Full Playwright regression passed: 451 passed and 9 intentionally skipped (460 total).
+
+Remaining placeholders:
+
+- Payroll calculations: `חדש`, `קיים`, and `טבלאות עבר`.
+- Training and operations: `מדריכים` and `הרשאות`.

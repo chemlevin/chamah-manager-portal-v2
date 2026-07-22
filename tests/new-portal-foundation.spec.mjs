@@ -7,13 +7,15 @@ const openPortal = async (page, route = 'home') => {
 };
 
 test.describe('new portal foundation', () => {
-  test('renders the Hebrew RTL home and five navigation cards', async ({ page }) => {
+  test('renders the Hebrew RTL home and seven navigation cards', async ({ page }) => {
     await openPortal(page);
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.getByRole('heading', { level: 1 })).toContainText('ברוכה הבאה');
-    await expect(page.locator('.module-card')).toHaveCount(5);
+    await expect(page.locator('.module-card')).toHaveCount(7);
     await expect(page.locator('.module-card[href="#dashboards"]')).toBeVisible();
     await expect(page.locator('.module-card[href="#knowledge"]')).toBeVisible();
+    await expect(page.locator('.module-card[href="#payroll"]')).toBeVisible();
+    await expect(page.locator('.module-card[href="#training"]')).toBeVisible();
   });
 
   test('opens a consistent coming-soon screen from a module card', async ({ page }) => {

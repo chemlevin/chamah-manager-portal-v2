@@ -15,6 +15,8 @@ const number = new Intl.NumberFormat('he-IL', { maximumFractionDigits: 1 });
 const modules = [
   { route: 'dashboards', icon: '📊', title: 'דשבורדים', description: 'תמונת מצב ניהולית ברורה לפי היחידה הארגונית הרלוונטית.' },
   { route: 'calculators', icon: '🧮', title: 'מחשבונים', description: 'כלי חישוב ותכנון שיסייעו בקבלת החלטות מהירה ומדויקת.' },
+  { route: 'payroll', icon: '₪', title: 'שכר', description: 'מרכז מודולרי לתהליכי שכר ולחישובי שכר.' },
+  { route: 'training', icon: '🎓', title: 'הדרכה והפעלה', description: 'מדריכים וכלי הפעלה ארגוניים במקום אחד.' },
   { route: 'tasks', icon: '✅', title: 'משימות', description: 'ריכוז משימות, מעקב אחר ביצוע ותיעדוף העבודה השוטפת.' },
   { route: 'maintenance', icon: '🔧', title: 'תחזוקה', description: 'דיווח תקלות, מעקב טיפול וניהול תחזוקת המעונות.' },
   { route: 'knowledge', icon: '📚', title: 'מרכז ידע והנחיות', description: 'נהלים, הנחיות מקצועיות ומידע ארגוני במקום אחד.' }
@@ -250,6 +252,9 @@ function parseRoute() {
   if (!parts.length || parts[0] === 'home') return { section: 'home' };
   if (parts[0] === 'dashboards') return { section: 'dashboards', unitId: parts[1] === 'unit' ? parts[2] : null, dashboardType: parts[1] === 'unit' ? parts[3] : null };
   if (parts[0] === 'calculators' && ['salary', 'occupancy'].includes(parts[1])) return { section: 'calculators', calculator: parts[1] };
+  if (parts[0] === 'payroll' && parts[1] === 'calculations' && ['new', 'existing', 'history'].includes(parts[2])) return { section: 'payroll', page: 'calculations', child: parts[2] };
+  if (parts[0] === 'payroll' && parts[1] === 'calculations') return { section: 'payroll', page: 'calculations' };
+  if (parts[0] === 'training' && ['guides', 'permissions'].includes(parts[1])) return { section: 'training', page: parts[1] };
   return simpleRoutes[parts[0]] ? { section: parts[0] } : { section: 'home' };
 }
 
@@ -280,6 +285,37 @@ function homeTemplate() {
 
 function comingSoonTemplate(module) {
   return `<section class="page-heading"><div><p class="eyebrow">${module.title}</p><h1>${module.title}</h1><p>${module.description}</p></div><span class="status-badge status-neutral">בתכנון</span></section><section class="coming-soon panel"><span class="coming-icon" aria-hidden="true">${module.icon}</span><span class="status-badge status-info">בקרוב</span><h2>המודול נמצא בהכנה</h2><p>אנחנו בונים עבורך סביבת עבודה מקצועית, מהירה וברורה. היא תתווסף לפורטל באחד הספרינטים הקרובים.</p><div class="next-action"><strong>הפעולה הבאה</strong><span>אפשר לחזור לעמוד הבית ולבחור תחום אחר.</span></div><a class="button button-primary" href="#home">חזרה לעמוד הבית</a></section>`;
+}
+
+const portalSections = {
+  payroll: {
+    title: 'שכר',
+    description: 'מרכז מודולרי לתהליכי שכר ולחישובי שכר.',
+    cards: [{ route: 'payroll/calculations', icon: '▤', title: 'חישובי שכר', description: 'פתיחת חישוב חדש, חישובים קיימים וטבלאות עבר.' }]
+  },
+  training: {
+    title: 'הדרכה והפעלה',
+    description: 'מדריכים וכלי הפעלה ארגוניים במקום אחד.',
+    cards: [
+      { route: 'training/guides', icon: '◫', title: 'מדריכים', description: 'מרכז המדריכים הארגוניים.' },
+      { route: 'training/permissions', icon: '⚿', title: 'הרשאות', description: 'מרכז מידע עתידי לניהול הרשאות.' }
+    ]
+  }
+};
+
+const payrollCalculationCards = [
+  { route: 'payroll/calculations/new', icon: '+', title: 'חדש', description: 'פתיחת חישוב שכר חדש.' },
+  { route: 'payroll/calculations/existing', icon: '◷', title: 'קיים', description: 'צפייה בחישובי שכר קיימים.' },
+  { route: 'payroll/calculations/history', icon: '▦', title: 'טבלאות עבר', description: 'צפייה בטבלאות שכר מתקופות קודמות.' }
+];
+
+function sectionCardsTemplate(section, cards = portalSections[section].cards, title = portalSections[section].title, description = portalSections[section].description) {
+  const details = portalSections[section];
+  return `<section class="page-heading"><div><p class="eyebrow">${details.title}</p><h1>${title}</h1><p>${description}</p></div></section><section class="module-grid">${cards.map((card) => `<a class="module-card card" href="#${card.route}"><span class="module-icon" aria-hidden="true">${card.icon}</span><div><h3>${card.title}</h3><p>${card.description}</p></div><span class="card-action">פתיחה <span aria-hidden="true">←</span></span></a>`).join('')}</section>`;
+}
+
+function placeholderTemplate(title, parentRoute, parentTitle) {
+  return `<section class="page-heading"><div><p class="eyebrow">${parentTitle} / ${title}</p><h1>${title}</h1><p>עמוד זה הוכן להרחבה עתידית.</p></div><span class="status-badge status-neutral">בתכנון</span></section><section class="coming-soon panel"><span class="status-badge status-info">בקרוב</span><h2>העמוד נמצא בהכנה</h2><p>זהו עמוד מציין מקום בלבד. לא נוספו נתונים, חיבורים או לוגיקה עסקית.</p><a class="button button-primary" href="#${parentRoute}">חזרה אל ${parentTitle}</a></section>`;
 }
 
 function calculatorsTemplate() {
@@ -852,6 +888,13 @@ function breadcrumbsTemplate(route, unit, type) {
   const parts = ['<a href="#home">עמוד הבית</a>'];
   if (route.section === 'home') return '<span aria-current="page">עמוד הבית</span>';
   if (route.section === 'calculators' && route.calculator) return `${parts.join('')}<span aria-hidden="true">/</span><a href="#calculators">מחשבונים</a><span aria-hidden="true">/</span><span aria-current="page">${route.calculator === 'salary' ? 'מחשבון שכר' : 'תפוסה, תקינה ורווחיות'}</span>`;
+  if (route.section === 'payroll') {
+    parts.push('<span aria-hidden="true">/</span>', route.page ? '<a href="#payroll">שכר</a>' : '<span aria-current="page">שכר</span>');
+    if (route.page) parts.push('<span aria-hidden="true">/</span>', route.child ? '<a href="#payroll/calculations">חישובי שכר</a>' : '<span aria-current="page">חישובי שכר</span>');
+    if (route.child) parts.push('<span aria-hidden="true">/</span>', `<span aria-current="page">${payrollCalculationCards.find((item) => item.route.endsWith(route.child)).title}</span>`);
+    return parts.join('');
+  }
+  if (route.section === 'training' && route.page) return `${parts.join('')}<span aria-hidden="true">/</span><a href="#training">הדרכה והפעלה</a><span aria-hidden="true">/</span><span aria-current="page">${route.page === 'guides' ? 'מדריכים' : 'הרשאות'}</span>`;
   if (route.section !== 'dashboards') return `${parts.join('')}<span aria-hidden="true">/</span><span aria-current="page">${simpleRoutes[route.section].title}</span>`;
   parts.push('<span aria-hidden="true">/</span>', route.unitId ? '<a href="#dashboards">דשבורדים</a>' : '<span aria-current="page">דשבורדים</span>');
   if (unit) parts.push('<span aria-hidden="true">/</span>', type ? `<a href="${unitRoute(unit.allocation_unit_id)}">${escapeHtml(unit.display_name)}</a>` : `<span aria-current="page">${escapeHtml(unit.display_name)}</span>`);
@@ -861,13 +904,18 @@ function breadcrumbsTemplate(route, unit, type) {
 
 async function render() {
   const route = parseRoute();
-  let title = route.calculator === 'salary' ? 'מחשבון שכר' : route.calculator === 'occupancy' ? 'תפוסה, תקינה ורווחיות' : route.section === 'home' ? 'עמוד הבית' : route.section === 'dashboards' ? 'דשבורדים' : simpleRoutes[route.section].title;
+  let title = route.calculator === 'salary' ? 'מחשבון שכר' : route.calculator === 'occupancy' ? 'תפוסה, תקינה ורווחיות' : route.child ? payrollCalculationCards.find((item) => item.route.endsWith(route.child)).title : route.section === 'training' && route.page ? (route.page === 'guides' ? 'מדריכים' : 'הרשאות') : route.section === 'payroll' && route.page ? 'חישובי שכר' : route.section === 'home' ? 'עמוד הבית' : route.section === 'dashboards' ? 'דשבורדים' : simpleRoutes[route.section].title;
   let unit = null;
   let type = null;
   if (route.section === 'home') $('#page-content').innerHTML = homeTemplate();
   else if (route.section === 'calculators' && route.calculator === 'salary') { $('#page-content').innerHTML = salaryCalculatorTemplate(); await loadSalaryRules(); if (parseRoute().calculator === 'salary') { if (salaryModel.status === 'error') { $('#salary-state').className = 'state error panel'; $('#salary-state').textContent = 'לא ניתן לטעון את כללי השכר הפעילים. נסי שוב מאוחר יותר.'; } else { bindSalaryCalculator(); } } }
   else if (route.section === 'calculators' && route.calculator === 'occupancy') { $('#page-content').innerHTML = occupancyManagementCalculatorTemplate(); await loadOccupancyRules(); if (parseRoute().calculator === 'occupancy') { if (occupancyModel.status === 'error') { $('#occupancy-state').className = 'state error panel'; $('#occupancy-state').textContent = 'לא ניתן לטעון את כללי התפוסה הפעילים.'; } else { bindOccupancyManagementCalculator(); } } }
   else if (route.section === 'calculators') $('#page-content').innerHTML = calculatorsTemplate();
+  else if (route.section === 'payroll' && route.child) $('#page-content').innerHTML = placeholderTemplate(title, 'payroll/calculations', 'חישובי שכר');
+  else if (route.section === 'payroll' && route.page === 'calculations') $('#page-content').innerHTML = sectionCardsTemplate('payroll', payrollCalculationCards, 'חישובי שכר', 'בחירת מסלול לחישוב חדש, עבודה קיימת או טבלאות עבר.');
+  else if (route.section === 'payroll') $('#page-content').innerHTML = sectionCardsTemplate('payroll');
+  else if (route.section === 'training' && route.page) $('#page-content').innerHTML = placeholderTemplate(title, 'training', 'הדרכה והפעלה');
+  else if (route.section === 'training') $('#page-content').innerHTML = sectionCardsTemplate('training');
   else if (route.section !== 'dashboards') $('#page-content').innerHTML = comingSoonTemplate(simpleRoutes[route.section]);
   else {
     if (unitState.status === 'idle') { $('#page-content').innerHTML = unitsHubTemplate(); loadUnits().then(render); }
