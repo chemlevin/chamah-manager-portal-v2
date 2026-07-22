@@ -44,3 +44,19 @@ test('HIDDEN removes navigation and blocks the route', async ({ page }) => {
   await expect(page.locator('#primary-nav [data-route="training"]')).toBeHidden();
   await expect(page.getByText('אין הרשאה לצפות במסך זה')).toBeVisible();
 });
+
+test('section catalog supplies navigation and breadcrumb labels', async ({ page }) => {
+  const labels = new Map([
+    ['home', 'בית מהקטלוג'],
+    ['management', 'ניהול מהקטלוג'],
+    ['management.permissions', 'הרשאות מהקטלוג'],
+    ['management.permissions.users', 'משתמשים מהקטלוג']
+  ]);
+  const access = { ...portalAccessFixture, sections: portalAccessFixture.sections.map((item) => ({ ...item, display_name: labels.get(item.screen_code) || item.display_name })) };
+  await page.route(`${base}/functions/v1/portal-users`, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(snapshot) }));
+  await openWithAccess(page, access, 'training/permissions/users');
+  await expect(page.locator('#primary-nav [data-route="home"] span:last-child')).toHaveText('בית מהקטלוג');
+  await expect(page.locator('#primary-nav [data-route="training"] span:last-child')).toHaveText('ניהול מהקטלוג');
+  await expect(page.locator('#breadcrumbs')).toContainText('בית מהקטלוג/ניהול מהקטלוג/הרשאות מהקטלוג/משתמשים מהקטלוג');
+  await expect(page).toHaveTitle(/משתמשים מהקטלוג/);
+});

@@ -1,9 +1,16 @@
 export const activeDaycareId = '11111111-1111-4111-8111-111111111111';
 export const activeOfficeId = '22222222-2222-4222-8222-222222222222';
 export const inactiveUnitId = '33333333-3333-4333-8333-333333333333';
+const portalSectionLabels = {
+  home: 'עמוד הבית', dashboards: 'דשבורדים', 'dashboards.finance': 'דשבורד כספים', 'dashboards.accounting': 'הנה״ח', 'dashboards.staffing': 'צוות ורישוי', 'dashboards.occupancy': 'תפוסה ותקינה',
+  calculators: 'מחשבונים', 'calculators.salary': 'מחשבון שכר', 'calculators.occupancy': 'מחשבון תפוסה, תקינה ורווחיות',
+  payroll: 'שכר', 'payroll.calculations': 'חישובי שכר', 'payroll.calculations.new': 'חדש', 'payroll.calculations.existing': 'קיים', 'payroll.calculations.history': 'טבלאות עבר',
+  management: 'הרשאות וטבלאות', 'management.permissions': 'הרשאות', 'management.permissions.users': 'רשימת משתמשים והרשאות', 'management.rules': 'כללים', 'management.rules.system': 'כללי מערכת', 'management.tables': 'טבלאות', 'management.tables.calculation': 'טבלאות חישוב', 'management.tables.variables': 'כללים משתנים', 'management.audit': 'יומן שינויים',
+  knowledge: 'מרכז הידע למשתמש', maintenance: 'תחזוקה', tasks: 'משימות'
+};
 export const portalAccessFixture = { profile: { user_id: 'test-user', display_name: 'משתמשת בדיקה', is_active: true, is_super_admin: true, scope_mode: 'ORGANIZATION' }, allocation_unit_ids: [], daycare_ids: [], sections: [
   ['home', 'home'], ['dashboards', 'dashboards'], ['dashboards.finance', 'dashboards/unit/organization/finance'], ['dashboards.accounting', 'dashboards/unit/organization/accounting'], ['dashboards.staffing', 'dashboards/unit/organization/staffing'], ['dashboards.occupancy', 'dashboards/unit/organization/occupancy'], ['calculators', 'calculators'], ['calculators.salary', 'calculators/salary'], ['calculators.occupancy', 'calculators/occupancy'], ['payroll', 'payroll'], ['payroll.calculations', 'payroll/calculations'], ['payroll.calculations.new', 'payroll/calculations/new'], ['payroll.calculations.existing', 'payroll/calculations/existing'], ['payroll.calculations.history', 'payroll/calculations/history'], ['management', 'training'], ['management.permissions', 'training/permissions'], ['management.permissions.users', 'training/permissions/users'], ['management.rules', 'training/rules'], ['management.rules.system', 'training/rules/system'], ['management.tables', 'training/tables'], ['management.tables.calculation', 'training/tables/calculation'], ['management.tables.variables', 'training/tables/variables'], ['management.audit', 'training/audit'], ['knowledge', 'knowledge'], ['maintenance', 'maintenance'], ['tasks', 'tasks']
-].map(([screen_code, route], display_order) => ({ screen_code, route, display_name: screen_code, display_order, permission_level: 'EDIT' })) };
+].map(([screen_code, route], display_order) => ({ screen_code, route, display_name: portalSectionLabels[screen_code], display_order, permission_level: 'EDIT' })) };
 
 export const allocationUnits = [
   { allocation_unit_id: activeDaycareId, display_name: 'יחידה פעילה א', allocation_unit_type: 'DAYCARE', lifecycle_status: 'ACTIVE', display_order: 2, notes: null },

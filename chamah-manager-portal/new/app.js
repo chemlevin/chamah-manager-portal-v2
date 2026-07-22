@@ -277,6 +277,13 @@ async function loadPortalAccess() {
 
 function permissionFor(code) { return portalAccess?.sections?.find((item) => item.screen_code === code)?.permission_level || 'HIDDEN'; }
 function canView(code) { return permissionFor(code) !== 'HIDDEN'; }
+function portalSection(code) { return portalAccess?.sections?.find((item) => item.screen_code === code) || null; }
+function navigationScreenCode(route) {
+  if (route === 'staffing') return 'dashboards.staffing';
+  if (route === 'accounting') return 'dashboards.accounting';
+  if (route === 'training') return 'management';
+  return route;
+}
 function routeScreenCode(route) {
   if (route.section === 'dashboards' && route.dashboardType) return `dashboards.${route.dashboardType}`;
   if (route.section === 'calculators' && route.calculator) return `calculators.${route.calculator}`;
@@ -287,10 +294,16 @@ function routeScreenCode(route) {
 }
 
 function renderPermissionNavigation() {
-  const visibleRoutes = new Set((portalAccess?.sections || []).filter((item) => item.permission_level !== 'HIDDEN').map((item) => item.route.split('/')[0]));
   document.querySelectorAll('#primary-nav [data-route], #mobile-nav [data-route]').forEach((item) => {
-    const route = item.dataset.route === 'staffing' || item.dataset.route === 'accounting' ? 'dashboards' : item.dataset.route;
-    item.hidden = !visibleRoutes.has(route);
+    const section = portalSection(navigationScreenCode(item.dataset.route));
+    item.hidden = !section || section.permission_level === 'HIDDEN';
+    if (!section) return;
+    item.href = `#${section.route}`;
+    item.setAttribute('aria-label', section.display_name);
+    const icon = item.querySelector('[aria-hidden="true"]');
+    const label = item.querySelector('span:last-child');
+    if (icon && section.icon) icon.textContent = section.icon;
+    if (label && !item.closest('#mobile-nav')) label.textContent = section.display_name;
   });
 }
 
@@ -329,9 +342,13 @@ async function loadUnits() {
 }
 
 function homeTemplate() {
+  const catalogModules = modules.map((module) => {
+    const section = portalSection(navigationScreenCode(module.route));
+    return section ? { ...module, href: section.route, icon: section.icon || module.icon, title: section.display_name, description: section.description || module.description, screenCode: section.screen_code } : { ...module, screenCode: navigationScreenCode(module.route) };
+  });
   return `<section class="page-heading"><div><p class="eyebrow">סביבת העבודה שלך</p><h1>שלום, ברוכה הבאה לפורטל חמ״ה</h1><p>מכאן ניתן להגיע לכל כלי הניהול, המעקב והידע של הארגון.</p></div><span class="status-badge status-success"><span aria-hidden="true">●</span> המערכת זמינה</span></section>
   <section class="attention-panel panel" aria-labelledby="attention-title"><div class="attention-icon" aria-hidden="true">i</div><div><h2 id="attention-title">הפורטל החדש בהקמה</h2><p>מעטפת העבודה מוכנה. המודולים ייפתחו בהדרגה בספרינטים הבאים.</p></div><a class="button button-secondary" href="#knowledge">למידע נוסף</a></section>
-  <section aria-labelledby="modules-title"><div class="section-heading"><div><h2 id="modules-title">לאן תרצי להמשיך?</h2><p>בחרי תחום כדי לפתוח את סביבת העבודה המתאימה.</p></div></div><div class="module-grid">${modules.filter((module) => canView(module.route === 'training' ? 'management' : module.route === 'staffing' ? 'dashboards.staffing' : module.route === 'accounting' ? 'dashboards.accounting' : module.route)).map((module) => `<a class="module-card card" href="#${module.href || module.route}"><span class="module-icon" aria-hidden="true">${module.icon}</span><div><h3>${module.title}</h3><p>${module.description}</p></div><span class="card-action">פתיחה <span aria-hidden="true">←</span></span></a>`).join('')}</div></section>`;
+  <section aria-labelledby="modules-title"><div class="section-heading"><div><h2 id="modules-title">לאן תרצי להמשיך?</h2><p>בחרי תחום כדי לפתוח את סביבת העבודה המתאימה.</p></div></div><div class="module-grid">${catalogModules.filter((module) => canView(module.screenCode)).map((module) => `<a class="module-card card" href="#${module.href || module.route}"><span class="module-icon" aria-hidden="true">${module.icon}</span><div><h3>${module.title}</h3><p>${module.description}</p></div><span class="card-action">פתיחה <span aria-hidden="true">←</span></span></a>`).join('')}</div></section>`;
 }
 
 function accessDeniedTemplate() { return `<section class="error-state panel"><strong>אין הרשאה לצפות במסך זה</strong><p>המסך הוסתר בהתאם להרשאות המשתמש.</p><a class="button button-primary" href="#home">חזרה לעמוד הבית</a></section>`; }
@@ -359,7 +376,7 @@ const portalSections = {
 };
 
 const managementPages = {
-  permissions: { title: 'הרשאות', cards: [{ route: 'training/permissions/users', icon: '👥', title: 'רשימת משתמשים והרשאות', description: 'תצוגת ניהול עתידית למשתמשים, תפקידים והרשאות.' }] },
+  permissions: { title: 'הרשאות', cards: [{ route: 'training/permissions/users', icon: '👥', title: 'רשימת משתמשים והרשאות', description: 'ניהול משתמשי הפורטל, טווחי נתונים והרשאות לפי מסך.' }] },
   rules: { title: 'כללים', cards: [{ route: 'training/rules/system', icon: '§', title: 'כללי מערכת', description: `${SYSTEM_RULES.length} כללים אמיתיים מתוך מסמכי ה־Handbook.` }] },
   tables: { title: 'טבלאות', cards: [{ route: 'training/tables/calculation', icon: '▦', title: 'טבלאות חישוב', description: 'נתוני יסוד וטבלאות ייחוס יציבות.' }, { route: 'training/tables/variables', icon: '⇄', title: 'כללים משתנים', description: 'פרמטרים עסקיים לפי תוקף וגרסה.' }] }
 };
@@ -1064,6 +1081,30 @@ function renderGeneralData() {
 }
 
 function breadcrumbsTemplate(route, unit, type) {
+  const target = portalSection(routeScreenCode(route));
+  if (target) {
+    const byCode = new Map((portalAccess?.sections || []).map((item) => [item.screen_code, item]));
+    const chain = [];
+    let current = target;
+    while (current) {
+      chain.unshift(current);
+      const inferredParent = current.screen_code.includes('.') ? current.screen_code.slice(0, current.screen_code.lastIndexOf('.')) : '';
+      current = byCode.get(current.parent_screen_code || inferredParent) || null;
+    }
+    const home = byCode.get('home');
+    if (home && chain[0]?.screen_code !== 'home') chain.unshift(home);
+    if (route.section === 'dashboards' && unit && unit.allocation_unit_id !== 'organization') {
+      const dashboardIndex = chain.findIndex((item) => item.screen_code === 'dashboards');
+      const unitCrumb = { screen_code: 'dashboard-unit', route: `dashboards/unit/${encodeURIComponent(unit.allocation_unit_id)}`, display_name: unit.display_name };
+      chain.splice(Math.max(dashboardIndex + 1, 1), 0, unitCrumb);
+    }
+    return chain.map((item, index) => {
+      const last = index === chain.length - 1;
+      const label = escapeHtml(item.display_name);
+      const crumb = last ? `<span aria-current="page">${label}</span>` : `<a href="#${item.route}">${label}</a>`;
+      return index ? `<span aria-hidden="true">/</span>${crumb}` : crumb;
+    }).join('');
+  }
   const parts = ['<a href="#home">עמוד הבית</a>'];
   if (route.section === 'home') return '<span aria-current="page">עמוד הבית</span>';
   if (route.section === 'calculators' && route.calculator) return `${parts.join('')}<span aria-hidden="true">/</span><a href="#calculators">מחשבונים</a><span aria-hidden="true">/</span><span aria-current="page">${route.calculator === 'salary' ? 'מחשבון שכר' : 'תפוסה, תקינה ורווחיות'}</span>`;
@@ -1153,6 +1194,8 @@ async function render() {
       } else { title = type.title; $('#page-content').innerHTML = dashboardPlaceholderTemplate(unit, type); }
     }
   }
+  const catalogTitle = portalSection(requestedScreen)?.display_name;
+  if (catalogTitle && !(route.section === 'dashboards' && unit && !route.dashboardType)) title = catalogTitle;
   document.title = `${title} | פורטל חמ״ה`;
   $('#breadcrumbs').innerHTML = breadcrumbsTemplate(route, unit, type);
   const navigationRoute = route.section === 'dashboards' && ['staffing', 'accounting'].includes(route.dashboardType) ? route.dashboardType : route.section;
