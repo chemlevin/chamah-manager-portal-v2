@@ -1721,3 +1721,8 @@ Closure validation:
 - A monolithic full-suite invocation exceeded its 20-minute command wrapper without reporting a product failure; the complete affected surface was therefore rerun as the deterministic focused suites above. An initial sandboxed browser retry failed at process launch with `spawn EPERM`; the approved unsandboxed retry passed all 12 permission tests.
 
 Status: TRACK: 001 CLOSED.
+
+Closure deployment:
+
+- Deployed commit `918f06d` to Vercel Preview only: `https://chamah-portal-kokyizqa5-chamah.vercel.app`.
+- The Vercel build completed successfully. Production was not promoted or replaced.
