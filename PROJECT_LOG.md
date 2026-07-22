@@ -1696,3 +1696,28 @@ Remaining risk:
 - Deployed commit `0487a44` to Vercel Preview only: `https://chamah-portal-dkpkph61w-chamah.vercel.app`.
 - Vercel completed the application build successfully; the deployment remains protected by the existing Vercel sign-in gate and Production was not promoted or replaced.
 - A direct unauthenticated HTTP check reached the Vercel protection login as expected. Local Playwright regression remains the authenticated UI verification record: 516 passed, 12 intentionally skipped, 0 failed.
+
+## 2026-07-22 - TRACK: 001 Closure Review
+
+Scope review:
+
+- Rechecked the approved Auth user list, invitation completion, portal profile, per-user screen permissions, organizational scope configuration, permission inheritance, SUPER_ADMIN invariants, centralized enforcement, Hebrew RTL administration UI, real audit history, migrations, and deployed Edge Function.
+- Confirmed the users/permissions area is a real Supabase-backed implementation rather than a placeholder or local preview simulation.
+- Completed the remaining catalog integration so the normalized `portal_sections` records now supply navigation destinations and labels, home navigation-card metadata, breadcrumbs, document titles, and the permission tree. Static renderer definitions remain presentation fallbacks only.
+- Replaced the stale users-card description that still described the implemented management screen as future work.
+
+Explicit track boundary:
+
+- Server-side organizational-scope enforcement for existing business modules is intentionally deferred to future migration tracks and is not part of TRACK: 001. TRACK: 001 provides the scope model, administration, self-access context, navigation and route enforcement, and safe client filtering without refactoring or replacing existing business-module data-loading logic.
+- No existing business workflow, calculation, API contract, business table, Auth configuration, or Production deployment was changed during closure.
+
+Closure validation:
+
+- JavaScript syntax checks, `git diff --check`, and `npm.cmd run build` passed.
+- Permission administration, HIDDEN route blocking, and catalog-driven navigation/breadcrumb coverage passed across all four responsive projects: 12 passed.
+- Authentication, recovery, and invitation regression passed across all four responsive projects: 52 passed.
+- Portal foundation regression passed across all four responsive projects: 12 passed.
+- Portal sections, management routes, navigation, breadcrumbs, rules, tables, audit, and promoted dashboard regression passed across all four responsive projects: 72 passed.
+- A monolithic full-suite invocation exceeded its 20-minute command wrapper without reporting a product failure; the complete affected surface was therefore rerun as the deterministic focused suites above. An initial sandboxed browser retry failed at process launch with `spawn EPERM`; the approved unsandboxed retry passed all 12 permission tests.
+
+Status: TRACK: 001 CLOSED.
