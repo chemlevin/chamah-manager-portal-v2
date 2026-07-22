@@ -64,6 +64,10 @@ let authPending = false;
 let recoveryPending = false;
 let salaryModel = { status: 'idle', factors: [], rules: [], years: [], error: '' };
 const managementData = new Map();
+let portalAccess = null;
+let usersAdminData = null;
+let selectedPortalUserId = '';
+let permissionSearch = '';
 
 function readSession() {
   try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { return null; }
@@ -207,6 +211,7 @@ async function showPortalHome() {
   $('#recovery-view').hidden = true;
   $('#app-view').hidden = false;
   $('#israeli-date').textContent = formatToday();
+  await loadPortalAccess();
   await render();
 }
 
@@ -246,7 +251,47 @@ async function rest(table, query = '') {
     protectedRequests.delete(controller);
   }
   if (!response.ok) throw new Error((await response.json()).message || `שגיאה בקריאת ${table}`);
+  const rows = await response.json();
+  if (portalAccess?.profile?.scope_mode !== 'SELECTED' || portalAccess.profile.is_super_admin || !Array.isArray(rows)) return rows;
+  const unitIds = new Set(portalAccess.allocation_unit_ids || []); const daycareIds = new Set(portalAccess.daycare_ids || []);
+  if (table === 'allocation_units') return rows.filter((row) => unitIds.has(row.allocation_unit_id));
+  if (table === 'daycares') return rows.filter((row) => daycareIds.has(row.daycare_id) || unitIds.has(row.allocation_unit_id));
+  if (rows.some((row) => Object.hasOwn(row, 'daycare_id'))) return rows.filter((row) => !row.daycare_id || daycareIds.has(row.daycare_id));
+  if (rows.some((row) => Object.hasOwn(row, 'allocation_unit_id'))) return rows.filter((row) => !row.allocation_unit_id || unitIds.has(row.allocation_unit_id));
+  return rows;
+}
+
+async function rpc(name, body = {}) {
+  if (!await ensureAccessToken()) throw new Error('החיבור פג. יש להתחבר מחדש.');
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, { method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!response.ok) throw new Error((await response.json()).message || 'הפעולה נכשלה.');
   return response.json();
+}
+
+async function loadPortalAccess() {
+  portalAccess = await rpc('portal_my_access');
+  if (!portalAccess?.profile) throw new Error('למשתמש אין פרופיל פורטל פעיל.');
+  $('#portal-profile').textContent = portalAccess.profile.display_name || session?.user?.email || 'משתמשת הפורטל';
+  renderPermissionNavigation();
+}
+
+function permissionFor(code) { return portalAccess?.sections?.find((item) => item.screen_code === code)?.permission_level || 'HIDDEN'; }
+function canView(code) { return permissionFor(code) !== 'HIDDEN'; }
+function routeScreenCode(route) {
+  if (route.section === 'dashboards' && route.dashboardType) return `dashboards.${route.dashboardType}`;
+  if (route.section === 'calculators' && route.calculator) return `calculators.${route.calculator}`;
+  if (route.section === 'payroll' && route.child) return `payroll.calculations.${route.child}`;
+  if (route.section === 'payroll' && route.page) return 'payroll.calculations';
+  if (route.section === 'training') return route.child ? `management.${route.page}.${route.child}` : route.page ? `management.${route.page}` : 'management';
+  return route.section;
+}
+
+function renderPermissionNavigation() {
+  const visibleRoutes = new Set((portalAccess?.sections || []).filter((item) => item.permission_level !== 'HIDDEN').map((item) => item.route.split('/')[0]));
+  document.querySelectorAll('#primary-nav [data-route], #mobile-nav [data-route]').forEach((item) => {
+    const route = item.dataset.route === 'staffing' || item.dataset.route === 'accounting' ? 'dashboards' : item.dataset.route;
+    item.hidden = !visibleRoutes.has(route);
+  });
 }
 
 function escapeHtml(value) {
@@ -286,8 +331,10 @@ async function loadUnits() {
 function homeTemplate() {
   return `<section class="page-heading"><div><p class="eyebrow">סביבת העבודה שלך</p><h1>שלום, ברוכה הבאה לפורטל חמ״ה</h1><p>מכאן ניתן להגיע לכל כלי הניהול, המעקב והידע של הארגון.</p></div><span class="status-badge status-success"><span aria-hidden="true">●</span> המערכת זמינה</span></section>
   <section class="attention-panel panel" aria-labelledby="attention-title"><div class="attention-icon" aria-hidden="true">i</div><div><h2 id="attention-title">הפורטל החדש בהקמה</h2><p>מעטפת העבודה מוכנה. המודולים ייפתחו בהדרגה בספרינטים הבאים.</p></div><a class="button button-secondary" href="#knowledge">למידע נוסף</a></section>
-  <section aria-labelledby="modules-title"><div class="section-heading"><div><h2 id="modules-title">לאן תרצי להמשיך?</h2><p>בחרי תחום כדי לפתוח את סביבת העבודה המתאימה.</p></div></div><div class="module-grid">${modules.map((module) => `<a class="module-card card" href="#${module.href || module.route}"><span class="module-icon" aria-hidden="true">${module.icon}</span><div><h3>${module.title}</h3><p>${module.description}</p></div><span class="card-action">פתיחה <span aria-hidden="true">←</span></span></a>`).join('')}</div></section>`;
+  <section aria-labelledby="modules-title"><div class="section-heading"><div><h2 id="modules-title">לאן תרצי להמשיך?</h2><p>בחרי תחום כדי לפתוח את סביבת העבודה המתאימה.</p></div></div><div class="module-grid">${modules.filter((module) => canView(module.route === 'training' ? 'management' : module.route === 'staffing' ? 'dashboards.staffing' : module.route === 'accounting' ? 'dashboards.accounting' : module.route)).map((module) => `<a class="module-card card" href="#${module.href || module.route}"><span class="module-icon" aria-hidden="true">${module.icon}</span><div><h3>${module.title}</h3><p>${module.description}</p></div><span class="card-action">פתיחה <span aria-hidden="true">←</span></span></a>`).join('')}</div></section>`;
 }
+
+function accessDeniedTemplate() { return `<section class="error-state panel"><strong>אין הרשאה לצפות במסך זה</strong><p>המסך הוסתר בהתאם להרשאות המשתמש.</p><a class="button button-primary" href="#home">חזרה לעמוד הבית</a></section>`; }
 
 function comingSoonTemplate(module) {
   return `<section class="page-heading"><div><p class="eyebrow">${module.title}</p><h1>${module.title}</h1><p>${module.description}</p></div><span class="status-badge status-neutral">בתכנון</span></section><section class="coming-soon panel"><span class="coming-icon" aria-hidden="true">${module.icon}</span><span class="status-badge status-info">בקרוב</span><h2>המודול נמצא בהכנה</h2><p>אנחנו בונים עבורך סביבת עבודה מקצועית, מהירה וברורה. היא תתווסף לפורטל באחד הספרינטים הקרובים.</p><div class="next-action"><strong>הפעולה הבאה</strong><span>אפשר לחזור לעמוד הבית ולבחור תחום אחר.</span></div><a class="button button-primary" href="#home">חזרה לעמוד הבית</a></section>`;
@@ -338,7 +385,54 @@ function managementHubTemplate(page) {
 }
 
 function usersPermissionsTemplate() {
-  return `<section class="page-heading"><div><p class="eyebrow">הרשאות / ניהול משתמשים</p><h1>רשימת משתמשים והרשאות</h1><p>מסך ניהול מוכן להצגת משתמשים, תפקידים והרשאות כאשר יוגדר מקור נתונים מורשה.</p></div><span class="status-badge status-neutral">קריאה בלבד</span></section><section class="management-summary"><article class="panel"><span>משתמשים</span><strong>אין נתונים זמינים</strong></article><article class="panel"><span>תפקידי מערכת</span><strong>לא תועדו</strong></article><article class="panel"><span>הרשאות</span><strong>לא תועדו</strong></article></section><section class="panel management-empty"><h2>לא נמצא מקור נתונים מתועד לרשימת משתמשים והרשאות</h2><p>מסמכי המאגר אינם מגדירים קטלוג משתמשים, תפקידי Auth או מטריצת הרשאות. לכן לא מוצגים משתמשים או הרשאות לדוגמה.</p><p>לא בוצע שינוי ב־Auth, ב־RLS או בלוגיקת האבטחה.</p></section>`;
+  return `<section class="page-heading"><div><p class="eyebrow">הרשאות / ניהול משתמשים</p><h1>רשימת משתמשים והרשאות</h1><p>ניהול משתמשי Supabase Auth, טווח נתונים והרשאות מפורשות לפי מסך.</p></div><button id="invite-user-open" class="button button-primary" type="button">הזמנת משתמש</button></section><p id="permissions-feedback" class="form-message" role="status"></p><div id="permissions-admin-state" class="state panel">טוען משתמשים והרשאות…</div><section id="permissions-admin" class="permissions-admin" hidden></section>`;
+}
+
+async function portalUsersRequest(method = 'GET', body) {
+  if (!await ensureAccessToken()) throw new Error('החיבור פג.');
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/portal-users`, { method, headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const value = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(value.error || 'הפעולה נכשלה.');
+  return value;
+}
+
+function adminUserModel(userId) {
+  const user = usersAdminData.users.find((item) => item.id === userId);
+  const profile = usersAdminData.profiles.find((item) => item.user_id === userId) || { user_id: userId, display_name: '', is_active: true, is_super_admin: false, scope_mode: 'SELECTED' };
+  return { user, profile, permissions: usersAdminData.permissions.filter((item) => item.user_id === userId && item.permission_configuration_id === profile.permission_configuration_id), unitIds: usersAdminData.unit_scopes.filter((item) => item.user_id === userId && item.permission_configuration_id === profile.permission_configuration_id).map((item) => item.allocation_unit_id), daycareIds: usersAdminData.daycare_scopes.filter((item) => item.user_id === userId && item.permission_configuration_id === profile.permission_configuration_id).map((item) => item.daycare_id), audit: usersAdminData.audit_events.filter((item) => item.entity_id === userId) };
+}
+
+function permissionRows(model) {
+  const explicit = new Map(model.permissions.map((item) => [item.screen_code, item.permission_level]));
+  const matches = usersAdminData.sections.filter((item) => !permissionSearch || `${item.display_name} ${item.screen_code}`.toLowerCase().includes(permissionSearch));
+  return matches.map((item) => `<div class="permission-row" data-screen="${item.screen_code}" data-parent="${item.parent_screen_code || ''}" style="--depth:${item.screen_code.split('.').length - 1}"><span><strong>${escapeHtml(item.display_name)}</strong><small>${escapeHtml(item.screen_code)}</small></span><select data-permission ${model.profile.is_super_admin ? 'disabled' : ''}><option value="" ${!explicit.has(item.screen_code) ? 'selected' : ''}>בירושה</option><option value="HIDDEN" ${explicit.get(item.screen_code) === 'HIDDEN' ? 'selected' : ''}>לא להציג</option><option value="VIEW" ${explicit.get(item.screen_code) === 'VIEW' ? 'selected' : ''}>צפייה בלבד</option><option value="EDIT" ${explicit.get(item.screen_code) === 'EDIT' ? 'selected' : ''}>עריכה</option></select><button class="button button-quiet" type="button" data-apply-branch="${item.screen_code}" ${model.profile.is_super_admin ? 'disabled' : ''}>החל על ענף</button></div>`).join('');
+}
+
+function renderPermissionsAdmin() {
+  const root = $('#permissions-admin'); if (!root || !usersAdminData) return;
+  if (!selectedPortalUserId || !usersAdminData.users.some((item) => item.id === selectedPortalUserId)) selectedPortalUserId = usersAdminData.users[0]?.id || '';
+  const model = selectedPortalUserId ? adminUserModel(selectedPortalUserId) : null;
+  root.innerHTML = `<aside class="panel permissions-users"><div class="management-filters"><label>חיפוש משתמש<input id="user-search" type="search" placeholder="שם או דוא״ל"></label></div><div id="portal-user-list">${usersAdminData.users.map((user) => { const p = usersAdminData.profiles.find((item) => item.user_id === user.id); return `<button type="button" data-user-id="${user.id}" class="permission-user${user.id === selectedPortalUserId ? ' active' : ''}"><strong>${escapeHtml(p?.display_name || user.email || 'ללא שם')}</strong><small>${escapeHtml(user.email || '')}</small><span>${p?.is_super_admin ? 'מנהל־על' : user.email_confirmed_at ? 'פעיל' : 'הוזמן'}</span></button>`; }).join('')}</div></aside><div class="permissions-editor">${model ? `<form id="permissions-form" class="panel"><div class="permissions-editor-head"><div><h2>${escapeHtml(model.profile.display_name || model.user.email)}</h2><p>${escapeHtml(model.user.email || '')}</p></div><span>${model.profile.is_super_admin ? 'SUPER_ADMIN — עריכה בכל המסכים' : ''}</span></div><div class="form-grid"><label class="field">שם תצוגה<input name="display_name" value="${escapeHtml(model.profile.display_name || '')}"></label><label class="checkbox-field"><input name="is_active" type="checkbox" ${model.profile.is_active ? 'checked' : ''}> משתמש פעיל</label><label class="checkbox-field"><input name="is_super_admin" type="checkbox" ${model.profile.is_super_admin ? 'checked' : ''}> SUPER_ADMIN</label></div><fieldset><legend>טווח נתונים ארגוני</legend><label><input type="radio" name="scope_mode" value="ORGANIZATION" ${model.profile.scope_mode === 'ORGANIZATION' ? 'checked' : ''}> כל הארגון</label><label><input type="radio" name="scope_mode" value="SELECTED" ${model.profile.scope_mode === 'SELECTED' ? 'checked' : ''}> יחידות ומעונות נבחרים</label><div class="scope-grid">${usersAdminData.allocation_units.map((unit) => `<label><input type="checkbox" name="unit_scope" value="${unit.allocation_unit_id}" ${model.unitIds.includes(unit.allocation_unit_id) ? 'checked' : ''}> ${escapeHtml(unit.display_name)}</label>`).join('')}${usersAdminData.daycares.map((daycare) => `<label><input type="checkbox" name="daycare_scope" value="${daycare.daycare_id}" ${model.daycareIds.includes(daycare.daycare_id) ? 'checked' : ''}> ${escapeHtml(daycare.display_name)}</label>`).join('')}</div></fieldset><div class="permission-toolbar"><input id="permission-search" type="search" placeholder="חיפוש מסך" value="${escapeHtml(permissionSearch)}"><button id="expand-permissions" type="button" class="button button-quiet">הרחבת הכול</button><button id="hide-all-permissions" type="button" class="button button-quiet">הכול לא להציג</button></div><div id="permission-matrix" class="permission-matrix">${permissionRows(model)}</div><details class="audit-history"><summary>היסטוריית שינויים (${model.audit.length})</summary>${model.audit.length ? model.audit.map((event) => `<p><strong>${escapeHtml(event.operation)}</strong> · ${new Intl.DateTimeFormat('he-IL', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(event.occurred_at))}</p>`).join('') : '<p>לא קיימת היסטוריה.</p>'}</details><div class="form-actions"><button class="button button-primary" type="submit">שמירה</button><button id="cancel-permissions" class="button button-secondary" type="button">ביטול</button></div></form>` : '<section class="panel"><p>אין משתמשים.</p></section>'}</div>`;
+  root.hidden = false; bindPermissionsAdmin();
+}
+
+function bindPermissionsAdmin() {
+  let dirty = false; const form = $('#permissions-form');
+  window.onbeforeunload = () => dirty ? 'קיימים שינויים שלא נשמרו.' : undefined;
+  document.querySelectorAll('[data-user-id]').forEach((button) => button.addEventListener('click', () => { if (dirty && !confirm('קיימים שינויים שלא נשמרו. לעבור למשתמש אחר?')) return; selectedPortalUserId = button.dataset.userId; permissionSearch = ''; renderPermissionsAdmin(); }));
+  form?.addEventListener('change', () => { dirty = true; });
+  $('#user-search')?.addEventListener('input', (event) => { const query = event.target.value.trim().toLowerCase(); document.querySelectorAll('[data-user-id]').forEach((item) => { item.hidden = !item.textContent.toLowerCase().includes(query); }); });
+  $('#permission-search')?.addEventListener('input', (event) => { permissionSearch = event.target.value.trim().toLowerCase(); renderPermissionsAdmin(); });
+  $('#hide-all-permissions')?.addEventListener('click', () => { form.querySelectorAll('[data-permission]').forEach((select) => { select.value = 'HIDDEN'; }); dirty = true; });
+  $('#expand-permissions')?.addEventListener('click', (event) => { const collapsing = event.currentTarget.dataset.collapsed !== 'true'; form.querySelectorAll('[data-screen]').forEach((row) => { if (row.dataset.parent) row.hidden = collapsing; }); event.currentTarget.dataset.collapsed = String(collapsing); event.currentTarget.textContent = collapsing ? 'הרחבת הכול' : 'כיווץ הכול'; });
+  document.querySelectorAll('[data-apply-branch]').forEach((button) => button.addEventListener('click', () => { const code = button.dataset.applyBranch; const source = form.querySelector(`[data-screen="${code}"] [data-permission]`).value; form.querySelectorAll('[data-screen]').forEach((row) => { if (row.dataset.screen === code || row.dataset.screen.startsWith(`${code}.`)) row.querySelector('[data-permission]').value = source; }); dirty = true; }));
+  $('#cancel-permissions')?.addEventListener('click', () => { permissionSearch = ''; renderPermissionsAdmin(); });
+  form?.addEventListener('submit', async (event) => { event.preventDefault(); const values = new FormData(form); const payload = { user_id: selectedPortalUserId, profile: { display_name: values.get('display_name'), is_active: values.has('is_active'), is_super_admin: values.has('is_super_admin'), scope_mode: values.get('scope_mode') }, permissions: [...form.querySelectorAll('[data-screen]')].map((row) => ({ screen_code: row.dataset.screen, permission_level: row.querySelector('[data-permission]').value })).filter((item) => item.permission_level), allocation_unit_ids: values.getAll('unit_scope'), daycare_ids: values.getAll('daycare_scope') }; $('#permissions-feedback').textContent = 'שומר…'; try { usersAdminData = await portalUsersRequest('PATCH', payload); dirty = false; $('#permissions-feedback').textContent = 'השינויים נשמרו בהצלחה.'; renderPermissionsAdmin(); } catch (error) { $('#permissions-feedback').textContent = error.message; } });
+}
+
+async function loadPermissionsAdmin() {
+  try { usersAdminData = await portalUsersRequest(); $('#permissions-admin-state').hidden = true; renderPermissionsAdmin(); } catch (error) { $('#permissions-admin-state').className = 'state error panel'; $('#permissions-admin-state').textContent = error.message; }
+  $('#invite-user-open')?.addEventListener('click', async () => { const email = prompt('כתובת דוא״ל להזמנה:'); if (!email) return; const displayName = prompt('שם תצוגה (לא חובה):') || ''; $('#permissions-feedback').textContent = 'שולח הזמנה…'; try { usersAdminData = await portalUsersRequest('POST', { email, display_name: displayName }); $('#permissions-feedback').textContent = 'ההזמנה נשלחה בהצלחה.'; renderPermissionsAdmin(); } catch (error) { $('#permissions-feedback').textContent = error.message; } });
 }
 
 function documentedText(value) {
@@ -393,7 +487,7 @@ function auditLogTemplate() {
 
 async function loadAuditLog() {
   let rows = []; let error = '';
-  try { rows = await rest('audit_events', 'select=*&order=created_at.desc&limit=500'); } catch (caught) { error = caught.message; }
+  try { rows = await rest('audit_events', 'select=*&order=occurred_at.desc&limit=500'); } catch (caught) { error = caught.message; }
   if (parseRoute().page !== 'audit') return;
   const state = $('#audit-state'); const list = $('#audit-list');
   if (error) { state.className = 'state error panel'; state.textContent = 'יומן השינויים אינו זמין למשתמש הנוכחי.'; return; }
@@ -1002,6 +1096,15 @@ function breadcrumbsTemplate(route, unit, type) {
 
 async function render() {
   const route = parseRoute();
+  if (!portalAccess) return;
+  const requestedScreen = routeScreenCode(route);
+  if (!canView(requestedScreen)) {
+    $('#page-content').innerHTML = accessDeniedTemplate();
+    $('#breadcrumbs').innerHTML = '<a href="#home">עמוד הבית</a><span aria-hidden="true">/</span><span aria-current="page">אין הרשאה</span>';
+    document.title = 'אין הרשאה | פורטל חמ״ה';
+    history.replaceState({}, '', `${location.pathname}#access-denied`);
+    return;
+  }
   const managementLabels = { permissions: 'הרשאות', rules: 'כללים', tables: 'טבלאות', audit: 'יומן שינויים', users: 'רשימת משתמשים והרשאות', system: 'כללי מערכת', calculation: 'טבלאות חישוב', variables: 'כללים משתנים' };
   let title = route.calculator === 'salary' ? 'מחשבון שכר' : route.calculator === 'occupancy' ? 'תפוסה, תקינה ורווחיות' : route.section === 'training' && (route.child || route.page) ? managementLabels[route.child || route.page] : route.child ? payrollCalculationCards.find((item) => item.route.endsWith(route.child)).title : route.section === 'payroll' && route.page ? 'חישובי שכר' : route.section === 'home' ? 'עמוד הבית' : route.section === 'dashboards' ? 'דשבורדים' : simpleRoutes[route.section].title;
   let unit = null;
@@ -1013,7 +1116,7 @@ async function render() {
   else if (route.section === 'payroll' && route.child) $('#page-content').innerHTML = placeholderTemplate(title, 'payroll/calculations', 'חישובי שכר');
   else if (route.section === 'payroll' && route.page === 'calculations') $('#page-content').innerHTML = sectionCardsTemplate('payroll', payrollCalculationCards, 'חישובי שכר', 'בחירת מסלול לחישוב חדש, עבודה קיימת או טבלאות עבר.');
   else if (route.section === 'payroll') $('#page-content').innerHTML = sectionCardsTemplate('payroll');
-  else if (route.section === 'training' && route.page === 'permissions' && route.child === 'users') $('#page-content').innerHTML = usersPermissionsTemplate();
+  else if (route.section === 'training' && route.page === 'permissions' && route.child === 'users') { $('#page-content').innerHTML = usersPermissionsTemplate(); await loadPermissionsAdmin(); }
   else if (route.section === 'training' && route.page === 'rules' && route.child === 'system') { $('#page-content').innerHTML = systemRulesTemplate(); bindSystemRules(); }
   else if (route.section === 'training' && route.page === 'tables' && route.child === 'calculation') { $('#page-content').innerHTML = managementTableShell('טבלאות חישוב', 'נתוני יסוד וטבלאות ייחוס יציבות בשפה עסקית.'); await loadManagementTables('reference'); }
   else if (route.section === 'training' && route.page === 'tables' && route.child === 'variables') { $('#page-content').innerHTML = managementTableShell('כללים משתנים', 'פרמטרים עסקיים עם שדות תוקף, גרסאות והיסטוריה כאשר הם קיימים במקור.'); await loadManagementTables('variable'); }
@@ -1332,10 +1435,7 @@ $('#login-form').addEventListener('submit', async (event) => {
     await signInWithPassword(email.value.trim(), password.value);
     password.value = '';
     if (!await validateSession()) throw new Error('לא ניתן לאמת את החיבור. יש לנסות שוב.');
-    $('#login-view').style.display = 'none';
-    $('#app-view').hidden = false;
-    $('#israeli-date').textContent = formatToday();
-    await render();
+    await showPortalHome();
   } catch (error) { message.textContent = error.message; }
   finally { setAuthPending(false); }
 });

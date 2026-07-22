@@ -1,6 +1,9 @@
 export const activeDaycareId = '11111111-1111-4111-8111-111111111111';
 export const activeOfficeId = '22222222-2222-4222-8222-222222222222';
 export const inactiveUnitId = '33333333-3333-4333-8333-333333333333';
+export const portalAccessFixture = { profile: { user_id: 'test-user', display_name: 'משתמשת בדיקה', is_active: true, is_super_admin: true, scope_mode: 'ORGANIZATION' }, allocation_unit_ids: [], daycare_ids: [], sections: [
+  ['home', 'home'], ['dashboards', 'dashboards'], ['dashboards.finance', 'dashboards/unit/organization/finance'], ['dashboards.accounting', 'dashboards/unit/organization/accounting'], ['dashboards.staffing', 'dashboards/unit/organization/staffing'], ['dashboards.occupancy', 'dashboards/unit/organization/occupancy'], ['calculators', 'calculators'], ['calculators.salary', 'calculators/salary'], ['calculators.occupancy', 'calculators/occupancy'], ['payroll', 'payroll'], ['payroll.calculations', 'payroll/calculations'], ['payroll.calculations.new', 'payroll/calculations/new'], ['payroll.calculations.existing', 'payroll/calculations/existing'], ['payroll.calculations.history', 'payroll/calculations/history'], ['management', 'training'], ['management.permissions', 'training/permissions'], ['management.permissions.users', 'training/permissions/users'], ['management.rules', 'training/rules'], ['management.rules.system', 'training/rules/system'], ['management.tables', 'training/tables'], ['management.tables.calculation', 'training/tables/calculation'], ['management.tables.variables', 'training/tables/variables'], ['management.audit', 'training/audit'], ['knowledge', 'knowledge'], ['maintenance', 'maintenance'], ['tasks', 'tasks']
+].map(([screen_code, route], display_order) => ({ screen_code, route, display_name: screen_code, display_order, permission_level: 'EDIT' })) };
 
 export const allocationUnits = [
   { allocation_unit_id: activeDaycareId, display_name: 'יחידה פעילה א', allocation_unit_type: 'DAYCARE', lifecycle_status: 'ACTIVE', display_order: 2, notes: null },
@@ -98,7 +101,7 @@ export async function mockNewPortalSupabase(page, units = allocationUnits) {
     const url = new URL(route.request().url());
     const table = url.pathname.split('/').pop();
     requestedTables.push({ table, search: url.search });
-    const body = table === 'calendar_years' && url.searchParams.get('is_selectable') === 'eq.true'
+    const body = table === 'portal_my_access' ? portalAccessFixture : table === 'calendar_years' && url.searchParams.get('is_selectable') === 'eq.true'
       ? generalResponses.calendar_years.filter((item) => item.is_selectable)
       : table === 'allocation_units' && url.searchParams.get('lifecycle_status') === 'eq.ACTIVE'
       ? units
@@ -107,6 +110,7 @@ export async function mockNewPortalSupabase(page, units = allocationUnits) {
         : (generalResponses[table] || []);
     await route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8', body: JSON.stringify(body) });
   });
+  await page.route('**/rest/v1/rpc/portal_my_access**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(portalAccessFixture) }));
   return requestedTables;
 }
 

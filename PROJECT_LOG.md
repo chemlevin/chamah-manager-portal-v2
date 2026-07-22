@@ -1583,3 +1583,71 @@ Known missing sources:
 
 - No documented or portal-accessible Auth user list, Auth role list, or permission matrix exists; the management page reports this instead of inventing entries.
 - Audit history depends on real `audit_events` rows. No example history is generated when the source is empty.
+
+## 2026-07-22 - Real Users and Permissions (Local Implementation, Remote Migration Blocked)
+
+Objective: implement Supabase Auth user administration, invitations, hierarchical per-screen permissions, SUPER_ADMIN invariants, organization scope, audit history, and central client route/navigation enforcement.
+
+Local implementation:
+
+- Added a normalized `portal_sections` catalog with stable codes for 26 current portal screens and calculators.
+- Added portal profiles, explicit user permissions, allocation-unit scope, and daycare scope tables.
+- Added nearest-parent permission inheritance with explicit child override and HIDDEN fallback.
+- Added automatic EDIT/full-scope behavior for SUPER_ADMIN and a database trigger that protects the final active SUPER_ADMIN from demotion, deactivation, or deletion.
+- Added a first-run bootstrap that selects the oldest confirmed active Auth user without using a hard-coded email; all other existing users default to active portal profiles with no permissions.
+- Added a server-only Supabase Edge Function for Auth user listing, invitations, permission/scope updates, and real `audit_events` writes. Service-role credentials are read only from the managed Edge Function environment.
+- Added the Hebrew RTL user list, invitation flow, profile editor, scope selector, hierarchical matrix, inheritance controls, branch application, all-HIDDEN action, search, collapse/expand, save/cancel feedback, dirty-state warning, and per-user audit history.
+- Added central access-context loading, navigation hiding, home-card filtering, route blocking, and client-side filtering of scoped unit/daycare values.
+- Corrected the existing audit view to order by the real `occurred_at` column.
+
+Remote status:
+
+- The migration was not applied because the linked Supabase project could not be proven to be an isolated Preview database; the safety review rejected broad live schema/security changes under the Preview-only authorization.
+- The Edge Function was not deployed for the same reason.
+- No Vercel Preview was deployed and no commit/push was made because the requested feature is not operable until the Supabase target is explicitly approved or a Preview branch is supplied.
+
+Validation performed:
+
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `npm.cmd run build` passed.
+- The focused desktop section suite reached 16 passing tests; two existing helper-based tests timed out while the permission-context fixture integration was being updated. Full regression and responsive verification remain pending.
+
+Remaining enforcement gap:
+
+- The users/permissions endpoint is designed for full server-side enforcement once migrated/deployed.
+- Other portal modules have central client navigation/route guards and client-side scope filtering, but their existing PostgREST policies still provide broad authenticated read access. Per-screen and organizational scope are therefore not yet enforced server-side for those existing data sources.
+
+## 2026-07-22 - Real Users and Permissions Completed
+
+Authorization: The user explicitly approved applying additive permission-infrastructure migrations and the authenticated Edge Function to shared Supabase project `vyyfuaqmbxvfqgbfqooc`. Existing business tables, workflows, data-loading logic, and Production application remained unchanged.
+
+Applied migrations:
+
+- `20260722170000_portal_users_permissions.sql`: 26-screen catalog, portal profiles, append-only versioned permissions and scopes, inheritance RPCs, SUPER_ADMIN bootstrap/invariants, RLS, and audited administration RPC.
+- `20260722173000_portal_function_privileges.sql`: removed anonymous/public execution privileges from security-definer functions while retaining the authenticated self-access RPC.
+
+Deployment:
+
+- Deployed authenticated Supabase Edge Function `portal-users` version 1 with JWT verification enabled.
+- The service-role key remains available only in the managed Edge Function environment and is not present in browser code or Vercel configuration.
+
+Database verification:
+
+- Catalog contains 26 active screen codes.
+- Two existing Auth users received portal profiles; the oldest confirmed user was bootstrapped as the sole active SUPER_ADMIN without an email constant.
+- SUPER_ADMIN resolves to EDIT for all 26 screens; the regular user resolves to HIDDEN by default.
+- New tables have RLS enabled and expose only authenticated self-read policies; administration writes are available only through the service-role RPC after server-side EDIT verification.
+- Security advisor no longer reports anonymous access to the new security-definer functions. Its remaining permission warning is the intentional authenticated `portal_my_access()` RPC. The pre-existing leaked-password-protection warning was not changed because Auth configuration was outside the approved scope.
+
+Validation:
+
+- JavaScript syntax checks and `git diff --check` passed.
+- `npm.cmd run build` passed and regenerated the documented 178-rule catalog.
+- Permission management and HIDDEN route coverage: 8 passed across desktop, laptop, and two mobile viewports.
+- Focused portal navigation/management coverage: 72 passed.
+- Focused Auth/recovery/invitation regression: 52 passed.
+- Full Playwright regression: 516 passed, 12 intentionally skipped, 0 failed (528 total).
+
+Known remaining boundary:
+
+- The users/permissions area is server-enforced. Other modules use the new navigation/route guards and client-side scope filtering only; their existing broad authenticated PostgREST read policies were deliberately not changed. Server-side scoped access for those modules remains future work, as explicitly requested.

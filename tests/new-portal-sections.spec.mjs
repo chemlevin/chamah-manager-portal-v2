@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { mockNewPortalSupabase, openNewPortal } from './new-portal-test-data.mjs';
+import { mockNewPortalSupabase, openNewPortal, portalAccessFixture } from './new-portal-test-data.mjs';
 
 const routes = [
   ['payroll', 'שכר', ['payroll/calculations']],
@@ -20,7 +20,8 @@ const routes = [
 
 const openPortal = async (page, route) => {
   await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/auth/v1/user', (request) => request.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'sections-test-user' }) }));
-  await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/rest/v1/**', (request) => request.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+  await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/functions/v1/portal-users', (request) => request.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ users: [], profiles: [], permissions: [], unit_scopes: [], daycare_scopes: [], sections: portalAccessFixture.sections, allocation_units: [], daycares: [], audit_events: [] }) }));
+  await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/rest/v1/**', (request) => request.fulfill({ status: 200, contentType: 'application/json', body: request.request().url().includes('/rpc/portal_my_access') ? JSON.stringify(portalAccessFixture) : '[]' }));
   await page.addInitScript(() => localStorage.setItem('chamah.portal.session', JSON.stringify({ access_token: 'sections-test-session', refresh_token: 'sections-test-refresh', expires_at: 4102444800 })));
   await page.goto(`/new/#${route}`);
 };

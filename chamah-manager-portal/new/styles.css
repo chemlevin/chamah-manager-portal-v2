@@ -452,3 +452,16 @@ p { line-height: 1.65; }
   body.print-single-kpi .financial-kpis { display: block; }
   body.print-single-kpi .financial-kpi.print-target { max-width: 680px; margin: 24px auto; }
 }
+/* Users and permissions */
+.permissions-admin{display:grid;grid-template-columns:minmax(230px,300px) minmax(0,1fr);gap:1rem;align-items:start}
+.permissions-users{padding:1rem;position:sticky;top:5.5rem;max-height:calc(100vh - 7rem);overflow:auto}
+.permission-user{display:grid;width:100%;gap:.2rem;padding:.75rem;border:0;border-bottom:1px solid var(--border-color,#d9e2de);background:transparent;text-align:right;cursor:pointer}
+.permission-user.active{background:#e5f0ec;border-radius:.75rem}.permission-user small,.permission-user span{color:var(--muted-color,#65746e)}
+.permissions-editor form{padding:1.25rem}.permissions-editor-head,.permission-toolbar,.form-actions{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap}
+.form-grid,.scope-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;margin:1rem 0}
+.permissions-editor fieldset{margin:1rem 0;padding:1rem;border:1px solid var(--border-color,#d9e2de);border-radius:1rem}
+.scope-grid{max-height:15rem;overflow:auto}.permission-toolbar{margin:1rem 0}.permission-toolbar input{min-width:min(100%,18rem)}
+.permission-matrix{border:1px solid var(--border-color,#d9e2de);border-radius:1rem;overflow:hidden}
+.permission-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(145px,190px) auto;gap:.75rem;align-items:center;padding:.65rem .8rem;padding-inline-start:calc(.8rem + var(--depth) * 1.15rem);border-bottom:1px solid var(--border-color,#d9e2de)}
+.permission-row:last-child{border-bottom:0}.permission-row span{display:grid}.permission-row small{color:var(--muted-color,#65746e);direction:ltr;text-align:right}.audit-history{margin:1rem 0}
+@media(max-width:760px){.permissions-admin{grid-template-columns:1fr}.permissions-users{position:static;max-height:17rem}.permission-row{grid-template-columns:1fr 1fr}.permission-row button{grid-column:1/-1}.header-actions #portal-profile{display:none}}

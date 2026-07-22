@@ -4,6 +4,11 @@ const supabaseUrl = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
 const sessionKey = 'chamah.portal.session';
 
 const validSession = { access_token: 'valid-access', refresh_token: 'valid-refresh', expires_at: 4102444800 };
+const authAccess = { profile: { user_id: 'authorized-user', display_name: 'משתמשת', is_active: true, is_super_admin: true, scope_mode: 'ORGANIZATION' }, allocation_unit_ids: [], daycare_ids: [], sections: ['home','dashboards','calculators','payroll','management','knowledge','maintenance','tasks'].map((screen_code, display_order) => ({ screen_code, route: screen_code === 'management' ? 'training' : screen_code, display_order, permission_level: 'EDIT' })) };
+
+test.beforeEach(async ({ page }) => {
+  await page.route(`${supabaseUrl}/rest/v1/rpc/portal_my_access**`, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(authAccess) }));
+});
 
 async function installSession(page, value = validSession) {
   await page.addInitScript(({ key, session }) => localStorage.setItem(key, JSON.stringify(session)), { key: sessionKey, session: value });
