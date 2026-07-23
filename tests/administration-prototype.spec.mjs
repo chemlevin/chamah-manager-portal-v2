@@ -51,4 +51,67 @@ test.describe('TRACK 009 administration prototype', () => {
     await expect(operation.locator('option')).toContainText(['בחירה', 'בתקופה', 'שווה ל־']);
     await expect(page.locator('input[name="source_code"], input[name="source_field"]')).toHaveCount(0);
   });
+
+  for (const screen of [
+    { hash: 'training/tables/variables', title: 'שיעור תפוסה חודשי' },
+    { hash: 'training/rules/calculation', title: 'תקינת צוות לתינוקות' }
+  ]) {
+    test(`${screen.title} exposes its complete demo data flow and dependency graph`, async ({ page }) => {
+      await openNewPortal(page, screen.hash);
+      await page.getByRole('button', { name: 'עריכה' }).first().click();
+      const flow = page.getByRole('region', { name: 'זרימת נתונים' });
+      await expect(flow).toBeVisible();
+      await expect(flow.locator('.metadata-flow li')).toHaveCount(6);
+      await expect(flow.locator('.metadata-flow > li > small')).toHaveText(['מקור', 'שדה', 'מסננים', 'צבירה', 'משתנה תוצאה', 'בשימוש אצל']);
+      await expect(flow.getByRole('heading', { name: 'תלוי ב־' })).toBeVisible();
+      await expect(flow.getByRole('heading', { name: 'תלויים בו' })).toBeVisible();
+      await expect(flow.locator('.metadata-reference-list a').first()).toBeVisible();
+    });
+  }
+
+  test('impact analysis lists all five affected metadata categories before save', async ({ page }) => {
+    await openNewPortal(page, 'training/tables/variables');
+    await page.getByRole('button', { name: 'עריכה' }).first().click();
+    const impact = page.getByRole('region', { name: 'ניתוח השפעה' });
+    await expect(impact).toBeVisible();
+    for (const label of ['משתנים מושפעים', 'כללים מושפעים', 'לוחות מחוונים מושפעים', 'דוחות מושפעים', 'חישובים מושפעים']) {
+      await expect(impact.getByText(label, { exact: true })).toBeVisible();
+    }
+    const save = page.getByRole('button', { name: 'שמירה' });
+    await expect(impact).toBeVisible();
+    await expect(save).toBeVisible();
+  });
+
+  test('where-used inspector is available from variables, tables and rules', async ({ page }) => {
+    for (const hash of ['training/tables/variables', 'training/tables/calculation', 'training/rules/calculation']) {
+      await openNewPortal(page, hash);
+      await page.getByRole('button', { name: 'איפה בשימוש?' }).first().click();
+      const inspector = page.getByRole('dialog', { name: 'איפה זה נמצא בשימוש?' });
+      await expect(inspector).toBeVisible();
+      await expect(inspector.getByRole('heading', { name: 'תלוי ב־' })).toBeVisible();
+      await expect(inspector.getByRole('heading', { name: 'תלויים בו' })).toBeVisible();
+      await expect(inspector.getByRole('heading', { name: 'כל המקומות שמפנים לרשומה' })).toBeVisible();
+      await expect(inspector.locator('.metadata-reference-list a').first()).toBeVisible();
+      await inspector.getByRole('button', { name: 'סגירה' }).click();
+    }
+  });
+
+  test('calculation preview updates its demo result step by step', async ({ page }) => {
+    await openNewPortal(page, 'training/rules/calculation');
+    await page.getByRole('button', { name: 'עריכה' }).first().click();
+    const preview = page.getByRole('region', { name: 'תצוגה מקדימה של החישוב' });
+    await expect(preview.locator('.metadata-preview-steps li')).toHaveCount(3);
+    await expect(preview.locator('[data-preview-result]')).toContainText('זכאות');
+    await preview.getByLabel('ערך לדוגמה').fill('2');
+    await preview.getByLabel('סף להשוואה').fill('5');
+    await expect(preview.locator('[data-preview-result]')).toContainText('ללא זכאות');
+  });
+
+  test('designer remains horizontally contained on narrow mobile', async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.name.startsWith('mobile'), 'Mobile-only responsive assertion');
+    await openNewPortal(page, 'training/tables/variables');
+    await page.getByRole('button', { name: 'עריכה' }).first().click();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+    await expect(page.locator('.metadata-flow')).toHaveCSS('overflow-x', 'auto');
+  });
 });

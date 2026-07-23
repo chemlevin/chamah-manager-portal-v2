@@ -1863,3 +1863,41 @@ Validation:
 Residual risk:
 
 - The source catalog is intentionally demo metadata. A future adapter must map inspected portal/Supabase schema metadata into the same catalog contract before real persistence or calculations are introduced.
+
+## 2026-07-23 - TRACK: 009B Administration Data-Flow Designer
+
+Objective: Evolve the Variables and Calculation Rules prototype into a metadata-driven data-flow designer using demo data only.
+
+Implementation:
+
+- Added an exported demo metadata graph covering variables, calculation tables, calculation rules, upstream dependencies, downstream dependents, and consumer references.
+- Added a six-stage Hebrew RTL Data Flow view for every Variable and Calculation Rule: source, field, filters, aggregation, result variable, and used-by consumers.
+- Added clickable bidirectional dependency lists inside the designer.
+- Added a pre-save Impact Analysis panel with affected variables, rules, dashboards, reports, and calculations.
+- Added a reusable `איפה בשימוש?` inspector to Variables, Calculation Tables, and Calculation Rules.
+- Added an interactive, three-step demo Calculation Preview for Variables and Rules. It does not call business engines or execute real calculations.
+- Extended the Administration Framework with optional metadata-owned editor and inspector render/bind hooks.
+- Added horizontally scrollable mobile flow cards and responsive single-column impact, dependency, and preview layouts.
+- Kept all data and interactions in browser memory. Supabase, Dashboard, Payroll, Budget, APIs, and real calculation engines remain disconnected.
+
+Files changed:
+
+- `chamah-manager-portal/new/admin-framework.css`
+- `chamah-manager-portal/new/admin-framework.js`
+- `chamah-manager-portal/new/administration-prototype.js`
+- `docs/architecture/administration-framework.md`
+- `tests/administration-prototype.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- JavaScript syntax checks and `git diff --check` passed.
+- `npm.cmd run build` passed.
+- Administration prototype Data Flow, dependency, impact, where-used, calculation preview, CRUD, dependent selectors, and mobile containment passed across desktop 1440, laptop 1280, mobile 390, and mobile 430: 42 passed and 2 desktop-only mobile checks intentionally skipped.
+- Administration Framework regression passed across all four responsive projects: 25 passed and 3 viewport-independent checks intentionally skipped.
+- Broader Payroll and Administration section/navigation regression passed across all four responsive projects: 76 passed.
+- Final headless Chrome mobile verification confirmed six flow stages, visible impact and preview panels, no framework error overlay, and zero horizontal page overflow. Two external resource requests were blocked by the sandbox; no application exception was detected.
+
+Residual risk:
+
+- Dependency and impact results are prototype metadata, not schema-derived lineage. Real persistence, graph validation, cycle detection, permissions, engine execution, and runtime consumer discovery require future authorized tracks.

@@ -12,6 +12,8 @@ TRACK 009 uses this boundary for three demo-only screens: Variables, Calculation
 
 TRACK 009A adds a demo source catalog for Variables and Calculation Rules. Each source publishes stable English codes, Hebrew labels, fields, data types, and allowed operations. Form fields can derive options from the current record, reset dependent selections through `onChange`, and place stable technical codes inside a collapsed advanced area. A future metadata adapter can replace the demo catalog with portal metadata or an inspected Supabase schema without changing the selector contract.
 
+TRACK 009B adds a demo metadata graph on top of the same catalog. Each variable, calculation table, and calculation rule can declare upstream dependencies, downstream dependents, and usage references. Variables and rules render the source-to-consumer flow, impact analysis, and a non-business demo calculation inside the editor; every prototype entity exposes a reusable where-used inspector from its list row.
+
 ## Architecture
 
 The framework has three boundaries:
@@ -19,6 +21,15 @@ The framework has three boundaries:
 1. Page metadata owns presentation and validation: English database field names, Hebrew labels, field types, options, search/filter/sort behavior, and validation rules.
 2. The administration controller owns UI state and workflow: loading, empty, error, table state, form state, dirty tracking, CRUD coordination, responsive rendering, and user feedback.
 3. A repository owns persistence. Repositories implement `list`, `create`, `update`, and `delete`; the UI does not know which table or transport is used.
+
+Optional presentation extension points keep graph-aware features out of the CRUD controller:
+
+- `renderEditorExtensions(record, original)` renders trusted metadata-owned designer panels before the technical area and save actions.
+- `bindEditorExtensions(root, record)` binds interactive prototype behavior such as the demo calculation preview.
+- `renderInspector(record)` adds a generic `איפה בשימוש?` row action and supplies the inspector content.
+- `bindInspector(root, record)` can bind future inspector interactions.
+
+The current graph is exported as `DEMO_METADATA_GRAPH`. It is intentionally presentation metadata: it neither queries nor invokes Dashboard, Payroll, Budget, Supabase, or calculation engines. A future graph adapter can derive the same dependency and usage arrays from persisted portal metadata while retaining the framework extension contract.
 
 This separation keeps future business settings metadata-only while allowing persistence and security to evolve independently.
 
