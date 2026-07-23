@@ -1583,3 +1583,321 @@ Known missing sources:
 
 - No documented or portal-accessible Auth user list, Auth role list, or permission matrix exists; the management page reports this instead of inventing entries.
 - Audit history depends on real `audit_events` rows. No example history is generated when the source is empty.
+
+## 2026-07-22 - Real Users and Permissions (Local Implementation, Remote Migration Blocked)
+
+Objective: implement Supabase Auth user administration, invitations, hierarchical per-screen permissions, SUPER_ADMIN invariants, organization scope, audit history, and central client route/navigation enforcement.
+
+Local implementation:
+
+- Added a normalized `portal_sections` catalog with stable codes for 26 current portal screens and calculators.
+- Added portal profiles, explicit user permissions, allocation-unit scope, and daycare scope tables.
+- Added nearest-parent permission inheritance with explicit child override and HIDDEN fallback.
+- Added automatic EDIT/full-scope behavior for SUPER_ADMIN and a database trigger that protects the final active SUPER_ADMIN from demotion, deactivation, or deletion.
+- Added a first-run bootstrap that selects the oldest confirmed active Auth user without using a hard-coded email; all other existing users default to active portal profiles with no permissions.
+- Added a server-only Supabase Edge Function for Auth user listing, invitations, permission/scope updates, and real `audit_events` writes. Service-role credentials are read only from the managed Edge Function environment.
+- Added the Hebrew RTL user list, invitation flow, profile editor, scope selector, hierarchical matrix, inheritance controls, branch application, all-HIDDEN action, search, collapse/expand, save/cancel feedback, dirty-state warning, and per-user audit history.
+- Added central access-context loading, navigation hiding, home-card filtering, route blocking, and client-side filtering of scoped unit/daycare values.
+- Corrected the existing audit view to order by the real `occurred_at` column.
+
+Remote status:
+
+- The migration was not applied because the linked Supabase project could not be proven to be an isolated Preview database; the safety review rejected broad live schema/security changes under the Preview-only authorization.
+- The Edge Function was not deployed for the same reason.
+- No Vercel Preview was deployed and no commit/push was made because the requested feature is not operable until the Supabase target is explicitly approved or a Preview branch is supplied.
+
+Validation performed:
+
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `npm.cmd run build` passed.
+- The focused desktop section suite reached 16 passing tests; two existing helper-based tests timed out while the permission-context fixture integration was being updated. Full regression and responsive verification remain pending.
+
+Remaining enforcement gap:
+
+- The users/permissions endpoint is designed for full server-side enforcement once migrated/deployed.
+- Other portal modules have central client navigation/route guards and client-side scope filtering, but their existing PostgREST policies still provide broad authenticated read access. Per-screen and organizational scope are therefore not yet enforced server-side for those existing data sources.
+
+## 2026-07-22 - Real Users and Permissions Completed
+
+Authorization: The user explicitly approved applying additive permission-infrastructure migrations and the authenticated Edge Function to shared Supabase project `vyyfuaqmbxvfqgbfqooc`. Existing business tables, workflows, data-loading logic, and Production application remained unchanged.
+
+Applied migrations:
+
+- `20260722170000_portal_users_permissions.sql`: 26-screen catalog, portal profiles, append-only versioned permissions and scopes, inheritance RPCs, SUPER_ADMIN bootstrap/invariants, RLS, and audited administration RPC.
+- `20260722173000_portal_function_privileges.sql`: removed anonymous/public execution privileges from security-definer functions while retaining the authenticated self-access RPC.
+
+Deployment:
+
+- Deployed authenticated Supabase Edge Function `portal-users` version 1 with JWT verification enabled.
+- The service-role key remains available only in the managed Edge Function environment and is not present in browser code or Vercel configuration.
+
+Database verification:
+
+- Catalog contains 26 active screen codes.
+- Two existing Auth users received portal profiles; the oldest confirmed user was bootstrapped as the sole active SUPER_ADMIN without an email constant.
+- SUPER_ADMIN resolves to EDIT for all 26 screens; the regular user resolves to HIDDEN by default.
+- New tables have RLS enabled and expose only authenticated self-read policies; administration writes are available only through the service-role RPC after server-side EDIT verification.
+- Security advisor no longer reports anonymous access to the new security-definer functions. Its remaining permission warning is the intentional authenticated `portal_my_access()` RPC. The pre-existing leaked-password-protection warning was not changed because Auth configuration was outside the approved scope.
+
+Validation:
+
+- JavaScript syntax checks and `git diff --check` passed.
+- `npm.cmd run build` passed and regenerated the documented 178-rule catalog.
+- Permission management and HIDDEN route coverage: 8 passed across desktop, laptop, and two mobile viewports.
+- Focused portal navigation/management coverage: 72 passed.
+- Focused Auth/recovery/invitation regression: 52 passed.
+- Full Playwright regression: 516 passed, 12 intentionally skipped, 0 failed (528 total).
+
+Known remaining boundary:
+
+- The users/permissions area is server-enforced. Other modules use the new navigation/route guards and client-side scope filtering only; their existing broad authenticated PostgREST read policies were deliberately not changed. Server-side scoped access for those modules remains future work, as explicitly requested.
+
+## 2026-07-22 - Reusable Administration Framework
+
+Objective: Build metadata-driven infrastructure for future Settings pages without creating business settings pages or changing existing application behavior.
+
+Implementation:
+
+- Added an isolated administration controller that generates a generic table and form from metadata.
+- Added search, metadata-defined filters, sorting, page-size selection, pagination, field and record validation, CRUD coordination, save/cancel behavior, unsaved-change confirmation, and browser-leave protection.
+- Added loading, empty, no-results, error/retry, saving, success, and validation states.
+- Added isolated RTL responsive styles with mobile card-table rendering and a mobile form sheet.
+- Added an English database field to Hebrew UI label contract through field metadata.
+- Added repository boundaries so future pages can use metadata without custom CRUD UI code.
+- Added a signed-in-user PostgREST repository adapter that preserves existing RLS/privileges and writes centralized `audit_events` rows after successful mutations.
+- Added a memory repository for deterministic tests and future UI development.
+- Added architecture documentation, including the current non-atomic boundary between a Data API mutation and a client-written audit event.
+- Did not add business Settings pages or modify business logic, existing queries, dashboards, payroll, Accounting, Budget Engine, calculators, APIs, permissions, RLS, schema, or existing portal routes.
+
+Files changed:
+
+- `chamah-manager-portal/new/admin-framework.js`
+- `chamah-manager-portal/new/admin-framework.css`
+- `docs/architecture/administration-framework.md`
+- `tests/admin-framework.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- `node --check chamah-manager-portal/new/admin-framework.js` passed.
+- `node --check tests/admin-framework.spec.mjs` passed.
+- `git diff --check` passed for the task files.
+- `npm.cmd run build` passed and copied the framework into the generated deployment root.
+- Focused administration framework suite passed across desktop 1440, laptop 1280, mobile 390, and mobile 430: 21 passed and 3 viewport-independent request-contract checks intentionally skipped.
+- Full Playwright regression executed 528 tests: 514 passed, 12 were intentionally skipped, and 2 existing portal-foundation tests failed before home rendering because the concurrent uncommitted Users & Permissions implementation added a `portal_my_access` request that the older foundation helper does not mock. The administration framework tests all passed inside the full run; no concurrent task files were modified to resolve the unrelated fixture gap.
+- After the independent Users & Permissions commit supplied its completed fixture, the two affected desktop foundation tests and the remaining desktop foundation check passed (3 passed). The administration framework suite was then repeated successfully (21 passed, 3 intentionally skipped).
+
+Remaining risk:
+
+- Generic PostgREST mutation and audit insertion are separate requests. Entities requiring atomic audit history should receive a dedicated database function or trigger in a separately authorized schema/API task.
+
+## 2026-07-22 - Permissions Infrastructure Preview Deployment
+
+- Deployed commit `0487a44` to Vercel Preview only: `https://chamah-portal-dkpkph61w-chamah.vercel.app`.
+- Vercel completed the application build successfully; the deployment remains protected by the existing Vercel sign-in gate and Production was not promoted or replaced.
+- A direct unauthenticated HTTP check reached the Vercel protection login as expected. Local Playwright regression remains the authenticated UI verification record: 516 passed, 12 intentionally skipped, 0 failed.
+
+## 2026-07-22 - TRACK: 001 Closure Review
+
+Scope review:
+
+- Rechecked the approved Auth user list, invitation completion, portal profile, per-user screen permissions, organizational scope configuration, permission inheritance, SUPER_ADMIN invariants, centralized enforcement, Hebrew RTL administration UI, real audit history, migrations, and deployed Edge Function.
+- Confirmed the users/permissions area is a real Supabase-backed implementation rather than a placeholder or local preview simulation.
+- Completed the remaining catalog integration so the normalized `portal_sections` records now supply navigation destinations and labels, home navigation-card metadata, breadcrumbs, document titles, and the permission tree. Static renderer definitions remain presentation fallbacks only.
+- Replaced the stale users-card description that still described the implemented management screen as future work.
+
+Explicit track boundary:
+
+- Server-side organizational-scope enforcement for existing business modules is intentionally deferred to future migration tracks and is not part of TRACK: 001. TRACK: 001 provides the scope model, administration, self-access context, navigation and route enforcement, and safe client filtering without refactoring or replacing existing business-module data-loading logic.
+- No existing business workflow, calculation, API contract, business table, Auth configuration, or Production deployment was changed during closure.
+
+Closure validation:
+
+- JavaScript syntax checks, `git diff --check`, and `npm.cmd run build` passed.
+- Permission administration, HIDDEN route blocking, and catalog-driven navigation/breadcrumb coverage passed across all four responsive projects: 12 passed.
+- Authentication, recovery, and invitation regression passed across all four responsive projects: 52 passed.
+- Portal foundation regression passed across all four responsive projects: 12 passed.
+- Portal sections, management routes, navigation, breadcrumbs, rules, tables, audit, and promoted dashboard regression passed across all four responsive projects: 72 passed.
+- A monolithic full-suite invocation exceeded its 20-minute command wrapper without reporting a product failure; the complete affected surface was therefore rerun as the deterministic focused suites above. An initial sandboxed browser retry failed at process launch with `spawn EPERM`; the approved unsandboxed retry passed all 12 permission tests.
+
+Status: TRACK: 001 CLOSED.
+
+Closure deployment:
+
+- Deployed commit `918f06d` to Vercel Preview only: `https://chamah-portal-kokyizqa5-chamah.vercel.app`.
+- The Vercel build completed successfully. Production was not promoted or replaced.
+
+## 2026-07-22 - TRACK: 007 Administration UI Stabilization
+
+Objective: Stabilize Hebrew rendering and responsive administration UI throughout `/new/` without changing permissions, scope behavior, APIs, RLS, schema, data, or business logic.
+
+Implementation:
+
+- Added a presentation-only Hebrew screen-label catalog keyed by the existing stable English `screen_code` values.
+- Canonicalized screen metadata returned by both the self-access RPC and the users administration endpoint before rendering navigation, home cards, breadcrumbs, titles, or the permission tree.
+- Removed internal English screen codes from the visible permission tree while retaining them in DOM data attributes and request payloads.
+- Clarified Hebrew user, role, scope, permission-level, toolbar, and branch-action labels.
+- Reworked the users administration layout for narrow iPhone widths with zero-width-safe grids, wrapped breadcrumbs, full-width permission controls, touch-sized scope choices, and sticky mobile save/cancel actions.
+- Preserved the established Hebrew navigation label contract, including `הנה״ח`, `חדש`, `קיים`, and `רשימת משתמשים והרשאות`.
+- Did not change Supabase schema/data, migrations, Edge Functions, RLS, APIs, permission rules, scope behavior, calculations, or Production.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/styles.css`
+- `tests/portal-permissions.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- `node --check chamah-manager-portal/new/app.js` passed.
+- `node --check tests/portal-permissions.spec.mjs` passed.
+- `git diff --check` passed.
+- `npm.cmd run build` passed and regenerated the `/new/` deployment artifact.
+- Corrupted-metadata, permission-save, route enforcement, and overflow coverage passed across desktop 1440, laptop 1280, mobile 390, and mobile 430: 12 passed.
+- Broad `/new/`, administration-framework, and permissions run executed 272 tests: 240 passed, 12 intentionally skipped, and 20 label-contract assertions identified labels that were restored before the final rerun.
+- Final affected portal foundation, all management/payroll routes, navigation, breadcrumbs, management data, and permissions coverage passed across all four responsive projects: 96 passed.
+
+Residual risk:
+
+- Canonical presentation labels cover every current `portal_sections` screen code. A future screen code should add its Hebrew label to the same catalog when introduced.
+
+## 2026-07-22 - TRACK: 009 Administration Prototype
+
+Objective: Build the first working Administration prototype for Variables, Calculation Tables, and Calculation Rules inside `/new/` using demo data only.
+
+Implementation:
+
+- Added three Hebrew RTL, memory-backed screens using the existing metadata-driven Administration Framework.
+- Added Chamah demo examples for staffing ratios, seniority, persistence bonus, and food costs.
+- Extended the shared framework with duplicate and enable/disable row actions alongside list, add, edit, delete, search, filters, sorting, and pagination.
+- Kept all prototype writes in browser memory; refresh resets the demo data.
+- Did not connect Dashboard, Payroll, Budget, Supabase business tables, APIs, or real calculation engines.
+- Reused the existing permission catalog screen codes; no schema, RLS, Auth, permission, or API contract changes were made.
+
+Files changed:
+
+- `chamah-manager-portal/new/admin-framework.js`
+- `chamah-manager-portal/new/administration-prototype.js`
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/index.html`
+- `docs/architecture/administration-framework.md`
+- `tests/admin-framework.spec.mjs`
+- `tests/administration-prototype.spec.mjs`
+- `tests/new-portal-sections.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- JavaScript syntax checks passed for changed application and test files.
+- `npm.cmd run build` passed.
+- Focused Administration Framework and prototype tests passed across desktop 1440, laptop 1280, mobile 390, and mobile 430: 37 passed, 3 viewport-independent checks intentionally skipped.
+- Final affected administration and portal-section regression passed across all four responsive projects: 113 passed, 3 viewport-independent checks intentionally skipped.
+
+Residual risk:
+
+- Prototype changes are intentionally non-persistent and reset on refresh. Persistence, real database entities, calculation-engine integration, and atomic audit behavior require separately authorized tracks.
+## 2026-07-22 - TRACK: 008 iPhone UI and Explicit Permissions
+
+Objective: Resolve the remaining Hebrew rendering issues reported on real iPhones and simplify the `/new/` permissions editor without changing the permissions API or enforcement model.
+
+Implementation:
+
+- Made the local Hebrew screen-label catalog authoritative for every user-facing screen label. Unknown future screen codes now receive the neutral Hebrew label `מסך נוסף` instead of leaking raw codes or damaged remote metadata.
+- Replaced the manager checkbox with the retained top-level `רמת הרשאה` field and Hebrew portal-user / super-admin options.
+- Removed inheritance, branch application, collapse/expand, screen search, and bulk hide controls from the permissions UI.
+- Grouped every portal screen by its top-level section and limited each screen to exactly one explicit permission: `מוסתר`, `צפייה`, or `עריכה`.
+- Defaulted missing stored screen rows to explicit `HIDDEN` values in the editor and submit all screen permissions on every save.
+- Kept the existing permissions endpoint, screen codes, authorization enforcement, organizational scope model, Supabase schema, RLS, and Production unchanged.
+
+Files changed for TRACK 008:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/styles.css`
+- `tests/portal-permissions.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- JavaScript syntax checks and `git diff --check` passed.
+- `npm.cmd run build` passed.
+- Focused permissions coverage passed across desktop 1440, laptop 1280, iPhone 390, and iPhone 430: 12 passed.
+- Administration framework and permissions responsive coverage passed: 33 passed and 3 viewport-independent checks intentionally skipped.
+- Broad `/new/` regression passed 218 tests before seven load-sensitive management-table failures under the combined run; the complete affected sections suite then passed in isolation across all four viewports: 76 passed.
+- In-app browser verification confirmed UTF-8 metadata, Hebrew RTL, no detected mojibake, no horizontal overflow, and no browser warnings/errors at desktop 1440 and iPhone 390.
+
+Residual risk:
+
+- Future screen codes must still be added to the authoritative Hebrew catalog to receive a specific name; until then they display `מסך נוסף` safely.
+
+## 2026-07-22 - TRACK: 009A Metadata-Driven Variables and Rules
+
+Objective: Upgrade the Variables and Calculation Rules prototypes with structured, dependent source metadata while remaining demo-only.
+
+Implementation:
+
+- Added a local source catalog for `MONTHLY_OCCUPANCY`, `PAYROLL`, `BANK_TRANSACTIONS`, `EMPLOYEES`, `CLASSROOMS`, and `DAYCARES`.
+- Defined stable English source/field codes with Hebrew labels, field data types, and allowed operations.
+- Added required variable metadata: stable code, Hebrew title, Hebrew description, data type, unit, and status.
+- Replaced technical free text in Variables and Calculation Rules with selectors for source, field, related section, condition, time period, and aggregation.
+- Added dependent selector behavior: source changes reset field/operation; field choices are source-specific; operation choices are field-specific.
+- Moved English variable/rule codes into a collapsed technical area and removed technical codes from the primary table view.
+- Extended the Administration Framework metadata contract with record-derived options, dependent `onChange` behavior, disabled empty selectors, conditional visibility, and technical fields.
+- Kept all data in memory and did not connect Supabase, portal business data, APIs, Dashboard, Payroll, Budget, or calculation engines.
+
+Files changed:
+
+- `chamah-manager-portal/new/admin-framework.js`
+- `chamah-manager-portal/new/administration-prototype.js`
+- `docs/architecture/administration-framework.md`
+- `tests/administration-prototype.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- JavaScript syntax checks passed.
+- `npm.cmd run build` passed.
+- Administration Framework and TRACK 009A prototype coverage passed across desktop 1440, laptop 1280, mobile 390, and mobile 430: 45 passed, 3 viewport-independent checks intentionally skipped.
+- Broader `/new/` portal-section regression passed across all four responsive projects: 76 passed.
+
+Residual risk:
+
+- The source catalog is intentionally demo metadata. A future adapter must map inspected portal/Supabase schema metadata into the same catalog contract before real persistence or calculations are introduced.
+
+## 2026-07-23 - TRACK: 009B Administration Data-Flow Designer
+
+Objective: Evolve the Variables and Calculation Rules prototype into a metadata-driven data-flow designer using demo data only.
+
+Implementation:
+
+- Added an exported demo metadata graph covering variables, calculation tables, calculation rules, upstream dependencies, downstream dependents, and consumer references.
+- Added a six-stage Hebrew RTL Data Flow view for every Variable and Calculation Rule: source, field, filters, aggregation, result variable, and used-by consumers.
+- Added clickable bidirectional dependency lists inside the designer.
+- Added a pre-save Impact Analysis panel with affected variables, rules, dashboards, reports, and calculations.
+- Added a reusable `איפה בשימוש?` inspector to Variables, Calculation Tables, and Calculation Rules.
+- Added an interactive, three-step demo Calculation Preview for Variables and Rules. It does not call business engines or execute real calculations.
+- Extended the Administration Framework with optional metadata-owned editor and inspector render/bind hooks.
+- Added horizontally scrollable mobile flow cards and responsive single-column impact, dependency, and preview layouts.
+- Kept all data and interactions in browser memory. Supabase, Dashboard, Payroll, Budget, APIs, and real calculation engines remain disconnected.
+
+Files changed:
+
+- `chamah-manager-portal/new/admin-framework.css`
+- `chamah-manager-portal/new/admin-framework.js`
+- `chamah-manager-portal/new/administration-prototype.js`
+- `docs/architecture/administration-framework.md`
+- `tests/administration-prototype.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- JavaScript syntax checks and `git diff --check` passed.
+- `npm.cmd run build` passed.
+- Administration prototype Data Flow, dependency, impact, where-used, calculation preview, CRUD, dependent selectors, and mobile containment passed across desktop 1440, laptop 1280, mobile 390, and mobile 430: 42 passed and 2 desktop-only mobile checks intentionally skipped.
+- Administration Framework regression passed across all four responsive projects: 25 passed and 3 viewport-independent checks intentionally skipped.
+- Broader Payroll and Administration section/navigation regression passed across all four responsive projects: 76 passed.
+- Final headless Chrome mobile verification confirmed six flow stages, visible impact and preview panels, no framework error overlay, and zero horizontal page overflow. Two external resource requests were blocked by the sandbox; no application exception was detected.
+
+Residual risk:
+
+- Dependency and impact results are prototype metadata, not schema-derived lineage. Real persistence, graph validation, cycle detection, permissions, engine execution, and runtime consumer discovery require future authorized tracks.

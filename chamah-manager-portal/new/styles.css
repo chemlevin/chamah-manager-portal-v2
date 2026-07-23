@@ -452,3 +452,32 @@ p { line-height: 1.65; }
   body.print-single-kpi .financial-kpis { display: block; }
   body.print-single-kpi .financial-kpi.print-target { max-width: 680px; margin: 24px auto; }
 }
+/* Users and permissions */
+.permissions-admin,.permissions-editor,.permissions-editor form{min-width:0}
+.permissions-admin{display:grid;grid-template-columns:minmax(230px,300px) minmax(0,1fr);gap:1rem;align-items:start}
+.permissions-users{padding:1rem;position:sticky;top:5.5rem;max-height:calc(100vh - 7rem);overflow:auto}.permissions-users h2{margin:0 0 .75rem}
+.permission-user{display:grid;width:100%;min-width:0;gap:.2rem;padding:.75rem;border:0;border-bottom:1px solid var(--border-color,#d9e2de);background:transparent;text-align:right;cursor:pointer;overflow-wrap:anywhere}
+.permission-user.active{background:#e5f0ec;border-radius:.75rem}.permission-user small,.permission-user span{color:var(--muted-color,#65746e)}
+.permissions-editor form{padding:1.25rem}.permissions-editor-head,.permission-toolbar,.form-actions{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap}
+.permissions-editor-head>div{min-width:0}.permissions-editor-head h2,.permissions-editor-head p{overflow-wrap:anywhere}.permissions-editor-head p{margin:.2rem 0}
+.form-grid,.scope-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));gap:.75rem;margin:1rem 0}
+.permissions-editor fieldset{margin:1rem 0;padding:1rem;border:1px solid var(--border-color,#d9e2de);border-radius:1rem}
+.scope-mode{display:flex;flex-wrap:wrap;gap:.5rem 1rem}.scope-mode label,.scope-grid label,.checkbox-field{min-height:44px;display:flex;align-items:center;gap:.55rem}.scope-grid label{min-width:0;padding:.55rem;background:var(--surface-muted);border-radius:.65rem}.scope-grid label span{min-width:0;overflow-wrap:anywhere}.scope-grid input,.scope-mode input,.checkbox-field input{flex:0 0 auto;width:20px;height:20px}
+.scope-grid{max-height:15rem;overflow:auto}.permission-toolbar{margin:1rem 0}.permission-toolbar label{display:grid;gap:.35rem;min-width:min(100%,18rem);font-weight:700}.permission-toolbar input{width:100%;min-width:0}.permission-toolbar>div{display:flex;flex-wrap:wrap;gap:.5rem}
+.screen-permissions{margin-block:1.25rem}.screen-permissions>h2{margin-bottom:.25rem}.screen-permissions>p{margin-top:0;color:var(--text-muted)}
+.permission-matrix{display:grid;gap:1rem}
+.permission-group{border:1px solid var(--border-color,#d9e2de);border-radius:1rem;overflow:hidden}.permission-group h3{margin:0;padding:.75rem 1rem;background:#f1f6f4;font-size:1rem}.permission-group-rows{display:grid}
+.permission-row{display:grid;grid-template-columns:minmax(160px,1fr) minmax(145px,190px);gap:.75rem;align-items:center;padding:.65rem .8rem;border-bottom:1px solid var(--border-color,#d9e2de)}
+.permission-row:last-child{border-bottom:0}.permission-screen-name{min-width:0;overflow-wrap:anywhere}.permission-level{display:grid;gap:.25rem}.permission-level span{color:var(--text-muted);font-size:.75rem}.permission-level select{width:100%;min-width:0}.audit-history{margin:1rem 0}
+@media(max-width:760px){
+  .breadcrumbs{max-width:100%;align-items:flex-start;flex-wrap:wrap;line-height:1.45;overflow-wrap:anywhere}
+  .module-card{min-width:0}.module-card h3,.module-card p{overflow-wrap:anywhere}
+  .permissions-admin{grid-template-columns:minmax(0,1fr)}.permissions-users{position:static;max-height:15rem;padding:.85rem}
+  .permissions-editor form{padding:.85rem}.permissions-editor fieldset{padding:.75rem}
+  .permission-row{grid-template-columns:minmax(0,1fr);padding:.8rem}
+  .permission-row .button{width:100%;white-space:normal}.permission-level{grid-template-columns:minmax(0,1fr);width:100%}
+  .permission-toolbar{align-items:stretch}.permission-toolbar label,.permission-toolbar>div{width:100%}.permission-toolbar>div .button{flex:1 1 140px;white-space:normal}
+  .form-actions{position:sticky;inset-block-end:68px;z-index:4;margin:1rem -.85rem -.85rem;padding:.75rem;background:var(--surface);border-block-start:1px solid var(--border);box-shadow:0 -6px 16px rgba(20,54,40,.08)}.form-actions .button{flex:1}
+  .header-actions #portal-profile{display:none}
+}
+@media(max-width:380px){.brand small{display:none}.header-actions{gap:4px}.header-actions .button{padding-inline:10px}.mobile-nav a,.mobile-nav button{font-size:.66rem}.scope-grid{grid-template-columns:minmax(0,1fr)}}

@@ -3,6 +3,7 @@ import { calculateSalary, salaryRuleIssues } from './salary-calculations.js';
 import { buildLegalOccupancyAlternatives, calculateOccupancyModel } from './occupancy-calculations.js';
 import { RULE_CATEGORIES, SYSTEM_RULES } from './management-catalog.generated.js';
 import { DOCUMENTED_STATUS_RULES, REFERENCE_TABLES, VARIABLE_RULE_TABLES } from './management-data.js';
+import { mountAdministrationPrototype } from './administration-prototype.js';
 
 const SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
@@ -13,6 +14,26 @@ const CANONICAL_PORTAL_URL = 'https://chamah-portal.vercel.app/';
 const $ = (selector) => document.querySelector(selector);
 const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 });
 const number = new Intl.NumberFormat('he-IL', { maximumFractionDigits: 1 });
+
+// Screen codes are the stable internal contract. UI copy stays local so damaged
+// remote metadata can never leak into Hebrew navigation or administration views.
+const HEBREW_SCREEN_LABELS = {
+  home: 'עמוד הבית', dashboards: 'דשבורדים', 'dashboards.finance': 'דשבורד כספים',
+  'dashboards.accounting': 'הנה״ח', 'dashboards.staffing': 'צוות ורישוי',
+  'dashboards.occupancy': 'תפוסה ותקינה', calculators: 'מחשבונים',
+  'calculators.salary': 'מחשבון שכר', 'calculators.occupancy': 'מחשבון תפוסה, תקינה ורווחיות',
+  payroll: 'שכר', 'payroll.calculations': 'חישובי שכר', 'payroll.calculations.new': 'חדש',
+  'payroll.calculations.existing': 'קיים', 'payroll.calculations.history': 'טבלאות עבר',
+  management: 'הרשאות וטבלאות', 'management.permissions': 'הרשאות',
+  'management.permissions.users': 'רשימת משתמשים והרשאות', 'management.rules': 'כללים',
+  'management.rules.system': 'כללי מערכת', 'management.tables': 'טבלאות',
+  'management.tables.calculation': 'טבלאות חישוב', 'management.tables.variables': 'כללים משתנים',
+  'management.audit': 'יומן שינויים', knowledge: 'מרכז הידע למשתמש', maintenance: 'תחזוקה', tasks: 'משימות'
+};
+
+function canonicalizeSections(sections) {
+  return (sections || []).map((section) => ({ ...section, display_name: HEBREW_SCREEN_LABELS[section.screen_code] || 'מסך נוסף' }));
+}
 
 const modules = [
   { route: 'dashboards', icon: '📊', title: 'דשבורדים', description: 'תמונת מצב ניהולית ברורה לפי היחידה הארגונית הרלוונטית.' },
@@ -64,6 +85,9 @@ let authPending = false;
 let recoveryPending = false;
 let salaryModel = { status: 'idle', factors: [], rules: [], years: [], error: '' };
 const managementData = new Map();
+let portalAccess = null;
+let usersAdminData = null;
+let selectedPortalUserId = '';
 
 function readSession() {
   try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { return null; }
@@ -207,6 +231,7 @@ async function showPortalHome() {
   $('#recovery-view').hidden = true;
   $('#app-view').hidden = false;
   $('#israeli-date').textContent = formatToday();
+  await loadPortalAccess();
   await render();
 }
 
@@ -246,7 +271,62 @@ async function rest(table, query = '') {
     protectedRequests.delete(controller);
   }
   if (!response.ok) throw new Error((await response.json()).message || `שגיאה בקריאת ${table}`);
+  const rows = await response.json();
+  if (portalAccess?.profile?.scope_mode !== 'SELECTED' || portalAccess.profile.is_super_admin || !Array.isArray(rows)) return rows;
+  const unitIds = new Set(portalAccess.allocation_unit_ids || []); const daycareIds = new Set(portalAccess.daycare_ids || []);
+  if (table === 'allocation_units') return rows.filter((row) => unitIds.has(row.allocation_unit_id));
+  if (table === 'daycares') return rows.filter((row) => daycareIds.has(row.daycare_id) || unitIds.has(row.allocation_unit_id));
+  if (rows.some((row) => Object.hasOwn(row, 'daycare_id'))) return rows.filter((row) => !row.daycare_id || daycareIds.has(row.daycare_id));
+  if (rows.some((row) => Object.hasOwn(row, 'allocation_unit_id'))) return rows.filter((row) => !row.allocation_unit_id || unitIds.has(row.allocation_unit_id));
+  return rows;
+}
+
+async function rpc(name, body = {}) {
+  if (!await ensureAccessToken()) throw new Error('החיבור פג. יש להתחבר מחדש.');
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, { method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!response.ok) throw new Error((await response.json()).message || 'הפעולה נכשלה.');
   return response.json();
+}
+
+async function loadPortalAccess() {
+  portalAccess = await rpc('portal_my_access');
+  if (!portalAccess?.profile) throw new Error('למשתמש אין פרופיל פורטל פעיל.');
+  portalAccess.sections = canonicalizeSections(portalAccess.sections);
+  $('#portal-profile').textContent = portalAccess.profile.display_name || session?.user?.email || 'משתמשת הפורטל';
+  renderPermissionNavigation();
+}
+
+function permissionFor(code) { return portalAccess?.sections?.find((item) => item.screen_code === code)?.permission_level || 'HIDDEN'; }
+function canView(code) { return permissionFor(code) !== 'HIDDEN'; }
+function portalSection(code) { return portalAccess?.sections?.find((item) => item.screen_code === code) || null; }
+function navigationScreenCode(route) {
+  if (route === 'staffing') return 'dashboards.staffing';
+  if (route === 'accounting') return 'dashboards.accounting';
+  if (route === 'training') return 'management';
+  return route;
+}
+function routeScreenCode(route) {
+  if (route.section === 'dashboards' && route.dashboardType) return `dashboards.${route.dashboardType}`;
+  if (route.section === 'calculators' && route.calculator) return `calculators.${route.calculator}`;
+  if (route.section === 'payroll' && route.child) return `payroll.calculations.${route.child}`;
+  if (route.section === 'payroll' && route.page) return 'payroll.calculations';
+  if (route.section === 'training' && route.page === 'rules' && route.child === 'calculation') return 'management.rules.system';
+  if (route.section === 'training') return route.child ? `management.${route.page}.${route.child}` : route.page ? `management.${route.page}` : 'management';
+  return route.section;
+}
+
+function renderPermissionNavigation() {
+  document.querySelectorAll('#primary-nav [data-route], #mobile-nav [data-route]').forEach((item) => {
+    const section = portalSection(navigationScreenCode(item.dataset.route));
+    item.hidden = !section || section.permission_level === 'HIDDEN';
+    if (!section) return;
+    item.href = `#${section.route}`;
+    item.setAttribute('aria-label', section.display_name);
+    const icon = item.querySelector('[aria-hidden="true"]');
+    const label = item.querySelector('span:last-child');
+    if (icon && section.icon) icon.textContent = section.icon;
+    if (label && !item.closest('#mobile-nav')) label.textContent = section.display_name;
+  });
 }
 
 function escapeHtml(value) {
@@ -284,10 +364,16 @@ async function loadUnits() {
 }
 
 function homeTemplate() {
+  const catalogModules = modules.map((module) => {
+    const section = portalSection(navigationScreenCode(module.route));
+    return section ? { ...module, href: section.route, icon: section.icon || module.icon, title: section.display_name, description: section.description || module.description, screenCode: section.screen_code } : { ...module, screenCode: navigationScreenCode(module.route) };
+  });
   return `<section class="page-heading"><div><p class="eyebrow">סביבת העבודה שלך</p><h1>שלום, ברוכה הבאה לפורטל חמ״ה</h1><p>מכאן ניתן להגיע לכל כלי הניהול, המעקב והידע של הארגון.</p></div><span class="status-badge status-success"><span aria-hidden="true">●</span> המערכת זמינה</span></section>
   <section class="attention-panel panel" aria-labelledby="attention-title"><div class="attention-icon" aria-hidden="true">i</div><div><h2 id="attention-title">הפורטל החדש בהקמה</h2><p>מעטפת העבודה מוכנה. המודולים ייפתחו בהדרגה בספרינטים הבאים.</p></div><a class="button button-secondary" href="#knowledge">למידע נוסף</a></section>
-  <section aria-labelledby="modules-title"><div class="section-heading"><div><h2 id="modules-title">לאן תרצי להמשיך?</h2><p>בחרי תחום כדי לפתוח את סביבת העבודה המתאימה.</p></div></div><div class="module-grid">${modules.map((module) => `<a class="module-card card" href="#${module.href || module.route}"><span class="module-icon" aria-hidden="true">${module.icon}</span><div><h3>${module.title}</h3><p>${module.description}</p></div><span class="card-action">פתיחה <span aria-hidden="true">←</span></span></a>`).join('')}</div></section>`;
+  <section aria-labelledby="modules-title"><div class="section-heading"><div><h2 id="modules-title">לאן תרצי להמשיך?</h2><p>בחרי תחום כדי לפתוח את סביבת העבודה המתאימה.</p></div></div><div class="module-grid">${catalogModules.filter((module) => canView(module.screenCode)).map((module) => `<a class="module-card card" href="#${module.href || module.route}"><span class="module-icon" aria-hidden="true">${module.icon}</span><div><h3>${module.title}</h3><p>${module.description}</p></div><span class="card-action">פתיחה <span aria-hidden="true">←</span></span></a>`).join('')}</div></section>`;
 }
+
+function accessDeniedTemplate() { return `<section class="error-state panel"><strong>אין הרשאה לצפות במסך זה</strong><p>המסך הוסתר בהתאם להרשאות המשתמש.</p><a class="button button-primary" href="#home">חזרה לעמוד הבית</a></section>`; }
 
 function comingSoonTemplate(module) {
   return `<section class="page-heading"><div><p class="eyebrow">${module.title}</p><h1>${module.title}</h1><p>${module.description}</p></div><span class="status-badge status-neutral">בתכנון</span></section><section class="coming-soon panel"><span class="coming-icon" aria-hidden="true">${module.icon}</span><span class="status-badge status-info">בקרוב</span><h2>המודול נמצא בהכנה</h2><p>אנחנו בונים עבורך סביבת עבודה מקצועית, מהירה וברורה. היא תתווסף לפורטל באחד הספרינטים הקרובים.</p><div class="next-action"><strong>הפעולה הבאה</strong><span>אפשר לחזור לעמוד הבית ולבחור תחום אחר.</span></div><a class="button button-primary" href="#home">חזרה לעמוד הבית</a></section>`;
@@ -312,9 +398,9 @@ const portalSections = {
 };
 
 const managementPages = {
-  permissions: { title: 'הרשאות', cards: [{ route: 'training/permissions/users', icon: '👥', title: 'רשימת משתמשים והרשאות', description: 'תצוגת ניהול עתידית למשתמשים, תפקידים והרשאות.' }] },
-  rules: { title: 'כללים', cards: [{ route: 'training/rules/system', icon: '§', title: 'כללי מערכת', description: `${SYSTEM_RULES.length} כללים אמיתיים מתוך מסמכי ה־Handbook.` }] },
-  tables: { title: 'טבלאות', cards: [{ route: 'training/tables/calculation', icon: '▦', title: 'טבלאות חישוב', description: 'נתוני יסוד וטבלאות ייחוס יציבות.' }, { route: 'training/tables/variables', icon: '⇄', title: 'כללים משתנים', description: 'פרמטרים עסקיים לפי תוקף וגרסה.' }] }
+  permissions: { title: 'הרשאות', cards: [{ route: 'training/permissions/users', icon: '👥', title: 'רשימת משתמשים והרשאות', description: 'ניהול משתמשי הפורטל, טווחי נתונים והרשאות לפי מסך.' }] },
+  rules: { title: 'כללים', cards: [{ route: 'training/rules/calculation', icon: '§', title: 'כללי חישוב', description: 'יצירה וניהול של כללי חישוב לדוגמה.' }, { route: 'training/rules/system', icon: '§', title: 'כללי מערכת', description: `${SYSTEM_RULES.length} כללים מתועדים מתוך מסמכי ה־Handbook.` }] },
+  tables: { title: 'טבלאות', cards: [{ route: 'training/tables/calculation', icon: '▦', title: 'טבלאות חישוב', description: 'יצירה וניהול של טבלאות חישוב לדוגמה.' }, { route: 'training/tables/variables', icon: '⇄', title: 'משתנים', description: 'פרמטרים עסקיים לדוגמה לפי תחום וסטטוס.' }] }
 };
 
 const payrollCalculationCards = [
@@ -338,7 +424,58 @@ function managementHubTemplate(page) {
 }
 
 function usersPermissionsTemplate() {
-  return `<section class="page-heading"><div><p class="eyebrow">הרשאות / ניהול משתמשים</p><h1>רשימת משתמשים והרשאות</h1><p>מסך ניהול מוכן להצגת משתמשים, תפקידים והרשאות כאשר יוגדר מקור נתונים מורשה.</p></div><span class="status-badge status-neutral">קריאה בלבד</span></section><section class="management-summary"><article class="panel"><span>משתמשים</span><strong>אין נתונים זמינים</strong></article><article class="panel"><span>תפקידי מערכת</span><strong>לא תועדו</strong></article><article class="panel"><span>הרשאות</span><strong>לא תועדו</strong></article></section><section class="panel management-empty"><h2>לא נמצא מקור נתונים מתועד לרשימת משתמשים והרשאות</h2><p>מסמכי המאגר אינם מגדירים קטלוג משתמשים, תפקידי Auth או מטריצת הרשאות. לכן לא מוצגים משתמשים או הרשאות לדוגמה.</p><p>לא בוצע שינוי ב־Auth, ב־RLS או בלוגיקת האבטחה.</p></section>`;
+  return `<section class="page-heading"><div><p class="eyebrow">הרשאות / ניהול משתמשים</p><h1>רשימת משתמשים והרשאות</h1><p>ניהול משתמשי Supabase Auth, טווח נתונים והרשאות מפורשות לפי מסך.</p></div><button id="invite-user-open" class="button button-primary" type="button">הזמנת משתמש</button></section><p id="permissions-feedback" class="form-message" role="status"></p><div id="permissions-admin-state" class="state panel">טוען משתמשים והרשאות…</div><section id="permissions-admin" class="permissions-admin" hidden></section>`;
+}
+
+async function portalUsersRequest(method = 'GET', body) {
+  if (!await ensureAccessToken()) throw new Error('החיבור פג.');
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/portal-users`, { method, headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const value = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(value.error || 'הפעולה נכשלה.');
+  return value;
+}
+
+function adminUserModel(userId) {
+  const user = usersAdminData.users.find((item) => item.id === userId);
+  const profile = usersAdminData.profiles.find((item) => item.user_id === userId) || { user_id: userId, display_name: '', is_active: true, is_super_admin: false, scope_mode: 'SELECTED' };
+  return { user, profile, permissions: usersAdminData.permissions.filter((item) => item.user_id === userId && item.permission_configuration_id === profile.permission_configuration_id), unitIds: usersAdminData.unit_scopes.filter((item) => item.user_id === userId && item.permission_configuration_id === profile.permission_configuration_id).map((item) => item.allocation_unit_id), daycareIds: usersAdminData.daycare_scopes.filter((item) => item.user_id === userId && item.permission_configuration_id === profile.permission_configuration_id).map((item) => item.daycare_id), audit: usersAdminData.audit_events.filter((item) => item.entity_id === userId) };
+}
+
+function permissionRows(model) {
+  const explicit = new Map(model.permissions.map((item) => [item.screen_code, item.permission_level]));
+  const topLevelSections = usersAdminData.sections.filter((item) => !item.screen_code.includes('.'));
+  return topLevelSections.map((section) => {
+    const screens = usersAdminData.sections.filter((item) => item.screen_code === section.screen_code || item.screen_code.startsWith(`${section.screen_code}.`));
+    const rows = screens.map((item) => {
+      const level = model.profile.is_super_admin ? 'EDIT' : explicit.get(item.screen_code) || 'HIDDEN';
+      return `<div class="permission-row" data-screen="${item.screen_code}"><strong class="permission-screen-name">${escapeHtml(item.display_name)}</strong><label class="permission-level"><span>הרשאה למסך</span><select data-permission aria-label="הרשאה עבור ${escapeHtml(item.display_name)}" ${model.profile.is_super_admin ? 'disabled' : ''}><option value="HIDDEN" ${level === 'HIDDEN' ? 'selected' : ''}>מוסתר</option><option value="VIEW" ${level === 'VIEW' ? 'selected' : ''}>צפייה</option><option value="EDIT" ${level === 'EDIT' ? 'selected' : ''}>עריכה</option></select></label></div>`;
+    }).join('');
+    return `<section class="permission-group" aria-labelledby="permission-group-${escapeHtml(section.screen_code)}"><h3 id="permission-group-${escapeHtml(section.screen_code)}">${escapeHtml(section.display_name)}</h3><div class="permission-group-rows">${rows}</div></section>`;
+  }).join('');
+}
+
+function renderPermissionsAdmin() {
+  const root = $('#permissions-admin'); if (!root || !usersAdminData) return;
+  if (!selectedPortalUserId || !usersAdminData.users.some((item) => item.id === selectedPortalUserId)) selectedPortalUserId = usersAdminData.users[0]?.id || '';
+  const model = selectedPortalUserId ? adminUserModel(selectedPortalUserId) : null;
+  usersAdminData.sections = canonicalizeSections(usersAdminData.sections);
+  root.innerHTML = `<aside class="panel permissions-users"><h2>משתמשים</h2><div class="management-filters"><label>חיפוש משתמש<input id="user-search" type="search" placeholder="שם או דוא״ל"></label></div><div id="portal-user-list">${usersAdminData.users.map((user) => { const p = usersAdminData.profiles.find((item) => item.user_id === user.id); return `<button type="button" data-user-id="${user.id}" class="permission-user${user.id === selectedPortalUserId ? ' active' : ''}"><strong>${escapeHtml(p?.display_name || user.email || 'ללא שם')}</strong><small>${escapeHtml(user.email || '')}</small><span>${p?.is_super_admin ? 'מנהלת־על' : user.email_confirmed_at ? 'פעילה' : 'הוזמנה'}</span></button>`; }).join('')}</div></aside><div class="permissions-editor">${model ? `<form id="permissions-form" class="panel"><div class="permissions-editor-head"><div><p class="eyebrow">פרטי משתמשת</p><h2>${escapeHtml(model.profile.display_name || model.user.email)}</h2><p>${escapeHtml(model.user.email || '')}</p></div><span class="status-badge status-info">${model.profile.is_super_admin ? 'מנהלת־על — עריכה בכל המסכים' : 'משתמשת פורטל'}</span></div><div class="form-grid"><label class="field">שם תצוגה<input name="display_name" value="${escapeHtml(model.profile.display_name || '')}"></label><label class="field">רמת הרשאה<select name="access_level"><option value="PORTAL" ${!model.profile.is_super_admin ? 'selected' : ''}>משתמשת פורטל</option><option value="SUPER_ADMIN" ${model.profile.is_super_admin ? 'selected' : ''}>מנהלת־על</option></select></label><label class="checkbox-field"><input name="is_active" type="checkbox" ${model.profile.is_active ? 'checked' : ''}> משתמשת פעילה</label></div><fieldset><legend>טווח נתונים ארגוני</legend><div class="scope-mode"><label><input type="radio" name="scope_mode" value="ORGANIZATION" ${model.profile.scope_mode === 'ORGANIZATION' ? 'checked' : ''}> כל הארגון</label><label><input type="radio" name="scope_mode" value="SELECTED" ${model.profile.scope_mode === 'SELECTED' ? 'checked' : ''}> יחידות ומעונות נבחרים</label></div><div class="scope-grid">${usersAdminData.allocation_units.map((unit) => `<label><input type="checkbox" name="unit_scope" value="${unit.allocation_unit_id}" ${model.unitIds.includes(unit.allocation_unit_id) ? 'checked' : ''}> <span>${escapeHtml(unit.display_name)}</span></label>`).join('')}${usersAdminData.daycares.map((daycare) => `<label><input type="checkbox" name="daycare_scope" value="${daycare.daycare_id}" ${model.daycareIds.includes(daycare.daycare_id) ? 'checked' : ''}> <span>${escapeHtml(daycare.display_name)}</span></label>`).join('')}</div></fieldset><section class="screen-permissions" aria-labelledby="screen-permissions-title"><h2 id="screen-permissions-title">הרשאות למסכי הפורטל</h2><p>לכל מסך מוגדרת הרשאה מפורשת.</p><div id="permission-matrix" class="permission-matrix">${permissionRows(model)}</div></section><details class="audit-history"><summary>היסטוריית שינויים (${model.audit.length})</summary>${model.audit.length ? model.audit.map((event) => `<p><strong>${escapeHtml(event.operation)}</strong> · ${new Intl.DateTimeFormat('he-IL', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(event.occurred_at))}</p>`).join('') : '<p>לא קיימת היסטוריה.</p>'}</details><div class="form-actions"><button class="button button-primary" type="submit">שמירה</button><button id="cancel-permissions" class="button button-secondary" type="button">ביטול</button></div></form>` : '<section class="panel"><p>אין משתמשים.</p></section>'}</div>`;
+  root.hidden = false; bindPermissionsAdmin();
+}
+
+function bindPermissionsAdmin() {
+  let dirty = false; const form = $('#permissions-form');
+  window.onbeforeunload = () => dirty ? 'קיימים שינויים שלא נשמרו.' : undefined;
+  document.querySelectorAll('[data-user-id]').forEach((button) => button.addEventListener('click', () => { if (dirty && !confirm('קיימים שינויים שלא נשמרו. לעבור למשתמש אחר?')) return; selectedPortalUserId = button.dataset.userId; renderPermissionsAdmin(); }));
+  form?.addEventListener('change', () => { dirty = true; });
+  $('#user-search')?.addEventListener('input', (event) => { const query = event.target.value.trim().toLowerCase(); document.querySelectorAll('[data-user-id]').forEach((item) => { item.hidden = !item.textContent.toLowerCase().includes(query); }); });
+  $('#cancel-permissions')?.addEventListener('click', renderPermissionsAdmin);
+  form?.addEventListener('submit', async (event) => { event.preventDefault(); const values = new FormData(form); const payload = { user_id: selectedPortalUserId, profile: { display_name: values.get('display_name'), is_active: values.has('is_active'), is_super_admin: values.get('access_level') === 'SUPER_ADMIN', scope_mode: values.get('scope_mode') }, permissions: [...form.querySelectorAll('[data-screen]')].map((row) => ({ screen_code: row.dataset.screen, permission_level: row.querySelector('[data-permission]').value })), allocation_unit_ids: values.getAll('unit_scope'), daycare_ids: values.getAll('daycare_scope') }; $('#permissions-feedback').textContent = 'שומר…'; try { usersAdminData = await portalUsersRequest('PATCH', payload); dirty = false; $('#permissions-feedback').textContent = 'השינויים נשמרו בהצלחה.'; renderPermissionsAdmin(); } catch (error) { $('#permissions-feedback').textContent = error.message; } });
+}
+
+async function loadPermissionsAdmin() {
+  try { usersAdminData = await portalUsersRequest(); $('#permissions-admin-state').hidden = true; renderPermissionsAdmin(); } catch (error) { $('#permissions-admin-state').className = 'state error panel'; $('#permissions-admin-state').textContent = error.message; }
+  $('#invite-user-open')?.addEventListener('click', async () => { const email = prompt('כתובת דוא״ל להזמנה:'); if (!email) return; const displayName = prompt('שם תצוגה (לא חובה):') || ''; $('#permissions-feedback').textContent = 'שולח הזמנה…'; try { usersAdminData = await portalUsersRequest('POST', { email, display_name: displayName }); $('#permissions-feedback').textContent = 'ההזמנה נשלחה בהצלחה.'; renderPermissionsAdmin(); } catch (error) { $('#permissions-feedback').textContent = error.message; } });
 }
 
 function documentedText(value) {
@@ -393,7 +530,7 @@ function auditLogTemplate() {
 
 async function loadAuditLog() {
   let rows = []; let error = '';
-  try { rows = await rest('audit_events', 'select=*&order=created_at.desc&limit=500'); } catch (caught) { error = caught.message; }
+  try { rows = await rest('audit_events', 'select=*&order=occurred_at.desc&limit=500'); } catch (caught) { error = caught.message; }
   if (parseRoute().page !== 'audit') return;
   const state = $('#audit-state'); const list = $('#audit-list');
   if (error) { state.className = 'state error panel'; state.textContent = 'יומן השינויים אינו זמין למשתמש הנוכחי.'; return; }
@@ -970,6 +1107,31 @@ function renderGeneralData() {
 }
 
 function breadcrumbsTemplate(route, unit, type) {
+  const isPrototypeAdministration = route.section === 'training' && ((route.page === 'rules' && route.child === 'calculation') || (route.page === 'tables' && ['calculation', 'variables'].includes(route.child)));
+  const target = isPrototypeAdministration ? null : portalSection(routeScreenCode(route));
+  if (target) {
+    const byCode = new Map((portalAccess?.sections || []).map((item) => [item.screen_code, item]));
+    const chain = [];
+    let current = target;
+    while (current) {
+      chain.unshift(current);
+      const inferredParent = current.screen_code.includes('.') ? current.screen_code.slice(0, current.screen_code.lastIndexOf('.')) : '';
+      current = byCode.get(current.parent_screen_code || inferredParent) || null;
+    }
+    const home = byCode.get('home');
+    if (home && chain[0]?.screen_code !== 'home') chain.unshift(home);
+    if (route.section === 'dashboards' && unit && unit.allocation_unit_id !== 'organization') {
+      const dashboardIndex = chain.findIndex((item) => item.screen_code === 'dashboards');
+      const unitCrumb = { screen_code: 'dashboard-unit', route: `dashboards/unit/${encodeURIComponent(unit.allocation_unit_id)}`, display_name: unit.display_name };
+      chain.splice(Math.max(dashboardIndex + 1, 1), 0, unitCrumb);
+    }
+    return chain.map((item, index) => {
+      const last = index === chain.length - 1;
+      const label = escapeHtml(item.display_name);
+      const crumb = last ? `<span aria-current="page">${label}</span>` : `<a href="#${item.route}">${label}</a>`;
+      return index ? `<span aria-hidden="true">/</span>${crumb}` : crumb;
+    }).join('');
+  }
   const parts = ['<a href="#home">עמוד הבית</a>'];
   if (route.section === 'home') return '<span aria-current="page">עמוד הבית</span>';
   if (route.section === 'calculators' && route.calculator) return `${parts.join('')}<span aria-hidden="true">/</span><a href="#calculators">מחשבונים</a><span aria-hidden="true">/</span><span aria-current="page">${route.calculator === 'salary' ? 'מחשבון שכר' : 'תפוסה, תקינה ורווחיות'}</span>`;
@@ -980,7 +1142,7 @@ function breadcrumbsTemplate(route, unit, type) {
     return parts.join('');
   }
   if (route.section === 'training') {
-    const labels = { permissions: 'הרשאות', rules: 'כללים', tables: 'טבלאות', audit: 'יומן שינויים', users: 'רשימת משתמשים והרשאות', system: 'כללי מערכת', calculation: 'טבלאות חישוב', variables: 'כללים משתנים' };
+    const labels = { permissions: 'הרשאות', rules: 'כללים', tables: 'טבלאות', audit: 'יומן שינויים', users: 'רשימת משתמשים והרשאות', system: 'כללי מערכת', calculation: route.page === 'rules' ? 'כללי חישוב' : 'טבלאות חישוב', variables: 'משתנים' };
     parts.push('<span aria-hidden="true">/</span>', route.page ? '<a href="#training">הרשאות וטבלאות</a>' : '<span aria-current="page">הרשאות וטבלאות</span>');
     if (route.page) parts.push('<span aria-hidden="true">/</span>', route.child ? `<a href="#training/${route.page}">${labels[route.page]}</a>` : `<span aria-current="page">${labels[route.page]}</span>`);
     if (route.child) parts.push('<span aria-hidden="true">/</span>', `<span aria-current="page">${labels[route.child]}</span>`);
@@ -1002,7 +1164,16 @@ function breadcrumbsTemplate(route, unit, type) {
 
 async function render() {
   const route = parseRoute();
-  const managementLabels = { permissions: 'הרשאות', rules: 'כללים', tables: 'טבלאות', audit: 'יומן שינויים', users: 'רשימת משתמשים והרשאות', system: 'כללי מערכת', calculation: 'טבלאות חישוב', variables: 'כללים משתנים' };
+  if (!portalAccess) return;
+  const requestedScreen = routeScreenCode(route);
+  if (!canView(requestedScreen)) {
+    $('#page-content').innerHTML = accessDeniedTemplate();
+    $('#breadcrumbs').innerHTML = '<a href="#home">עמוד הבית</a><span aria-hidden="true">/</span><span aria-current="page">אין הרשאה</span>';
+    document.title = 'אין הרשאה | פורטל חמ״ה';
+    history.replaceState({}, '', `${location.pathname}#access-denied`);
+    return;
+  }
+  const managementLabels = { permissions: 'הרשאות', rules: 'כללים', tables: 'טבלאות', audit: 'יומן שינויים', users: 'רשימת משתמשים והרשאות', system: 'כללי מערכת', calculation: route.page === 'rules' ? 'כללי חישוב' : 'טבלאות חישוב', variables: 'משתנים' };
   let title = route.calculator === 'salary' ? 'מחשבון שכר' : route.calculator === 'occupancy' ? 'תפוסה, תקינה ורווחיות' : route.section === 'training' && (route.child || route.page) ? managementLabels[route.child || route.page] : route.child ? payrollCalculationCards.find((item) => item.route.endsWith(route.child)).title : route.section === 'payroll' && route.page ? 'חישובי שכר' : route.section === 'home' ? 'עמוד הבית' : route.section === 'dashboards' ? 'דשבורדים' : simpleRoutes[route.section].title;
   let unit = null;
   let type = null;
@@ -1013,10 +1184,11 @@ async function render() {
   else if (route.section === 'payroll' && route.child) $('#page-content').innerHTML = placeholderTemplate(title, 'payroll/calculations', 'חישובי שכר');
   else if (route.section === 'payroll' && route.page === 'calculations') $('#page-content').innerHTML = sectionCardsTemplate('payroll', payrollCalculationCards, 'חישובי שכר', 'בחירת מסלול לחישוב חדש, עבודה קיימת או טבלאות עבר.');
   else if (route.section === 'payroll') $('#page-content').innerHTML = sectionCardsTemplate('payroll');
-  else if (route.section === 'training' && route.page === 'permissions' && route.child === 'users') $('#page-content').innerHTML = usersPermissionsTemplate();
+  else if (route.section === 'training' && route.page === 'permissions' && route.child === 'users') { $('#page-content').innerHTML = usersPermissionsTemplate(); await loadPermissionsAdmin(); }
   else if (route.section === 'training' && route.page === 'rules' && route.child === 'system') { $('#page-content').innerHTML = systemRulesTemplate(); bindSystemRules(); }
-  else if (route.section === 'training' && route.page === 'tables' && route.child === 'calculation') { $('#page-content').innerHTML = managementTableShell('טבלאות חישוב', 'נתוני יסוד וטבלאות ייחוס יציבות בשפה עסקית.'); await loadManagementTables('reference'); }
-  else if (route.section === 'training' && route.page === 'tables' && route.child === 'variables') { $('#page-content').innerHTML = managementTableShell('כללים משתנים', 'פרמטרים עסקיים עם שדות תוקף, גרסאות והיסטוריה כאשר הם קיימים במקור.'); await loadManagementTables('variable'); }
+  else if (route.section === 'training' && route.page === 'rules' && route.child === 'calculation') { $('#page-content').innerHTML = '<div id="prototype-admin-root"></div>'; mountAdministrationPrototype($('#prototype-admin-root'), 'rules'); }
+  else if (route.section === 'training' && route.page === 'tables' && route.child === 'calculation') { $('#page-content').innerHTML = '<div id="prototype-admin-root"></div>'; mountAdministrationPrototype($('#prototype-admin-root'), 'tables'); }
+  else if (route.section === 'training' && route.page === 'tables' && route.child === 'variables') { $('#page-content').innerHTML = '<div id="prototype-admin-root"></div>'; mountAdministrationPrototype($('#prototype-admin-root'), 'variables'); }
   else if (route.section === 'training' && route.page === 'audit') { $('#page-content').innerHTML = auditLogTemplate(); await loadAuditLog(); }
   else if (route.section === 'training' && managementPages[route.page]) $('#page-content').innerHTML = managementHubTemplate(route.page);
   else if (route.section === 'training') $('#page-content').innerHTML = sectionCardsTemplate('training');
@@ -1050,6 +1222,8 @@ async function render() {
       } else { title = type.title; $('#page-content').innerHTML = dashboardPlaceholderTemplate(unit, type); }
     }
   }
+  const catalogTitle = portalSection(requestedScreen)?.display_name;
+  if (catalogTitle && !(route.section === 'dashboards' && unit && !route.dashboardType)) title = catalogTitle;
   document.title = `${title} | פורטל חמ״ה`;
   $('#breadcrumbs').innerHTML = breadcrumbsTemplate(route, unit, type);
   const navigationRoute = route.section === 'dashboards' && ['staffing', 'accounting'].includes(route.dashboardType) ? route.dashboardType : route.section;
@@ -1332,10 +1506,7 @@ $('#login-form').addEventListener('submit', async (event) => {
     await signInWithPassword(email.value.trim(), password.value);
     password.value = '';
     if (!await validateSession()) throw new Error('לא ניתן לאמת את החיבור. יש לנסות שוב.');
-    $('#login-view').style.display = 'none';
-    $('#app-view').hidden = false;
-    $('#israeli-date').textContent = formatToday();
-    await render();
+    await showPortalHome();
   } catch (error) { message.textContent = error.message; }
   finally { setAuthPending(false); }
 });
