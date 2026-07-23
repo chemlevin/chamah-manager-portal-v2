@@ -87,7 +87,8 @@ test('permission hierarchy keeps missing children HIDDEN and supports explicit b
   await page.locator('[data-screen="dashboards"] [data-apply-branch]').click();
   await expect(child.locator('[data-permission]:checked')).toHaveValue('EDIT');
   await page.locator('#permissions-form button[type="submit"]').click();
-  await expect.poll(() => saved?.permissions?.filter((item) => item.screen_code.startsWith('dashboards.')).length).toBe(6);
+  const dashboardChildren = portalAccessFixture.sections.filter((item) => item.screen_code.startsWith('dashboards.')).length;
+  await expect.poll(() => saved?.permissions?.filter((item) => item.screen_code.startsWith('dashboards.')).length).toBe(dashboardChildren);
 });
 
 test('registered screens are de-duplicated and new screens default to HIDDEN', async ({ page }) => {

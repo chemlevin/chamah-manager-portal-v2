@@ -1988,3 +1988,34 @@ Validation:
 
 - JavaScript syntax checks and the production build passed.
 - Focused BANK_TRANSACTIONS workspace coverage passed for desktop, laptop, and mobile layouts.
+
+## 2026-07-23 - TRACK: 012A Release Preparation
+
+Objective: Assemble every completed TRACK into one verified release branch without deploying or changing Production.
+
+Release branch:
+
+- Created `codex/track-012a-release` from `main`.
+- Merged the completed TRACK histories through `codex/track-009b`, `codex/track-010a-accounting-integration`, `codex/track-011a`, and the explicit standalone `codex/track-010-bank-transactions` branch.
+- Verified that the completion commits for TRACKs 001, 007, 008, 008A, 009, 009A, 009B, 010, 010A, 011, and 011A are all ancestors of the release branch.
+
+Merge conflicts resolved:
+
+- `PROJECT_LOG.md`: preserved the append-only history from every merged TRACK and recorded the independently completed TRACK 010 history.
+- `chamah-manager-portal/new/app.js`: combined the TRACK 010A Accounting hub and Bank File workspace with TRACK 011 catalog normalization, separate licensing/team routes, scope de-duplication, and TRACK 011A fail-closed permission behavior.
+- `tests/new-portal-test-data.mjs`: combined Accounting child screens with the complete catalog hierarchy and parent metadata.
+- Updated the permission branch-apply test to derive its expected dashboard-child count from the merged catalog rather than the pre-merge fixed count.
+
+Validation:
+
+- JavaScript syntax checks and `git diff --check` passed after conflict resolution.
+- `npm.cmd run build` passed and rebuilt the new portal at the deployment root with all merged sources.
+- Focused post-merge Accounting, BANK_TRANSACTIONS, Administration, dashboard, permissions, and fail-closed security regression passed after rebuilding the merged artifact.
+- Complete automated Playwright suite passed across desktop 1440, laptop 1280, mobile 390, and mobile 430: 628 passed, 16 intentionally skipped, 0 failed (644 total).
+
+Intentionally excluded:
+
+- No Vercel deployment, promotion, alias, Preview replacement, or Production change.
+- No Supabase migration or Edge Function deployment was performed in TRACK 012A.
+- No new product feature or business-rule change was introduced.
+- Demo/mock data intentionally belonging to completed prototype TRACKs 009/009A/009B and 010/010A remains clearly isolated from live calculations and production data integrations.
