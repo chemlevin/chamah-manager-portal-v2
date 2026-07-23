@@ -1910,3 +1910,65 @@ Residual risk:
 - Defaulted the new Bank File child screen to `HIDDEN` when no explicit catalog permission exists; super-admin test access remains available through the existing super-admin convention.
 - No backend, API, Supabase, CRUD, validation, calculation, or business-logic changes were made.
 - Validation: JavaScript syntax, build, focused Accounting/permission tests, and existing dashboard/navigation regressions.
+
+## 2026-07-22 - TRACK: 008A Compact Permissions and SUPER_ADMIN Protection
+
+Objective: Continue the real-iPhone permissions UI stabilization with de-duplicated Hebrew labels, a compact explicit-permission table, automatic registered-screen handling, and a safer SUPER_ADMIN workflow.
+
+Implementation:
+
+- De-duplicated registered portal screens by stable `screen_code` before rendering while retaining the authoritative Hebrew label catalog.
+- Accepted a new screen's registered Hebrew display name automatically when valid; damaged or missing metadata receives a numbered neutral Hebrew fallback.
+- Replaced permission cards and dropdowns with one compact RTL table row per registered screen and explicit `HIDDEN`, `VIEW`, and `EDIT` radio choices.
+- Kept exactly one selected permission per screen and included registered screens without a stored row as `HIDDEN`.
+- Added explicit, confirmed SUPER_ADMIN grant/remove actions and preserved the secured endpoint, authorization enforcement, organizational scope, schema, and RLS.
+
+Validation:
+
+- JavaScript syntax checks, `git diff --check`, and the production build passed.
+- Focused permissions and SUPER_ADMIN coverage passed across all four responsive projects: 24 passed.
+- Portal foundation and Payroll/Administration routes passed across all four responsive projects: 88 passed.
+- Browser verification confirmed Hebrew RTL, no visible mojibake, no horizontal overflow, and no browser warnings/errors at desktop and iPhone widths.
+
+## 2026-07-23 - TRACK: 011 Preview Permissions and Portal Catalog Repair
+
+Objective: Repair the Preview administration experience, organizational scope choices, page catalog, and Hebrew rendering without replacing Production.
+
+Implementation:
+
+- De-duplicated allocation units and daycares by stable UUIDs in both the administration response and client.
+- Restored the compact permission matrix, hierarchical presentation, explicit overrides, branch apply, and the secured save contract.
+- Repaired the active `portal_sections` Hebrew labels and descriptions without changing stable screen codes.
+- Added separate `כספים`, `הנה״ח`, `רישוי`, and `צוות` dashboard catalog/routes and registered `training/rules/calculation`.
+- Deployed the authenticated `portal-users` Edge Function and applied the additive catalog migration to the Preview backend only.
+- Did not deploy, promote, alias, or replace Vercel Production.
+
+Validation:
+
+- JavaScript syntax checks, `git diff --check`, and the production build passed.
+- Permission and UTF-8 regression passed across all responsive projects: 32 passed.
+- Auth, dashboard, RLS-facing reads, recovery/invitation, Hebrew RTL, and overflow regression: 113 passed and 3 intentionally skipped.
+- Live database verification found 29 active sections, 29 Hebrew labels, all audited required entries, and zero duplicate active scope IDs.
+
+## 2026-07-23 - TRACK: 011A Fail-Closed Portal Permissions
+
+Objective: Enforce a secure HIDDEN default for every current and future portal page across client navigation, route guards, and permission-aware server APIs.
+
+Implementation:
+
+- Changed `portal_effective_permission(uuid, text)` to direct-record-only resolution.
+- Missing, inactive, unknown, and child-only permission records resolve to `HIDDEN`; only explicit rows grant `VIEW` or `EDIT`.
+- Kept SUPER_ADMIN unrestricted as `EDIT`.
+- Added service-only `portal_has_permission(uuid, text, required_level)` and revoked direct client-role execution.
+- Required explicit `EDIT` for the `portal-users` Edge Function.
+- Made module, calculator, and unit-dashboard cards and direct route guards fail closed.
+
+Validation:
+
+- JavaScript syntax checks, `git diff --check`, and the production build passed.
+- Client and server permission regression: 181 passed and 3 intentionally skipped across all responsive projects.
+- Live verification proved missing/unknown permissions are hidden, explicit grants resolve correctly, SUPER_ADMIN remains unrestricted, and client roles cannot invoke the service predicate.
+
+Remaining edge case:
+
+- Existing business modules still read broad authenticated PostgREST tables whose historical RLS policies are scope/data oriented rather than mapped to `portal_sections`. Closing that documented boundary requires a separate table-to-screen RLS/API migration.

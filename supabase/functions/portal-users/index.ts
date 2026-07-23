@@ -2,6 +2,14 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, apikey, content-type", "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS" };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
+const uniqueById = <T extends Record<string, unknown>>(rows: T[], field: keyof T) => {
+  const unique = new Map<string, T>();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const id = String(row?.[field] || "").trim();
+    if (id && !unique.has(id)) unique.set(id, row);
+  }
+  return [...unique.values()];
+};
 
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
@@ -13,7 +21,7 @@ Deno.serve(async (request) => {
     const authResponse = await fetch(`${url}/auth/v1/user`, { headers: { apikey: serviceKey, Authorization: authorization } });
     if (!authResponse.ok) return json({ error: "נדרש חיבור תקף." }, 401);
     const actor = await authResponse.json();
-    const permissionResponse = await fetch(`${url}/rest/v1/rpc/portal_can_manage_users`, { method: "POST", headers: serviceHeaders, body: JSON.stringify({ actor_id: actor.id }) });
+    const permissionResponse = await fetch(`${url}/rest/v1/rpc/portal_has_permission`, { method: "POST", headers: serviceHeaders, body: JSON.stringify({ target_user_id: actor.id, target_screen_code: "management.permissions.users", required_level: "EDIT" }) });
     if (!permissionResponse.ok || await permissionResponse.json() !== true) return json({ error: "אין הרשאת עריכה לניהול משתמשים." }, 403);
 
     if (request.method === "POST") {
@@ -44,7 +52,7 @@ Deno.serve(async (request) => {
       fetch(`${url}/rest/v1/daycares?select=daycare_id,allocation_unit_id,display_name,lifecycle_status&lifecycle_status=eq.ACTIVE&order=display_order`, { headers: serviceHeaders }).then(r => r.json()),
       fetch(`${url}/rest/v1/audit_events?select=*&entity_type=eq.PORTAL_USER&order=occurred_at.desc&limit=500`, { headers: serviceHeaders }).then(r => r.json())
     ]);
-    return json({ users: authUsers.users || authUsers, profiles, permissions, unit_scopes: unitScopes, daycare_scopes: daycareScopes, sections, allocation_units: units, daycares, audit_events: audit });
+    return json({ users: authUsers.users || authUsers, profiles, permissions, unit_scopes: unitScopes, daycare_scopes: daycareScopes, sections: uniqueById(sections, "screen_code"), allocation_units: uniqueById(units, "allocation_unit_id"), daycares: uniqueById(daycares, "daycare_id"), audit_events: audit });
   } catch (error) {
     console.error("portal-users", error);
     return json({ error: "שגיאת שרת בניהול המשתמשים." }, 500);

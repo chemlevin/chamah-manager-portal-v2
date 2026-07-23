@@ -20,14 +20,18 @@ test.describe('new portal organizational dashboards', () => {
     await expect(page.getByText('יחידה לא פעילה', { exact: true })).toHaveCount(0);
   });
 
-  test('opens a unit hub with exactly four dashboard destinations and supports back navigation', async ({ page }) => {
+  test('opens a unit hub with all six dashboard destinations and supports back navigation', async ({ page }) => {
     await mockNewPortalSupabase(page);
     await openNewPortal(page, 'dashboards');
     const unitCard = page.locator(`.unit-card[data-unit-id="${activeDaycareId}"]`);
     await expect(unitCard).toBeVisible();
     await unitCard.click();
     await expect(page).toHaveURL(new RegExp(`#dashboards/unit/${activeDaycareId}$`));
-    await expect(page.locator('.dashboard-type-card')).toHaveCount(4);
+    await expect(page.locator('.dashboard-type-card')).toHaveCount(6);
+    await expect(page.locator('[data-dashboard-type="finance"]')).toContainText('כספים');
+    await expect(page.locator('[data-dashboard-type="accounting"]')).toContainText('הנה״ח');
+    await expect(page.locator('[data-dashboard-type="licensing"]')).toContainText('רישוי');
+    await expect(page.locator('[data-dashboard-type="team"]')).toContainText('צוות');
     await expect(page.locator('#breadcrumbs')).toContainText('עמוד הבית/דשבורדים/יחידה פעילה א');
     await page.goBack();
     await expect(page).toHaveURL(/#dashboards$/);
@@ -190,7 +194,7 @@ test.describe('new portal organizational dashboards', () => {
       expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 
       await page.locator(`.unit-card[data-unit-id="${activeDaycareId}"]`).click();
-      await expect(page.locator('.dashboard-type-card')).toHaveCount(4);
+      await expect(page.locator('.dashboard-type-card')).toHaveCount(6);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
     }
   });
