@@ -1972,3 +1972,19 @@ Validation:
 Remaining edge case:
 
 - Existing business modules still read broad authenticated PostgREST tables whose historical RLS policies are scope/data oriented rather than mapped to `portal_sections`. Closing that documented boundary requires a separate table-to-screen RLS/API migration.
+
+## 2026-07-22 - TRACK 010 BANK_TRANSACTIONS Workspace Design Prototype
+
+Objective: Design a spreadsheet-style BANK_TRANSACTIONS workspace without changing APIs, Supabase, calculations, or business logic.
+
+Implementation:
+
+- Added the BANK_TRANSACTIONS workspace to the Accounting source and its mirrored deployable source.
+- Added a compact summary strip, filters, spreadsheet-style transaction table, split-allocation rows, keyboard navigation, selection details, document state, notes, and history presentation.
+- Used explicit realistic mock data and labeled the workspace as a prototype.
+- Preserved the existing Accounting dashboard and production data contracts.
+
+Validation:
+
+- JavaScript syntax checks and the production build passed.
+- Focused BANK_TRANSACTIONS workspace coverage passed for desktop, laptop, and mobile layouts.
