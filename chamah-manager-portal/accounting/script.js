@@ -7,8 +7,9 @@ const transactions = [
   { id: 6, date: '16.07.2026', description: 'תרומה — קרן ירושלים', reference: 'DON-2184', account: 'בנק לאומי • 7731', debit: 0, credit: 25000, allocation: 'פיתוח', month: '07/2026', status: 'open', statusLabel: 'ממתין לשליחה', attachment: true, note: 'יש לאשר את קטגוריית ההכנסה.', history: ['16.07.2026 · נקלט מקובץ הבנק'] },
   { id: 7, date: '15.07.2026', description: 'חשמל — חברת החשמל', reference: '992774', account: 'בנק הפועלים • 1842', debit: 3940, credit: 0, allocation: 'מעון אשקלון', month: '07/2026', status: 'sent', statusLabel: 'נשלח להנה״ח', attachment: true, note: '', history: ['15.07.2026 · נשלח להנה״ח'] }
 ];
+transactions.splice(0);
 
-const state = { selected: 1, expanded: new Set([1]), quick: 'all', query: '', account: 'all', status: 'all' };
+const state = { selected: null, expanded: new Set(), quick: 'all', query: '', account: 'all', status: 'all' };
 const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 });
 const rowsEl = document.querySelector('#bank-rows');
 const detailsEl = document.querySelector('#bank-details');
@@ -28,7 +29,7 @@ function renderRows() {
     const parent = `<tr tabindex="0" data-id="${row.id}" class="transaction-row ${state.selected === row.id ? 'selected' : ''}"><td class="check-col"><input type="checkbox" aria-label="בחירת תנועה" /></td><td>${row.date}</td><td class="description-cell">${expandable ? `<button class="expand-button" data-expand="${row.id}" aria-label="${expanded ? 'סגירה' : 'פתיחה'}">${expanded ? '⌄' : '‹'}</button>` : '<span class="expand-spacer"></span>'}<span class="merchant-mark">${escapeHtml(row.description.slice(0, 1))}</span><strong>${escapeHtml(row.description)}</strong></td><td class="mono">${escapeHtml(row.reference)}</td><td>${escapeHtml(row.account)}</td><td class="amount debit">${row.debit ? money.format(row.debit) : '—'}</td><td class="amount credit">${row.credit ? money.format(row.credit) : '—'}</td><td><span class="allocation ${expandable ? 'split' : ''}">${escapeHtml(row.allocation)}</span></td><td>${row.month}</td><td><span class="status ${statusClass(row.status)}"><i></i>${escapeHtml(row.statusLabel)}</span></td><td class="attach-col"><span class="attachment ${row.attachment ? 'has-file' : ''}" title="${row.attachment ? 'יש מסמך' : 'אין מסמך'}">⌕</span></td></tr>`;
     const children = expanded ? row.splits.map((split, index) => `<tr class="split-row"><td></td><td></td><td><span class="split-line"></span><small>פיצול ${index + 1}</small></td><td></td><td></td><td class="amount debit">${money.format(split.amount)}</td><td>—</td><td><span class="allocation">${escapeHtml(split.allocation)}</span><small class="category">${escapeHtml(split.category)}</small></td><td>${row.month}</td><td></td><td></td></tr>`).join('') : '';
     return parent + children;
-  }).join('') || '<tr><td colspan="11" class="empty-row">לא נמצאו תנועות במסננים הנוכחיים.</td></tr>';
+  }).join('') || '<tr><td colspan="11" class="empty-row"><strong>אין תנועות בנק להצגה</strong><br><span>התנועות יופיעו כאן לאחר חיבור מקור הנתונים והוספת הרשומה הראשונה.</span></td></tr>';
   renderDetails();
 }
 function renderDetails() {

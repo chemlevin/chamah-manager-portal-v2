@@ -2019,3 +2019,35 @@ Intentionally excluded:
 - No Supabase migration or Edge Function deployment was performed in TRACK 012A.
 - No new product feature or business-rule change was introduced.
 - Demo/mock data intentionally belonging to completed prototype TRACKs 009/009A/009B and 010/010A remains clearly isolated from live calculations and production data integrations.
+
+## 2026-07-23 - TRACK: 012A Production Readiness Refinement
+
+Objective: Preserve the complete production portal structure while removing seeded demo/sample business records from pages that are not yet connected to live data.
+
+Implementation:
+
+- Converted Variables, Calculation Tables, and Calculation Rules to explicit production empty states using the same shared Administration framework.
+- Preserved the identical Administration header, toolbar, search, filters, pagination, add/edit/delete, duplicate, enable/disable, metadata editor, unsaved-change protection, and permission enforcement.
+- Replaced seeded Administration records with empty repositories and added page-specific Hebrew empty-state copy.
+- Removed demo/sample wording from the production Administration navigation and editor presentation.
+- Converted both the integrated new-portal Bank File and the preserved standalone BANK_TRANSACTIONS workspace to zero-record production states.
+- Preserved Bank workspace hierarchy, summary cards, filters, search, table headers, keyboard affordances, responsive layout, and permission behavior while showing zero totals and a proper empty state.
+- Did not change Supabase-backed authentication, users, permissions, organizational scope, dashboards, Accounting summary, staff/licensing, calculators, calculation engines, database schema, migrations, Edge Functions, APIs, or business rules.
+
+Production data-state classification:
+
+- Real connected data: authentication/session lifecycle; users, permissions, scope and audit access; financial dashboard; Accounting summary; staff/licensing/team dashboards; salary and occupancy calculator rule sources; documented system rules.
+- Empty production state: Variables; Calculation Tables; Calculation Rules; new-portal Bank File; standalone BANK_TRANSACTIONS workspace.
+- Future business implementation: Payroll workflow pages, Knowledge Center, Maintenance, Tasks, and dashboard destinations that currently use approved placeholder or shared-view behavior.
+
+Validation:
+
+- JavaScript syntax checks and `git diff --check` passed.
+- Production build passed and regenerated the root deployment artifact.
+- Focused Administration empty-state and CRUD regression passed: 22 passed and 2 intentionally skipped.
+- Complete Playwright suite passed across desktop 1440, laptop 1280, mobile 390, and mobile 430: 608 passed, 16 intentionally skipped, 0 failed (624 total).
+- Rendered empty-state tests verify that demo/sample labels and seeded rows are not displayed.
+
+Deployment:
+
+- No Preview or Production deployment, promotion, alias, Supabase migration, or Edge Function deployment was performed.

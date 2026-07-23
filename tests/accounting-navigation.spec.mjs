@@ -19,15 +19,18 @@ test('Accounting presents Summary Dashboard and Bank File as equal sibling choic
   await expect(page.locator('[data-accounting-screen="banks"]')).toContainText('קובץ בנקים');
 });
 
-test('Bank File reuses the spreadsheet workspace with mock data and preserved hierarchy', async ({ page }) => {
+test('Bank File preserves the production workspace and hierarchy with an empty data state', async ({ page }) => {
   await openAccounting(page, 'dashboards/unit/organization/accounting/banks');
   await expect(page.getByRole('heading', { name: 'קובץ בנקים' })).toBeVisible();
   await expect(page.locator('#breadcrumbs')).toContainText('הנה״ח/קובץ בנקים');
-  await expect(page.locator('#bank-new-rows [data-bank-row]')).toHaveCount(6);
-  await expect(page.locator('.bank-split-row')).toHaveCount(3);
-  await expect(page.locator('#bank-new-details')).toContainText('ארנונה עיריית ירושלים');
+  await expect(page.locator('#bank-new-rows [data-bank-row]')).toHaveCount(0);
+  await expect(page.getByText('אין תנועות בנק להצגה')).toBeVisible();
+  await expect(page.locator('#bank-new-details')).toBeHidden();
+  await expect(page.locator('.bank-new-toolbar')).toBeVisible();
+  await expect(page.getByPlaceholder('חיפוש תיאור או אסמכתא…')).toBeVisible();
+  await expect(page.getByText(/דמו|הדגמה|נתוני הדגמה/)).toHaveCount(0);
   await page.getByRole('button', { name: 'דורש טיפול' }).click();
-  await expect(page.locator('#bank-new-rows [data-bank-row]')).toHaveCount(3);
+  await expect(page.locator('#bank-new-rows [data-bank-row]')).toHaveCount(0);
 });
 
 test('Bank File defaults to HIDDEN when the permission catalog has no explicit child row', async ({ page }) => {

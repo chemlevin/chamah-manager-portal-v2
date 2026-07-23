@@ -16,26 +16,26 @@
 
     <section class="bank-heading">
       <div><p class="bank-kicker">הנהלת חשבונות / תנועות בנק</p><h1>תנועות בנק</h1><p>סביבת עבודה מהירה לשיוך, השלמת מסמכים והעברה להנה״ח.</p></div>
-      <div class="bank-heading-actions"><span class="bank-sync"><i></i> נתוני הדגמה · עודכן עכשיו</span><button type="button" class="bank-primary" disabled title="פעולה עתידית">＋ תנועה חדשה</button></div>
+      <div class="bank-heading-actions"><span class="bank-sync"><i></i> אין רשומות עדיין</span><button type="button" class="bank-primary" disabled title="הפעולה תופעל לאחר חיבור מקור הנתונים">＋ תנועה חדשה</button></div>
     </section>
 
     <section class="bank-summary" aria-label="סיכום">
-      <button class="summary-card active" data-quick="all"><span>כל התנועות</span><strong>248</strong><small>יולי 2026</small></button>
-      <button class="summary-card" data-quick="open"><span>דורש טיפול</span><strong>18</strong><small class="warn">7 חסרי מסמך</small></button>
-      <button class="summary-card" data-quick="split"><span>תנועות מפוצלות</span><strong>12</strong><small>4 ממתינות להשלמה</small></button>
-      <article class="summary-card money"><span>זכות החודש</span><strong>₪184,620</strong><small>32 תנועות</small></article>
-      <article class="summary-card money"><span>חובה החודש</span><strong>₪127,430</strong><small>216 תנועות</small></article>
+      <button class="summary-card active" data-quick="all"><span>כל התנועות</span><strong>0</strong><small>אין נתונים</small></button>
+      <button class="summary-card" data-quick="open"><span>דורש טיפול</span><strong>0</strong><small>אין נתונים</small></button>
+      <button class="summary-card" data-quick="split"><span>תנועות מפוצלות</span><strong>0</strong><small>אין נתונים</small></button>
+      <article class="summary-card money"><span>זכות בתקופה</span><strong>₪0</strong><small>0 תנועות</small></article>
+      <article class="summary-card money"><span>חובה בתקופה</span><strong>₪0</strong><small>0 תנועות</small></article>
     </section>
 
     <section class="bank-toolbar" aria-label="סינון וחיפוש">
       <label class="bank-search"><span>⌕</span><input id="bank-search" type="search" placeholder="חיפוש תיאור, אסמכתא או סכום…" /><kbd>/</kbd></label>
       <div class="filter-group">
-        <label><span>חשבון</span><select id="account-filter"><option value="all">כל החשבונות</option><option>בנק הפועלים • 1842</option><option>בנק לאומי • 7731</option></select></label>
-        <label><span>חודש</span><select id="month-filter"><option value="all">יולי 2026</option><option>יוני 2026</option></select></label>
+        <label><span>חשבון</span><select id="account-filter"><option value="all">כל החשבונות</option></select></label>
+        <label><span>חודש</span><select id="month-filter"><option value="all">כל החודשים</option></select></label>
         <label><span>סטטוס</span><select id="status-filter"><option value="all">כל הסטטוסים</option><option value="open">דורש טיפול</option><option value="sent">נשלח להנה״ח</option></select></label>
         <button type="button" class="icon-button" id="clear-filters" title="ניקוי מסננים">↻</button>
       </div>
-      <div class="view-actions"><span id="visible-count">7 תנועות</span><button type="button" class="icon-button" title="הגדרות תצוגה">☷</button><button type="button" class="icon-button" title="ייצוא עתידי" disabled>⇩</button></div>
+      <div class="view-actions"><span id="visible-count">0 תנועות</span><button type="button" class="icon-button" title="הגדרות תצוגה">☷</button><button type="button" class="icon-button" title="ייצוא עתידי" disabled>⇩</button></div>
     </section>
 
     <section class="bank-main">
@@ -46,10 +46,10 @@
             <tbody id="bank-rows"></tbody>
           </table>
         </div>
-        <footer class="sheet-footer"><span>שורות 1–7 מתוך 248</span><span>↑↓ מעבר בין שורות · Enter פתיחת פיצול · / חיפוש</span><div><button disabled>הקודם</button><b>1</b><button>הבא</button></div></footer>
+        <footer class="sheet-footer"><span>0 תוצאות</span><span>↑↓ מעבר בין שורות · Enter פתיחת פיצול · / חיפוש</span><div><button disabled>הקודם</button><b>1</b><button disabled>הבא</button></div></footer>
       </div>
 
-      <aside class="bank-details" id="bank-details" aria-live="polite">
+      <aside class="bank-details" id="bank-details" aria-live="polite" hidden>
         <div class="details-head"><div><span class="details-eyebrow">פרטי תנועה</span><h2 id="detail-title"></h2></div><button type="button" class="icon-button" id="close-details" aria-label="סגירת פרטים">×</button></div>
         <div id="detail-content"></div>
       </aside>

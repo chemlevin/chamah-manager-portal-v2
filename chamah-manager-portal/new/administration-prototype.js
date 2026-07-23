@@ -1,6 +1,6 @@
 import { createAdministration, createMemoryRepository } from './admin-framework.js';
 
-export const DEMO_SOURCE_CATALOG = [
+export const SOURCE_CATALOG = [
   { code: 'MONTHLY_OCCUPANCY', label: 'תפוסה חודשית', section: 'OCCUPANCY', fields: [
     { code: 'children_count', label: 'מספר ילדים', dataType: 'NUMBER', operations: ['SUM', 'AVERAGE', 'MIN', 'MAX', 'GREATER_THAN'] },
     { code: 'reporting_month', label: 'חודש דיווח', dataType: 'DATE', operations: ['IN_PERIOD', 'EQUALS'] },
@@ -35,8 +35,8 @@ export const DEMO_SOURCE_CATALOG = [
 ];
 
 const option = (value, label) => ({ value, label });
-const sources = DEMO_SOURCE_CATALOG.map((source) => option(source.code, source.label));
-const sourceFor = (record) => DEMO_SOURCE_CATALOG.find((source) => source.code === record.source_code);
+const sources = SOURCE_CATALOG.map((source) => option(source.code, source.label));
+const sourceFor = (record) => SOURCE_CATALOG.find((source) => source.code === record.source_code);
 const fieldFor = (record) => sourceFor(record)?.fields.find((field) => field.code === record.source_field);
 const fieldsFor = (record) => (sourceFor(record)?.fields || []).map((field) => option(field.code, field.label));
 const operationsFor = (record) => (fieldFor(record)?.operations || []).map((code) => option(code, ({ SUM: 'סכום', AVERAGE: 'ממוצע', MIN: 'מינימום', MAX: 'מקסימום', EQUALS: 'שווה ל־', IN_LIST: 'אחד מתוך', GREATER_THAN: 'גדול מ־', LESS_THAN: 'קטן מ־', IN_PERIOD: 'בתקופה', BEFORE: 'לפני', AFTER: 'אחרי', CONTAINS: 'מכיל' })[code]));
@@ -57,7 +57,7 @@ const sourceFields = [
 ];
 const technicalCode = (label) => ({ name: 'code', label, required: true, technical: true, table: false, pattern: '^[A-Z][A-Z0-9_]*$', patternMessage: 'הקוד חייב להכיל אותיות אנגליות גדולות, מספרים וקו תחתון בלבד', help: 'מזהה יציב לחיבורים עתידיים. אינו מיועד לשינוי תכוף.' });
 
-export const DEMO_METADATA_GRAPH = {
+export const METADATA_GRAPH = {
   MONTHLY_OCCUPANCY_RATE: {
     dependsOn: [{ type: 'source', label: 'תפוסה חודשית' }, { type: 'table', label: 'יחסי תקינה לפי גיל', href: '#training/tables/calculation' }],
     dependents: [{ type: 'rule', label: 'עלות מזון לפי תפוסה', href: '#training/rules/calculation' }, { type: 'variable', label: 'עלות מזון חודשית' }],
@@ -113,7 +113,7 @@ export const DEMO_METADATA_GRAPH = {
 };
 
 const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
-const graphFor = (record) => DEMO_METADATA_GRAPH[record.code] || { dependsOn: [], dependents: [], usedBy: [], impact: {} };
+const graphFor = (record) => METADATA_GRAPH[record.code] || { dependsOn: [], dependents: [], usedBy: [], impact: {} };
 const sourceLabel = (record) => sourceFor(record)?.label || 'טרם נבחר מקור';
 const fieldLabel = (record) => fieldFor(record)?.label || 'טרם נבחר שדה';
 const optionLabel = (options, value) => options.find((item) => item.value === value)?.label || 'טרם נבחר';
@@ -127,7 +127,7 @@ function renderWhereUsed(record) {
     <section><h3>תלוי ב־</h3>${referenceList(graph.dependsOn)}</section>
     <section><h3>תלויים בו</h3>${referenceList(graph.dependents)}</section>
     <section><h3>כל המקומות שמפנים לרשומה</h3>${referenceList(graph.usedBy)}</section>
-    <p class="metadata-demo-note">מפת ההפניות מבוססת על מטא־דאטה לדוגמה בלבד.</p></div>`;
+    <p class="metadata-demo-note">מפת ההפניות תתעדכן כאשר יוגדרו קשרים לרשומה.</p></div>`;
 }
 
 function renderDesigner(record, kind) {
@@ -139,7 +139,7 @@ function renderDesigner(record, kind) {
     ['משתנים מושפעים', impact.variables], ['כללים מושפעים', impact.rules], ['לוחות מחוונים מושפעים', impact.dashboards],
     ['דוחות מושפעים', impact.reports], ['חישובים מושפעים', impact.calculations]
   ];
-  return `<section class="metadata-panel" aria-labelledby="data-flow-title"><header><div><p class="admin-eyebrow">מפת מטא־דאטה</p><h3 id="data-flow-title">זרימת נתונים</h3></div><span class="metadata-demo-badge">הדגמה</span></header>
+  return `<section class="metadata-panel" aria-labelledby="data-flow-title"><header><div><p class="admin-eyebrow">מפת מטא־דאטה</p><h3 id="data-flow-title">זרימת נתונים</h3></div><span class="metadata-demo-badge">תצוגה מקדימה</span></header>
     <ol class="metadata-flow">
       <li><small>מקור</small><strong>${escape(sourceLabel(record))}</strong></li><li><small>שדה</small><strong>${escape(fieldLabel(record))}</strong></li>
       <li><small>מסננים</small><strong>${escape(optionLabel(operationsFor(record), record.operation))}</strong></li><li><small>צבירה</small><strong>${escape(optionLabel(aggregations, record.aggregation))}</strong></li>
@@ -148,13 +148,13 @@ function renderDesigner(record, kind) {
     <div class="metadata-dependencies"><section><h4>תלוי ב־</h4>${referenceList(graph.dependsOn)}</section><section><h4>תלויים בו</h4>${referenceList(graph.dependents)}</section></div>
   </section>
   <section class="metadata-panel metadata-impact" aria-labelledby="impact-title"><header><div><p class="admin-eyebrow">לפני שמירה</p><h3 id="impact-title">ניתוח השפעה</h3></div></header>
-    <p>השינוי עשוי להשפיע על הרכיבים הבאים. זהו ניתוח הדגמה ואינו מפעיל מערכות אמיתיות.</p>
+    <p>השינוי עשוי להשפיע על הרכיבים הבאים. הניתוח אינו מפעיל חישובים עד לשמירת הרשומה במקור נתונים פעיל.</p>
     <div class="metadata-impact-grid">${impactGroups.map(([label, items]) => `<article><strong>${escape(label)}</strong><span>${items?.length || 0}</span><p>${escape(items?.join(', ') || 'ללא השפעה ידועה')}</p></article>`).join('')}</div>
   </section>
   <section class="metadata-panel metadata-preview" aria-labelledby="preview-title"><header><div><p class="admin-eyebrow">סביבת ניסוי</p><h3 id="preview-title">תצוגה מקדימה של החישוב</h3></div></header>
-    <div class="metadata-preview-inputs"><label>ערך לדוגמה<input type="number" value="${kind === 'rule' ? 8 : 24}" data-preview-value></label><label>${kind === 'rule' ? 'סף להשוואה' : 'מספר רשומות'}<input type="number" value="${kind === 'rule' ? 5 : 3}" min="1" data-preview-factor></label></div>
+    <div class="metadata-preview-inputs"><label>ערך לבדיקה<input type="number" value="0" data-preview-value></label><label>${kind === 'rule' ? 'סף להשוואה' : 'מספר רשומות'}<input type="number" value="1" min="1" data-preview-factor></label></div>
     <ol class="metadata-preview-steps" data-preview-steps></ol><output class="metadata-preview-result" data-preview-result></output>
-    <p class="metadata-demo-note">החישוב הוא המחשה בלבד ואינו משתמש במנועי Chamah.</p>
+    <p class="metadata-demo-note">התצוגה המקדימה אינה שומרת נתונים ואינה מפעילה את מנועי Chamah.</p>
   </section>`;
 }
 
@@ -169,12 +169,12 @@ function bindDesigner(root, record, kind) {
     const factor = Number(factorInput.value) || 0;
     if (kind === 'rule') {
       const passed = value > factor;
-      steps.innerHTML = `<li>נקלט ערך מקור: <strong>${value}</strong></li><li>הופעל תנאי הדגמה: ${value} &gt; ${factor}</li><li>נוצרה תוצאת כלל: <strong>${passed ? 'התנאי מתקיים' : 'התנאי לא מתקיים'}</strong></li>`;
+      steps.innerHTML = `<li>נקלט ערך לבדיקה: <strong>${value}</strong></li><li>הופעל תנאי תצוגה מקדימה: ${value} &gt; ${factor}</li><li>נוצרה תוצאת כלל: <strong>${passed ? 'התנאי מתקיים' : 'התנאי לא מתקיים'}</strong></li>`;
       output.value = passed ? 'תוצאה: זכאות / חריגה זוהתה' : 'תוצאה: ללא זכאות / חריגה';
     } else {
       const result = record.aggregation === 'AVERAGE' ? value / Math.max(factor, 1) : value * Math.max(factor, 1);
       steps.innerHTML = `<li>נקלט ערך מקור: <strong>${value}</strong></li><li>הוחלה צבירת ${escape(optionLabel(aggregations, record.aggregation))} על ${factor} רשומות</li><li>נוצר משתנה תוצאה: <strong>${result.toLocaleString('he-IL', { maximumFractionDigits: 2 })}</strong></li>`;
-      output.value = `תוצאה לדוגמה: ${result.toLocaleString('he-IL', { maximumFractionDigits: 2 })}`;
+      output.value = `תוצאה מקדימה: ${result.toLocaleString('he-IL', { maximumFractionDigits: 2 })}`;
     }
   };
   valueInput.addEventListener('input', update);
@@ -190,7 +190,7 @@ const designerMetadata = (kind) => ({
 
 const screens = {
   variables: {
-    metadata: { entity: 'prototype_variables', label: 'משתנה', pluralLabel: 'משתנים', primaryKey: 'variable_id', statusField: 'is_active', ...designerMetadata('variable'), description: 'קטלוג משתנים עסקיים מבוסס מטא־דאטה. נתוני הדמו מתאפסים ברענון.', searchFields: ['code', 'display_title', 'description'], defaultSort: { field: 'display_title', direction: 'asc' }, technicalHelp: 'כאן מוצג הקוד האנגלי היציב המשמש מערכות וחיבורים עתידיים.', duplicate: (record) => ({ ...record, code: `${record.code}_COPY`, display_title: `${record.display_title} — עותק` }), fields: [
+    metadata: { entity: 'variables', label: 'משתנה', pluralLabel: 'משתנים', primaryKey: 'variable_id', statusField: 'is_active', ...designerMetadata('variable'), description: 'ניהול משתנים עסקיים. עדיין לא הוגדרו רשומות במקור הנתונים.', emptyTitle: 'אין משתנים להצגה', emptyMessage: 'אפשר להוסיף את המשתנה הראשון באמצעות הכפתור הוספת משתנה.', searchFields: ['code', 'display_title', 'description'], defaultSort: { field: 'display_title', direction: 'asc' }, technicalHelp: 'כאן מוצג הקוד האנגלי היציב המשמש מערכות וחיבורים עתידיים.', duplicate: (record) => ({ ...record, code: `${record.code}_COPY`, display_title: `${record.display_title} — עותק` }), fields: [
       { name: 'variable_id', label: 'מזהה', form: false, table: false },
       { name: 'display_title', label: 'כותרת', required: true, sortable: true },
       { name: 'description', label: 'תיאור', type: 'textarea', required: true, table: false },
@@ -198,36 +198,25 @@ const screens = {
       { name: 'unit', label: 'יחידת מידה', type: 'select', required: true, options: units },
       ...sourceFields, status, technicalCode('קוד משתנה')
     ], createLabel: 'הוספת משתנה' },
-    rows: [
-      { variable_id: 'v1', code: 'MONTHLY_OCCUPANCY_RATE', display_title: 'שיעור תפוסה חודשי', description: 'אחוז הילדים הרשומים מתוך התפוסה המורשית בכל מעון.', data_type: 'PERCENTAGE', unit: 'PERCENT', source_code: 'MONTHLY_OCCUPANCY', source_field: 'children_count', related_section: 'OCCUPANCY', operation: 'AVERAGE', time_period: 'CURRENT_MONTH', aggregation: 'AVERAGE', is_active: true },
-      { variable_id: 'v2', code: 'MONTHLY_PAYROLL_COST', display_title: 'עלות שכר חודשית', description: 'סך עלות המעסיק ברשומות השכר לתקופה שנבחרה.', data_type: 'CURRENCY', unit: 'ILS', source_code: 'PAYROLL', source_field: 'employer_cost', related_section: 'PAYROLL', operation: 'SUM', time_period: 'CURRENT_MONTH', aggregation: 'SUM', is_active: true },
-      { variable_id: 'v3', code: 'ACTIVE_EMPLOYEE_COUNT', display_title: 'מספר עובדות פעילות', description: 'ספירת עובדות שסטטוס ההעסקה שלהן פעיל.', data_type: 'NUMBER', unit: 'EMPLOYEES', source_code: 'EMPLOYEES', source_field: 'employment_status', related_section: 'EMPLOYEES', operation: 'EQUALS', time_period: 'CURRENT_MONTH', aggregation: 'COUNT', is_active: true },
-      { variable_id: 'v4', code: 'MONTHLY_BANK_EXPENSES', display_title: 'הוצאות בנק חודשיות', description: 'סכום תנועות הבנק המסווגות כהוצאה במהלך החודש.', data_type: 'CURRENCY', unit: 'ILS', source_code: 'BANK_TRANSACTIONS', source_field: 'amount', related_section: 'ACCOUNTING', operation: 'SUM', time_period: 'CURRENT_MONTH', aggregation: 'SUM', is_active: false }
-    ]
+    rows: []
   },
   rules: {
-    metadata: { entity: 'prototype_calculation_rules', label: 'כלל חישוב', pluralLabel: 'כללי חישוב', primaryKey: 'rule_id', statusField: 'is_active', ...designerMetadata('rule'), description: 'כללי דמו מובנים שאינם מפעילים חישובים אמיתיים.', searchFields: ['code', 'display_title', 'description'], defaultSort: { field: 'priority', direction: 'asc' }, technicalHelp: 'הקוד האנגלי הוא מזהה פנימי בלבד. בחירת המקור והשדה נעשית באמצעות הקטלוג המובנה.', duplicate: (record) => ({ ...record, code: `${record.code}_COPY`, display_title: `${record.display_title} — עותק`, is_active: false }), fields: [
+    metadata: { entity: 'calculation_rules', label: 'כלל חישוב', pluralLabel: 'כללי חישוב', primaryKey: 'rule_id', statusField: 'is_active', ...designerMetadata('rule'), description: 'ניהול כללי חישוב. עדיין לא הוגדרו רשומות במקור הנתונים.', emptyTitle: 'אין כללי חישוב להצגה', emptyMessage: 'אפשר להוסיף את כלל החישוב הראשון באמצעות הכפתור הוספת כלל.', searchFields: ['code', 'display_title', 'description'], defaultSort: { field: 'priority', direction: 'asc' }, technicalHelp: 'הקוד האנגלי הוא מזהה פנימי בלבד. בחירת המקור והשדה נעשית באמצעות הקטלוג המובנה.', duplicate: (record) => ({ ...record, code: `${record.code}_COPY`, display_title: `${record.display_title} — עותק`, is_active: false }), fields: [
       { name: 'rule_id', label: 'מזהה', form: false, table: false },
       { name: 'display_title', label: 'כותרת', required: true, sortable: true },
       { name: 'description', label: 'תיאור', type: 'textarea', required: true, table: false },
       ...sourceFields,
       { name: 'priority', label: 'עדיפות', type: 'number', min: 1, required: true, sortable: true }, status, technicalCode('קוד כלל')
     ], createLabel: 'הוספת כלל' },
-    rows: [
-      { rule_id: 'r1', code: 'INFANT_STAFFING_REQUIREMENT', display_title: 'תקינת צוות לתינוקות', description: 'חישוב דרישת צוות לפי מספר הילדים בכיתה.', source_code: 'MONTHLY_OCCUPANCY', source_field: 'children_count', related_section: 'OCCUPANCY', operation: 'GREATER_THAN', time_period: 'CURRENT_MONTH', aggregation: 'MAX', priority: 10, is_active: true },
-      { rule_id: 'r2', code: 'SENIORITY_BONUS_ELIGIBILITY', display_title: 'זכאות לתוספת ותק', description: 'בדיקת שנות הוותק של העובדת לצורך זכאות.', source_code: 'EMPLOYEES', source_field: 'seniority_years', related_section: 'EMPLOYEES', operation: 'GREATER_THAN', time_period: 'ALL_TIME', aggregation: 'NONE', priority: 20, is_active: true },
-      { rule_id: 'r3', code: 'PERSISTENCE_BONUS_ELIGIBILITY', display_title: 'זכאות למענק התמדה', description: 'בדיקת תאריך תחילת העבודה בתקופת הזכאות.', source_code: 'EMPLOYEES', source_field: 'start_date', related_section: 'PAYROLL', operation: 'BEFORE', time_period: 'SCHOOL_YEAR', aggregation: 'NONE', priority: 30, is_active: false },
-      { rule_id: 'r4', code: 'FOOD_COST_BY_OCCUPANCY', display_title: 'עלות מזון לפי תפוסה', description: 'צבירת מספר הילדים לצורך חישוב עלות מזון.', source_code: 'MONTHLY_OCCUPANCY', source_field: 'children_count', related_section: 'OCCUPANCY', operation: 'SUM', time_period: 'CURRENT_MONTH', aggregation: 'SUM', priority: 40, is_active: true }
-    ]
+    rows: []
   }
 };
 
-// Calculation Tables remain the TRACK 009 prototype and are intentionally unchanged.
 const tableScreen = {
-  metadata: { entity: 'prototype_calculation_tables', label: 'טבלת חישוב', pluralLabel: 'טבלאות חישוב', primaryKey: 'table_id', statusField: 'is_active', renderInspector: renderWhereUsed, description: 'קטלוג טבלאות דמו לצורכי אפיון ממשק בלבד.', searchFields: ['code', 'name'], fields: [
+  metadata: { entity: 'calculation_tables', label: 'טבלת חישוב', pluralLabel: 'טבלאות חישוב', primaryKey: 'table_id', statusField: 'is_active', renderInspector: renderWhereUsed, description: 'ניהול טבלאות חישוב. עדיין לא הוגדרו רשומות במקור הנתונים.', emptyTitle: 'אין טבלאות חישוב להצגה', emptyMessage: 'אפשר להוסיף את טבלת החישוב הראשונה באמצעות הכפתור הוספת טבלת חישוב.', searchFields: ['code', 'name'], fields: [
     { name: 'table_id', label: 'מזהה', form: false, table: false }, { name: 'code', label: 'קוד טבלה', required: true }, { name: 'name', label: 'שם הטבלה', required: true }, { name: 'version', label: 'גרסה', required: true }, status
   ] },
-  rows: [{ table_id: 't1', code: 'STAFFING_RATIOS', name: 'יחסי תקינה לפי גיל', version: '2026.1', is_active: true }, { table_id: 't2', code: 'SENIORITY_STEPS', name: 'מדרגות ותק', version: '2026.1', is_active: true }, { table_id: 't3', code: 'FOOD_COSTS', name: 'עלויות מזון', version: '2026-Q3', is_active: true }, { table_id: 't4', code: 'PERSISTENCE_BONUS', name: 'מענקי התמדה', version: 'טיוטה', is_active: false }]
+  rows: []
 };
 screens.tables = tableScreen;
 
@@ -235,7 +224,7 @@ let controller;
 export function mountAdministrationPrototype(root, screen) {
   controller?.destroy();
   const config = screens[screen];
-  if (!config) throw new Error('Unknown administration prototype screen.');
+  if (!config) throw new Error('Unknown administration screen.');
   controller = createAdministration({ root, metadata: config.metadata, repository: createMemoryRepository(config.rows) });
   return controller;
 }

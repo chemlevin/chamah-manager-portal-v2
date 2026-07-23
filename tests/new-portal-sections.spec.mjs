@@ -72,16 +72,17 @@ test.describe('payroll and training portal sections', () => {
     await expect(page.locator('[data-rule]:visible summary')).toContainText('BR-0041');
   });
 
-  test('administration prototypes stay isolated while audit does not fake history', async ({ page }) => {
+  test('administration pages and audit use production empty states without seeded history', async ({ page }) => {
     await mockNewPortalSupabase(page);
     await openNewPortal(page, 'training/tables/calculation');
     await expect(page.getByRole('heading', { level: 1, name: 'טבלאות חישוב' })).toBeVisible();
-    await expect(page.locator('.admin-table tbody tr')).toHaveCount(4);
-    await expect(page.getByText('יחסי תקינה לפי גיל', { exact: true })).toBeVisible();
+    await expect(page.locator('.admin-table tbody tr')).toHaveCount(0);
+    await expect(page.getByText('אין טבלאות חישוב להצגה', { exact: true })).toBeVisible();
 
     await page.evaluate(() => { location.hash = 'training/tables/variables'; });
     await expect(page.getByRole('heading', { level: 1, name: 'משתנים' })).toBeVisible();
-    await expect(page.locator('.admin-table tbody tr')).toHaveCount(4);
+    await expect(page.locator('.admin-table tbody tr')).toHaveCount(0);
+    await expect(page.getByText('אין משתנים להצגה', { exact: true })).toBeVisible();
 
     await page.evaluate(() => { location.hash = 'training/audit'; });
     await expect(page.getByRole('heading', { level: 1, name: 'יומן שינויים' })).toBeVisible();
