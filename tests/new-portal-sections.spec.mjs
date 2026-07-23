@@ -7,21 +7,20 @@ const routes = [
   ['payroll/calculations/new', 'חדש', []],
   ['payroll/calculations/existing', 'קיים', []],
   ['payroll/calculations/history', 'טבלאות עבר', []],
-  ['training', 'הרשאות וטבלאות', ['training/permissions', 'training/rules', 'training/tables', 'training/audit']],
+  ['training', 'ניהול והגדרות', ['training/permissions', 'training/rules', 'training/settings', 'training/audit']],
   ['training/permissions', 'הרשאות', ['training/permissions/users']],
   ['training/permissions/users', 'רשימת משתמשים והרשאות', []],
   ['training/rules', 'כללים', ['training/rules/calculation', 'training/rules/system']],
   ['training/rules/system', 'כללי מערכת', []],
   ['training/rules/calculation', 'כללי חישוב', []],
-  ['training/tables', 'טבלאות', ['training/tables/calculation', 'training/tables/variables']],
-  ['training/tables/calculation', 'טבלאות חישוב', []],
-  ['training/tables/variables', 'משתנים', []],
+  ['training/settings', 'הגדרות', []],
   ['training/audit', 'יומן שינויים', []]
 ];
 
 const openPortal = async (page, route) => {
   await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/auth/v1/user', (request) => request.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'sections-test-user' }) }));
   await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/functions/v1/portal-users', (request) => request.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ users: [], profiles: [], permissions: [], unit_scopes: [], daycare_scopes: [], sections: portalAccessFixture.sections, allocation_units: [], daycares: [], audit_events: [] }) }));
+  await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/functions/v1/portal-settings', (request) => request.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: {} }) }));
   await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/rest/v1/**', (request) => request.fulfill({ status: 200, contentType: 'application/json', body: request.request().url().includes('/rpc/portal_my_access') ? JSON.stringify(portalAccessFixture) : '[]' }));
   await page.addInitScript(() => localStorage.setItem('chamah.portal.session', JSON.stringify({ access_token: 'sections-test-session', refresh_token: 'sections-test-refresh', expires_at: 4102444800 })));
   await page.goto(`/new/#${route}`);
@@ -60,7 +59,7 @@ test.describe('payroll and training portal sections', () => {
       await expect(page.locator('#primary-nav [data-route="accounting"]')).toBeVisible();
       await page.locator('#primary-nav [data-route="training"]').click();
     }
-    await expect(page.getByRole('heading', { level: 1, name: 'הרשאות וטבלאות' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'ניהול והגדרות' })).toBeVisible();
   });
 
   test('system rules exposes the complete documented read-only catalog with filters', async ({ page }) => {
@@ -74,15 +73,9 @@ test.describe('payroll and training portal sections', () => {
 
   test('administration pages and audit use production empty states without seeded history', async ({ page }) => {
     await mockNewPortalSupabase(page);
-    await openNewPortal(page, 'training/tables/calculation');
-    await expect(page.getByRole('heading', { level: 1, name: 'טבלאות חישוב' })).toBeVisible();
-    await expect(page.locator('.admin-table tbody tr')).toHaveCount(0);
-    await expect(page.getByText('אין טבלאות חישוב להצגה', { exact: true })).toBeVisible();
-
-    await page.evaluate(() => { location.hash = 'training/tables/variables'; });
-    await expect(page.getByRole('heading', { level: 1, name: 'משתנים' })).toBeVisible();
-    await expect(page.locator('.admin-table tbody tr')).toHaveCount(0);
-    await expect(page.getByText('אין משתנים להצגה', { exact: true })).toBeVisible();
+    await openNewPortal(page, 'training/settings');
+    await expect(page.getByRole('heading', { level: 1, name: 'הגדרות' })).toBeVisible();
+    await expect(page.locator('.settings-card')).toHaveCount(22);
 
     await page.evaluate(() => { location.hash = 'training/audit'; });
     await expect(page.getByRole('heading', { level: 1, name: 'יומן שינויים' })).toBeVisible();

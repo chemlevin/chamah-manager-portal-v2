@@ -4,6 +4,7 @@ import { buildLegalOccupancyAlternatives, calculateOccupancyModel } from './occu
 import { RULE_CATEGORIES, SYSTEM_RULES } from './management-catalog.generated.js';
 import { DOCUMENTED_STATUS_RULES, REFERENCE_TABLES, VARIABLE_RULE_TABLES } from './management-data.js';
 import { mountAdministrationPrototype } from './administration-prototype.js';
+import { mountSettingsCenter } from './settings-center.js';
 
 const SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
@@ -26,9 +27,9 @@ const HEBREW_SCREEN_LABELS = {
   'calculators.salary': 'מחשבון שכר', 'calculators.occupancy': 'מחשבון תפוסה, תקינה ורווחיות',
   payroll: 'שכר', 'payroll.calculations': 'חישובי שכר', 'payroll.calculations.new': 'חדש',
   'payroll.calculations.existing': 'קיים', 'payroll.calculations.history': 'טבלאות עבר',
-  management: 'הרשאות וטבלאות', 'management.permissions': 'הרשאות',
+  management: 'ניהול והגדרות', 'management.permissions': 'הרשאות',
   'management.permissions.users': 'רשימת משתמשים והרשאות', 'management.rules': 'כללים',
-  'management.rules.calculation': 'כללי חישוב', 'management.rules.system': 'כללי מערכת', 'management.tables': 'טבלאות',
+  'management.rules.calculation': 'כללי חישוב', 'management.rules.system': 'כללי מערכת', 'management.settings': 'הגדרות', 'management.tables': 'טבלאות',
   'management.tables.calculation': 'טבלאות חישוב', 'management.tables.variables': 'כללים משתנים',
   'management.audit': 'יומן שינויים', knowledge: 'מרכז הידע למשתמש', maintenance: 'תחזוקה', tasks: 'משימות'
 };
@@ -345,6 +346,7 @@ function navigationScreenCode(route) {
   return route;
 }
 function routeScreenCode(route) {
+  if (route.section === 'training' && ['settings', 'tables'].includes(route.page)) return 'management.settings';
   if (route.section === 'dashboards' && route.dashboardType === 'accounting' && route.dashboardChild) return `dashboards.accounting.${route.dashboardChild}`;
   if (route.section === 'dashboards' && route.dashboardType) return `dashboards.${route.dashboardType}`;
   if (route.section === 'calculators' && route.calculator) return `calculators.${route.calculator}`;
@@ -426,12 +428,12 @@ const portalSections = {
     cards: [{ route: 'payroll/calculations', icon: '▤', title: 'חישובי שכר', description: 'פתיחת חישוב חדש, חישובים קיימים וטבלאות עבר.' }]
   },
   training: {
-    title: 'הרשאות וטבלאות',
-    description: 'טבלאות וכלי הרשאות ארגוניים במקום אחד.',
+    title: 'ניהול והגדרות',
+    description: 'הרשאות והגדרות המערכת במקום אחד.',
     cards: [
       { route: 'training/permissions', icon: '⚿', title: 'הרשאות', description: 'ניהול משתמשים, תפקידים והרשאות — ללא שינוי מנגנוני האבטחה.' },
       { route: 'training/rules', icon: '§', title: 'כללים', description: 'קטלוג כללי המערכת המתועדים.' },
-      { route: 'training/tables', icon: '▦', title: 'טבלאות', description: 'טבלאות חישוב וכללים משתנים.' },
+      { route: 'training/settings', icon: '⚙', title: 'הגדרות', description: 'כל הגדרות המערכת במרכז אחד, לפי נושאים עסקיים.' },
       { route: 'training/audit', icon: '◷', title: 'יומן שינויים', description: 'היסטוריית שינויים גלובלית לפי אובייקט.' }
     ]
   }
@@ -440,7 +442,7 @@ const portalSections = {
 const managementPages = {
   permissions: { title: 'הרשאות', cards: [{ route: 'training/permissions/users', icon: '👥', title: 'רשימת משתמשים והרשאות', description: 'ניהול משתמשי הפורטל, טווחי נתונים והרשאות לפי מסך.' }] },
   rules: { title: 'כללים', cards: [{ route: 'training/rules/calculation', icon: '§', title: 'כללי חישוב', description: 'יצירה וניהול של כללי חישוב.' }, { route: 'training/rules/system', icon: '§', title: 'כללי מערכת', description: `${SYSTEM_RULES.length} כללים מתועדים מתוך מסמכי ה־Handbook.` }] },
-  tables: { title: 'טבלאות', cards: [{ route: 'training/tables/calculation', icon: '▦', title: 'טבלאות חישוב', description: 'יצירה וניהול של טבלאות חישוב.' }, { route: 'training/tables/variables', icon: '⇄', title: 'משתנים', description: 'ניהול פרמטרים עסקיים לפי תחום וסטטוס.' }] }
+  settings: { title: 'הגדרות', cards: [] }
 };
 
 const payrollCalculationCards = [
@@ -470,6 +472,14 @@ function usersPermissionsTemplate() {
 async function portalUsersRequest(method = 'GET', body) {
   if (!await ensureAccessToken()) throw new Error('החיבור פג.');
   const response = await fetch(`${SUPABASE_URL}/functions/v1/portal-users`, { method, headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const value = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(value.error || 'הפעולה נכשלה.');
+  return value;
+}
+
+async function portalSettingsRequest(method = 'GET', body) {
+  if (!await ensureAccessToken()) throw new Error('החיבור פג.');
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/portal-settings`, { method, headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
   const value = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(value.error || 'הפעולה נכשלה.');
   return value;
@@ -1232,7 +1242,7 @@ function renderGeneralData() {
 }
 
 function breadcrumbsTemplate(route, unit, type) {
-  const isPrototypeAdministration = route.section === 'training' && ((route.page === 'rules' && route.child === 'calculation') || (route.page === 'tables' && ['calculation', 'variables'].includes(route.child)));
+  const isPrototypeAdministration = route.section === 'training' && route.page === 'rules' && route.child === 'calculation';
   const target = isPrototypeAdministration ? null : portalSection(routeScreenCode(route));
   if (target) {
     const byCode = new Map((portalAccess?.sections || []).map((item) => [item.screen_code, item]));
@@ -1298,7 +1308,7 @@ async function render() {
     history.replaceState({}, '', `${location.pathname}#access-denied`);
     return;
   }
-  const managementLabels = { permissions: 'הרשאות', rules: 'כללים', tables: 'טבלאות', audit: 'יומן שינויים', users: 'רשימת משתמשים והרשאות', system: 'כללי מערכת', calculation: route.page === 'rules' ? 'כללי חישוב' : 'טבלאות חישוב', variables: 'משתנים' };
+  const managementLabels = { permissions: 'הרשאות', rules: 'כללים', settings: 'הגדרות', tables: 'הגדרות', audit: 'יומן שינויים', users: 'רשימת משתמשים והרשאות', system: 'כללי מערכת', calculation: route.page === 'rules' ? 'כללי חישוב' : 'הגדרות', variables: 'הגדרות' };
   let title = route.calculator === 'salary' ? 'מחשבון שכר' : route.calculator === 'occupancy' ? 'תפוסה, תקינה ורווחיות' : route.section === 'training' && (route.child || route.page) ? managementLabels[route.child || route.page] : route.child ? payrollCalculationCards.find((item) => item.route.endsWith(route.child)).title : route.section === 'payroll' && route.page ? 'חישובי שכר' : route.section === 'home' ? 'עמוד הבית' : route.section === 'dashboards' ? 'דשבורדים' : simpleRoutes[route.section].title;
   let unit = null;
   let type = null;
@@ -1312,8 +1322,7 @@ async function render() {
   else if (route.section === 'training' && route.page === 'permissions' && route.child === 'users') { $('#page-content').innerHTML = usersPermissionsTemplate(); await loadPermissionsAdmin(); }
   else if (route.section === 'training' && route.page === 'rules' && route.child === 'system') { $('#page-content').innerHTML = systemRulesTemplate(); bindSystemRules(); }
   else if (route.section === 'training' && route.page === 'rules' && route.child === 'calculation') { $('#page-content').innerHTML = '<div id="prototype-admin-root"></div>'; mountAdministrationPrototype($('#prototype-admin-root'), 'rules'); }
-  else if (route.section === 'training' && route.page === 'tables' && route.child === 'calculation') { $('#page-content').innerHTML = '<div id="prototype-admin-root"></div>'; mountAdministrationPrototype($('#prototype-admin-root'), 'tables'); }
-  else if (route.section === 'training' && route.page === 'tables' && route.child === 'variables') { $('#page-content').innerHTML = '<div id="prototype-admin-root"></div>'; mountAdministrationPrototype($('#prototype-admin-root'), 'variables'); }
+  else if (route.section === 'training' && ['settings', 'tables'].includes(route.page)) { $('#page-content').innerHTML = '<div id="settings-center-root"></div>'; mountSettingsCenter($('#settings-center-root'), portalSettingsRequest, { canEdit: permissionFor('management.settings') === 'EDIT' }); }
   else if (route.section === 'training' && route.page === 'audit') { $('#page-content').innerHTML = auditLogTemplate(); await loadAuditLog(); }
   else if (route.section === 'training' && managementPages[route.page]) $('#page-content').innerHTML = managementHubTemplate(route.page);
   else if (route.section === 'training') $('#page-content').innerHTML = sectionCardsTemplate('training');

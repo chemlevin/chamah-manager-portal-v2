@@ -1,0 +1,19 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, apikey, content-type","Access-Control-Allow-Methods":"GET, POST, PATCH, DELETE, OPTIONS"};
+const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"}});
+const tables={school_years:"school_year_id",calendar_years:"calendar_year_id",school_year_months:"school_year_month_id",legal_entity_types:"legal_entity_type_id",legal_entities:"legal_entity_id",allocation_units:"allocation_unit_id",daycares:"daycare_id",daycare_school_years:"daycare_school_year_id",classrooms:"classroom_id",age_groups:"age_group_id",budget_categories:"budget_category_id",bank_accounts:"bank_account_id",accounting_statuses:"accounting_status_id",roles:"role_id",certificate_types:"certificate_type_id",classroom_licensing_rules:"classroom_licensing_rule_id",staffing_rules:"staffing_rule_id",staffing_budget_parameters:"staffing_budget_parameter_id",compensation_factors:"compensation_factor_id",compensation_rules:"compensation_rule_id",budget_rules:"budget_rule_id",travel_rates:"travel_rate_id"} as const;
+Deno.serve(async(request)=>{
+ if(request.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
+ const url=Deno.env.get("SUPABASE_URL")!,key=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,authorization=request.headers.get("Authorization")||"",headers={apikey:key,Authorization:`Bearer ${key}`,"Content-Type":"application/json"};
+ try{
+  const auth=await fetch(`${url}/auth/v1/user`,{headers:{apikey:key,Authorization:authorization}});if(!auth.ok)return json({error:"נדרש חיבור תקף."},401);const actor=await auth.json();
+  const allowed=await fetch(`${url}/rest/v1/rpc/portal_has_permission`,{method:"POST",headers,body:JSON.stringify({target_user_id:actor.id,target_screen_code:"management.settings",required_level:request.method==="GET"?"VIEW":"EDIT"})});
+  if(!allowed.ok||await allowed.json()!==true)return json({error:"אין הרשאה מתאימה להגדרות המערכת."},403);
+  if(request.method==="GET"){const entries=await Promise.all(Object.keys(tables).map(async table=>{const response=await fetch(`${url}/rest/v1/${table}?select=*&limit=1000`,{headers});if(!response.ok)throw new Error(table);return[table,await response.json()]}));return json({data:Object.fromEntries(entries)});}
+  const body=await request.json(),table=String(body.table||"") as keyof typeof tables,pk=tables[table];if(!pk)return json({error:"הגדרה לא מוכרת."},400);
+  let response;if(request.method==="POST")response=await fetch(`${url}/rest/v1/${table}`,{method:"POST",headers:{...headers,Prefer:"return=representation"},body:JSON.stringify(body.values||{})});else if(request.method==="PATCH")response=await fetch(`${url}/rest/v1/${table}?${pk}=eq.${encodeURIComponent(body.id)}`,{method:"PATCH",headers:{...headers,Prefer:"return=representation"},body:JSON.stringify(body.values||{})});else if(request.method==="DELETE")response=await fetch(`${url}/rest/v1/${table}?${pk}=eq.${encodeURIComponent(body.id)}`,{method:"DELETE",headers:{...headers,Prefer:"return=representation"}});else return json({error:"Method not allowed"},405);
+  const result=await response.json().catch(()=>[]);if(!response.ok)return json({error:result.message||"שמירת ההגדרה נכשלה."},response.status);
+  await fetch(`${url}/rest/v1/audit_events`,{method:"POST",headers,body:JSON.stringify({entity_type:table.toUpperCase(),entity_id:result[0]?.[pk]||body.id,operation:request.method,new_values:request.method==="DELETE"?null:body.values,source_type:"PORTAL_SETTINGS",actor_user_id:actor.id})});
+  return json({row:result[0]||null});
+ }catch(error){console.error("portal-settings",error);return json({error:"שגיאת שרת בהגדרות המערכת."},500);}
+});

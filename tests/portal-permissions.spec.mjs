@@ -216,8 +216,8 @@ test('stable screen codes render canonical Hebrew labels when remote metadata is
   await page.route(`${base}/functions/v1/portal-users`, (route) => route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8', body: JSON.stringify(corruptedSnapshot) }));
   await openWithAccess(page, access, 'training/permissions/users');
   await expect(page.locator('#primary-nav [data-route="home"] span:last-child')).toHaveText('עמוד הבית');
-  await expect(page.locator('#primary-nav [data-route="training"] span:last-child')).toHaveText('הרשאות וטבלאות');
-  await expect(page.locator('#breadcrumbs')).toContainText('עמוד הבית/הרשאות וטבלאות/הרשאות/רשימת משתמשים והרשאות');
+  await expect(page.locator('#primary-nav [data-route="training"] span:last-child')).toHaveText('ניהול והגדרות');
+  await expect(page.locator('#breadcrumbs')).toContainText('עמוד הבית/ניהול והגדרות/הרשאות/רשימת משתמשים והרשאות');
   await expect(page.getByText(/×¤×גום/)).toHaveCount(0);
   await expect(page).toHaveTitle(/רשימת משתמשים והרשאות/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);

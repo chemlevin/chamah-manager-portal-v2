@@ -2051,3 +2051,29 @@ Validation:
 Deployment:
 
 - No Preview or Production deployment, promotion, alias, Supabase migration, or Edge Function deployment was performed.
+
+## 2026-07-23 - TRACK: 013 Unified Settings Center
+
+Objective: Replace the technical Tables area with one business-facing Settings center backed by the existing Supabase configuration model.
+
+Implementation:
+
+- Replaced the Tables navigation card and routes with `הגדרות` at `#training/settings`; legacy Tables hashes resolve to the same center rather than creating new pages.
+- Grouped 22 existing authoritative configuration tables into five collapsible sections: periods, organization, daycare/classroom operation, finance/accounting, and workforce/rules.
+- Added linked business-name selectors for existing foreign keys and dependent filtering for legal entity → allocation unit and school year → effective month.
+- Kept technical codes in a secondary advanced area instead of exposing UUIDs or database terminology in the primary workflow.
+- Added the permission-checked `portal-settings` Edge Function. It uses an explicit table allow-list, keeps the service role server-side, preserves table RLS, relies on existing constraints, and writes Settings mutations to `audit_events`.
+- Added the `management.settings` portal catalog entry and retired the former `management.tables` catalog entries with an additive migration.
+- Did not change Budget Engine behavior, calculation logic, existing business rules, API contracts, Google Sheets structures, or operational source tables.
+
+Validation:
+
+- JavaScript syntax checks, `git diff --check`, and the production build passed.
+- Focused Settings tests passed on desktop 1440 (2 passed, 1 mobile-only skipped) and mobile 390 (3 passed).
+- The first full-suite run produced 570 passes, 18 skips, and 48 expected stale assertions for the intentionally retired Tables routes and renamed Administration heading; no engine, calculation, dashboard, or authentication regression appeared.
+- After updating those obsolete assertions, the complete affected Settings, portal foundation, Administration navigation, and permissions regression passed across desktop 1440, laptop 1280, mobile 390, and mobile 430: 134 passed and 2 mobile-only skips.
+
+Residual risk:
+
+- Imported facts, bank transactions, payroll rows, immutable snapshots, audit records, and data-quality workflow rows intentionally remain outside Settings.
+- Other portal modules already read these Supabase tables in several flows, but completing removal of every historical Google Sheets or local-code fallback is separate integration work and was not combined with this UI/data-foundation track.
