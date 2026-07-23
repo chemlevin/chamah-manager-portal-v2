@@ -18,15 +18,16 @@ const number = new Intl.NumberFormat('he-IL', { maximumFractionDigits: 1 });
 // Screen codes are the stable internal contract. UI copy stays local so damaged
 // remote metadata can never leak into Hebrew navigation or administration views.
 const HEBREW_SCREEN_LABELS = {
-  home: 'עמוד הבית', dashboards: 'דשבורדים', 'dashboards.finance': 'דשבורד כספים',
-  'dashboards.accounting': 'הנה״ח', 'dashboards.staffing': 'צוות ורישוי',
+  home: 'עמוד הבית', dashboards: 'דשבורדים', 'dashboards.finance': 'כספים',
+  'dashboards.accounting': 'הנה״ח', 'dashboards.licensing': 'רישוי', 'dashboards.team': 'צוות',
+  'dashboards.staffing': 'צוות ורישוי',
   'dashboards.occupancy': 'תפוסה ותקינה', calculators: 'מחשבונים',
   'calculators.salary': 'מחשבון שכר', 'calculators.occupancy': 'מחשבון תפוסה, תקינה ורווחיות',
   payroll: 'שכר', 'payroll.calculations': 'חישובי שכר', 'payroll.calculations.new': 'חדש',
   'payroll.calculations.existing': 'קיים', 'payroll.calculations.history': 'טבלאות עבר',
   management: 'הרשאות וטבלאות', 'management.permissions': 'הרשאות',
   'management.permissions.users': 'רשימת משתמשים והרשאות', 'management.rules': 'כללים',
-  'management.rules.system': 'כללי מערכת', 'management.tables': 'טבלאות',
+  'management.rules.calculation': 'כללי חישוב', 'management.rules.system': 'כללי מערכת', 'management.tables': 'טבלאות',
   'management.tables.calculation': 'טבלאות חישוב', 'management.tables.variables': 'כללים משתנים',
   'management.audit': 'יומן שינויים', knowledge: 'מרכז הידע למשתמש', maintenance: 'תחזוקה', tasks: 'משימות'
 };
@@ -44,6 +45,24 @@ function canonicalizeSections(sections) {
   return [...unique.values()].sort((a, b) => Number(a.display_order || 0) - Number(b.display_order || 0));
 }
 
+function uniqueByStableId(rows, idField) {
+  const unique = new Map();
+  for (const row of rows || []) {
+    const id = String(row?.[idField] || '').trim();
+    if (id && !unique.has(id)) unique.set(id, row);
+  }
+  return [...unique.values()];
+}
+
+function normalizeUsersAdminData(value) {
+  return {
+    ...value,
+    sections: canonicalizeSections(value?.sections),
+    allocation_units: uniqueByStableId(value?.allocation_units, 'allocation_unit_id'),
+    daycares: uniqueByStableId(value?.daycares, 'daycare_id')
+  };
+}
+
 const modules = [
   { route: 'dashboards', icon: '📊', title: 'דשבורדים', description: 'תמונת מצב ניהולית ברורה לפי היחידה הארגונית הרלוונטית.' },
   { route: 'calculators', icon: '🧮', title: 'מחשבונים', description: 'כלי חישוב ותכנון שיסייעו בקבלת החלטות מהירה ומדויקת.' },
@@ -59,6 +78,8 @@ const modules = [
 const dashboardTypes = [
   { id: 'finance', icon: '₪', title: 'דשבורד כספים', description: 'תמונה כספית ניהולית עבור היחידה שנבחרה.' },
   { id: 'accounting', icon: '🧾', title: 'דשבורד הנה״ח', description: 'בקרה על תהליכי הנהלת החשבונות של היחידה.' },
+  { id: 'licensing', icon: '✓', title: 'דשבורד רישוי', description: 'תמונת מצב של רישיונות, תוקפים ועמידה בדרישות ביחידה.' },
+  { id: 'team', icon: '👥', title: 'דשבורד צוות', description: 'תמונת מצב של צוות, תפקידים והכשרות ביחידה.' },
   { id: 'staffing', icon: '👥', title: 'דשבורד צוות ורישוי', description: 'תמונת מצב של צוות, הכשרות ורישוי ביחידה.' },
   { id: 'occupancy', icon: '🏫', title: 'דשבורד תפוסה ותקינה', description: 'מעקב אחר תפוסה, כיתות ודרישות תקינה ביחידה.' }
 ];
@@ -452,11 +473,27 @@ function adminUserModel(userId) {
 
 function permissionRows(model) {
   const explicit = new Map(model.permissions.map((item) => [item.screen_code, item.permission_level]));
+  const sectionsByCode = new Map(usersAdminData.sections.map((item) => [item.screen_code, item]));
+  const effective = (item) => {
+    if (explicit.has(item.screen_code)) return explicit.get(item.screen_code);
+    const parent = sectionsByCode.get(item.parent_screen_code);
+    return parent ? effective(parent) : 'HIDDEN';
+  };
+  const depth = (item) => {
+    let value = 0; let current = item;
+    while (current?.parent_screen_code && sectionsByCode.has(current.parent_screen_code)) {
+      value += 1; current = sectionsByCode.get(current.parent_screen_code);
+    }
+    return value;
+  };
   return usersAdminData.sections.map((item) => {
-    const level = explicit.get(item.screen_code) || 'HIDDEN';
+    const level = effective(item);
+    const inherited = !explicit.has(item.screen_code);
     const disabled = model.profile.is_super_admin ? 'disabled' : '';
     const option = (value, label) => `<td><label class="permission-radio"><input type="radio" name="permission-${escapeHtml(item.screen_code)}" value="${value}" data-permission ${level === value ? 'checked' : ''} ${disabled}><span>${label}</span></label></td>`;
-    return `<tr data-screen="${escapeHtml(item.screen_code)}"><th scope="row" class="permission-screen-name">${escapeHtml(item.display_name)}</th>${option('HIDDEN', 'מוסתר')}${option('VIEW', 'צפייה')}${option('EDIT', 'עריכה')}</tr>`;
+    const branchAction = usersAdminData.sections.some((child) => child.parent_screen_code === item.screen_code) ? `<button class="permission-row-action" type="button" data-apply-branch="${escapeHtml(item.screen_code)}">החלה על הענף</button>` : '';
+    const inheritAction = item.parent_screen_code ? `<button class="permission-row-action" type="button" data-inherit-permission ${inherited ? 'hidden' : ''}>חזרה לירושה</button>` : '';
+    return `<tr data-screen="${escapeHtml(item.screen_code)}" data-parent="${escapeHtml(item.parent_screen_code || '')}" data-explicit="${!inherited}" style="--permission-depth:${depth(item)}"><th scope="row" class="permission-screen-name"><span>${escapeHtml(item.display_name)}</span><small data-inheritance-state>${inherited ? 'בירושה' : 'הגדרה ישירה'}</small><span class="permission-row-actions">${branchAction}${inheritAction}</span></th>${option('HIDDEN', 'לא להציג')}${option('VIEW', 'צפייה')}${option('EDIT', 'עריכה')}</tr>`;
   }).join('');
 }
 
@@ -464,8 +501,12 @@ function renderPermissionsAdmin() {
   const root = $('#permissions-admin'); if (!root || !usersAdminData) return;
   if (!selectedPortalUserId || !usersAdminData.users.some((item) => item.id === selectedPortalUserId)) selectedPortalUserId = usersAdminData.users[0]?.id || '';
   const model = selectedPortalUserId ? adminUserModel(selectedPortalUserId) : null;
-  usersAdminData.sections = canonicalizeSections(usersAdminData.sections);
+  usersAdminData = normalizeUsersAdminData(usersAdminData);
   root.innerHTML = `<aside class="panel permissions-users"><h2>משתמשים</h2><div class="management-filters"><label>חיפוש משתמש<input id="user-search" type="search" placeholder="שם או דוא״ל"></label></div><div id="portal-user-list">${usersAdminData.users.map((user) => { const p = usersAdminData.profiles.find((item) => item.user_id === user.id); return `<button type="button" data-user-id="${user.id}" class="permission-user${user.id === selectedPortalUserId ? ' active' : ''}"><strong>${escapeHtml(p?.display_name || user.email || 'ללא שם')}</strong><small>${escapeHtml(user.email || '')}</small><span>${p?.is_super_admin ? 'מנהלת־על' : user.email_confirmed_at ? 'פעילה' : 'הוזמנה'}</span></button>`; }).join('')}</div></aside><div class="permissions-editor">${model ? `<form id="permissions-form" class="panel" data-original-super-admin="${model.profile.is_super_admin}"><div class="permissions-editor-head"><div><p class="eyebrow">פרטי משתמשת</p><h2>${escapeHtml(model.profile.display_name || model.user.email)}</h2><p>${escapeHtml(model.user.email || '')}</p></div><span class="status-badge status-info">${model.profile.is_super_admin ? 'מנהלת־על — גישה מלאה' : 'משתמשת פורטל'}</span></div><div class="form-grid"><label class="field">שם תצוגה<input name="display_name" value="${escapeHtml(model.profile.display_name || '')}"></label><div class="access-level-field"><span>רמת הרשאה</span><strong id="access-level-value">${model.profile.is_super_admin ? 'מנהלת־על' : 'משתמשת פורטל'}</strong><input name="is_super_admin" type="hidden" value="${model.profile.is_super_admin}"></div><label class="checkbox-field"><input name="is_active" type="checkbox" ${model.profile.is_active ? 'checked' : ''}> משתמשת פעילה</label></div><button id="show-super-admin" class="button button-quiet super-admin-reveal" type="button" aria-expanded="false" aria-controls="super-admin-control">הצג הרשאת משתמש־על</button><section id="super-admin-control" class="super-admin-control" hidden><strong>הרשאת משתמש־על</strong><p>משתמש־על מקבל גישה מלאה לכל המסכים, ההגדרות וכלי הניהול בפורטל.</p><button id="change-super-admin" class="button button-warning" type="button">${model.profile.is_super_admin ? 'הסרת הרשאת משתמש־על' : 'הענקת הרשאת משתמש־על'}</button></section><fieldset><legend>טווח נתונים ארגוני</legend><div class="scope-mode"><label><input type="radio" name="scope_mode" value="ORGANIZATION" ${model.profile.scope_mode === 'ORGANIZATION' ? 'checked' : ''}> כל הארגון</label><label><input type="radio" name="scope_mode" value="SELECTED" ${model.profile.scope_mode === 'SELECTED' ? 'checked' : ''}> יחידות ומעונות נבחרים</label></div><div class="scope-grid">${usersAdminData.allocation_units.map((unit) => `<label><input type="checkbox" name="unit_scope" value="${unit.allocation_unit_id}" ${model.unitIds.includes(unit.allocation_unit_id) ? 'checked' : ''}> <span>${escapeHtml(unit.display_name)}</span></label>`).join('')}${usersAdminData.daycares.map((daycare) => `<label><input type="checkbox" name="daycare_scope" value="${daycare.daycare_id}" ${model.daycareIds.includes(daycare.daycare_id) ? 'checked' : ''}> <span>${escapeHtml(daycare.display_name)}</span></label>`).join('')}</div></fieldset><section class="screen-permissions" aria-labelledby="screen-permissions-title"><h2 id="screen-permissions-title">הרשאות למסכי הפורטל</h2><p>לכל מסך מוגדרת הרשאה מפורשת.</p><div class="permission-table-wrap"><table id="permission-matrix" class="permission-table"><thead><tr><th scope="col">שם העמוד</th><th scope="col">מוסתר</th><th scope="col">צפייה</th><th scope="col">עריכה</th></tr></thead><tbody>${permissionRows(model)}</tbody></table></div></section><details class="audit-history"><summary>היסטוריית שינויים (${model.audit.length})</summary>${model.audit.length ? model.audit.map((event) => `<p><strong>${escapeHtml(event.operation)}</strong> · ${new Intl.DateTimeFormat('he-IL', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(event.occurred_at))}</p>`).join('') : '<p>לא קיימת היסטוריה.</p>'}</details><div class="form-actions"><button class="button button-primary" type="submit">שמירה</button><button id="cancel-permissions" class="button button-secondary" type="button">ביטול</button></div></form>` : '<section class="panel"><p>אין משתמשים.</p></section>'}</div>`;
+  const permissionIntro = root.querySelector('.screen-permissions > p');
+  if (permissionIntro) permissionIntro.textContent = 'הרשאת ילד מתקבלת בירושה מההורה, אלא אם נשמרה עבורה הגדרה ישירה. אפשר להחיל את בחירת ההורה על ענף שלם.';
+  const hiddenHeading = root.querySelector('.permission-table thead th:nth-child(2)');
+  if (hiddenHeading) hiddenHeading.textContent = 'לא להציג';
   root.hidden = false; bindPermissionsAdmin();
 }
 
@@ -474,15 +515,45 @@ function bindPermissionsAdmin() {
   window.onbeforeunload = () => dirty ? 'קיימים שינויים שלא נשמרו.' : undefined;
   document.querySelectorAll('[data-user-id]').forEach((button) => button.addEventListener('click', () => { if (dirty && !confirm('קיימים שינויים שלא נשמרו. לעבור למשתמש אחר?')) return; selectedPortalUserId = button.dataset.userId; renderPermissionsAdmin(); }));
   form?.addEventListener('change', () => { dirty = true; });
+  form?.querySelectorAll('[data-permission]').forEach((radio) => radio.addEventListener('change', () => {
+    const row = radio.closest('[data-screen]');
+    row.dataset.explicit = 'true';
+    row.querySelector('[data-inheritance-state]').textContent = 'הגדרה ישירה';
+    const inherit = row.querySelector('[data-inherit-permission]');
+    if (inherit) inherit.hidden = false;
+  }));
+  form?.querySelectorAll('[data-apply-branch]').forEach((button) => button.addEventListener('click', () => {
+    const source = button.closest('[data-screen]');
+    const level = source.querySelector('[data-permission]:checked').value;
+    const descendants = (parentCode) => [...form.querySelectorAll(`[data-parent="${CSS.escape(parentCode)}"]`)].flatMap((row) => [row, ...descendants(row.dataset.screen)]);
+    for (const row of [source, ...descendants(source.dataset.screen)]) {
+      row.querySelector(`[data-permission][value="${level}"]`).checked = true;
+      row.dataset.explicit = 'true';
+      row.querySelector('[data-inheritance-state]').textContent = 'הגדרה ישירה';
+      const inherit = row.querySelector('[data-inherit-permission]');
+      if (inherit) inherit.hidden = false;
+    }
+    dirty = true;
+  }));
+  form?.querySelectorAll('[data-inherit-permission]').forEach((button) => button.addEventListener('click', () => {
+    const row = button.closest('[data-screen]');
+    const parent = form.querySelector(`[data-screen="${CSS.escape(row.dataset.parent)}"]`);
+    const level = parent?.querySelector('[data-permission]:checked')?.value || 'HIDDEN';
+    row.querySelector(`[data-permission][value="${level}"]`).checked = true;
+    row.dataset.explicit = 'false';
+    row.querySelector('[data-inheritance-state]').textContent = 'בירושה';
+    button.hidden = true;
+    dirty = true;
+  }));
   $('#user-search')?.addEventListener('input', (event) => { const query = event.target.value.trim().toLowerCase(); document.querySelectorAll('[data-user-id]').forEach((item) => { item.hidden = !item.textContent.toLowerCase().includes(query); }); });
   $('#show-super-admin')?.addEventListener('click', (event) => { const control = $('#super-admin-control'); control.hidden = !control.hidden; event.currentTarget.setAttribute('aria-expanded', String(!control.hidden)); event.currentTarget.textContent = control.hidden ? 'הצג הרשאת משתמש־על' : 'הסתר הרשאת משתמש־על'; });
   $('#change-super-admin')?.addEventListener('click', () => { const field = form.elements.is_super_admin; const granting = field.value !== 'true'; const warning = granting ? 'הענקת הרשאת משתמש־על תיתן גישה מלאה לכל המסכים, ההגדרות וכלי הניהול. להמשיך?' : 'הסרת הרשאת משתמש־על תבטל את הגישה המלאה ותפעיל את ההרשאות המפורטות לפי מסך. להמשיך?'; if (!confirm(warning)) return; field.value = String(granting); superAdminConfirmed = true; dirty = true; $('#access-level-value').textContent = granting ? 'מנהלת־על' : 'משתמשת פורטל'; $('#change-super-admin').textContent = granting ? 'הסרת הרשאת משתמש־על' : 'הענקת הרשאת משתמש־על'; form.querySelectorAll('[data-permission]').forEach((radio) => { radio.disabled = granting; }); });
   $('#cancel-permissions')?.addEventListener('click', renderPermissionsAdmin);
-  form?.addEventListener('submit', async (event) => { event.preventDefault(); const values = new FormData(form); const isSuperAdmin = values.get('is_super_admin') === 'true'; if (isSuperAdmin !== (form.dataset.originalSuperAdmin === 'true') && !superAdminConfirmed) { $('#permissions-feedback').textContent = 'יש לאשר במפורש את שינוי הרשאת משתמש־העל.'; return; } const payload = { user_id: selectedPortalUserId, profile: { display_name: values.get('display_name'), is_active: values.has('is_active'), is_super_admin: isSuperAdmin, scope_mode: values.get('scope_mode') }, permissions: [...form.querySelectorAll('[data-screen]')].map((row) => ({ screen_code: row.dataset.screen, permission_level: row.querySelector('[data-permission]:checked').value })), allocation_unit_ids: values.getAll('unit_scope'), daycare_ids: values.getAll('daycare_scope') }; $('#permissions-feedback').textContent = 'שומר…'; try { usersAdminData = await portalUsersRequest('PATCH', payload); dirty = false; $('#permissions-feedback').textContent = 'השינויים נשמרו בהצלחה.'; renderPermissionsAdmin(); } catch (error) { $('#permissions-feedback').textContent = error.message; } });
+  form?.addEventListener('submit', async (event) => { event.preventDefault(); const values = new FormData(form); const isSuperAdmin = values.get('is_super_admin') === 'true'; if (isSuperAdmin !== (form.dataset.originalSuperAdmin === 'true') && !superAdminConfirmed) { $('#permissions-feedback').textContent = 'יש לאשר במפורש את שינוי הרשאת משתמש־העל.'; return; } const payload = { user_id: selectedPortalUserId, profile: { display_name: values.get('display_name'), is_active: values.has('is_active'), is_super_admin: isSuperAdmin, scope_mode: values.get('scope_mode') }, permissions: [...form.querySelectorAll('[data-screen][data-explicit="true"]')].map((row) => ({ screen_code: row.dataset.screen, permission_level: row.querySelector('[data-permission]:checked').value })), allocation_unit_ids: [...new Set(values.getAll('unit_scope'))], daycare_ids: [...new Set(values.getAll('daycare_scope'))] }; $('#permissions-feedback').textContent = 'שומר…'; try { usersAdminData = normalizeUsersAdminData(await portalUsersRequest('PATCH', payload)); dirty = false; $('#permissions-feedback').textContent = 'השינויים נשמרו בהצלחה.'; renderPermissionsAdmin(); } catch (error) { $('#permissions-feedback').textContent = error.message; } });
 }
 
 async function loadPermissionsAdmin() {
-  try { usersAdminData = await portalUsersRequest(); $('#permissions-admin-state').hidden = true; renderPermissionsAdmin(); } catch (error) { $('#permissions-admin-state').className = 'state error panel'; $('#permissions-admin-state').textContent = error.message; }
+  try { usersAdminData = normalizeUsersAdminData(await portalUsersRequest()); $('#permissions-admin-state').hidden = true; renderPermissionsAdmin(); } catch (error) { $('#permissions-admin-state').className = 'state error panel'; $('#permissions-admin-state').textContent = error.message; }
   $('#invite-user-open')?.addEventListener('click', async () => { const email = prompt('כתובת דוא״ל להזמנה:'); if (!email) return; const displayName = prompt('שם תצוגה (לא חובה):') || ''; $('#permissions-feedback').textContent = 'שולח הזמנה…'; try { usersAdminData = await portalUsersRequest('POST', { email, display_name: displayName }); $('#permissions-feedback').textContent = 'ההזמנה נשלחה בהצלחה.'; renderPermissionsAdmin(); } catch (error) { $('#permissions-feedback').textContent = error.message; } });
 }
 
@@ -1225,8 +1296,8 @@ async function render() {
         $('#page-content').innerHTML = accountingDashboardShell(unit);
         await loadAccountingDashboard();
         if (parseRoute().unitId === unit.allocation_unit_id && parseRoute().dashboardType === 'accounting') renderAccountingData();
-      } else if (type.id === 'staffing') {
-        title = type.title; dashboardMode = 'staffing'; activeDashboardUnit = unit; $('#page-content').innerHTML = staffDashboardShell(unit); await loadStaffDashboard(); if (parseRoute().unitId === unit.allocation_unit_id && parseRoute().dashboardType === 'staffing') renderStaffData();
+      } else if (['staffing', 'licensing', 'team'].includes(type.id)) {
+        title = type.title; dashboardMode = type.id; activeDashboardUnit = unit; $('#page-content').innerHTML = staffDashboardShell(unit); await loadStaffDashboard(); if (parseRoute().unitId === unit.allocation_unit_id && parseRoute().dashboardType === type.id) renderStaffData();
       } else { title = type.title; $('#page-content').innerHTML = dashboardPlaceholderTemplate(unit, type); }
     }
   }
@@ -1247,7 +1318,7 @@ async function render() {
     button.disabled = true;
     button.textContent = 'מרענן נתונים…';
     if (dashboardMode === 'accounting') { accountingStatus = 'idle'; await loadAccountingDashboard(); if (parseRoute().dashboardType === 'accounting') renderAccountingData(); }
-    else if (dashboardMode === 'staffing') { staffStatus = 'idle'; await loadStaffDashboard(); if (parseRoute().dashboardType === 'staffing') renderStaffData(); }
+    else if (['staffing', 'licensing', 'team'].includes(dashboardMode)) { staffStatus = 'idle'; await loadStaffDashboard(); if (parseRoute().dashboardType === dashboardMode) renderStaffData(); }
     else { generalStatus = 'idle'; await loadGeneralDashboard(); if (parseRoute().dashboardType === 'finance') renderGeneralData(); }
     button.disabled = false;
     button.textContent = '↻ רענון נתונים';

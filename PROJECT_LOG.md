@@ -1861,3 +1861,44 @@ Validation:
 Residual risk:
 
 - Unknown future screens with missing or damaged registered Hebrew metadata receive a safe generic label until their registry metadata is corrected.
+
+## 2026-07-23 - TRACK: 011 Preview Permissions and Portal Catalog Repair
+
+Objective: Repair the current Preview administration experience, organizational scope choices, page catalog, and Hebrew rendering without promoting or replacing Production.
+
+Implementation:
+
+- De-duplicated allocation units and daycares by their stable database UUIDs in both the authenticated administration response and the Preview client, and de-duplicated saved scope payload IDs.
+- Kept the existing saved allocation-unit and daycare IDs unchanged.
+- Restored the approved compact permission matrix with the columns `שם העמוד`, `לא להציג`, `צפייה`, and `עריכה`; every page has one selected radio value.
+- Restored hierarchical indentation, nearest-parent inheritance, explicit child overrides, return-to-inheritance, and branch-level apply while preserving the existing secured save RPC contract.
+- Repaired every existing `portal_sections` Hebrew label and description in UTF-8 without changing existing stable screen codes.
+- Added separate daycare dashboard catalog/routes for `כספים`, `הנה״ח`, `רישוי`, and `צוות`, while retaining the existing combined staff/licensing and occupancy destinations.
+- Registered the previously missing `training/rules/calculation` Administration route. The active catalog now contains 29 real portal pages/subpages.
+- Deployed the updated authenticated `portal-users` Edge Function and applied the additive catalog migration to the linked backend used by Preview.
+- Did not deploy, promote, alias, or replace the Vercel Production application.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/styles.css`
+- `supabase/functions/portal-users/index.ts`
+- `supabase/migrations/20260723110000_track_011_portal_catalog.sql`
+- `tests/new-portal-test-data.mjs`
+- `tests/new-portal-dashboards.spec.mjs`
+- `tests/portal-permissions.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- JavaScript syntax checks and `git diff --check` passed.
+- `npm.cmd run build` passed.
+- Permission, duplicate-scope, hierarchy, inheritance, override, branch-apply, save, route enforcement, SUPER_ADMIN, and UTF-8 regression: 32 passed across desktop 1440, laptop 1280, mobile 390, and mobile 430.
+- Auth, dashboard, RLS-facing reads, recovery/invitation, Hebrew RTL foundation, and responsive overflow regression: 113 passed and 3 viewport-specific checks intentionally skipped.
+- Payroll and Administration route/catalog regression: 76 passed before the focused permission assertion corrections; no product failure occurred in that suite.
+- Live database verification: 29 active sections, 29 Hebrew labels, all five audited required entries present, and zero duplicate active scope IDs.
+- Supabase security advisor retained only the intentional authenticated `portal_my_access()` warning and the pre-existing leaked-password-protection warning.
+
+Residual risk:
+
+- The separate `רישוי` and `צוות` dashboard routes currently reuse the established combined staff/licensing data view. They have distinct permission identities and stable routes, but finer content separation remains a future business-display refinement.

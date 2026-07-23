@@ -28,23 +28,65 @@ test('permission management renders real controls and saves through the secured 
   await openWithAccess(page, portalAccessFixture, 'training/permissions/users');
   await expect(page.getByRole('heading', { name: 'רשימת משתמשים והרשאות' })).toBeVisible();
   await expect(page.locator('[data-screen]')).toHaveCount(portalAccessFixture.sections.length);
-  await expect(page.locator('[data-screen="home"] .permission-screen-name')).toHaveText('עמוד הבית');
+  await expect(page.locator('[data-screen="home"] .permission-screen-name > span:first-child')).toHaveText('עמוד הבית');
   await expect(page.getByText('home', { exact: true })).toHaveCount(0);
   await expect(page.locator('.permission-group')).toHaveCount(0);
   await expect(page.locator('#permissions-form select')).toHaveCount(0);
-  await expect(page.locator('.permission-table thead th')).toHaveText(['שם העמוד', 'מוסתר', 'צפייה', 'עריכה']);
-  await expect(page.getByText('בירושה', { exact: true })).toHaveCount(0);
+  await expect(page.locator('.permission-table thead th')).toHaveText(['שם העמוד', 'לא להציג', 'צפייה', 'עריכה']);
+  await expect(page.getByText('בירושה', { exact: true }).first()).toBeVisible();
   await expect(page.locator('[data-screen="home"] [data-permission]')).toHaveCount(3);
   await expect(page.locator('[data-screen="home"] [data-permission]:checked')).toHaveValue('VIEW');
   await expect(page.locator('[data-screen="dashboards"] [data-permission]:checked')).toHaveValue('HIDDEN');
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   await page.locator('[data-screen="dashboards"] [data-permission][value="EDIT"]').check();
   await page.locator('#permissions-form button[type="submit"]').click();
-  await expect.poll(() => saved?.permissions?.length).toBe(portalAccessFixture.sections.length);
+  await expect.poll(() => saved?.permissions?.length).toBe(2);
   expect(saved.permissions.find((item) => item.screen_code === 'home')?.permission_level).toBe('VIEW');
-  expect(saved.permissions[1].permission_level).toBe('EDIT');
+  expect(saved.permissions.find((item) => item.screen_code === 'dashboards')?.permission_level).toBe('EDIT');
   expect(saved.permissions.every((item) => ['HIDDEN', 'VIEW', 'EDIT'].includes(item.permission_level))).toBe(true);
   await expect(page.locator('#permissions-feedback')).toContainText('נשמרו בהצלחה');
+});
+
+test('scope choices de-duplicate by stable IDs and preserve the saved IDs', async ({ page }) => {
+  let saved;
+  const duplicated = {
+    ...snapshot,
+    unit_scopes: [{ permission_configuration_id: 'config-1', user_id: userId, allocation_unit_id: 'unit-1' }],
+    daycare_scopes: [{ permission_configuration_id: 'config-1', user_id: userId, daycare_id: 'daycare-1' }],
+    allocation_units: [...snapshot.allocation_units, { ...snapshot.allocation_units[0], display_name: 'שם כפול' }],
+    daycares: [...snapshot.daycares, { ...snapshot.daycares[0], display_name: 'מעון כפול' }]
+  };
+  await page.route(`${base}/functions/v1/portal-users`, async (route) => {
+    if (route.request().method() === 'PATCH') saved = route.request().postDataJSON();
+    await route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8', body: JSON.stringify(duplicated) });
+  });
+  await openWithAccess(page, portalAccessFixture, 'training/permissions/users');
+  await expect(page.locator('input[name="unit_scope"][value="unit-1"]')).toHaveCount(1);
+  await expect(page.locator('input[name="daycare_scope"][value="daycare-1"]')).toHaveCount(1);
+  await page.locator('#permissions-form button[type="submit"]').click();
+  await expect.poll(() => saved?.allocation_unit_ids).toEqual(['unit-1']);
+  expect(saved.daycare_ids).toEqual(['daycare-1']);
+});
+
+test('permission hierarchy supports inheritance, child override and branch apply', async ({ page }) => {
+  let saved;
+  await page.route(`${base}/functions/v1/portal-users`, async (route) => {
+    if (route.request().method() === 'PATCH') saved = route.request().postDataJSON();
+    await route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8', body: JSON.stringify(snapshot) });
+  });
+  await openWithAccess(page, portalAccessFixture, 'training/permissions/users');
+  const child = page.locator('[data-screen="dashboards.finance"]');
+  await expect(child).toHaveAttribute('data-parent', 'dashboards');
+  await expect(child.locator('[data-permission]:checked')).toHaveValue('HIDDEN');
+  await child.locator('[data-permission][value="VIEW"]').check();
+  await expect(child.locator('[data-inheritance-state]')).toHaveText('הגדרה ישירה');
+  await child.locator('[data-inherit-permission]').click();
+  await expect(child).toHaveAttribute('data-explicit', 'false');
+  await page.locator('[data-screen="dashboards"] [data-permission][value="EDIT"]').check();
+  await page.locator('[data-screen="dashboards"] [data-apply-branch]').click();
+  await expect(child.locator('[data-permission]:checked')).toHaveValue('EDIT');
+  await page.locator('#permissions-form button[type="submit"]').click();
+  await expect.poll(() => saved?.permissions?.filter((item) => item.screen_code.startsWith('dashboards.')).length).toBe(6);
 });
 
 test('registered screens are de-duplicated and new screens default to HIDDEN', async ({ page }) => {
@@ -54,7 +96,7 @@ test('registered screens are de-duplicated and new screens default to HIDDEN', a
   await openWithAccess(page, portalAccessFixture, 'training/permissions/users');
   await expect(page.locator('[data-screen="home"]')).toHaveCount(1);
   await expect(page.locator('[data-screen="future.reports"]')).toHaveCount(1);
-  await expect(page.locator('[data-screen="future.reports"] .permission-screen-name')).toHaveText('דוחות חדשים');
+  await expect(page.locator('[data-screen="future.reports"] .permission-screen-name > span:first-child')).toHaveText('דוחות חדשים');
   await expect(page.locator('[data-screen="future.reports"] [data-permission]:checked')).toHaveValue('HIDDEN');
   await expect(page.getByText('future.reports', { exact: true })).toHaveCount(0);
 });
@@ -105,7 +147,7 @@ test('removing SUPER_ADMIN also requires confirmation', async ({ page }) => {
   await page.locator('#permissions-form button[type="submit"]').click();
   await expect.poll(() => saved?.profile?.is_super_admin).toBe(false);
   expect(saved.permissions.find((item) => item.screen_code === 'home')?.permission_level).toBe('VIEW');
-  expect(saved.permissions.find((item) => item.screen_code === 'dashboards')?.permission_level).toBe('HIDDEN');
+  expect(saved.permissions.find((item) => item.screen_code === 'dashboards')).toBeUndefined();
 });
 
 test('HIDDEN removes navigation and blocks the route', async ({ page }) => {
