@@ -21,7 +21,7 @@ Deno.serve(async (request) => {
     const authResponse = await fetch(`${url}/auth/v1/user`, { headers: { apikey: serviceKey, Authorization: authorization } });
     if (!authResponse.ok) return json({ error: "נדרש חיבור תקף." }, 401);
     const actor = await authResponse.json();
-    const permissionResponse = await fetch(`${url}/rest/v1/rpc/portal_can_manage_users`, { method: "POST", headers: serviceHeaders, body: JSON.stringify({ actor_id: actor.id }) });
+    const permissionResponse = await fetch(`${url}/rest/v1/rpc/portal_has_permission`, { method: "POST", headers: serviceHeaders, body: JSON.stringify({ target_user_id: actor.id, target_screen_code: "management.permissions.users", required_level: "EDIT" }) });
     if (!permissionResponse.ok || await permissionResponse.json() !== true) return json({ error: "אין הרשאת עריכה לניהול משתמשים." }, 403);
 
     if (request.method === "POST") {

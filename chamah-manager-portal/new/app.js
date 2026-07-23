@@ -329,6 +329,10 @@ async function loadPortalAccess() {
 function permissionFor(code) { return portalAccess?.sections?.find((item) => item.screen_code === code)?.permission_level || 'HIDDEN'; }
 function canView(code) { return permissionFor(code) !== 'HIDDEN'; }
 function portalSection(code) { return portalAccess?.sections?.find((item) => item.screen_code === code) || null; }
+function canViewRoute(route) {
+  const section = portalAccess?.sections?.find((item) => item.route === route);
+  return Boolean(section && section.permission_level !== 'HIDDEN');
+}
 function navigationScreenCode(route) {
   if (route === 'staffing') return 'dashboards.staffing';
   if (route === 'accounting') return 'dashboards.accounting';
@@ -441,7 +445,7 @@ const payrollCalculationCards = [
 
 function sectionCardsTemplate(section, cards = portalSections[section].cards, title = portalSections[section].title, description = portalSections[section].description) {
   const details = portalSections[section];
-  return `<section class="page-heading"><div><p class="eyebrow">${details.title}</p><h1>${title}</h1><p>${description}</p></div></section><section class="module-grid">${cards.map((card) => `<a class="module-card card" href="#${card.route}"><span class="module-icon" aria-hidden="true">${card.icon}</span><div><h3>${card.title}</h3><p>${card.description}</p></div><span class="card-action">פתיחה <span aria-hidden="true">←</span></span></a>`).join('')}</section>`;
+  return `<section class="page-heading"><div><p class="eyebrow">${details.title}</p><h1>${title}</h1><p>${description}</p></div></section><section class="module-grid">${cards.filter((card) => canViewRoute(card.route)).map((card) => `<a class="module-card card" href="#${card.route}"><span class="module-icon" aria-hidden="true">${card.icon}</span><div><h3>${card.title}</h3><p>${card.description}</p></div><span class="card-action">פתיחה <span aria-hidden="true">←</span></span></a>`).join('')}</section>`;
 }
 
 function placeholderTemplate(title, parentRoute, parentTitle) {
@@ -474,11 +478,6 @@ function adminUserModel(userId) {
 function permissionRows(model) {
   const explicit = new Map(model.permissions.map((item) => [item.screen_code, item.permission_level]));
   const sectionsByCode = new Map(usersAdminData.sections.map((item) => [item.screen_code, item]));
-  const effective = (item) => {
-    if (explicit.has(item.screen_code)) return explicit.get(item.screen_code);
-    const parent = sectionsByCode.get(item.parent_screen_code);
-    return parent ? effective(parent) : 'HIDDEN';
-  };
   const depth = (item) => {
     let value = 0; let current = item;
     while (current?.parent_screen_code && sectionsByCode.has(current.parent_screen_code)) {
@@ -487,13 +486,13 @@ function permissionRows(model) {
     return value;
   };
   return usersAdminData.sections.map((item) => {
-    const level = effective(item);
-    const inherited = !explicit.has(item.screen_code);
+    const level = explicit.get(item.screen_code) || 'HIDDEN';
+    const usesSecureDefault = !explicit.has(item.screen_code);
     const disabled = model.profile.is_super_admin ? 'disabled' : '';
     const option = (value, label) => `<td><label class="permission-radio"><input type="radio" name="permission-${escapeHtml(item.screen_code)}" value="${value}" data-permission ${level === value ? 'checked' : ''} ${disabled}><span>${label}</span></label></td>`;
     const branchAction = usersAdminData.sections.some((child) => child.parent_screen_code === item.screen_code) ? `<button class="permission-row-action" type="button" data-apply-branch="${escapeHtml(item.screen_code)}">החלה על הענף</button>` : '';
-    const inheritAction = item.parent_screen_code ? `<button class="permission-row-action" type="button" data-inherit-permission ${inherited ? 'hidden' : ''}>חזרה לירושה</button>` : '';
-    return `<tr data-screen="${escapeHtml(item.screen_code)}" data-parent="${escapeHtml(item.parent_screen_code || '')}" data-explicit="${!inherited}" style="--permission-depth:${depth(item)}"><th scope="row" class="permission-screen-name"><span>${escapeHtml(item.display_name)}</span><small data-inheritance-state>${inherited ? 'בירושה' : 'הגדרה ישירה'}</small><span class="permission-row-actions">${branchAction}${inheritAction}</span></th>${option('HIDDEN', 'לא להציג')}${option('VIEW', 'צפייה')}${option('EDIT', 'עריכה')}</tr>`;
+    const defaultAction = item.parent_screen_code ? `<button class="permission-row-action" type="button" data-default-permission ${usesSecureDefault ? 'hidden' : ''}>חזרה לברירת המחדל</button>` : '';
+    return `<tr data-screen="${escapeHtml(item.screen_code)}" data-parent="${escapeHtml(item.parent_screen_code || '')}" data-explicit="${!usesSecureDefault}" style="--permission-depth:${depth(item)}"><th scope="row" class="permission-screen-name"><span>${escapeHtml(item.display_name)}</span><small data-permission-state>${usesSecureDefault ? 'ברירת מחדל: לא להציג' : 'הגדרה ישירה'}</small><span class="permission-row-actions">${branchAction}${defaultAction}</span></th>${option('HIDDEN', 'לא להציג')}${option('VIEW', 'צפייה')}${option('EDIT', 'עריכה')}</tr>`;
   }).join('');
 }
 
@@ -504,7 +503,7 @@ function renderPermissionsAdmin() {
   usersAdminData = normalizeUsersAdminData(usersAdminData);
   root.innerHTML = `<aside class="panel permissions-users"><h2>משתמשים</h2><div class="management-filters"><label>חיפוש משתמש<input id="user-search" type="search" placeholder="שם או דוא״ל"></label></div><div id="portal-user-list">${usersAdminData.users.map((user) => { const p = usersAdminData.profiles.find((item) => item.user_id === user.id); return `<button type="button" data-user-id="${user.id}" class="permission-user${user.id === selectedPortalUserId ? ' active' : ''}"><strong>${escapeHtml(p?.display_name || user.email || 'ללא שם')}</strong><small>${escapeHtml(user.email || '')}</small><span>${p?.is_super_admin ? 'מנהלת־על' : user.email_confirmed_at ? 'פעילה' : 'הוזמנה'}</span></button>`; }).join('')}</div></aside><div class="permissions-editor">${model ? `<form id="permissions-form" class="panel" data-original-super-admin="${model.profile.is_super_admin}"><div class="permissions-editor-head"><div><p class="eyebrow">פרטי משתמשת</p><h2>${escapeHtml(model.profile.display_name || model.user.email)}</h2><p>${escapeHtml(model.user.email || '')}</p></div><span class="status-badge status-info">${model.profile.is_super_admin ? 'מנהלת־על — גישה מלאה' : 'משתמשת פורטל'}</span></div><div class="form-grid"><label class="field">שם תצוגה<input name="display_name" value="${escapeHtml(model.profile.display_name || '')}"></label><div class="access-level-field"><span>רמת הרשאה</span><strong id="access-level-value">${model.profile.is_super_admin ? 'מנהלת־על' : 'משתמשת פורטל'}</strong><input name="is_super_admin" type="hidden" value="${model.profile.is_super_admin}"></div><label class="checkbox-field"><input name="is_active" type="checkbox" ${model.profile.is_active ? 'checked' : ''}> משתמשת פעילה</label></div><button id="show-super-admin" class="button button-quiet super-admin-reveal" type="button" aria-expanded="false" aria-controls="super-admin-control">הצג הרשאת משתמש־על</button><section id="super-admin-control" class="super-admin-control" hidden><strong>הרשאת משתמש־על</strong><p>משתמש־על מקבל גישה מלאה לכל המסכים, ההגדרות וכלי הניהול בפורטל.</p><button id="change-super-admin" class="button button-warning" type="button">${model.profile.is_super_admin ? 'הסרת הרשאת משתמש־על' : 'הענקת הרשאת משתמש־על'}</button></section><fieldset><legend>טווח נתונים ארגוני</legend><div class="scope-mode"><label><input type="radio" name="scope_mode" value="ORGANIZATION" ${model.profile.scope_mode === 'ORGANIZATION' ? 'checked' : ''}> כל הארגון</label><label><input type="radio" name="scope_mode" value="SELECTED" ${model.profile.scope_mode === 'SELECTED' ? 'checked' : ''}> יחידות ומעונות נבחרים</label></div><div class="scope-grid">${usersAdminData.allocation_units.map((unit) => `<label><input type="checkbox" name="unit_scope" value="${unit.allocation_unit_id}" ${model.unitIds.includes(unit.allocation_unit_id) ? 'checked' : ''}> <span>${escapeHtml(unit.display_name)}</span></label>`).join('')}${usersAdminData.daycares.map((daycare) => `<label><input type="checkbox" name="daycare_scope" value="${daycare.daycare_id}" ${model.daycareIds.includes(daycare.daycare_id) ? 'checked' : ''}> <span>${escapeHtml(daycare.display_name)}</span></label>`).join('')}</div></fieldset><section class="screen-permissions" aria-labelledby="screen-permissions-title"><h2 id="screen-permissions-title">הרשאות למסכי הפורטל</h2><p>לכל מסך מוגדרת הרשאה מפורשת.</p><div class="permission-table-wrap"><table id="permission-matrix" class="permission-table"><thead><tr><th scope="col">שם העמוד</th><th scope="col">מוסתר</th><th scope="col">צפייה</th><th scope="col">עריכה</th></tr></thead><tbody>${permissionRows(model)}</tbody></table></div></section><details class="audit-history"><summary>היסטוריית שינויים (${model.audit.length})</summary>${model.audit.length ? model.audit.map((event) => `<p><strong>${escapeHtml(event.operation)}</strong> · ${new Intl.DateTimeFormat('he-IL', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(event.occurred_at))}</p>`).join('') : '<p>לא קיימת היסטוריה.</p>'}</details><div class="form-actions"><button class="button button-primary" type="submit">שמירה</button><button id="cancel-permissions" class="button button-secondary" type="button">ביטול</button></div></form>` : '<section class="panel"><p>אין משתמשים.</p></section>'}</div>`;
   const permissionIntro = root.querySelector('.screen-permissions > p');
-  if (permissionIntro) permissionIntro.textContent = 'הרשאת ילד מתקבלת בירושה מההורה, אלא אם נשמרה עבורה הגדרה ישירה. אפשר להחיל את בחירת ההורה על ענף שלם.';
+  if (permissionIntro) permissionIntro.textContent = 'כל עמוד ללא הרשאה שמורה נשאר מוסתר. הרשאת הורה אינה פותחת עמודי ילד; אפשר להעניק הרשאה מפורשת לענף שלם.';
   const hiddenHeading = root.querySelector('.permission-table thead th:nth-child(2)');
   if (hiddenHeading) hiddenHeading.textContent = 'לא להציג';
   root.hidden = false; bindPermissionsAdmin();
@@ -518,9 +517,9 @@ function bindPermissionsAdmin() {
   form?.querySelectorAll('[data-permission]').forEach((radio) => radio.addEventListener('change', () => {
     const row = radio.closest('[data-screen]');
     row.dataset.explicit = 'true';
-    row.querySelector('[data-inheritance-state]').textContent = 'הגדרה ישירה';
-    const inherit = row.querySelector('[data-inherit-permission]');
-    if (inherit) inherit.hidden = false;
+    row.querySelector('[data-permission-state]').textContent = 'הגדרה ישירה';
+    const reset = row.querySelector('[data-default-permission]');
+    if (reset) reset.hidden = false;
   }));
   form?.querySelectorAll('[data-apply-branch]').forEach((button) => button.addEventListener('click', () => {
     const source = button.closest('[data-screen]');
@@ -529,19 +528,17 @@ function bindPermissionsAdmin() {
     for (const row of [source, ...descendants(source.dataset.screen)]) {
       row.querySelector(`[data-permission][value="${level}"]`).checked = true;
       row.dataset.explicit = 'true';
-      row.querySelector('[data-inheritance-state]').textContent = 'הגדרה ישירה';
-      const inherit = row.querySelector('[data-inherit-permission]');
-      if (inherit) inherit.hidden = false;
+      row.querySelector('[data-permission-state]').textContent = 'הגדרה ישירה';
+      const reset = row.querySelector('[data-default-permission]');
+      if (reset) reset.hidden = false;
     }
     dirty = true;
   }));
-  form?.querySelectorAll('[data-inherit-permission]').forEach((button) => button.addEventListener('click', () => {
+  form?.querySelectorAll('[data-default-permission]').forEach((button) => button.addEventListener('click', () => {
     const row = button.closest('[data-screen]');
-    const parent = form.querySelector(`[data-screen="${CSS.escape(row.dataset.parent)}"]`);
-    const level = parent?.querySelector('[data-permission]:checked')?.value || 'HIDDEN';
-    row.querySelector(`[data-permission][value="${level}"]`).checked = true;
+    row.querySelector('[data-permission][value="HIDDEN"]').checked = true;
     row.dataset.explicit = 'false';
-    row.querySelector('[data-inheritance-state]').textContent = 'בירושה';
+    row.querySelector('[data-permission-state]').textContent = 'ברירת מחדל: לא להציג';
     button.hidden = true;
     dirty = true;
   }));
@@ -620,7 +617,11 @@ async function loadAuditLog() {
 }
 
 function calculatorsTemplate() {
-  return `<section class="page-heading"><div><p class="eyebrow">מחשבונים</p><h1>מחשבונים</h1><p>כלי עזר לחישוב ולתכנון על בסיס כללי הארגון הפעילים.</p></div></section><section class="module-grid"><a class="module-card card" href="#calculators/salary"><span class="module-icon">₪</span><div><h3>מחשבון שכר</h3><p>אומדן שכר חודשי לפי כללי השכר הפעילים.</p></div><span class="card-action">פתיחה ←</span></a><a class="module-card card" href="#calculators/occupancy"><span class="module-icon">▦</span><div><h3>תפוסה, תקינה ורווחיות</h3><p>בדיקת הרכב כיתה, שטח, צוות והיתכנות כלכלית.</p></div><span class="card-action">פתיחה ←</span></a></section>`;
+  const cards = [
+    { route: 'calculators/salary', icon: '₪', title: 'מחשבון שכר', description: 'אומדן שכר חודשי לפי כללי השכר הפעילים.' },
+    { route: 'calculators/occupancy', icon: '▦', title: 'תפוסה, תקינה ורווחיות', description: 'בדיקת הרכב כיתה, שטח, צוות והיתכנות כלכלית.' }
+  ];
+  return `<section class="page-heading"><div><p class="eyebrow">מחשבונים</p><h1>מחשבונים</h1><p>כלי עזר לחישוב ולתכנון על בסיס כללי הארגון הפעילים.</p></div></section><section class="module-grid">${cards.filter((card) => canViewRoute(card.route)).map((card) => `<a class="module-card card" href="#${card.route}"><span class="module-icon">${card.icon}</span><div><h3>${card.title}</h3><p>${card.description}</p></div><span class="card-action">פתיחה ←</span></a>`).join('')}</section>`;
 }
 
 async function loadOccupancyRules() {
@@ -832,7 +833,7 @@ function findUnit(unitId) {
 }
 
 function unitHubTemplate(unit) {
-  return `<section class="page-heading"><div><p class="eyebrow">דשבורדים · ${escapeHtml(unit.display_name)}</p><h1>${escapeHtml(unit.display_name)}</h1><p>בחרי את סוג הדשבורד שברצונך לפתוח עבור יחידה זו.</p></div><a class="button button-secondary" href="#dashboards">חזרה לכל היחידות</a></section><section class="dashboard-type-grid" aria-label="סוגי דשבורדים">${dashboardTypes.map((type) => `<a class="dashboard-type-card card" data-dashboard-type="${type.id}" href="${unitRoute(unit.allocation_unit_id, type.id)}"><span class="dashboard-type-icon" aria-hidden="true">${type.icon}</span><div><h2>${type.title}</h2><p>${type.description}</p></div><span class="card-action">פתיחת הדשבורד <span aria-hidden="true">←</span></span></a>`).join('')}</section>`;
+  return `<section class="page-heading"><div><p class="eyebrow">דשבורדים · ${escapeHtml(unit.display_name)}</p><h1>${escapeHtml(unit.display_name)}</h1><p>בחרי את סוג הדשבורד שברצונך לפתוח עבור יחידה זו.</p></div><a class="button button-secondary" href="#dashboards">חזרה לכל היחידות</a></section><section class="dashboard-type-grid" aria-label="סוגי דשבורדים">${dashboardTypes.filter((type) => canView(`dashboards.${type.id}`)).map((type) => `<a class="dashboard-type-card card" data-dashboard-type="${type.id}" href="${unitRoute(unit.allocation_unit_id, type.id)}"><span class="dashboard-type-icon" aria-hidden="true">${type.icon}</span><div><h2>${type.title}</h2><p>${type.description}</p></div><span class="card-action">פתיחת הדשבורד <span aria-hidden="true">←</span></span></a>`).join('')}</section>`;
 }
 
 function dashboardPlaceholderTemplate(unit, type) {

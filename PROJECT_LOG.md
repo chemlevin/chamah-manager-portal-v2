@@ -1902,3 +1902,40 @@ Validation:
 Residual risk:
 
 - The separate `רישוי` and `צוות` dashboard routes currently reuse the established combined staff/licensing data view. They have distinct permission identities and stable routes, but finer content separation remains a future business-display refinement.
+
+## 2026-07-23 - TRACK: 011A Fail-Closed Portal Permissions
+
+Objective: Enforce a secure HIDDEN default for every current and future portal page across client navigation, route guards, and permission-aware server APIs.
+
+Implementation:
+
+- Changed `portal_effective_permission(uuid, text)` from nearest-parent inheritance to direct-record-only resolution.
+- Missing, inactive, unknown, and child-only permission records now resolve to `HIDDEN`; only an explicit row can grant `VIEW` or `EDIT`.
+- Kept SUPER_ADMIN unrestricted as `EDIT` for every active section.
+- Added service-only `portal_has_permission(uuid, text, required_level)` for Edge Functions and future server APIs.
+- Revoked direct `anon` and `authenticated` execution of the effective resolver and generic server predicate.
+- Updated the `portal-users` Edge Function to require explicit `EDIT` on `management.permissions.users` through the generic service predicate.
+- Made module cards, calculator cards, and unit-dashboard cards fail closed when their route is absent from the access catalog or resolves to `HIDDEN`.
+- Kept direct route guards fail closed through the existing `permissionFor()` HIDDEN fallback.
+- Replaced the permissions editor's inherited-value presentation with `ברירת מחדל: לא להציג`; branch apply remains the explicit way to grant a complete branch.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `supabase/functions/portal-users/index.ts`
+- `supabase/migrations/20260723060133_track_011a_fail_closed_permissions.sql`
+- `tests/portal-permissions.spec.mjs`
+- `tests/portal-permission-security.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- JavaScript syntax checks, `git diff --check`, and `npm.cmd run build` passed.
+- Client permission, navigation, direct-route, VIEW/EDIT, server denial, dashboard, and Administration regression: 181 passed and 3 viewport-specific checks intentionally skipped across desktop, laptop, mobile 390, and mobile 430.
+- Live rollback-only database matrix proved: parent VIEW does not grant a new child; missing child is HIDDEN; explicit VIEW resolves VIEW; explicit EDIT resolves EDIT and passes the EDIT predicate.
+- Live existing-user verification proved: unknown screen is HIDDEN, every missing active section is HIDDEN for the non-super user, SUPER_ADMIN is EDIT for every active section, unknown VIEW is denied, and `anon`/`authenticated` cannot invoke `portal_has_permission`.
+- Security advisor results were unchanged except for the intended new protected function: only the intentional authenticated `portal_my_access()` warning and pre-existing leaked-password-protection warning remain.
+
+Remaining edge case:
+
+- The permissions-aware `portal-users` API is server-enforced. Existing business modules still read broad authenticated PostgREST tables whose historical RLS policies are scope/data oriented rather than mapped to `portal_sections`; a user who bypasses the portal client could query those permitted tables directly. Closing that previously documented boundary requires a separate table-to-screen RLS/API migration because each business table may serve multiple screens.
