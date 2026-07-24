@@ -2802,3 +2802,79 @@ Files changed:
 - `tests/sql/track017a_atomic_accounting_rollback.sql`
 - `tests/sql/track017a_accounting_lifecycle.sql`
 - `PROJECT_LOG.md`
+
+## 2026-07-24 - TRACK018 Production Release
+
+Objective: Deploy the approved TRACK017A release to the existing Production
+Supabase and Vercel environments, preserve the existing Production URL, and
+complete Production smoke validation.
+
+Final status: **FAILED — release deployed, complete Production smoke test
+failed**.
+
+Git release:
+
+- Confirmed `main` was an ancestor of approved TRACK017A commit
+  `09b4cc61d24ee93ef8fdd91bc51a822f87692e51`.
+- Fast-forwarded `main` to the approved commit and pushed `origin/main`.
+- Preserved the unrelated untracked `.preview-track010-clean/`, `.track009b/`,
+  and `.track010a/` directories; they were not created or modified by this
+  release.
+
+Supabase Production:
+
+- Confirmed project `vyyfuaqmbxvfqgbfqooc` already contained the latest
+  approved migration
+  `20260724151321_track_017a_atomic_accounting_writes`.
+- No remaining forward migration was pending or applied during TRACK018.
+- Redeployed the exact checked-in Edge Function sources from approved commit
+  `09b4cc61d24ee93ef8fdd91bc51a822f87692e51`.
+- Active deployed versions are `portal-users` v5, `portal-settings` v2, and
+  `portal-bank-workbench` v9, all with `verify_jwt=true`.
+
+Vercel Production:
+
+- Used the existing `chamah-portal` project
+  `prj_6IND7ee2E9s3KispBh6iBDWwQo6X`.
+- Did not create a Vercel project, URL, alias, or domain.
+- Existing Production aliases were assigned to deployment
+  `dpl_74v1AbkaMKpJEHQ9Si6ezn9JoXV1`.
+- Existing Production URL:
+  `https://chamah-portal-chamah.vercel.app`.
+- Deployment completed with state READY and the remote build completed
+  successfully.
+
+Production smoke validation:
+
+- PASS: `/`, `/new/`, and `/accounting/` return HTTP 200.
+- PASS: desktop login shell renders meaningful Hebrew RTL content, keeps the
+  protected application hidden, exposes email/password controls, and produces
+  no browser console or failed-request errors.
+- PASS: `/new/` redirects to the Production root.
+- PASS: mobile 390px login shell renders without horizontal overflow.
+- PASS: unauthenticated requests to `portal-users`, `portal-settings`, and
+  `portal-bank-workbench` return HTTP 401, confirming the JWT boundary remains
+  active.
+- FAIL: `/api/employees`, `/api/budget`, `/api/payroll`, and
+  `/api/allocations` return HTTP 500.
+- Vercel runtime logs confirm all four failures occur while creating the Google
+  Sheets client because Google service-account Production environment variables
+  are missing.
+
+Cleanup:
+
+- Smoke validation was read-only and created no bank transactions,
+  allocations, import batches, audit fixtures, Auth users, or other temporary
+  QA/test data.
+- No Production data cleanup was required.
+
+Residual blocker:
+
+- The credential owner must configure the required Google service-account
+  variables in the existing Vercel Production environment and redeploy before
+  the Google-backed APIs can pass a complete Production smoke test.
+
+Files changed:
+
+- `PROJECT_LOG.md`
+- `RELEASE_NOTES.md`
