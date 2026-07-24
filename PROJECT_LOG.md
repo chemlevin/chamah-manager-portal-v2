@@ -2345,3 +2345,48 @@ Validation:
 Scope confirmation:
 
 - No database schema, Supabase function, API contract, import preview contract, duplicate detection, or import persistence/business logic changed.
+
+## 2026-07-24 - TRACK015F Bank Import Acceptance and Delete Support
+
+Objective: Make the exact `tests/fixtures/bank-export-html.xls` acceptance file import successfully and complete the requested Bank Transactions import, mapping, account, toolbar, and deletion behavior.
+
+Root cause:
+
+- Import header detection required a date plus signed-amount alias and therefore did not reliably score real headers below title/summary rows or headers that exposed separate debit and credit columns.
+- Missing/ambiguous columns and account detection stopped at an error instead of offering a recoverable mapping workflow.
+- The refined workbench omitted Bank Account from the visible table/export columns and exposed selection without a connected delete operation.
+
+Implementation:
+
+- Added scored header-row detection that ignores title and summary rows.
+- Preserved content-signature routing for HTML-based XLS, legacy OLE XLS, XLSX, and CSV.
+- Added separate Debit/Credit aliases and signed-amount calculation while retaining signed-amount imports.
+- Preserved Hebrew values, Israeli dates, references, and leading zeroes.
+- Added friendly Hebrew parser errors and a manual column/header/account mapping dialog when automatic detection is incomplete.
+- Kept `tests/fixtures/bank-export-html.xls` as the exact regression fixture; it parses 2 transactions and preserves reference `000012345`.
+- Added Bank Account to the workbench table and spreadsheet/PDF export while preserving the existing filter and details-panel account display.
+- Compacted the toolbar, standardized control height, shortened Clear Filters, and added `מציג X מתוך Y תנועות`.
+- Added confirmed single and multi-select transaction deletion. The Edge Function deletes child allocation rows before parent transactions, and the browser preserves active search, filters, selection cleanup, and table scroll.
+
+Files changed:
+
+- `chamah-manager-portal/new/bank-workbench.js`
+- `chamah-manager-portal/new/bank-workbench-ux.js`
+- `chamah-manager-portal/new/styles.css`
+- `supabase/functions/portal-bank-workbench/index.ts`
+- `tests/accounting-navigation.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- JavaScript syntax checks passed for both Bank workbench modules and the Accounting test.
+- `npm run build` passed.
+- Exact HTML-XLS acceptance fixture passed in isolation and in the complete Accounting suite; 2 transactions reached preview.
+- Complete Accounting/Bank workbench suite passed on desktop 1440: 10 passed.
+- Complete Accounting/Bank workbench suite passed on mobile 390: 10 passed.
+- Budget, Allocations, Management, and Payroll engine regression passed: 37 passed.
+- `git diff --check` passed.
+
+Deployment:
+
+- Preview only. No Production deployment, promotion, or alias change.

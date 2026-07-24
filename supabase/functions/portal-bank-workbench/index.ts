@@ -186,6 +186,15 @@ Deno.serve(async (request) => {
       });
       return json({ allocations: saved, total, remaining: Number(transaction.amount) - total });
     }
+    if (body.action === "delete_transactions") {
+      const ids = [...new Set((Array.isArray(body.bank_transaction_ids) ? body.bank_transaction_ids : [])
+        .map(normalizeText).filter((value) => /^[0-9a-f-]{36}$/i.test(value)))];
+      if (!ids.length) return json({ error: "לא נבחרו תנועות למחיקה." }, 400);
+      const filter = `in.(${ids.join(",")})`;
+      await write(`bank_allocations?bank_transaction_id=${filter}`, "DELETE", undefined, "return=minimal");
+      await write(`bank_transactions?bank_transaction_id=${filter}`, "DELETE", undefined, "return=minimal");
+      return json({ deleted: ids.length, bank_transaction_ids: ids });
+    }
     return json({ error: "פעולה לא מוכרת." }, 400);
   } catch (error) {
     console.error("portal-bank-workbench", error);

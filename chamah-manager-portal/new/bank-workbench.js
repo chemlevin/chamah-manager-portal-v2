@@ -21,10 +21,20 @@ const aliases = {
   description: ["תיאור","תיאור תנועה","פרטים","description"],
   reference_number: ["אסמכתא","מספר אסמכתא","reference","reference number"],
   amount: ["סכום","סכום בשח","סכום חתום","amount","signed amount"],
+  debit: ["חובה","חיוב","סכום חובה","debit","debit amount","withdrawal"],
+  credit: ["זכות","זיכוי","סכום זכות","credit","credit amount","deposit"],
   account: ["חשבון","מספר חשבון","account","account number"],
 };
 const key = (value) => String(value ?? "").trim().toLowerCase().replace(/[\"'׳״:._-]/g,"").replace(/\s+/g," ");
 const findColumn = (headers, name) => headers.findIndex((header) => aliases[name].some((alias) => key(header) === key(alias)));
+const headerScore = (row) => {
+  const date = findColumn(row, "transaction_date") >= 0;
+  const description = findColumn(row, "description") >= 0;
+  const signed = findColumn(row, "amount") >= 0;
+  const debitCredit = findColumn(row, "debit") >= 0 || findColumn(row, "credit") >= 0;
+  return Number(date) * 4 + Number(description) * 3 + Number(signed || debitCredit) * 4
+    + Number(findColumn(row, "reference_number") >= 0) + Number(findColumn(row, "account") >= 0);
+};
 
 function parseCsv(data) {
   const text = decodeText(data).replace(/^\uFEFF/, "");
@@ -61,7 +71,7 @@ function parseHtmlTable(data) {
   const tables = [...documentNode.querySelectorAll("table")];
   const table = tables.find((candidate) => {
     const matrix = [...candidate.rows].map((row) => [...row.cells].map((cell) => cell.textContent.trim()));
-    return matrix.some((row) => findColumn(row, "transaction_date") >= 0 && findColumn(row, "amount") >= 0);
+    return matrix.some((row) => headerScore(row) >= 11);
   }) || tables[0];
   if (!table) throw new Error("לא נמצאה טבלה בקובץ הבנק.");
   return [...table.rows].map((row) => [...row.cells].map((cell) => cell.textContent.trim()));
@@ -77,7 +87,7 @@ function isLegacyXls(data) {
   return bytes.length >= 8 && [0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1].every((value, index) => bytes[index] === value);
 }
 
-export async function parseWorkbook(file, data, knownAccounts = []) {
+export async function parseWorkbook(file, data, knownAccounts = [], manual = {}) {
   let matrix;
   try {
     if (isHtml(data)) matrix = parseHtmlTable(data);
@@ -97,23 +107,31 @@ export async function parseWorkbook(file, data, knownAccounts = []) {
     if (/לא נמצאה טבלה|רכיב קריאת XLS/.test(error.message)) throw error;
     throw new Error("לא ניתן לקרוא את קובץ הבנק. ודאי שהקובץ הוא XLSX, XLS, CSV או טבלת HTML תקינה.");
   }
-  let headerIndex = matrix.findIndex((row) => findColumn(row, "transaction_date") >= 0 && findColumn(row, "amount") >= 0);
-  if (headerIndex < 0) throw new Error("לא נמצאו עמודות תאריך וסכום חתום.");
+  const rankedHeaders = matrix.map((row, index) => ({ index, score: headerScore(row) })).sort((a, b) => b.score - a.score || a.index - b.index);
+  let headerIndex = Number.isInteger(manual.headerIndex) ? manual.headerIndex : rankedHeaders[0]?.score >= 8 ? rankedHeaders[0].index : -1;
+  if (headerIndex < 0) {
+    return { fileName: file.name, needsMapping: true, reason: "לא הצלחנו לזהות את שורת הכותרות.", matrix, headerIndex: 0, headers: matrix[0] || [] };
+  }
   const headers = matrix[headerIndex];
-  const indexes = Object.fromEntries(Object.keys(aliases).map((name) => [name, findColumn(headers, name)]));
-  if (indexes.description < 0) throw new Error("לא נמצאה עמודת תיאור.");
+  const indexes = Object.fromEntries(Object.keys(aliases).map((name) => [name, Number.isInteger(manual[name]) ? manual[name] : findColumn(headers, name)]));
+  if (indexes.transaction_date < 0 || indexes.description < 0 || (indexes.amount < 0 && indexes.debit < 0 && indexes.credit < 0)) {
+    return { fileName: file.name, needsMapping: true, reason: "נדרש מיפוי ידני של עמודות הקובץ.", matrix, headerIndex, headers, indexes };
+  }
   const accountCandidates = matrix.slice(0, headerIndex + 5).flat().map((cell) => String(cell).replace(/\D/g, "")).filter((cell) => cell.length >= 5);
   const rows = matrix.slice(headerIndex + 1).map((row, index) => ({
     source_row_number: headerIndex + index + 2,
     transaction_date: isoDate(row[indexes.transaction_date]),
     description: row[indexes.description],
     reference_number: indexes.reference_number >= 0 ? row[indexes.reference_number] : "",
-    amount: amount(row[indexes.amount]),
+    amount: indexes.amount >= 0
+      ? amount(row[indexes.amount])
+      : (amount(indexes.credit >= 0 ? row[indexes.credit] : 0) || 0) - (amount(indexes.debit >= 0 ? row[indexes.debit] : 0) || 0),
     account_number: indexes.account >= 0 ? String(row[indexes.account]).replace(/\D/g, "") : "",
   })).filter((row) => row.transaction_date || row.description || Number.isFinite(row.amount));
   const knownNumbers = new Set(knownAccounts.map((row) => String(row.source_account_number || "").replace(/\D/g, "")).filter(Boolean));
-  const accountNumber = [...rows.map((row) => row.account_number), ...accountCandidates].find((candidate) => knownNumbers.has(candidate)) || "";
-  return { fileName: file.name, accountNumber, rows };
+  const accountNumber = String(manual.accountNumber || "") || [...rows.map((row) => row.account_number), ...accountCandidates].find((candidate) => knownNumbers.has(candidate)) || "";
+  if (!accountNumber) return { fileName: file.name, needsMapping: true, reason: "לא הצלחנו לזהות את חשבון הבנק.", matrix, headerIndex, headers, indexes, rows };
+  return { fileName: file.name, accountNumber, rows, headerIndex, indexes };
 }
 
 export function bankWorkbenchTemplate() {

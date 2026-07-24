@@ -44,7 +44,7 @@ test('Bank File exposes import, search, filters and export controls with an empt
 
 test('Bank File renders exact status reasons and tree-style split row numbers', async ({ page }) => {
   await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, { accounts: [account], transactions, allocations: [allocation] });
-  await expect(page.locator('.bank-workbench-table thead th')).toHaveText(['#', 'סטטוס', 'תאריך', 'תיאור', 'אסמכתא', 'סכום', 'סוג תנועה', 'מחלקה', 'מעון', 'סעיף תקציבי', 'חודש הנה"ח', 'סטטוס הנה"ח', 'הערות', 'מסמך']);
+  await expect(page.locator('.bank-workbench-table thead th')).toHaveText(['#', 'סטטוס', 'חשבון בנק', 'תאריך', 'תיאור', 'אסמכתא', 'סכום', 'סוג תנועה', 'מחלקה', 'מעון', 'סעיף תקציבי', 'חודש הנה"ח', 'סטטוס הנה"ח', 'הערות', 'מסמך']);
   const parent = page.locator('[data-bank-row="tx-1"]').first();
   await expect(parent).toContainText(/שגיאת איזון/);
   await expect(parent).toHaveClass(/bank-row-error/);
@@ -90,12 +90,70 @@ test('Bank File export offers current view and filter selection with live match 
   await expect((await download).suggestedFilename()).toMatch(/^bank-transactions-\d{4}-\d{2}-\d{2}\.xlsx$/);
 });
 
-test('Bank File supports selection checkboxes for future bulk actions', async ({ page }) => {
-  await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, { accounts: [account], transactions: [transactions[0]] });
-  await page.locator('[data-select-transaction="tx-1"]').check();
+test('Bank File supports selection checkboxes and bulk delete', async ({ page }) => {
+  const deletePayloads = [];
+  await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, { accounts: [account], transactions });
+  await page.unroute(`${base}/functions/v1/portal-bank-workbench`);
+  await page.route(`${base}/functions/v1/portal-bank-workbench`, async (route) => {
+    const body = route.request().postDataJSON() || {};
+    if (body.action === 'delete_transactions') {
+      deletePayloads.push(body);
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ deleted: 1 }) });
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ transactions, allocations: [], accounts: [account], units: [], daycares: [], categories: [], batches: [] }) });
+  });
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.locator('[data-delete-transaction="tx-1"]').click();
+  await expect(page.locator('[data-bank-row="tx-1"]')).toHaveCount(0);
+  await page.locator('[data-select-transaction="tx-2"]').check();
   await expect(page.locator('#bank-selection-count')).toContainText('1 תנועות נבחרו');
-  await page.locator('#bank-select-all').uncheck();
-  await expect(page.locator('#bank-selection-count')).toContainText('לא נבחרו');
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.locator('#bank-delete-selected').click();
+  await expect(page.locator('[data-bank-row="tx-2"]')).toHaveCount(0);
+  expect(deletePayloads.map((payload) => payload.bank_transaction_ids)).toEqual([['tx-1'], ['tx-2']]);
+});
+
+test('Bank File detects a real header after summary rows and combines debit and credit columns', async ({ page }) => {
+  let previewPayload;
+  await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, { accounts: [{ ...account, source_account_number: '00123456' }] });
+  await page.unroute(`${base}/functions/v1/portal-bank-workbench`);
+  await page.route(`${base}/functions/v1/portal-bank-workbench`, async (route) => {
+    const body = route.request().postDataJSON() || {};
+    if (body.action === 'preview') {
+      previewPayload = body;
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ preview_token: 'csv-preview', account, account_number: body.account_number, rows: body.rows.map((row) => ({ ...row, errors: [], duplicate: false, importable: true })), summary: { total: 2, importable: 2, duplicates: 0, invalid: 0 } }) });
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ transactions: [], allocations: [], accounts: [{ ...account, source_account_number: '00123456' }], units: [], daycares: [], categories: [], batches: [] }) });
+  });
+  await page.locator('#bank-file').setInputFiles({ name: 'debit-credit.csv', mimeType: 'text/csv', buffer: Buffer.from('דוח תנועות חשבון 00123456\nסיכום חודשי\nתאריך,תיאור,אסמכתא,חובה,זכות\n24/07/2026,עמלה,00077,12.50,\n23/07/2026,הפקדה,00078,,100.25', 'utf8') });
+  await expect(page.getByRole('heading', { name: 'תצוגה מקדימה לפני ייבוא' })).toBeVisible();
+  expect(previewPayload.account_number).toBe('00123456');
+  expect(previewPayload.rows).toMatchObject([{ reference_number: '00077', amount: -12.5 }, { reference_number: '00078', amount: 100.25 }]);
+});
+
+test('Bank File opens manual column mapping when auto-detection fails', async ({ page }) => {
+  let previewPayload;
+  await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, { accounts: [{ ...account, source_account_number: '123456' }] });
+  await page.unroute(`${base}/functions/v1/portal-bank-workbench`);
+  await page.route(`${base}/functions/v1/portal-bank-workbench`, async (route) => {
+    const body = route.request().postDataJSON() || {};
+    if (body.action === 'preview') {
+      previewPayload = body;
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ preview_token: 'manual-preview', account, account_number: body.account_number, rows: body.rows.map((row) => ({ ...row, errors: [], duplicate: false, importable: true })), summary: { total: 1, importable: 1, duplicates: 0, invalid: 0 } }) });
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ transactions: [], allocations: [], accounts: [{ ...account, source_account_number: '123456' }], units: [], daycares: [], categories: [], batches: [] }) });
+  });
+  await page.locator('#bank-file').setInputFiles({ name: 'manual.csv', mimeType: 'text/csv', buffer: Buffer.from('כותרת דוח\nיום,מלל,מזהה,ערך\n24/07/2026,בדיקה,00009,-10', 'utf8') });
+  await expect(page.getByRole('heading', { name: 'מיפוי עמודות ידני' })).toBeVisible();
+  await page.locator('#bank-map-header').selectOption('1');
+  await page.locator('[data-map="transaction_date"]').selectOption('0');
+  await page.locator('[data-map="description"]').selectOption('1');
+  await page.locator('[data-map="reference_number"]').selectOption('2');
+  await page.locator('[data-map="amount"]').selectOption('3');
+  await page.locator('#bank-map-account').selectOption('123456');
+  await page.locator('#bank-apply-mapping').click();
+  await expect(page.getByRole('heading', { name: 'תצוגה מקדימה לפני ייבוא' })).toBeVisible();
+  expect(previewPayload.rows[0]).toMatchObject({ transaction_date: '2026-07-24', reference_number: '00009', amount: -10 });
 });
 
 test('Bank File detects and maps an HTML table exported with an .xls extension', async ({ page }) => {
