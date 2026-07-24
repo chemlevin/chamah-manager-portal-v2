@@ -1,9 +1,5 @@
-import { workflowOptions } from "./workflow-configuration.js";
-
 const money = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS" });
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" })[char]);
-const label = (name, value) => workflowOptions(name).find((item) => item.value === value)?.label || "לא הוגדר";
-const options = (name, value, predicate) => `<option value="">בחירה…</option>${workflowOptions(name, predicate).map((item) => `<option value="${item.value}" ${item.value === value ? "selected" : ""}>${esc(item.label)}</option>`).join("")}`;
 const isoDate = (value) => {
   if (value instanceof Date && !Number.isNaN(value.valueOf())) return value.toISOString().slice(0, 10);
   if (typeof value === "number") return new Date(Date.UTC(1899, 11, 30 + value)).toISOString().slice(0, 10);

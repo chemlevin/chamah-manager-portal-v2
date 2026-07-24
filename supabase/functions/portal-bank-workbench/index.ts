@@ -53,16 +53,18 @@ Deno.serve(async (request) => {
     if (!permission.ok || await permission.json() !== true) return json({ error: "אין הרשאה מתאימה לקובץ הבנקים." }, 403);
 
     if (request.method === "GET") {
-      const [transactions, allocations, accounts, units, daycares, categories, batches] = await Promise.all([
+      const [transactions, allocations, accounts, units, daycares, categories, accountingStatuses, assignmentMonths, batches] = await Promise.all([
         read("bank_transactions?select=*&order=transaction_date.desc,created_at.desc&limit=2000"),
         read("bank_allocations?select=*&limit=5000"),
-        read("bank_accounts?select=*&lifecycle_status=eq.ACTIVE&order=display_order,display_name"),
-        read("allocation_units?select=*&lifecycle_status=eq.ACTIVE&order=display_order,display_name"),
-        read("daycares?select=*&lifecycle_status=eq.ACTIVE&order=display_order,display_name"),
-        read("budget_categories?select=*&lifecycle_status=eq.ACTIVE&order=display_order,display_name"),
+        read("bank_accounts?select=*&order=display_order,display_name"),
+        read("allocation_units?select=*&order=display_order,display_name"),
+        read("daycares?select=*&order=display_order,display_name"),
+        read("budget_categories?select=*&order=display_order,display_name"),
+        read("accounting_statuses?select=*&order=display_order,display_name"),
+        read("school_year_months?select=*&order=start_date"),
         read("import_batches?select=*&source_type=eq.BANK_FILE&order=started_at.desc&limit=50"),
       ]);
-      return json({ transactions, allocations, accounts, units, daycares, categories, batches });
+      return json({ transactions, allocations, accounts, units, daycares, categories, accountingStatuses, assignmentMonths, batches });
     }
 
     const body = await request.json();
@@ -166,10 +168,8 @@ Deno.serve(async (request) => {
         source_name: "MANUAL",
         source_file_name: null,
         triggered_by_user_id: actor.id,
-        status: "COMPLETED",
+        status: "RUNNING",
         total_rows: 1,
-        accepted_rows: 1,
-        completed_at: new Date().toISOString(),
         metadata: { source: "MANUAL" },
       });
       const batch = batchRows[0];
@@ -191,6 +191,11 @@ Deno.serve(async (request) => {
         import_batch_id: batch.import_batch_id,
         created_by_user_id: actor.id,
       });
+      await write(`import_batches?import_batch_id=eq.${batch.import_batch_id}`, "PATCH", {
+        status: "COMPLETED",
+        accepted_rows: 1,
+        completed_at: new Date().toISOString(),
+      });
       return json({ batch_id: batch.import_batch_id, transaction: transactionRows[0] }, 201);
     }
 
@@ -199,7 +204,7 @@ Deno.serve(async (request) => {
       const transaction = (await read(`bank_transactions?select=bank_transaction_id,amount&bank_transaction_id=eq.${transactionId}&limit=1`))[0];
       if (!transaction) return json({ error: "תנועת הבנק לא נמצאה." }, 404);
       const allocations = Array.isArray(body.allocations) ? body.allocations : [];
-      const unitsForValidation = await read("allocation_units?select=allocation_unit_id,unit_type&lifecycle_status=eq.ACTIVE");
+      const unitsForValidation = await read("allocation_units?select=allocation_unit_id,allocation_unit_type&lifecycle_status=eq.ACTIVE");
       const normalized = allocations.map((row) => ({
         bank_transaction_id: transactionId,
         movement_type: row.movement_type || null,
@@ -207,7 +212,7 @@ Deno.serve(async (request) => {
         daycare_id: row.daycare_id || null,
         budget_category_id: row.budget_category_id || null,
         budget_month: row.budget_month ? `${row.budget_month.slice(0, 7)}-01` : null,
-        accounting_status: row.accounting_status || null,
+        accounting_status_id: row.accounting_status_id || null,
         notes: normalizeText(row.notes) || null,
         allocation_amount: Number(row.allocation_amount),
         created_by_user_id: actor.id,
@@ -219,10 +224,10 @@ Deno.serve(async (request) => {
         if (!row.movement_type) errors.push(`שורה ${index + 1}: סוג תנועה נדרש`);
         if (!row.allocation_unit_id) errors.push(`שורה ${index + 1}: מחלקה נדרשת`);
         const selectedUnit = row.allocation_unit_id ? unitsForValidation.find((unit: Record<string, unknown>) => unit.allocation_unit_id === row.allocation_unit_id) : null;
-        if (selectedUnit?.unit_type === "DAYCARE" && !row.daycare_id) errors.push(`שורה ${index + 1}: מעון נדרש למחלקת מעונות`);
-        if (selectedUnit?.unit_type !== "DAYCARE" && row.daycare_id) errors.push(`שורה ${index + 1}: ניתן לבחור מעון רק במחלקת מעונות`);
+        if (selectedUnit?.allocation_unit_type === "DAYCARE" && !row.daycare_id) errors.push(`שורה ${index + 1}: מעון נדרש למחלקת מעונות`);
+        if (selectedUnit?.allocation_unit_type !== "DAYCARE" && row.daycare_id) errors.push(`שורה ${index + 1}: ניתן לבחור מעון רק במחלקת מעונות`);
         if (!row.budget_month) errors.push(`שורה ${index + 1}: חודש תקציב נדרש`);
-        if (!row.accounting_status) errors.push(`שורה ${index + 1}: סטטוס הנה"ח נדרש`);
+        if (!row.accounting_status_id) errors.push(`שורה ${index + 1}: סטטוס הנה"ח נדרש`);
         if (!["EXCLUDE"].includes(row.movement_type || "") && !row.budget_category_id) errors.push(`שורה ${index + 1}: סעיף תקציבי נדרש`);
       });
       const total = normalized.reduce((sum, row) => sum + Number(row.allocation_amount || 0), 0);

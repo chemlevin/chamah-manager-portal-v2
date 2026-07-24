@@ -1,21 +1,13 @@
-import { workflowOptions } from "./workflow-configuration.js";
 import { parseWorkbook } from "./bank-workbench.js";
 
 const money = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS" });
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" })[char]);
-const optionLabel = (name, value) => workflowOptions(name).find((item) => item.value === value)?.label || "לא הוגדר";
-const options = (name, value, predicate) => `<option value="">בחירה…</option>${workflowOptions(name, predicate).map((item) => `<option value="${item.value}" ${item.value === value ? "selected" : ""}>${esc(item.label)}</option>`).join("")}`;
 const isoDay = () => new Date().toISOString().slice(0, 10);
-const departmentOptions = [
-  { value: "DAYCARES", label: "מעונות" },
-  { value: "OFFICE", label: "משרד" },
-  { value: "DEVELOPMENT", label: "פיתוח" },
-];
 
 export function bankWorkbenchTemplateV2() {
   return `<section class="bank-new-heading"><div><p class="eyebrow">הנה"ח / קובץ בנקים</p><h1>קובץ בנקים</h1><p>טיפול שוטף בתנועות, שיוכים והכנה להנהלת חשבונות.</p></div><div class="bank-import-actions"><input id="bank-file" type="file" accept=".xlsx,.xls,.csv" hidden><button id="bank-export-open" class="button button-secondary" type="button">ייצוא</button><button id="bank-new-transaction" class="button button-secondary" type="button">תנועה חדשה</button><button id="bank-import" class="button button-primary" type="button">ייבוא קובץ</button><span id="bank-message" role="status"></span></div></section>
   <section class="bank-workflow-cards" id="bank-workflow-cards" aria-label="שלבי טיפול"></section>
-  <section class="bank-new-toolbar panel" aria-label="סינון וחיפוש"><div class="bank-search-group"><label class="bank-new-search">⌕ <input id="bank-new-search" type="search" placeholder="חיפוש לפי תיאור, אסמכתא, סכום, הערה או מספר שורה"><kbd>/</kbd></label><button id="bank-clear-search" class="button button-quiet" type="button">ניקוי חיפוש</button></div><label>חשבון<select id="bank-account-filter"><option value="">כל החשבונות</option></select></label><label>חודש<select id="bank-month-filter"><option value="">כל החודשים</option></select></label><label>סטטוס הנה"ח<select id="bank-status-filter"><option value="">כל הסטטוסים</option>${options("accountingStatuses")}</select></label><button id="bank-clear-all" class="button button-quiet bank-clear-compact" type="button">ניקוי סינונים</button><span id="bank-new-count"></span><div id="bank-filter-chips" class="bank-filter-chips" aria-live="polite"></div></section>
+  <section class="bank-new-toolbar panel" aria-label="סינון וחיפוש"><div class="bank-search-group"><label class="bank-new-search">⌕ <input id="bank-new-search" type="search" placeholder="חיפוש לפי תיאור, אסמכתא, סכום, הערה או מספר שורה"><kbd>/</kbd></label><button id="bank-clear-search" class="button button-quiet" type="button">ניקוי חיפוש</button></div><label>חשבון<select id="bank-account-filter"><option value="">כל החשבונות</option></select></label><label>חודש<select id="bank-month-filter"><option value="">כל החודשים</option></select></label><label>סטטוס הנה"ח<select id="bank-status-filter"><option value="">כל הסטטוסים</option></select></label><button id="bank-clear-all" class="button button-quiet bank-clear-compact" type="button">ניקוי סינונים</button><span id="bank-new-count"></span><div id="bank-filter-chips" class="bank-filter-chips" aria-live="polite"></div></section>
   <section class="bank-sheet-layout"><div class="bank-new-sheet panel"><div class="bank-new-scroll" id="bank-scroll"><table class="bank-workbench-table"><thead><tr><th class="bank-sticky-number"><input id="bank-select-all" type="checkbox" aria-label="בחירת כל התנועות"><span>#</span></th><th class="bank-sticky-status">סטטוס</th><th>חשבון בנק</th><th>תאריך</th><th>תיאור</th><th>אסמכתא</th><th>סכום</th><th>סוג תנועה</th><th>מחלקה</th><th>מעון</th><th>סעיף תקציבי</th><th>חודש שיוך</th><th>סטטוס הנה"ח</th><th>הערות</th><th>מסמך</th></tr></thead><tbody id="bank-new-rows"></tbody></table></div><footer><span id="bank-selection-count">לא נבחרו תנועות</span><button id="bank-delete-selected" class="button button-danger" type="button" hidden>מחיקת נבחרות</button><span>Tab מעבר בין שדות · Enter שמירה · ↑↓ מעבר בין תנועות</span></footer></div>
   <section class="bank-metadata-panel panel" id="bank-new-details" hidden></section></section>
   <dialog id="bank-import-dialog" class="bank-dialog"><form method="dialog"><button class="dialog-close" aria-label="סגירה">×</button></form><div id="bank-import-content"></div></dialog>
@@ -28,28 +20,55 @@ export async function mountBankWorkbenchV2(request) {
   const state = { data: null, selected: null, selectedRows: new Set(), expanded: new Set(), workflow: "all", query: "", account: "", month: "", status: "", batch: "", drafts: new Map(), saving: new Set() };
   const $ = (selector) => document.querySelector(selector);
   const message = (text, tone = "") => { const node = $("#bank-message"); if (node) { node.textContent = text; node.className = tone; } };
+  const movementTypes = [
+    { value: "INCOME", label: "הכנסה" },
+    { value: "EXPENSE", label: "הוצאה" },
+    { value: "INTERNAL", label: "פנימי" },
+    { value: "EXCLUDE", label: "לא לחישוב" },
+  ];
+  const lookupOptions = (name) => {
+    if (!state.data) return [];
+    if (name === "movementTypes") return movementTypes;
+    if (name === "daycares") return state.data.daycares.map((row) => ({ value: row.daycare_id, label: row.display_name, active: row.lifecycle_status === "ACTIVE" }));
+    if (name === "budgetCategories") return state.data.categories.map((row) => ({ value: row.budget_category_id, label: row.display_name, active: row.lifecycle_status === "ACTIVE" }));
+    if (name === "budgetMonths") return state.data.assignmentMonths.map((row) => ({ value: row.start_date?.slice(0, 7), label: row.month_label }));
+    if (name === "accountingStatuses") return state.data.accountingStatuses.map((row) => ({ value: row.accounting_status_id, label: row.display_name, active: row.lifecycle_status === "ACTIVE" }));
+    return [];
+  };
+  const optionLabel = (name, value) => lookupOptions(name).find((item) => item.value === value)?.label || "לא הוגדר";
+  const options = (name, value) => `<option value="">בחירה…</option>${lookupOptions(name).filter((item) => item.active !== false || item.value === value).map((item) => `<option value="${item.value}" ${item.value === value ? "selected" : ""}>${esc(item.label)}${item.active === false ? " (לא פעיל)" : ""}</option>`).join("")}`;
+  const departmentOptions = () => {
+    const referenced = new Set(state.data.allocations.map((row) => row.allocation_unit_id).filter(Boolean));
+    const rows = state.data.units.filter((row) => row.lifecycle_status === "ACTIVE" || referenced.has(row.allocation_unit_id));
+    const hasDaycares = rows.some((row) => row.allocation_unit_type === "DAYCARE");
+    return [
+      ...(hasDaycares ? [{ value: "DAYCARES", label: "מעונות" }] : []),
+      ...rows.filter((row) => row.allocation_unit_type !== "DAYCARE").map((row) => ({ value: row.allocation_unit_id, label: row.display_name })),
+    ];
+  };
   const transactionNumber = (transaction) => state.data.transactions.findIndex((row) => row.bank_transaction_id === transaction.bank_transaction_id) + 1;
   const accountName = (id) => state.data.accounts.find((row) => row.bank_account_id === id)?.display_name || "לא משויך";
   const allocationsFor = (id) => state.drafts.get(id) || state.data.allocations.filter((row) => row.bank_transaction_id === id);
-  const emptyAllocation = (transaction) => ({ bank_transaction_id: transaction.bank_transaction_id, movement_type: "", allocation_unit_id: "", daycare_id: "", budget_category_id: "", budget_month: "", accounting_status: "", notes: "", allocation_amount: transaction.amount });
+  const emptyAllocation = (transaction) => ({ bank_transaction_id: transaction.bank_transaction_id, movement_type: "", allocation_unit_id: "", daycare_id: "", budget_category_id: "", budget_month: "", accounting_status_id: "", notes: "", allocation_amount: transaction.amount });
   const unit = (id) => state.data.units.find((row) => row.allocation_unit_id === id);
   const departmentValue = (row) => {
-    const type = unit(row.allocation_unit_id)?.unit_type || workflowOptions("departments").find((item) => item.value === row.allocation_unit_id)?.extra;
-    return type === "DAYCARE" ? "DAYCARES" : type || "";
+    const selected = unit(row.allocation_unit_id);
+    return selected?.allocation_unit_type === "DAYCARE" ? "DAYCARES" : selected?.allocation_unit_id || "";
   };
-  const departmentSelect = (row) => `<select name="department" aria-label="מחלקה"><option value="">בחירה…</option>${departmentOptions.map((item) => `<option value="${item.value}" ${departmentValue(row) === item.value ? "selected" : ""}>${item.label}</option>`).join("")}</select>`;
+  const departmentSelect = (row) => `<select name="department" aria-label="מחלקה"><option value="">בחירה…</option>${departmentOptions().map((item) => `<option value="${item.value}" ${departmentValue(row) === item.value ? "selected" : ""}>${esc(item.label)}</option>`).join("")}</select>`;
+  const accountingStatus = (row) => state.data.accountingStatuses.find((item) => item.accounting_status_id === row.accounting_status_id);
   const sourceName = (transaction) => transaction.source_payload?.source === "MANUAL" ? "MANUAL" : "BANK";
   const inspect = (transaction, rowsOverride) => {
     const rows = rowsOverride || allocationsFor(transaction.bank_transaction_id);
     const total = rows.reduce((sum, row) => sum + (Number(row.allocation_amount) || 0), 0);
     const remaining = Number(transaction.amount) - total;
-    const missing = !rows.length || rows.some((row) => !row.movement_type || !row.allocation_unit_id || (departmentValue(row) === "DAYCARES" && !row.daycare_id) || !row.budget_month || !row.accounting_status || (row.movement_type !== "EXCLUDE" && !row.budget_category_id) || !Number(row.allocation_amount));
+    const missing = !rows.length || rows.some((row) => !row.movement_type || !row.allocation_unit_id || (departmentValue(row) === "DAYCARES" && !row.daycare_id) || !row.budget_month || !row.accounting_status_id || (row.movement_type !== "EXCLUDE" && !row.budget_category_id) || !Number(row.allocation_amount));
     const split = rows.length > 1;
     const balanced = rows.length > 0 && Math.abs(remaining) <= .01;
-    const statuses = rows.map((row) => row.accounting_status).filter(Boolean);
-    const ready = balanced && !missing && statuses.every((value) => value === "PENDING_SUBMISSION");
-    const sent = balanced && !missing && statuses.every((value) => ["SENT_TO_ACCOUNTING","NO_SUPPORTING_DOCUMENT_REQUIRED"].includes(value));
-    return { rows, total, remaining, missing, split, balanced, ready, sent, missingDocuments: statuses.includes("MISSING_DOCUMENTS") };
+    const statuses = rows.map(accountingStatus).filter(Boolean);
+    const ready = balanced && !missing && statuses.every((value) => value.sheet_accounting_status_id === "ACC-WAITING");
+    const sent = balanced && !missing && statuses.every((value) => value.is_final);
+    return { rows, total, remaining, missing, split, balanced, ready, sent, missingDocuments: statuses.some((value) => value.sheet_accounting_status_id === "ACC-MISSING-DOCS") };
   };
   const missingReason = (rows) => {
     if (!rows.length) return "טרם טופל — אין שורת שיוך";
@@ -59,7 +78,7 @@ export async function mountBankWorkbenchV2(request) {
       if (!row.allocation_unit_id) missing.add("מחלקה");
       if (departmentValue(row) === "DAYCARES" && !row.daycare_id) missing.add("מעון");
       if (!row.budget_month) missing.add("חודש שיוך");
-      if (!row.accounting_status) missing.add("סטטוס הנה״ח");
+      if (!row.accounting_status_id) missing.add("סטטוס הנה״ח");
       if (row.movement_type !== "EXCLUDE" && !row.budget_category_id) missing.add("סעיף תקציבי");
       if (!Number(row.allocation_amount)) missing.add("סכום הקצאה");
     });
@@ -87,13 +106,13 @@ export async function mountBankWorkbenchV2(request) {
   const searchText = (transaction) => `${transaction.description} ${transaction.reference_number || ""} ${transaction.amount} ${transactionNumber(transaction)} ${allocationsFor(transaction.bank_transaction_id).map((row) => row.notes || "").join(" ")}`.toLowerCase();
   const baseFiltered = () => state.data.transactions.filter((transaction) => {
     const info = inspect(transaction);
-    return (!state.query || searchText(transaction).includes(state.query.toLowerCase())) && (!state.account || transaction.bank_account_id === state.account) && (!state.month || transaction.transaction_date?.startsWith(state.month)) && (!state.status || info.rows.some((row) => row.accounting_status === state.status)) && (!state.batch || transaction.import_batch_id === state.batch);
+    return (!state.query || searchText(transaction).includes(state.query.toLowerCase())) && (!state.account || transaction.bank_account_id === state.account) && (!state.month || transaction.transaction_date?.startsWith(state.month)) && (!state.status || info.rows.some((row) => row.accounting_status_id === state.status)) && (!state.batch || transaction.import_batch_id === state.batch);
   });
   const filtered = () => baseFiltered().filter((transaction) => workflowMatches(transaction));
   const statusMarkup = (transaction, rowsOverride) => { const status = statusInfo(transaction, rowsOverride); return `<span class="bank-row-status ${status.tone}" title="${esc(status.text)}">${esc(status.text)}</span>`; };
   const allocationInputs = (row) => {
     const department = departmentValue(row);
-    return `<td><select name="movement_type" aria-label="סוג תנועה">${options("movementTypes",row.movement_type)}</select></td><td>${departmentSelect(row)}<input name="allocation_unit_id" type="hidden" value="${esc(row.allocation_unit_id || "")}"></td><td><span data-daycare-field ${department === "DAYCARES" ? "" : "hidden"}><select name="daycare_id" aria-label="מעון">${options("daycares",row.daycare_id)}</select></span></td><td><select name="budget_category_id" aria-label="סעיף תקציבי">${options("budgetCategories",row.budget_category_id)}</select></td><td><select name="budget_month" aria-label="חודש שיוך">${options("budgetMonths",row.budget_month?.slice(0,7))}</select></td><td><select name="accounting_status" aria-label="סטטוס הנהלת חשבונות">${options("accountingStatuses",row.accounting_status)}</select></td><td><input name="notes" value="${esc(row.notes || "")}" aria-label="הערות"></td>`;
+    return `<td><select name="movement_type" aria-label="סוג תנועה">${options("movementTypes",row.movement_type)}</select></td><td>${departmentSelect(row)}<input name="allocation_unit_id" type="hidden" value="${esc(row.allocation_unit_id || "")}"></td><td><span data-daycare-field ${department === "DAYCARES" ? "" : "hidden"}><select name="daycare_id" aria-label="מעון">${options("daycares",row.daycare_id)}</select></span></td><td><select name="budget_category_id" aria-label="סעיף תקציבי">${options("budgetCategories",row.budget_category_id)}</select></td><td><select name="budget_month" aria-label="חודש שיוך">${options("budgetMonths",row.budget_month?.slice(0,7))}</select></td><td><select name="accounting_status_id" aria-label="סטטוס הנהלת חשבונות">${options("accountingStatuses",row.accounting_status_id)}</select></td><td><input name="notes" value="${esc(row.notes || "")}" aria-label="הערות"></td>`;
   };
   const amountSummary = (transaction, info) => `<div class="bank-amount-summary"><strong>${money.format(transaction.amount)}</strong><small>מקורי ${money.format(transaction.amount)}</small><small>מוקצה ${money.format(info.total)}</small><small class="${info.balanced ? "is-balanced" : "is-unbalanced"}">נותר ${money.format(info.remaining)} · ${info.balanced ? "מאוזן" : "לא מאוזן"}</small></div>`;
   const actionButtons = (transaction, isSplit) => `<div class="bank-row-actions">${isSplit ? "" : `<button type="button" data-save-transaction="${transaction.bank_transaction_id}">שמירה</button>`}<button type="button" data-add-split="${transaction.bank_transaction_id}">＋ פיצול</button>${isSplit ? `<button type="button" data-toggle-split="${transaction.bank_transaction_id}" aria-expanded="${state.expanded.has(transaction.bank_transaction_id)}">${state.expanded.has(transaction.bank_transaction_id) ? "צמצום" : "הרחבה"}</button>` : ""}<button type="button" data-delete-transaction="${transaction.bank_transaction_id}">מחיקה</button></div>`;
@@ -168,22 +187,29 @@ export async function mountBankWorkbenchV2(request) {
   };
   const renderToolbarFilters = () => {
     const accountIds=new Set(state.data.transactions.map((row)=>row.bank_account_id));
-    $("#bank-account-filter").innerHTML='<option value="">כל החשבונות</option>'+state.data.accounts.filter((row)=>accountIds.has(row.bank_account_id)).map((row)=>`<option value="${row.bank_account_id}">${esc(row.display_name)}</option>`).join("");
+    $("#bank-account-filter").innerHTML='<option value="">כל החשבונות</option>'+state.data.accounts.filter((row)=>accountIds.has(row.bank_account_id)).map((row)=>`<option value="${row.bank_account_id}">${esc(row.display_name)}${row.lifecycle_status === "ACTIVE" ? "" : " (לא פעיל)"}</option>`).join("");
     $("#bank-month-filter").innerHTML='<option value="">כל החודשים</option>'+[...new Set(state.data.transactions.map((row)=>row.transaction_date?.slice(0,7)).filter(Boolean))].sort().reverse().map((value)=>`<option value="${value}">${value}</option>`).join("");
-    const statuses=new Set(state.data.allocations.map((row)=>row.accounting_status).filter(Boolean));
-    $("#bank-status-filter").innerHTML='<option value="">כל הסטטוסים</option>'+workflowOptions("accountingStatuses").filter((row)=>statuses.has(row.value)).map((row)=>`<option value="${row.value}">${esc(row.label)}</option>`).join("");
+    const statuses=new Set(state.data.allocations.map((row)=>row.accounting_status_id).filter(Boolean));
+    $("#bank-status-filter").innerHTML='<option value="">כל הסטטוסים</option>'+lookupOptions("accountingStatuses").filter((row)=>statuses.has(row.value)).map((row)=>`<option value="${row.value}">${esc(row.label)}</option>`).join("");
     ["account","month","status"].forEach((name)=>{const select=$(`#bank-${name}-filter`);select.value=state[name];if(select.value!==state[name])state[name]="";});
   };
-  const reload = async () => { state.data=await request("GET"); state.drafts.clear(); state.data.transactions.forEach((row)=>{if(allocationsFor(row.bank_transaction_id).length>1)state.expanded.add(row.bank_transaction_id);}); renderToolbarFilters(); render(false); };
+  const reload = async () => {
+    state.data={
+      transactions: [], allocations: [], accounts: [], units: [], daycares: [],
+      categories: [], accountingStatuses: [], assignmentMonths: [], batches: [],
+      ...await request("GET"),
+    };
+    state.drafts.clear(); state.data.transactions.forEach((row)=>{if(allocationsFor(row.bank_transaction_id).length>1)state.expanded.add(row.bank_transaction_id);}); renderToolbarFilters(); render(false);
+  };
   const exportColumns = ["#","סטטוס","חשבון בנק","תאריך","תיאור","אסמכתא","סכום","סוג תנועה","מחלקה","מעון","סעיף תקציבי","חודש שיוך","סטטוס הנה״ח","הערות","מסמכים","מקור"];
   const exportRowsFor = (transactions, exactView = false) => transactions.flatMap((transaction) => {
     const rows=allocationsFor(transaction.bank_transaction_id), info=inspect(transaction), base=[transactionNumber(transaction),statusInfo(transaction).text,accountName(transaction.bank_account_id),transaction.transaction_date,transaction.description,transaction.reference_number||"",Number(transaction.amount)];
     const parent=[...base,"","","","","","","",transaction.attachment_count||0,sourceName(transaction)];
     if (info.split) {
-      const children=rows.map((row,index)=>[`${transactionNumber(transaction)}.${index+1}`,statusInfo(transaction,[row]).text,accountName(transaction.bank_account_id),transaction.transaction_date,`הקצאה ${index+1}: ${transaction.description}`,transaction.reference_number||"",Number(row.allocation_amount)||0,optionLabel("movementTypes",row.movement_type),departmentOptions.find((item)=>item.value===departmentValue(row))?.label||"",optionLabel("daycares",row.daycare_id),optionLabel("budgetCategories",row.budget_category_id),row.budget_month||"",optionLabel("accountingStatuses",row.accounting_status),row.notes||"","",sourceName(transaction)]);
+      const children=rows.map((row,index)=>[`${transactionNumber(transaction)}.${index+1}`,statusInfo(transaction,[row]).text,accountName(transaction.bank_account_id),transaction.transaction_date,`הקצאה ${index+1}: ${transaction.description}`,transaction.reference_number||"",Number(row.allocation_amount)||0,optionLabel("movementTypes",row.movement_type),departmentOptions().find((item)=>item.value===departmentValue(row))?.label||"",optionLabel("daycares",row.daycare_id),optionLabel("budgetCategories",row.budget_category_id),row.budget_month||"",optionLabel("accountingStatuses",row.accounting_status_id),row.notes||"","",sourceName(transaction)]);
       return exactView && !state.expanded.has(transaction.bank_transaction_id) ? [parent] : [parent,...children];
     }
-    const row=rows[0]||{}; return [[...base,optionLabel("movementTypes",row.movement_type),departmentOptions.find((item)=>item.value===departmentValue(row))?.label||"",optionLabel("daycares",row.daycare_id),optionLabel("budgetCategories",row.budget_category_id),row.budget_month||"",optionLabel("accountingStatuses",row.accounting_status),row.notes||"",transaction.attachment_count||0,sourceName(transaction)]];
+    const row=rows[0]||{}; return [[...base,optionLabel("movementTypes",row.movement_type),departmentOptions().find((item)=>item.value===departmentValue(row))?.label||"",optionLabel("daycares",row.daycare_id),optionLabel("budgetCategories",row.budget_category_id),row.budget_month||"",optionLabel("accountingStatuses",row.accounting_status_id),row.notes||"",transaction.attachment_count||0,sourceName(transaction)]];
   });
   const ensureExcel = async () => {
     if (window.ExcelJS) return window.ExcelJS;
@@ -201,14 +227,14 @@ export async function mountBankWorkbenchV2(request) {
   };
   const selectionMatches = (filters) => state.data.transactions.filter((transaction) => {
     const rows=allocationsFor(transaction.bank_transaction_id), date=transaction.transaction_date||"";
-    return (!filters.accountingMonth||rows.some((row)=>row.budget_month?.startsWith(filters.accountingMonth)))&&(!filters.calendarMonth||date.slice(5,7)===filters.calendarMonth)&&(!filters.year||date.startsWith(filters.year))&&(!filters.account||transaction.bank_account_id===filters.account)&&(!filters.daycare||rows.some((row)=>row.daycare_id===filters.daycare))&&(!filters.department||rows.some((row)=>departmentValue(row)===filters.department))&&(!filters.category||rows.some((row)=>row.budget_category_id===filters.category))&&(!filters.accountingStatus||rows.some((row)=>row.accounting_status===filters.accountingStatus))&&(!filters.workflow||workflowMatches(transaction,filters.workflow));
+    return (!filters.accountingMonth||rows.some((row)=>row.budget_month?.startsWith(filters.accountingMonth)))&&(!filters.calendarMonth||date.slice(5,7)===filters.calendarMonth)&&(!filters.year||date.startsWith(filters.year))&&(!filters.account||transaction.bank_account_id===filters.account)&&(!filters.daycare||rows.some((row)=>row.daycare_id===filters.daycare))&&(!filters.department||rows.some((row)=>departmentValue(row)===filters.department))&&(!filters.category||rows.some((row)=>row.budget_category_id===filters.category))&&(!filters.accountingStatus||rows.some((row)=>row.accounting_status_id===filters.accountingStatus))&&(!filters.workflow||workflowMatches(transaction,filters.workflow));
   });
   const exportFilters = (root) => Object.fromEntries([...root.querySelectorAll("[data-export-filter]")].map((input)=>[input.dataset.exportFilter,input.value]));
   const renderExportDialog = () => {
     const root=$("#bank-export-content"), allocationRows=state.data.allocations, values=(items)=>[...new Set(items.filter(Boolean))], optionSet=(items,labeler=(value)=>value)=>'<option value="">הכול</option>'+items.map((value)=>`<option value="${value}">${esc(labeler(value))}</option>`).join("");
     const months=values(state.data.transactions.map((row)=>row.transaction_date?.slice(5,7))).sort(), years=values(state.data.transactions.map((row)=>row.transaction_date?.slice(0,4))).sort().reverse(), assignmentMonths=values(allocationRows.map((row)=>row.budget_month?.slice(0,7))).sort().reverse();
-    const accountIds=values(state.data.transactions.map((row)=>row.bank_account_id)), daycareIds=values(allocationRows.map((row)=>row.daycare_id)), departments=values(allocationRows.map(departmentValue)), categoryIds=values(allocationRows.map((row)=>row.budget_category_id)), statuses=values(allocationRows.map((row)=>row.accounting_status));
-    root.innerHTML=`<h2>ייצוא תנועות בנק</h2><fieldset class="bank-export-scope"><legend>מה לייצא?</legend><label><input type="radio" name="export_scope" value="view" checked> התצוגה הנוכחית — בדיוק השורות המוצגות</label><label><input type="radio" name="export_scope" value="selection"> ייצוא לפי בחירה וסינונים</label></fieldset><div id="bank-export-filters" hidden><label>חודש שיוך<select data-export-filter="accountingMonth">${optionSet(assignmentMonths)}</select></label><label>חודש קלנדרי<select data-export-filter="calendarMonth">${optionSet(months)}</select></label><label>שנה<select data-export-filter="year">${optionSet(years)}</select></label><label>חשבון בנק<select data-export-filter="account">${optionSet(accountIds,accountName)}</select></label><label>מעון<select data-export-filter="daycare">${optionSet(daycareIds,(value)=>optionLabel("daycares",value))}</select></label><label>מחלקה<select data-export-filter="department">${optionSet(departments,(value)=>departmentOptions.find((item)=>item.value===value)?.label)}</select></label><label>סעיף תקציבי<select data-export-filter="category">${optionSet(categoryIds,(value)=>optionLabel("budgetCategories",value))}</select></label><label>סטטוס הנה״ח<select data-export-filter="accountingStatus">${optionSet(statuses,(value)=>optionLabel("accountingStatuses",value))}</select></label><label>סטטוס תהליך<select data-export-filter="workflow"><option value="">הכול</option>${workflowDefinitions.slice(1).filter(([, ,predicate])=>state.data.transactions.some(predicate)).map(([id,title])=>`<option value="${id}">${title}</option>`).join("")}</select></label></div><p class="bank-export-count"><strong id="bank-export-count">${filtered().length}</strong> תנועות תואמות</p><fieldset><legend>פורמט</legend><label><input type="radio" name="export_format" value="xlsx" checked> Excel (.xlsx)</label><label><input type="radio" name="export_format" value="pdf"> PDF</label></fieldset><div class="dialog-actions"><button id="bank-export-confirm" class="button button-primary" type="button">ייצוא</button><button class="button button-secondary" type="button" data-close-export>ביטול</button></div>`;
+    const accountIds=values(state.data.transactions.map((row)=>row.bank_account_id)), daycareIds=values(allocationRows.map((row)=>row.daycare_id)), departments=values(allocationRows.map(departmentValue)), categoryIds=values(allocationRows.map((row)=>row.budget_category_id)), statuses=values(allocationRows.map((row)=>row.accounting_status_id));
+    root.innerHTML=`<h2>ייצוא תנועות בנק</h2><fieldset class="bank-export-scope"><legend>מה לייצא?</legend><label><input type="radio" name="export_scope" value="view" checked> התצוגה הנוכחית — בדיוק השורות המוצגות</label><label><input type="radio" name="export_scope" value="selection"> ייצוא לפי בחירה וסינונים</label></fieldset><div id="bank-export-filters" hidden><label>חודש שיוך<select data-export-filter="accountingMonth">${optionSet(assignmentMonths)}</select></label><label>חודש קלנדרי<select data-export-filter="calendarMonth">${optionSet(months)}</select></label><label>שנה<select data-export-filter="year">${optionSet(years)}</select></label><label>חשבון בנק<select data-export-filter="account">${optionSet(accountIds,accountName)}</select></label><label>מעון<select data-export-filter="daycare">${optionSet(daycareIds,(value)=>optionLabel("daycares",value))}</select></label><label>מחלקה<select data-export-filter="department">${optionSet(departments,(value)=>departmentOptions().find((item)=>item.value===value)?.label)}</select></label><label>סעיף תקציבי<select data-export-filter="category">${optionSet(categoryIds,(value)=>optionLabel("budgetCategories",value))}</select></label><label>סטטוס הנה״ח<select data-export-filter="accountingStatus">${optionSet(statuses,(value)=>optionLabel("accountingStatuses",value))}</select></label><label>סטטוס תהליך<select data-export-filter="workflow"><option value="">הכול</option>${workflowDefinitions.slice(1).filter(([, ,predicate])=>state.data.transactions.some(predicate)).map(([id,title])=>`<option value="${id}">${title}</option>`).join("")}</select></label></div><p class="bank-export-count"><strong id="bank-export-count">${filtered().length}</strong> תנועות תואמות</p><fieldset><legend>פורמט</legend><label><input type="radio" name="export_format" value="xlsx" checked> Excel (.xlsx)</label><label><input type="radio" name="export_format" value="pdf"> PDF</label></fieldset><div class="dialog-actions"><button id="bank-export-confirm" class="button button-primary" type="button">ייצוא</button><button class="button button-secondary" type="button" data-close-export>ביטול</button></div>`;
     const updateCount=()=>{const selection=root.querySelector('[name="export_scope"]:checked').value==="selection";root.querySelector("#bank-export-filters").hidden=!selection;$("#bank-export-count").textContent=selection?selectionMatches(exportFilters(root)).length:filtered().length;};
     root.addEventListener("change",updateCount); root.querySelector("[data-close-export]").addEventListener("click",()=>$("#bank-export-dialog").close());
     root.querySelector("#bank-export-confirm").addEventListener("click",async()=>{try{const selection=root.querySelector('[name="export_scope"]:checked').value==="selection", transactions=selection?selectionMatches(exportFilters(root)):filtered(), rows=exportRowsFor(transactions,!selection), format=root.querySelector('[name="export_format"]:checked').value;if(format==="xlsx")await downloadExcel(rows);else exportPdf(rows);$("#bank-export-dialog").close();message(`יוצאו ${transactions.length} תנועות.`,"success");}catch(error){message(error.message,"error");}});
@@ -223,7 +249,7 @@ export async function mountBankWorkbenchV2(request) {
     const dialog=$("#bank-mapping-dialog"),root=$("#bank-mapping-content");
     const columnOptions=(headers,selected=-1)=>'<option value="-1">לא קיימת</option>'+headers.map((header,index)=>`<option value="${index}" ${index===selected?"selected":""}>${esc(header||`עמודה ${index+1}`)}</option>`).join("");
     const field=(name,title,required=true)=>`<label>${title}${required?" *":""}<select data-map="${name}">${columnOptions(parsed.headers,parsed.indexes?.[name]??-1)}</select></label>`;
-    root.innerHTML=`<h2>מיפוי עמודות ידני</h2><p>${esc(parsed.reason)} בחרו את העמודות וחשבון הבנק, ואז נציג תצוגה מקדימה.</p><div class="bank-mapping-grid"><label>שורת כותרות<select id="bank-map-header">${parsed.matrix.map((row,index)=>`<option value="${index}" ${index===parsed.headerIndex?"selected":""}>${index+1}: ${esc(row.filter(Boolean).slice(0,4).join(" | "))}</option>`).join("")}</select></label>${field("transaction_date","תאריך")}${field("description","תיאור")}${field("reference_number","אסמכתא",false)}${field("amount","סכום חתום",false)}${field("debit","חובה",false)}${field("credit","זכות",false)}${field("account","מספר חשבון בקובץ",false)}<label>חשבון בנק *<select id="bank-map-account"><option value="">בחירה…</option>${state.data.accounts.map((row)=>`<option value="${esc(row.source_account_number||"")}">${esc(row.display_name)}</option>`).join("")}</select></label></div><div class="dialog-actions"><button id="bank-apply-mapping" class="button button-primary" type="button">המשך לתצוגה מקדימה</button><button class="button button-secondary" type="button" data-close-mapping>ביטול</button></div>`;
+    root.innerHTML=`<h2>מיפוי עמודות ידני</h2><p>${esc(parsed.reason)} בחרו את העמודות וחשבון הבנק, ואז נציג תצוגה מקדימה.</p><div class="bank-mapping-grid"><label>שורת כותרות<select id="bank-map-header">${parsed.matrix.map((row,index)=>`<option value="${index}" ${index===parsed.headerIndex?"selected":""}>${index+1}: ${esc(row.filter(Boolean).slice(0,4).join(" | "))}</option>`).join("")}</select></label>${field("transaction_date","תאריך")}${field("description","תיאור")}${field("reference_number","אסמכתא",false)}${field("amount","סכום חתום",false)}${field("debit","חובה",false)}${field("credit","זכות",false)}${field("account","מספר חשבון בקובץ",false)}<label>חשבון בנק *<select id="bank-map-account"><option value="">בחירה…</option>${state.data.accounts.filter((row)=>row.lifecycle_status==="ACTIVE").map((row)=>`<option value="${esc(row.source_account_number||"")}">${esc(row.display_name)}</option>`).join("")}</select></label></div><div class="dialog-actions"><button id="bank-apply-mapping" class="button button-primary" type="button">המשך לתצוגה מקדימה</button><button class="button button-secondary" type="button" data-close-mapping>ביטול</button></div>`;
     dialog.showModal();
     $("#bank-map-header").addEventListener("change",(event)=>{
       const headers=parsed.matrix[Number(event.target.value)]||[];
@@ -256,7 +282,7 @@ export async function mountBankWorkbenchV2(request) {
   };
   const openManualTransaction = () => {
     const dialog=$("#bank-manual-dialog"), root=$("#bank-manual-content");
-    root.innerHTML=`<h2>תנועה חדשה</h2><p>תנועה ידנית נשמרת ומתנהגת כמו תנועה מיובאת, עם מקור MANUAL.</p><form id="bank-manual-form" class="bank-mapping-grid"><label>חשבון בנק *<select name="bank_account_id" required><option value="">בחירה…</option>${state.data.accounts.map((row)=>`<option value="${row.bank_account_id}">${esc(row.display_name)}</option>`).join("")}</select></label><label>תאריך *<input name="transaction_date" type="date" required></label><label>תיאור *<input name="description" required></label><label>אסמכתא<input name="reference_number"></label><label>סכום *<input name="amount" type="number" step=".01" required></label><div class="dialog-actions"><button class="button button-primary" type="submit">שמירת תנועה</button><button class="button button-secondary" type="button" data-close-manual>ביטול</button></div></form>`;
+    root.innerHTML=`<h2>תנועה חדשה</h2><p>תנועה ידנית נשמרת ומתנהגת כמו תנועה מיובאת, עם מקור MANUAL.</p><form id="bank-manual-form" class="bank-mapping-grid"><label>חשבון בנק *<select name="bank_account_id" required><option value="">בחירה…</option>${state.data.accounts.filter((row)=>row.lifecycle_status==="ACTIVE").map((row)=>`<option value="${row.bank_account_id}">${esc(row.display_name)}</option>`).join("")}</select></label><label>תאריך *<input name="transaction_date" type="date" required></label><label>תיאור *<input name="description" required></label><label>אסמכתא<input name="reference_number"></label><label>סכום *<input name="amount" type="number" step=".01" required></label><div class="dialog-actions"><button class="button button-primary" type="submit">שמירת תנועה</button><button class="button button-secondary" type="button" data-close-manual>ביטול</button></div></form>`;
     dialog.showModal();
     root.querySelector("[data-close-manual]").addEventListener("click",()=>dialog.close());
     root.querySelector("#bank-manual-form").addEventListener("submit",async(event)=>{
@@ -300,12 +326,12 @@ export async function mountBankWorkbenchV2(request) {
       if(event.target.value==="DAYCARES"){daycare.value="";allocationUnit.value="";}
       else {
         daycare.value="";
-        allocationUnit.value=(state.data.units.find((item)=>item.unit_type===event.target.value)||workflowOptions("departments").find((item)=>item.extra===event.target.value))?.allocation_unit_id || workflowOptions("departments").find((item)=>item.extra===event.target.value)?.value || "";
+        allocationUnit.value=event.target.value;
       }
     }
     if(event.target.name==="daycare_id"){
-      const selected=workflowOptions("daycares").find((item)=>item.value===event.target.value);
-      row.querySelector('[name="allocation_unit_id"]').value=selected?.extra||"";
+      const selected=state.data.daycares.find((item)=>item.daycare_id===event.target.value);
+      row.querySelector('[name="allocation_unit_id"]').value=selected?.allocation_unit_id||"";
     }
     refreshTransaction(row.dataset.bankRow);
   });

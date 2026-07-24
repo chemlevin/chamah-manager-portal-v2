@@ -77,7 +77,8 @@ erDiagram
   BANK_ALLOCATIONS {
     uuid bank_allocation_id PK
     uuid allocation_unit_id FK
-    text accounting_status
+    uuid accounting_status_id FK
+    text accounting_status "deprecated read-only"
   }
 
   BUDGET_CATEGORIES {

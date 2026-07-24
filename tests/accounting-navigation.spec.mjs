@@ -9,8 +9,21 @@ async function openAccounting(page, route, access = portalAccessFixture, workben
   await page.route(`${base}/rest/v1/rpc/portal_my_access**`, (request) => request.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(access) }));
   await page.route(`${base}/rest/v1/allocation_units**`, (request) => request.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
   await page.route(`${base}/functions/v1/portal-bank-workbench`, async (request) => {
-    const defaults = { transactions: [], allocations: [], accounts: [], units: [], daycares: [], categories: [], batches: [] };
-    await request.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...defaults, ...workbench }) });
+    const defaults = {
+      transactions: [], allocations: [], accounts: [], units: [], daycares: [], categories: [], batches: [],
+      assignmentMonths: [{ school_year_month_id: 'month-2026-07', start_date: '2026-07-01', month_label: 'יולי 2026' }],
+      accountingStatuses: [
+        { accounting_status_id: 'status-missing', sheet_accounting_status_id: 'ACC-MISSING-DOCS', display_name: 'חסרים מסמכים', display_order: 10, is_final: false, lifecycle_status: 'ACTIVE' },
+        { accounting_status_id: 'status-waiting', sheet_accounting_status_id: 'ACC-WAITING', display_name: 'ממתין לשליחה', display_order: 20, is_final: false, lifecycle_status: 'ACTIVE' },
+        { accounting_status_id: 'status-sent', sheet_accounting_status_id: 'ACC-SENT', display_name: 'נשלח להנה״ח', display_order: 30, is_final: true, lifecycle_status: 'ACTIVE' },
+      ],
+    };
+    const response = { ...defaults, ...workbench };
+    response.accounts = response.accounts.map((row) => ({ lifecycle_status: 'ACTIVE', ...row }));
+    response.units = response.units.map((row) => ({ lifecycle_status: 'ACTIVE', ...row }));
+    response.daycares = response.daycares.map((row) => ({ lifecycle_status: 'ACTIVE', ...row }));
+    response.categories = response.categories.map((row) => ({ lifecycle_status: 'ACTIVE', ...row }));
+    await request.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response) });
   });
   await page.goto(`/new/#${route}`);
 }
@@ -20,7 +33,7 @@ const transactions = [
   { bank_transaction_id: 'tx-1', bank_account_id: 'account-1', transaction_date: '2026-07-24', description: 'חשמל', reference_number: '100', amount: -100, attachment_count: 2 },
   { bank_transaction_id: 'tx-2', bank_account_id: 'account-1', transaction_date: '2026-07-23', description: 'עמלה', reference_number: '101', amount: -20, attachment_count: 0 },
 ];
-const allocation = { bank_allocation_id: 'allocation-1', bank_transaction_id: 'tx-1', movement_type: 'EXPENSE', allocation_unit_id: 'fe05de40-2551-4e90-befe-db4253d66e1c', budget_category_id: 'ab5e648d-c280-44ad-a56d-8fc6e825f92a', budget_month: '2026-07-01', accounting_status: 'PENDING_SUBMISSION', allocation_amount: -60, notes: 'בדיקת חשמל' };
+const allocation = { bank_allocation_id: 'allocation-1', bank_transaction_id: 'tx-1', movement_type: 'EXPENSE', allocation_unit_id: 'fe05de40-2551-4e90-befe-db4253d66e1c', budget_category_id: 'ab5e648d-c280-44ad-a56d-8fc6e825f92a', budget_month: '2026-07-01', accounting_status_id: 'status-waiting', allocation_amount: -60, notes: 'בדיקת חשמל' };
 
 test('Accounting presents Summary Dashboard and Bank File as equal sibling choices', async ({ page }) => {
   await openAccounting(page, 'dashboards/unit/organization/accounting');
@@ -141,7 +154,7 @@ test('Bank File opens manual column mapping when auto-detection fails', async ({
       previewPayload = body;
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ preview_token: 'manual-preview', account, account_number: body.account_number, rows: body.rows.map((row) => ({ ...row, errors: [], duplicate: false, importable: true })), summary: { total: 1, importable: 1, duplicates: 0, invalid: 0 } }) });
     }
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ transactions: [], allocations: [], accounts: [{ ...account, source_account_number: '123456' }], units: [], daycares: [], categories: [], batches: [] }) });
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ transactions: [], allocations: [], accounts: [{ lifecycle_status: 'ACTIVE', ...account, source_account_number: '123456' }], units: [], daycares: [], categories: [], accountingStatuses: [], assignmentMonths: [], batches: [] }) });
   });
   await page.locator('#bank-file').setInputFiles({ name: 'manual.csv', mimeType: 'text/csv', buffer: Buffer.from('כותרת דוח\nיום,מלל,מזהה,ערך\n24/07/2026,בדיקה,00009,-10', 'utf8') });
   await expect(page.getByRole('heading', { name: 'מיפוי עמודות ידני' })).toBeVisible();
@@ -181,7 +194,7 @@ test('Bank File detects and maps an HTML table exported with an .xls extension',
     if (body.action === 'confirm_import') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ batch_id: 'fixture-batch', imported: 2, transactions: [{ bank_transaction_id: 'fixture-1' }, { bank_transaction_id: 'fixture-2' }] }) });
     }
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ transactions: [], allocations: [], accounts: [{ ...account, source_account_number: '123456' }], units: [], daycares: [], categories: [], batches: [] }) });
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ transactions: [], allocations: [], accounts: [{ lifecycle_status: 'ACTIVE', ...account, source_account_number: '123456' }], units: [], daycares: [], categories: [], accountingStatuses: [], assignmentMonths: [], batches: [] }) });
   });
   await page.locator('#bank-file').setInputFiles('tests/fixtures/bank-export-html.xls');
   await expect(page.getByRole('heading', { name: 'תצוגה מקדימה לפני ייבוא' })).toBeVisible();
@@ -196,9 +209,10 @@ test('Bank File detects and maps an HTML table exported with an .xls extension',
 });
 
 test('Bank File locks source amount, edits split amounts, and enforces department-daycare dependency', async ({ page }) => {
-  const office = { allocation_unit_id: 'fe05de40-2551-4e90-befe-db4253d66e1c', unit_type: 'OFFICE', display_name: 'משרד' };
-  const daycareUnit = { allocation_unit_id: '692c8d30-1ba3-4502-acbc-2424f84f0d9f', unit_type: 'DAYCARE', display_name: 'אשקלון' };
-  await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, { accounts: [account], transactions, allocations: [], units: [office, daycareUnit] });
+  const office = { allocation_unit_id: 'fe05de40-2551-4e90-befe-db4253d66e1c', allocation_unit_type: 'OFFICE', display_name: 'משרד' };
+  const daycareUnit = { allocation_unit_id: '692c8d30-1ba3-4502-acbc-2424f84f0d9f', allocation_unit_type: 'DAYCARE', display_name: 'אשקלון' };
+  const development = { allocation_unit_id: 'b876ae79-8b8d-4915-9f57-fb282dde8057', allocation_unit_type: 'DEVELOPMENT', display_name: 'פיתוח' };
+  await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, { accounts: [account], transactions, allocations: [], units: [office, daycareUnit, development] });
   const sourceAmount = page.locator('[data-bank-row="tx-1"] input[name="allocation_amount"]');
   await expect(sourceAmount).toHaveValue('-100');
   await expect(sourceAmount).toHaveAttribute('readonly', '');
@@ -206,7 +220,7 @@ test('Bank File locks source amount, edits split amounts, and enforces departmen
   await expect(row.locator('select[name="department"] option')).toHaveText(['בחירה…', 'מעונות', 'משרד', 'פיתוח']);
   await row.locator('select[name="department"]').selectOption('DAYCARES');
   await expect(row.locator('[data-daycare-field]')).toBeVisible();
-  await row.locator('select[name="department"]').selectOption('OFFICE');
+  await row.locator('select[name="department"]').selectOption(office.allocation_unit_id);
   await expect(row.locator('[data-daycare-field]')).toBeHidden();
   await page.locator('[data-add-split="tx-1"]').click();
   const splitAmounts = page.locator('[data-bank-row="tx-1"][data-allocation-entry] input[name="allocation_amount"]');
@@ -241,7 +255,7 @@ test('Bank File creates a MANUAL transaction with the server-generated transacti
       currentTransactions = [manual];
       return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ batch_id: 'manual-batch', transaction: manual }) });
     }
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ transactions: currentTransactions, allocations: [], accounts: [account], units: [], daycares: [], categories: [], batches: [] }) });
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ transactions: currentTransactions, allocations: [], accounts: [{ lifecycle_status: 'ACTIVE', ...account }], units: [], daycares: [], categories: [], accountingStatuses: [], assignmentMonths: [], batches: [] }) });
   });
   await page.locator('#bank-new-transaction').click();
   const dialog = page.locator('#bank-manual-dialog');

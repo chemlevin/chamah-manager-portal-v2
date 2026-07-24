@@ -15,7 +15,7 @@ export const SOURCE_CATALOG = [
   { code: 'BANK_TRANSACTIONS', label: 'תנועות בנק', section: 'ACCOUNTING', fields: [
     { code: 'amount', label: 'סכום תנועה', dataType: 'CURRENCY', operations: ['SUM', 'AVERAGE', 'GREATER_THAN', 'LESS_THAN'] },
     { code: 'transaction_date', label: 'תאריך תנועה', dataType: 'DATE', operations: ['IN_PERIOD', 'EQUALS'] },
-    { code: 'accounting_status', label: 'סטטוס הנהלת חשבונות', dataType: 'ENUM', operations: ['EQUALS', 'IN_LIST'] }
+    { code: 'accounting_status_id', label: 'סטטוס הנהלת חשבונות', dataType: 'UUID', operations: ['EQUALS', 'IN_LIST'] }
   ] },
   { code: 'EMPLOYEES', label: 'עובדות', section: 'EMPLOYEES', fields: [
     { code: 'employment_status', label: 'סטטוס העסקה', dataType: 'ENUM', operations: ['EQUALS', 'IN_LIST'] },

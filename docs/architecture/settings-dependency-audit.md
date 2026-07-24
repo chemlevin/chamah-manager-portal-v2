@@ -90,7 +90,7 @@ Future module or missing integration
 |---|---|---|---|
 | סעיפי תקציב → `budget_categories` | Stable planning/reporting category: name/code, Handbook category type, lifecycle. | Budget calculations, finance dashboard, Accounting allocations, payroll allocations, bank workbench. | TRACK 014B briefly exposed obsolete pre-freeze values (`PAYROLL`, `OTHER`). TRACK 014C restores the frozen BR-0050 values. Missing governance: prevent archiving categories used by active rules or current allocations without replacement mapping. |
 | חשבונות בנק → `bank_accounts` | Identifies a legal entity’s bank source using a stable code, display name, masked identifier, and lifecycle. | Accounting dashboard and bank workbench; bank transactions reference the account. | Consumers use display name/code but not legal owner or masked identifier. Future entity consolidation, import matching, and duplicate-account detection should consume those fields. |
-| מצבי הנהלת חשבונות → `accounting_statuses` | Intended configurable presentation/order/finality for accounting workflow statuses. | Settings only. Accounting modules instead use hardcoded status codes and labels. | This is currently an orphaned duplicate of the constrained `bank_allocations.accounting_status` enum. Decide whether the table becomes presentation metadata for those exact codes or is retired; a free-standing editable status list must not invent values rejected by the database. |
+| מצבי הנהלת חשבונות → `accounting_statuses` | Authoritative accounting-workflow status identity, presentation, order and finality. | Settings, Accounting dashboard, bank workbench, filters and exports through `bank_allocations.accounting_status_id`. | `bank_allocations.accounting_status` remains read-only only for historical compatibility; all active persistence uses the foreign key. |
 
 ### Workforce and rules
 
@@ -164,7 +164,8 @@ Incomplete or weak:
 
 1. Staffing requirements exist in both `staffing_rules` and staffing-shaped `budget_rules`.
 2. Travel exists in `travel_rates` and compensation factors/rules.
-3. Accounting statuses exist in `accounting_statuses` while Accounting uses hardcoded enum labels.
+3. Resolved in TRACK015H: Accounting persists `accounting_status_id` and reads labels,
+   ordering and finality from `accounting_statuses`; the old text field is read-only.
 4. Age taxonomy exists in `age_groups` and text age codes inside rule tables.
 5. Default school year is queried as `is_default` while the frozen period schema documents selectability/status rather than a default flag.
 6. Budget has a compact frozen contract plus imported calculation-method/parameter extensions consumed directly by calculators.
@@ -175,7 +176,8 @@ High priority:
 
 - Single source and precedence for staffing rules.
 - Single source for travel compensation.
-- Exact contract connecting `accounting_statuses` to bank-allocation status codes.
+- Preserve the enforced `accounting_status_id` foreign-key contract and remove the
+  deprecated compatibility column after all historical consumers are retired.
 - Budget rule validation by rule type and required year scope.
 - No overlapping active effective ranges for licensing, staffing, compensation, travel, or staffing-Budget parameters.
 - Stable codes immutable after first use.

@@ -17,7 +17,8 @@ Stores manual bank allocation and accounting workflow fields separate from immut
 - `budget_category_id`
 - `budget_month`
 - `allocation_amount`
-- `accounting_status`
+- `accounting_status_id`
+- `accounting_status` (deprecated read-only compatibility)
 - `notes`
 
 ## Target Rule
@@ -28,13 +29,9 @@ Supported allocation unit types are daycare, office, management, and development
 
 ## Accounting Status
 
-Allowed codes:
-
-- `PENDING_SUBMISSION`
-- `SENT_TO_ACCOUNTING`
-- `MISSING_DOCUMENTS`
-- `NO_SUPPORTING_DOCUMENT_REQUIRED`
-- `NULL` for no status
+`accounting_status_id` references `accounting_statuses` and is the sole writable status
+field. The legacy `accounting_status` code is retained only for reading historical rows;
+an automatic migration backfills its ID and database enforcement rejects new legacy writes.
 
 ## Handbook Traceability
 

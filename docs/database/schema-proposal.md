@@ -327,7 +327,8 @@ Status: proposal only. No database has been created by this document.
   - `business_month text null`
   - `allocation_amount numeric(14,2) not null`
   - `allocation_type text null`
-  - `accounting_status text null`
+  - `accounting_status_id uuid null FK -> accounting_statuses.accounting_status_id`
+  - `accounting_status text null` (deprecated read-only compatibility)
   - `notes text null`
   - `raw_allocation_json jsonb null`
   - `created_at timestamptz not null`
@@ -343,11 +344,13 @@ Status: proposal only. No database has been created by this document.
   - `bank_allocations_unit_month_idx(organization_unit_id, business_month)`
   - `bank_allocations_daycare_month_idx(daycare_id, business_month)`
   - `bank_allocations_category_idx(budget_category_id)`
-  - `bank_allocations_status_idx(accounting_status)`
+  - `bank_allocations_accounting_status_id_idx(accounting_status_id)`
 - Sheet mapping:
   - BANKS `עבור מחלקה`, `עבור חודש`, `פירוט`, `הנה"ח`, `הערות`.
+- Accounting status contract:
+  - Allocation status persists through `accounting_status_id`.
+  - The legacy text field is never written by active code.
 - Open questions:
-  - Should accounting status live on transaction, allocation, or both?
   - Should unallocated rows be stored with null unit/category or in a separate review table?
 
 ## Table: `payroll_records`
@@ -404,4 +407,3 @@ Status: proposal only. No database has been created by this document.
 - `calculation_library`
 - `import_batches`
 - `source_row_audit`
-

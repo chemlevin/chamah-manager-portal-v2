@@ -23,16 +23,22 @@ RLS remains enabled on public tables. No permissive public policies are added in
 - Used records are not physically deleted.
 - Flat `allocation_units` are the authoritative management target model for v1.
 
-## Accounting Status Codes
+## Accounting Status Contract
 
-`bank_allocations.accounting_status` uses stable codes for Handbook BR-0134 values:
+`bank_allocations.accounting_status_id` is the canonical persistence field and references
+`accounting_statuses.accounting_status_id`. Stable integration codes live in
+`accounting_statuses.sheet_accounting_status_id`.
 
-| Code | Handbook value | Meaning |
+`bank_allocations.accounting_status` is a deprecated, read-only compatibility field for
+historical rows. New writes must not populate or update it.
+
+| Integration code | Handbook value | Meaning |
 |---|---|---|
-| `PENDING_SUBMISSION` | Pending Submission | Open accounting item not yet sent. |
-| `SENT_TO_ACCOUNTING` | Sent to Accounting | Closed accounting item sent externally. |
-| `MISSING_DOCUMENTS` | Missing Documents | Open item waiting for documentation. |
-| `NO_SUPPORTING_DOCUMENT_REQUIRED` | No Supporting Document Required | Closed item that needs no external document. |
+| `ACC-WAITING` | Pending Submission | Open accounting item not yet sent. |
+| `ACC-SENT` | Sent to Accounting | Accounting item sent externally. |
+| `ACC-MISSING-DOCS` | Missing Documents | Open item waiting for documentation. |
+| `ACC-NO-SEND` | No Supporting Document Required | Closed item that needs no external document. |
+| `ACC-APPROVED` | Approved | Final approved accounting item. |
 | `NULL` | No Accounting Status | No status assigned yet. |
 
 ## Budget Category Types

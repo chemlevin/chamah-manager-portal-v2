@@ -2431,3 +2431,51 @@ Validation:
 Deployment:
 
 - Preview only. No Production deployment, promotion, or alias change.
+
+## 2026-07-24 - TRACK015G/H Canonical Accounting Status Contract
+
+Objective: Remove the cross-stack accounting-status contract mismatch before
+closing TRACK015G or TRACK015H, with `accounting_status_id` as the sole writable
+persistence field.
+
+Implementation:
+
+- Audited frontend, dashboards, exports, Edge Functions, RPCs, migrations,
+  tests, documentation and live Supabase objects for legacy status references.
+- Added an automatic, idempotent backfill from the four historical
+  `bank_allocations.accounting_status` codes to the matching
+  `accounting_statuses.sheet_accounting_status_id` records.
+- The migration fails if any populated historical status remains unmapped.
+- Added database trigger enforcement that rejects inserts or updates attempting
+  to write the deprecated `accounting_status` field.
+- Replaced `portal_save_bank_allocations` so it reads and writes only
+  `accounting_status_id`.
+- Updated the Bank workbench Edge Function, settings-backed workbench,
+  Accounting dashboard, filters, exports and normal test fixtures to use the
+  canonical foreign key.
+- Retained the old text column only as a documented read-only historical field.
+- Updated architecture and data-contract documentation.
+
+Live Supabase verification:
+
+- Migration `track_015h_canonical_accounting_status_contract` applied.
+- All 5 existing allocations have `accounting_status_id`; 0 legacy-only rows
+  remain.
+- The live RPC contains the ID contract and no legacy JSON read.
+- The legacy-write guard trigger is active.
+- `portal-bank-workbench` version 6 deployed with JWT verification.
+
+Validation:
+
+- JavaScript syntax checks and `git diff --check` passed.
+- `npm run build` passed.
+- Accounting/Bank workbench suite passed: 13 desktop and 13 mobile.
+- Budget, Allocations, Management and Payroll regression passed: 37 tests.
+- Dashboard functional assertions passed; three dashboard tests still report
+  the known local static-server 404s for `/new/vendor/exceljs.min.js` and
+  `/new/vendor/xlsx.full.min.js`, unrelated to accounting persistence.
+
+Deployment:
+
+- Supabase Preview backend only at this stage. No Production deployment,
+  promotion or alias change.

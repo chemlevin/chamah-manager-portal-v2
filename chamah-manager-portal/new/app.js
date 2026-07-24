@@ -1465,27 +1465,21 @@ function closeKpiPanel() {
   $('#kpi-backdrop').hidden = true;
 }
 
-const accountingStatusLabels = {
-  PENDING_SUBMISSION: 'ממתין להגשה',
-  SENT_TO_ACCOUNTING: 'נשלח להנהלת חשבונות',
-  MISSING_DOCUMENTS: 'חסרים מסמכים',
-  NO_SUPPORTING_DOCUMENT_REQUIRED: 'אין צורך במסמך תומך'
-};
-
 async function loadAccountingDashboard() {
   if (accountingStatus === 'loading' || accountingStatus === 'ready') return;
   accountingStatus = 'loading'; accountingError = '';
   try {
-    const [years, transactions, allocations, accounts, units, daycares, categories] = await Promise.all([
+    const [years, transactions, allocations, accounts, units, daycares, categories, accountingStatuses] = await Promise.all([
       rest('calendar_years', 'select=calendar_year_id,calendar_year_code,display_name,start_date,end_date,status,is_selectable&is_selectable=eq.true&order=start_date.desc'),
       rest('bank_transactions', 'select=bank_transaction_id,bank_account_id,transaction_date,description,reference_number,amount,debit_amount,credit_amount&order=transaction_date.desc'),
-      rest('bank_allocations', 'select=bank_allocation_id,bank_transaction_id,allocation_unit_id,budget_month,budget_category_id,allocation_amount,accounting_status,notes'),
+      rest('bank_allocations', 'select=bank_allocation_id,bank_transaction_id,allocation_unit_id,budget_month,budget_category_id,allocation_amount,accounting_status_id,notes'),
       rest('bank_accounts', 'select=bank_account_id,display_name,bank_account_code,lifecycle_status'),
       rest('allocation_units', 'select=allocation_unit_id,display_name,allocation_unit_type,lifecycle_status,display_order&lifecycle_status=eq.ACTIVE&order=display_order.asc,display_name.asc'),
       rest('daycares', 'select=daycare_id,allocation_unit_id,display_name,lifecycle_status,display_order&order=display_order'),
-      rest('budget_categories', 'select=budget_category_id,display_name,category_type,lifecycle_status&lifecycle_status=eq.ACTIVE')
+      rest('budget_categories', 'select=budget_category_id,display_name,category_type,lifecycle_status&lifecycle_status=eq.ACTIVE'),
+      rest('accounting_statuses', 'select=accounting_status_id,sheet_accounting_status_id,display_name,is_final,lifecycle_status&order=display_order,display_name')
     ]);
-    accountingModel = { years, transactions, allocations, accounts, units: activeUnits(units), daycares, categories };
+    accountingModel = { years, transactions, allocations, accounts, units: activeUnits(units), daycares, categories, accountingStatuses };
     accountingStatus = 'ready'; accountingLastUpdated = new Date();
   } catch (error) { accountingStatus = 'error'; accountingError = error.message; }
 }
@@ -1527,6 +1521,9 @@ function renderAccountingData() {
   const model = accountingModel; const selectedUnits = activeDashboardUnit.allocation_unit_id === 'organization' ? selectedDashboardUnitIds : new Set([activeDashboardUnit.allocation_unit_id]);
   const txById = new Map(model.transactions.map((item) => [item.bank_transaction_id, item]));
   const categoryById = new Map(model.categories.map((item) => [item.budget_category_id, item]));
+  const accountingStatusById = new Map(model.accountingStatuses.map((item) => [item.accounting_status_id, item]));
+  const accountingStatusCode = (row) => accountingStatusById.get(row.accounting_status_id)?.sheet_accounting_status_id || '';
+  const accountingStatusLabel = (row) => accountingStatusById.get(row.accounting_status_id)?.display_name || 'ללא סטטוס';
   const allocationsByTx = new Map(model.transactions.map((item) => [item.bank_transaction_id, []]));
   model.allocations.forEach((item) => { if (allocationsByTx.has(item.bank_transaction_id)) allocationsByTx.get(item.bank_transaction_id).push(item); });
   const unitDaycare = new Map(model.daycares.filter((item) => item.lifecycle_status === 'ACTIVE').map((item) => [item.allocation_unit_id, item]));
@@ -1540,9 +1537,9 @@ function renderAccountingData() {
     const allocationTotal = sum(rows, (item) => Math.abs(Number(item.allocation_amount)));
     const difference = Math.abs(Number(transaction.amount)) - allocationTotal;
     const missing = { type: !validType, budgetMonth: !rows.length || rows.some((item) => !item.budget_month), allocationUnit: !rows.length || rows.some((item) => !item.allocation_unit_id), daycare: rows.some((item) => model.units.find((unit) => unit.allocation_unit_id === item.allocation_unit_id)?.allocation_unit_type === 'DAYCARE' && !unitDaycare.has(item.allocation_unit_id)), split: rows.length > 0 && Math.abs(difference) > .01 };
-    const statuses = [...new Set(rows.map((item) => item.accounting_status).filter(Boolean))];
-    const complete = rows.length > 0 && rows.every((item) => ['SENT_TO_ACCOUNTING', 'NO_SUPPORTING_DOCUMENT_REQUIRED'].includes(item.accounting_status));
-    const attention = Object.values(missing).some(Boolean) || rows.some((item) => ['PENDING_SUBMISSION', 'MISSING_DOCUMENTS'].includes(item.accounting_status));
+    const statuses = [...new Set(rows.map((item) => item.accounting_status_id).filter(Boolean))];
+    const complete = rows.length > 0 && rows.every((item) => ['ACC-SENT', 'ACC-NO-SEND', 'ACC-APPROVED'].includes(accountingStatusCode(item)));
+    const attention = Object.values(missing).some(Boolean) || rows.some((item) => ['ACC-WAITING', 'ACC-MISSING-DOCS'].includes(accountingStatusCode(item)));
     return { transaction, rows, allocationTotal, difference, missing, statuses, complete, attention };
   });
   const missingCards = [
@@ -1551,8 +1548,8 @@ function renderAccountingData() {
     ['missing-unit', 'חסרה יחידת הקצאה', 'התנועה עדיין אינה משויכת ליחידה ארגונית.', 'סופרים תנועות ללא שורת הקצאה או ללא יחידת הקצאה.', 'allocationUnit'],
     ['missing-daycare', 'חסר מעון', 'יחידת הקצאה מסוג מעון אינה מחוברת לרשומת מעון פעילה.', 'נבדקת רק הקצאה ליחידה מסוג מעון.', 'daycare'],
     ['invalid-split', 'פיצול לא תקין', 'סכום ההקצאות אינו תואם לסכום תנועת־האב.', 'משווים את הערך המוחלט של תנועת־האב לסך ההקצאות.', 'split']
-  ].map(([id, title, description, calculation, key]) => { const rows = analyses.filter((item) => item.missing[key]); return { id, title, primary: rows.length, formatter: number.format, utilization: rows.length ? 101 : 0, definition: { title, description, calculation, source: 'תנועות בנק והקצאות תנועה' }, details: rows.map((item) => ({ ...accountingTransactionRow(item.transaction, model, item.rows), פער: key === 'split' ? money.format(item.difference) : 'דורש השלמה' })), records: rows.flatMap((item) => [accountingTransactionRow(item.transaction, model, item.rows), ...item.rows.map((row) => ({ חודש: row.budget_month || 'לא הוגדר', יחידה: model.units.find((unit) => unit.allocation_unit_id === row.allocation_unit_id)?.display_name || 'לא שויך', סטטוס: accountingStatusLabels[row.accounting_status] || 'ללא סטטוס', סכום: money.format(row.allocation_amount) }))]) }; });
-  const workflowCards = [...new Set(selectedAllocations.map((item) => item.accounting_status).filter(Boolean))].map((status) => { const rows = selectedAllocations.filter((item) => item.accounting_status === status); const title = accountingStatusLabels[status] || status; return { id: `status-${status}`, title, primary: rows.length, formatter: number.format, utilization: status === 'MISSING_DOCUMENTS' || status === 'PENDING_SUBMISSION' ? 101 : 0, definition: { title, description: `הקצאות הנמצאות בסטטוס ${title}.`, calculation: 'ספירת שורות הקצאה בסטטוס הקיים במקור.', source: 'סטטוס הנהלת החשבונות של שורות ההקצאה' }, details: rows.map((row) => ({ חודש: row.budget_month, יחידה: model.units.find((unit) => unit.allocation_unit_id === row.allocation_unit_id)?.display_name || 'לא שויך', סכום: money.format(row.allocation_amount), סטטוס: title })), records: rows.map((row) => ({ ...accountingTransactionRow(txById.get(row.bank_transaction_id), model, [row]), חודש: row.budget_month, יחידה: model.units.find((unit) => unit.allocation_unit_id === row.allocation_unit_id)?.display_name || 'לא שויך', סטטוס: title })) }; });
+  ].map(([id, title, description, calculation, key]) => { const rows = analyses.filter((item) => item.missing[key]); return { id, title, primary: rows.length, formatter: number.format, utilization: rows.length ? 101 : 0, definition: { title, description, calculation, source: 'תנועות בנק והקצאות תנועה' }, details: rows.map((item) => ({ ...accountingTransactionRow(item.transaction, model, item.rows), פער: key === 'split' ? money.format(item.difference) : 'דורש השלמה' })), records: rows.flatMap((item) => [accountingTransactionRow(item.transaction, model, item.rows), ...item.rows.map((row) => ({ חודש: row.budget_month || 'לא הוגדר', יחידה: model.units.find((unit) => unit.allocation_unit_id === row.allocation_unit_id)?.display_name || 'לא שויך', סטטוס: accountingStatusLabel(row), סכום: money.format(row.allocation_amount) }))]) }; });
+  const workflowCards = [...new Set(selectedAllocations.map((item) => item.accounting_status_id).filter(Boolean))].map((statusId) => { const rows = selectedAllocations.filter((item) => item.accounting_status_id === statusId); const status = accountingStatusById.get(statusId); const title = status?.display_name || 'ללא סטטוס'; return { id: `status-${statusId}`, title, primary: rows.length, formatter: number.format, utilization: ['ACC-MISSING-DOCS', 'ACC-WAITING'].includes(status?.sheet_accounting_status_id) ? 101 : 0, definition: { title, description: `הקצאות הנמצאות בסטטוס ${title}.`, calculation: 'ספירת שורות הקצאה בסטטוס הקיים במקור.', source: 'סטטוס הנהלת החשבונות של שורות ההקצאה' }, details: rows.map((row) => ({ חודש: row.budget_month, יחידה: model.units.find((unit) => unit.allocation_unit_id === row.allocation_unit_id)?.display_name || 'לא שויך', סכום: money.format(row.allocation_amount), סטטוס: title })), records: rows.map((row) => ({ ...accountingTransactionRow(txById.get(row.bank_transaction_id), model, [row]), חודש: row.budget_month, יחידה: model.units.find((unit) => unit.allocation_unit_id === row.allocation_unit_id)?.display_name || 'לא שויך', סטטוס: title })) }; });
   const topCards = [
     { id: 'parents', title: 'תנועות בנק', primary: analyses.length, formatter: number.format, utilization: null, definition: { title: 'תנועות בנק', description: 'מספר תנועות־האב בתקופה.', calculation: 'כל תנועת בנק נספרת פעם אחת, גם אם פוצלה למספר הקצאות.', source: 'תנועות בנק מקור' }, details: analyses.map((item) => accountingTransactionRow(item.transaction, model, item.rows)), records: analyses.map((item) => accountingTransactionRow(item.transaction, model, item.rows)) },
     { id: 'allocated', title: 'תנועות שהוקצו', primary: analyses.filter((item) => item.rows.length).length, formatter: number.format, utilization: analyses.length ? analyses.filter((item) => item.rows.length).length / analyses.length * 100 : null, definition: { title: 'תנועות שהוקצו', description: 'תנועות־אב שלפחות הקצאה אחת משויכת אליהן.', calculation: 'סופרים תנועות־אב ייחודיות עם שורת הקצאה אחת או יותר.', source: 'תנועות בנק והקצאות' }, details: analyses.filter((item) => item.rows.length).map((item) => accountingTransactionRow(item.transaction, model, item.rows)), records: analyses.filter((item) => item.rows.length).map((item) => accountingTransactionRow(item.transaction, model, item.rows)) },
@@ -1571,7 +1568,7 @@ function renderAccountingData() {
     const rows = isOrganization ? allocationsByTx.get(transaction.bank_transaction_id) || [] : model.allocations.filter((item) => item.bank_transaction_id === transaction.bank_transaction_id && selectedUnits.has(item.allocation_unit_id));
     const difference = Math.abs(Number(transaction.amount)) - sum(rows, (item) => Math.abs(Number(item.allocation_amount)));
     const missing = !rows.length || rows.some((item) => !item.budget_month || !item.allocation_unit_id) || Math.abs(difference) > .01;
-    return { transaction, rows, complete: rows.length > 0 && rows.every((item) => ['SENT_TO_ACCOUNTING', 'NO_SUPPORTING_DOCUMENT_REQUIRED'].includes(item.accounting_status)), attention: missing || rows.some((item) => ['PENDING_SUBMISSION', 'MISSING_DOCUMENTS'].includes(item.accounting_status)) };
+    return { transaction, rows, complete: rows.length > 0 && rows.every((item) => ['ACC-SENT', 'ACC-NO-SEND', 'ACC-APPROVED'].includes(accountingStatusCode(item))), attention: missing || rows.some((item) => ['ACC-WAITING', 'ACC-MISSING-DOCS'].includes(accountingStatusCode(item))) };
   });
   const currentDate = new Date(); const ytdEnd = currentDate >= yearStart && currentDate <= yearEnd ? currentDate : yearEnd; const latest = [...new Set(ytdParents.filter((item) => new Date(`${accountingCashDate(item)}T00:00:00`) <= ytdEnd).map(accountingMonth))].filter(Boolean).sort().at(-1);
   $('#context-year').textContent = year?.display_name || year?.calendar_year_code || 'No Data'; $('#context-period').textContent = period.join(', ') || 'No Data'; $('#summary-range').textContent = `${year.start_date} → ${ytdEnd.toISOString().slice(0, 10)}`; $('#summary-month').textContent = latest || 'No Data';

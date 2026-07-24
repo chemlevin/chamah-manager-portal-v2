@@ -54,9 +54,14 @@ const generalResponses = {
     { bank_transaction_id: 'bank-2', bank_account_id: 'account-1', transaction_date: '2026-09-05', description: 'הוצאה', reference_number: '200', amount: -30000, debit_amount: 30000, credit_amount: 0 }
   ],
   bank_allocations: [
-    { bank_allocation_id: 'ba-1', bank_transaction_id: 'bank-1', allocation_unit_id: activeDaycareId, budget_month: '2026-09-01', allocation_amount: 90000, budget_category_id: 'cat-income', accounting_status: 'NO_SUPPORTING_DOCUMENT_REQUIRED' },
-    { bank_allocation_id: 'ba-2', bank_transaction_id: 'bank-1', allocation_unit_id: activeOfficeId, budget_month: '2026-09-01', allocation_amount: 30000, budget_category_id: 'cat-income', accounting_status: 'PENDING_SUBMISSION' },
-    { bank_allocation_id: 'ba-3', bank_transaction_id: 'bank-2', allocation_unit_id: activeDaycareId, budget_month: '2026-09-01', allocation_amount: -30000, budget_category_id: 'cat-expense', accounting_status: 'MISSING_DOCUMENTS' }
+    { bank_allocation_id: 'ba-1', bank_transaction_id: 'bank-1', allocation_unit_id: activeDaycareId, budget_month: '2026-09-01', allocation_amount: 90000, budget_category_id: 'cat-income', accounting_status_id: 'status-no-send' },
+    { bank_allocation_id: 'ba-2', bank_transaction_id: 'bank-1', allocation_unit_id: activeOfficeId, budget_month: '2026-09-01', allocation_amount: 30000, budget_category_id: 'cat-income', accounting_status_id: 'status-waiting' },
+    { bank_allocation_id: 'ba-3', bank_transaction_id: 'bank-2', allocation_unit_id: activeDaycareId, budget_month: '2026-09-01', allocation_amount: -30000, budget_category_id: 'cat-expense', accounting_status_id: 'status-missing' }
+  ],
+  accounting_statuses: [
+    { accounting_status_id: 'status-missing', sheet_accounting_status_id: 'ACC-MISSING-DOCS', display_name: 'חסרים מסמכים', display_order: 10, is_final: false, lifecycle_status: 'ACTIVE' },
+    { accounting_status_id: 'status-waiting', sheet_accounting_status_id: 'ACC-WAITING', display_name: 'ממתין לשליחה', display_order: 20, is_final: false, lifecycle_status: 'ACTIVE' },
+    { accounting_status_id: 'status-no-send', sheet_accounting_status_id: 'ACC-NO-SEND', display_name: 'אין צורך לשלוח', display_order: 30, is_final: true, lifecycle_status: 'ACTIVE' }
   ],
   budget_categories: [
     { budget_category_id: 'cat-income', budget_category_code: 'CAT-TUITION', display_name: 'שכר לימוד', category_type: 'INCOME', lifecycle_status: 'ACTIVE' },
