@@ -178,6 +178,9 @@ test('Bank File detects and maps an HTML table exported with an .xls extension',
         }),
       });
     }
+    if (body.action === 'confirm_import') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ batch_id: 'fixture-batch', imported: 2, transactions: [{ bank_transaction_id: 'fixture-1' }, { bank_transaction_id: 'fixture-2' }] }) });
+    }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ transactions: [], allocations: [], accounts: [{ ...account, source_account_number: '123456' }], units: [], daycares: [], categories: [], batches: [] }) });
   });
   await page.locator('#bank-file').setInputFiles('tests/fixtures/bank-export-html.xls');
@@ -188,6 +191,8 @@ test('Bank File detects and maps an HTML table exported with an .xls extension',
     { transaction_date: '2026-07-24', description: 'תשלום לספק ירושלים', reference_number: '000012345', amount: -1234.56 },
     { transaction_date: '2026-07-23', description: 'הפקדה מלקוח', reference_number: '987654', amount: 2500 },
   ]);
+  await page.locator('#confirm-bank-import').click();
+  await expect(page.locator('#bank-message')).toContainText('יובאו 2 תנועות');
 });
 
 test('Bank File defaults to HIDDEN when the permission catalog has no explicit child row', async ({ page }) => {

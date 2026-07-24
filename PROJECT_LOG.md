@@ -2381,7 +2381,7 @@ Validation:
 
 - JavaScript syntax checks passed for both Bank workbench modules and the Accounting test.
 - `npm run build` passed.
-- Exact HTML-XLS acceptance fixture passed in isolation and in the complete Accounting suite; 2 transactions reached preview.
+- Exact HTML-XLS acceptance fixture passed in isolation and in the complete Accounting suite; 2 transactions reached preview and confirmed import.
 - Complete Accounting/Bank workbench suite passed on desktop 1440: 10 passed.
 - Complete Accounting/Bank workbench suite passed on mobile 390: 10 passed.
 - Budget, Allocations, Management, and Payroll engine regression passed: 37 passed.
