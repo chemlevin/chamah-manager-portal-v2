@@ -145,15 +145,15 @@ export async function mountBankWorkbench(request) {
   const message = (text, tone = "") => { const node = $("#bank-message"); if (node) { node.textContent = text; node.className = tone; } };
   const accountName = (id) => state.data.accounts.find((row) => row.bank_account_id === id)?.display_name || "לא משויך";
   const allocationsFor = (id) => state.drafts.get(id) || state.data.allocations.filter((row) => row.bank_transaction_id === id);
-  const emptyAllocation = (transaction) => ({ bank_transaction_id: transaction.bank_transaction_id, movement_type: "", allocation_unit_id: "", daycare_id: "", budget_category_id: "", budget_month: "", accounting_status: "", notes: "", allocation_amount: "" });
+  const emptyAllocation = (transaction) => ({ bank_transaction_id: transaction.bank_transaction_id, movement_type: "", allocation_unit_id: "", daycare_id: "", budget_category_id: "", budget_month: "", accounting_status_id: "", notes: "", allocation_amount: "" });
   const inspect = (transaction, rowsOverride) => {
     const rows = rowsOverride || allocationsFor(transaction.bank_transaction_id);
     const total = rows.reduce((sum, row) => sum + (Number(row.allocation_amount) || 0), 0);
     const remaining = Number(transaction.amount) - total;
-    const missing = !rows.length || rows.some((row) => !row.movement_type || !row.allocation_unit_id || !row.budget_month || !row.accounting_status || (row.movement_type !== "EXCLUDE" && !row.budget_category_id) || !Number(row.allocation_amount));
+    const missing = !rows.length || rows.some((row) => !row.movement_type || !row.allocation_unit_id || !row.budget_month || !row.accounting_status_id || (row.movement_type !== "EXCLUDE" && !row.budget_category_id) || !Number(row.allocation_amount));
     const split = rows.length > 1;
     const balanced = rows.length > 0 && Math.abs(remaining) <= .01;
-    const statuses = rows.map((row) => row.accounting_status).filter(Boolean);
+    const statuses = rows.map((row) => row.accounting_status_id).filter(Boolean);
     const ready = balanced && !missing && statuses.every((value) => value === "PENDING_SUBMISSION");
     const sent = balanced && !missing && statuses.every((value) => ["SENT_TO_ACCOUNTING","NO_SUPPORTING_DOCUMENT_REQUIRED"].includes(value));
     return { rows, total, remaining, missing, split, balanced, ready, sent, missingDocuments: statuses.includes("MISSING_DOCUMENTS") };
@@ -170,7 +170,7 @@ export async function mountBankWorkbench(request) {
   const workflowMatches = (transaction) => workflowDefinitions.find(([id]) => id === state.workflow)?.[2](transaction) ?? true;
   const baseFiltered = () => state.data.transactions.filter((transaction) => {
     const info = inspect(transaction); const search = `${transaction.description} ${transaction.reference_number || ""} ${transaction.amount}`.toLowerCase();
-    return (!state.query || search.includes(state.query.toLowerCase())) && (!state.account || transaction.bank_account_id === state.account) && (!state.month || transaction.transaction_date?.startsWith(state.month)) && (!state.status || info.rows.some((row) => row.accounting_status === state.status)) && (!state.batch || transaction.import_batch_id === state.batch);
+    return (!state.query || search.includes(state.query.toLowerCase())) && (!state.account || transaction.bank_account_id === state.account) && (!state.month || transaction.transaction_date?.startsWith(state.month)) && (!state.status || info.rows.some((row) => row.accounting_status_id === state.status)) && (!state.batch || transaction.import_batch_id === state.batch);
   });
   const filtered = () => baseFiltered().filter(workflowMatches);
   const statusMarkup = (info) => {
@@ -181,7 +181,7 @@ export async function mountBankWorkbench(request) {
     if (info.missing) return '<span class="bank-row-status missing">חסר מידע</span>';
     return `<span class="bank-row-status balanced">${info.balanced ? "מאוזן" : "דורש טיפול"}</span>`;
   };
-  const allocationCells = (row, transactionId, index) => `<td><select name="movement_type" aria-label="סוג תנועה">${options("movementTypes",row.movement_type)}</select></td><td><select name="allocation_unit_id" aria-label="מחלקה">${options("departments",row.allocation_unit_id)}</select></td><td><select name="daycare_id" aria-label="מעון">${options("daycares",row.daycare_id,(item)=>!row.allocation_unit_id||item.extra===row.allocation_unit_id)}</select></td><td><select name="budget_category_id" aria-label="סעיף תקציבי">${options("budgetCategories",row.budget_category_id)}</select></td><td><select name="budget_month" aria-label="חודש תקציב">${options("budgetMonths",row.budget_month?.slice(0,7))}</select></td><td><select name="accounting_status" aria-label="סטטוס הנהלת חשבונות">${options("accountingStatuses",row.accounting_status)}</select></td><td><input name="notes" value="${esc(row.notes || "")}" aria-label="הערות"></td><td><input name="allocation_amount" type="number" step=".01" value="${esc(row.allocation_amount ?? "")}" aria-label="סכום הקצאה"></td><td class="bank-inline-status" data-inline-status></td><td class="bank-row-actions"><button type="button" data-save-transaction="${transactionId}" title="שמירה">שמירה</button><button type="button" data-add-split="${transactionId}" title="הוספת פיצול">＋ פיצול</button>${index ? `<button type="button" data-delete-split="${transactionId}" data-index="${index}" title="מחיקת שורת פיצול">מחיקה</button>` : ""}<button type="button" data-open-metadata="${transactionId}">פרטים</button></td>`;
+  const allocationCells = (row, transactionId, index) => `<td><select name="movement_type" aria-label="סוג תנועה">${options("movementTypes",row.movement_type)}</select></td><td><select name="allocation_unit_id" aria-label="מחלקה">${options("departments",row.allocation_unit_id)}</select></td><td><select name="daycare_id" aria-label="מעון">${options("daycares",row.daycare_id,(item)=>!row.allocation_unit_id||item.extra===row.allocation_unit_id)}</select></td><td><select name="budget_category_id" aria-label="סעיף תקציבי">${options("budgetCategories",row.budget_category_id)}</select></td><td><select name="budget_month" aria-label="חודש תקציב">${options("budgetMonths",row.budget_month?.slice(0,7))}</select></td><td><select name="accounting_status_id" aria-label="סטטוס הנהלת חשבונות">${options("accountingStatuses",row.accounting_status_id)}</select></td><td><input name="notes" value="${esc(row.notes || "")}" aria-label="הערות"></td><td><input name="allocation_amount" type="number" step=".01" value="${esc(row.allocation_amount ?? "")}" aria-label="סכום הקצאה"></td><td class="bank-inline-status" data-inline-status></td><td class="bank-row-actions"><button type="button" data-save-transaction="${transactionId}" title="שמירה">שמירה</button><button type="button" data-add-split="${transactionId}" title="הוספת פיצול">＋ פיצול</button>${index ? `<button type="button" data-delete-split="${transactionId}" data-index="${index}" title="מחיקת שורת פיצול">מחיקה</button>` : ""}<button type="button" data-open-metadata="${transactionId}">פרטים</button></td>`;
   const transactionRows = (transaction) => {
     const savedRows = allocationsFor(transaction.bank_transaction_id);
     const rows = savedRows.length ? savedRows : [emptyAllocation(transaction)];
