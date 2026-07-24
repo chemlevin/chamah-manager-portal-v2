@@ -79,4 +79,24 @@ test.describe('TRACK 013 Settings center', () => {
     await page.getByRole('button', { name: 'שמירה' }).click();
     await expect(page.getByRole('alert')).toContainText('חודש הסיום אינו יכול להיות לפני חודש ההתחלה');
   });
+
+  test('uses the frozen Budget category and rule contracts', async ({ page }) => {
+    await openNewPortal(page, 'training/settings');
+    const categories = page.locator('.settings-card').filter({ has: page.getByText('סעיפי תקציב', { exact: true }) });
+    await categories.locator('summary').click();
+    await categories.getByRole('button', { name: 'הוספה' }).click();
+    await expect(page.getByLabel('סוג *').locator('option')).toHaveText(['בחירה…', 'הכנסה', 'הוצאה', 'קיזוז פנימי', 'ידני / לא מוגדר']);
+    await page.getByRole('button', { name: 'ביטול' }).click();
+
+    const rules = page.locator('.settings-card').filter({ has: page.getByText('כללי תקציב', { exact: true }) });
+    await rules.locator('summary').click();
+    await rules.getByRole('button', { name: 'הוספה' }).click();
+    await page.getByLabel('סעיף תקציב *').selectOption('cat-income');
+    await page.getByLabel('סוג כלל *').selectOption('FIXED_AMOUNT');
+    await page.getByLabel('ערך מספרי').fill('100');
+    await page.getByLabel('בתוקף מתאריך *').fill('2026-09-01');
+    await page.getByLabel('מצב *').selectOption('ACTIVE');
+    await page.getByRole('button', { name: 'שמירה' }).click();
+    await expect(page.getByRole('alert')).toContainText('יש לבחור שנת לימודים או שנה קלנדרית');
+  });
 });
