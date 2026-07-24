@@ -135,7 +135,7 @@ Deno.serve(async (request) => {
           debit_amount: Number(row.amount) < 0 ? Math.abs(Number(row.amount)) : 0,
           credit_amount: Number(row.amount) > 0 ? Number(row.amount) : 0,
           source_fingerprint: row.source_fingerprint,
-          source_payload: { source_row_number: row.source_row_number, signed_amount: Number(row.amount) },
+          source_payload: { source: "BANK", source_row_number: row.source_row_number, signed_amount: Number(row.amount) },
           import_batch_id: batch.import_batch_id,
           created_by_user_id: actor.id,
         });
@@ -149,11 +149,57 @@ Deno.serve(async (request) => {
       return json({ batch_id: batch.import_batch_id, imported: inserted.length, transactions: inserted });
     }
 
+    if (body.action === "create_manual_transaction") {
+      const accountId = normalizeText(body.bank_account_id);
+      const transactionDate = normalizeText(body.transaction_date);
+      const description = normalizeText(body.description);
+      const referenceNumber = normalizeText(body.reference_number);
+      const amount = Number(body.amount);
+      const errors = [];
+      if (!(await read(`bank_accounts?select=bank_account_id&bank_account_id=eq.${accountId}&lifecycle_status=eq.ACTIVE&limit=1`)).length) errors.push("חשבון בנק פעיל נדרש");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(transactionDate)) errors.push("תאריך תקין נדרש");
+      if (!description) errors.push("תיאור נדרש");
+      if (!Number.isFinite(amount) || amount === 0) errors.push("סכום שאינו אפס נדרש");
+      if (errors.length) return json({ error: "הנתונים אינם תקינים.", errors }, 422);
+      const batchRows = await write("import_batches", "POST", {
+        source_type: "BANK_FILE",
+        source_name: "MANUAL",
+        source_file_name: null,
+        triggered_by_user_id: actor.id,
+        status: "COMPLETED",
+        total_rows: 1,
+        accepted_rows: 1,
+        completed_at: new Date().toISOString(),
+        metadata: { source: "MANUAL" },
+      });
+      const batch = batchRows[0];
+      const sourceFingerprint = await fingerprint(accountId, {
+        transaction_date: transactionDate,
+        reference_number: `MANUAL:${crypto.randomUUID()}`,
+        amount,
+      });
+      const transactionRows = await write("bank_transactions", "POST", {
+        bank_account_id: accountId,
+        transaction_date: transactionDate,
+        description,
+        reference_number: referenceNumber || null,
+        amount,
+        debit_amount: amount < 0 ? Math.abs(amount) : 0,
+        credit_amount: amount > 0 ? amount : 0,
+        source_fingerprint: sourceFingerprint,
+        source_payload: { source: "MANUAL", signed_amount: amount },
+        import_batch_id: batch.import_batch_id,
+        created_by_user_id: actor.id,
+      });
+      return json({ batch_id: batch.import_batch_id, transaction: transactionRows[0] }, 201);
+    }
+
     if (body.action === "save_allocations") {
       const transactionId = normalizeText(body.bank_transaction_id);
       const transaction = (await read(`bank_transactions?select=bank_transaction_id,amount&bank_transaction_id=eq.${transactionId}&limit=1`))[0];
       if (!transaction) return json({ error: "תנועת הבנק לא נמצאה." }, 404);
       const allocations = Array.isArray(body.allocations) ? body.allocations : [];
+      const unitsForValidation = await read("allocation_units?select=allocation_unit_id,unit_type&lifecycle_status=eq.ACTIVE");
       const normalized = allocations.map((row) => ({
         bank_transaction_id: transactionId,
         movement_type: row.movement_type || null,
@@ -172,6 +218,9 @@ Deno.serve(async (request) => {
         if (!Number.isFinite(row.allocation_amount) || row.allocation_amount === 0) errors.push(`שורה ${index + 1}: סכום הקצאה נדרש`);
         if (!row.movement_type) errors.push(`שורה ${index + 1}: סוג תנועה נדרש`);
         if (!row.allocation_unit_id) errors.push(`שורה ${index + 1}: מחלקה נדרשת`);
+        const selectedUnit = row.allocation_unit_id ? unitsForValidation.find((unit: Record<string, unknown>) => unit.allocation_unit_id === row.allocation_unit_id) : null;
+        if (selectedUnit?.unit_type === "DAYCARE" && !row.daycare_id) errors.push(`שורה ${index + 1}: מעון נדרש למחלקת מעונות`);
+        if (selectedUnit?.unit_type !== "DAYCARE" && row.daycare_id) errors.push(`שורה ${index + 1}: ניתן לבחור מעון רק במחלקת מעונות`);
         if (!row.budget_month) errors.push(`שורה ${index + 1}: חודש תקציב נדרש`);
         if (!row.accounting_status) errors.push(`שורה ${index + 1}: סטטוס הנה"ח נדרש`);
         if (!["EXCLUDE"].includes(row.movement_type || "") && !row.budget_category_id) errors.push(`שורה ${index + 1}: סעיף תקציבי נדרש`);

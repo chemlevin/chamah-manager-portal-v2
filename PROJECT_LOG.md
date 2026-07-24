@@ -2390,3 +2390,44 @@ Validation:
 Deployment:
 
 - Preview only. No Production deployment, promotion, or alias change.
+
+## 2026-07-24 - TRACK015G Manual Transactions and Allocation Refinement
+
+Objective: Continue the TRACK015F Bank Transactions workbench using the exact HTML-based `.xls` bank fixture as the acceptance test, while adding manual transactions and refining allocation entry without changing Budget Engine behavior or existing calculation contracts.
+
+Implementation:
+
+- Imported and manual parent transactions now auto-fill the source amount into a read-only field.
+- Split allocation rows keep editable amounts and remain subject to the existing parent-balance validation.
+- Replaced individual allocation-unit department choices with exactly three business values: Daycares, Office, and Development.
+- Shows the Daycare selector only for the Daycares department and clears incompatible daycare values when another department is selected.
+- Added matching server-side validation for the Department/Daycare dependency.
+- Renamed the workbench and export label from Accounting Month to Assignment Month (`חודש שיוך`).
+- Populates toolbar and export filter choices only from values present in the currently loaded transaction/allocation dataset.
+- Reduced the sticky Status column width while retaining the complete explanation in the status tooltip.
+- Added New Transaction with account, date, description, reference, and amount fields.
+- Manual transactions use the same database-generated `bank_transaction_id` UUID default as imported transactions, persist through the same transaction table, and carry automatic `MANUAL` provenance; imported rows now carry automatic `BANK` provenance.
+- Manual transactions flow through the existing search, filters, split, delete, export, metadata, workflow cards, and downstream reporting dataset.
+
+Files changed:
+
+- `chamah-manager-portal/new/bank-workbench-ux.js`
+- `chamah-manager-portal/new/styles.css`
+- `supabase/functions/portal-bank-workbench/index.ts`
+- `tests/accounting-navigation.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- JavaScript syntax checks passed for the Bank workbench and Accounting test.
+- `npm run build` passed.
+- Exact attached HTML-XLS acceptance fixture imported 2 transactions and preserved Hebrew text, signed amounts, dates, and reference `000012345`.
+- Complete Accounting/Bank workbench suite passed on desktop 1440: 13 passed.
+- Complete Accounting/Bank workbench suite passed on mobile 390: 13 passed.
+- Budget, Allocations, Management, and Payroll engine regression passed: 37 passed.
+- `git diff --check` passed.
+- One combined mobile-plus-engine invocation timed out during browser setup before test bodies ran; both suites were rerun independently and passed.
+
+Deployment:
+
+- Preview only. No Production deployment, promotion, or alias change.

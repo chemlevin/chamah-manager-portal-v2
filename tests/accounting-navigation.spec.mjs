@@ -44,7 +44,7 @@ test('Bank File exposes import, search, filters and export controls with an empt
 
 test('Bank File renders exact status reasons and tree-style split row numbers', async ({ page }) => {
   await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, { accounts: [account], transactions, allocations: [allocation] });
-  await expect(page.locator('.bank-workbench-table thead th')).toHaveText(['#', 'סטטוס', 'חשבון בנק', 'תאריך', 'תיאור', 'אסמכתא', 'סכום', 'סוג תנועה', 'מחלקה', 'מעון', 'סעיף תקציבי', 'חודש הנה"ח', 'סטטוס הנה"ח', 'הערות', 'מסמך']);
+  await expect(page.locator('.bank-workbench-table thead th')).toHaveText(['#', 'סטטוס', 'חשבון בנק', 'תאריך', 'תיאור', 'אסמכתא', 'סכום', 'סוג תנועה', 'מחלקה', 'מעון', 'סעיף תקציבי', 'חודש שיוך', 'סטטוס הנה"ח', 'הערות', 'מסמך']);
   const parent = page.locator('[data-bank-row="tx-1"]').first();
   await expect(parent).toContainText(/שגיאת איזון/);
   await expect(parent).toHaveClass(/bank-row-error/);
@@ -193,6 +193,67 @@ test('Bank File detects and maps an HTML table exported with an .xls extension',
   ]);
   await page.locator('#confirm-bank-import').click();
   await expect(page.locator('#bank-message')).toContainText('יובאו 2 תנועות');
+});
+
+test('Bank File locks source amount, edits split amounts, and enforces department-daycare dependency', async ({ page }) => {
+  const office = { allocation_unit_id: 'fe05de40-2551-4e90-befe-db4253d66e1c', unit_type: 'OFFICE', display_name: 'משרד' };
+  const daycareUnit = { allocation_unit_id: '692c8d30-1ba3-4502-acbc-2424f84f0d9f', unit_type: 'DAYCARE', display_name: 'אשקלון' };
+  await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, { accounts: [account], transactions, allocations: [], units: [office, daycareUnit] });
+  const sourceAmount = page.locator('[data-bank-row="tx-1"] input[name="allocation_amount"]');
+  await expect(sourceAmount).toHaveValue('-100');
+  await expect(sourceAmount).toHaveAttribute('readonly', '');
+  const row = page.locator('[data-bank-row="tx-1"]').first();
+  await expect(row.locator('select[name="department"] option')).toHaveText(['בחירה…', 'מעונות', 'משרד', 'פיתוח']);
+  await row.locator('select[name="department"]').selectOption('DAYCARES');
+  await expect(row.locator('[data-daycare-field]')).toBeVisible();
+  await row.locator('select[name="department"]').selectOption('OFFICE');
+  await expect(row.locator('[data-daycare-field]')).toBeHidden();
+  await page.locator('[data-add-split="tx-1"]').click();
+  const splitAmounts = page.locator('[data-bank-row="tx-1"][data-allocation-entry] input[name="allocation_amount"]');
+  await expect(splitAmounts).toHaveCount(2);
+  await expect(splitAmounts.first()).not.toHaveAttribute('readonly', '');
+  await splitAmounts.nth(1).fill('-25');
+  await expect(splitAmounts.nth(1)).toHaveValue('-25');
+});
+
+test('Bank File filter choices come only from the current dataset', async ({ page }) => {
+  const unusedAccount = { bank_account_id: 'account-unused', display_name: 'חשבון ללא תנועות' };
+  await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, { accounts: [account, unusedAccount], transactions, allocations: [allocation] });
+  await expect(page.locator('#bank-account-filter option')).toHaveText(['כל החשבונות', 'חשבון מרכזי']);
+  await expect(page.locator('#bank-status-filter option')).toHaveText(['כל הסטטוסים', 'ממתין לשליחה']);
+  await page.locator('#bank-export-open').click();
+  await page.locator('input[name="export_scope"][value="selection"]').check();
+  await expect(page.locator('[data-export-filter="account"] option')).toHaveText(['הכול', 'חשבון מרכזי']);
+  await expect(page.locator('[data-export-filter="accountingStatus"] option')).toHaveText(['הכול', 'ממתין לשליחה']);
+  await expect(page.locator('[data-export-filter="accountingMonth"] option')).toHaveText(['הכול', '2026-07']);
+});
+
+test('Bank File creates a MANUAL transaction with the server-generated transaction ID', async ({ page }) => {
+  let createdPayload;
+  let currentTransactions = [];
+  const manual = { bank_transaction_id: 'manual-generated-id', bank_account_id: account.bank_account_id, transaction_date: '2026-07-24', description: 'תנועה ידנית', reference_number: 'M-1', amount: -45, source_payload: { source: 'MANUAL' } };
+  await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, { accounts: [account] });
+  await page.unroute(`${base}/functions/v1/portal-bank-workbench`);
+  await page.route(`${base}/functions/v1/portal-bank-workbench`, async (route) => {
+    const body = route.request().postDataJSON() || {};
+    if (body.action === 'create_manual_transaction') {
+      createdPayload = body;
+      currentTransactions = [manual];
+      return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ batch_id: 'manual-batch', transaction: manual }) });
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ transactions: currentTransactions, allocations: [], accounts: [account], units: [], daycares: [], categories: [], batches: [] }) });
+  });
+  await page.locator('#bank-new-transaction').click();
+  const dialog = page.locator('#bank-manual-dialog');
+  await dialog.locator('[name="bank_account_id"]').selectOption(account.bank_account_id);
+  await dialog.locator('[name="transaction_date"]').fill('2026-07-24');
+  await dialog.locator('[name="description"]').fill('תנועה ידנית');
+  await dialog.locator('[name="reference_number"]').fill('M-1');
+  await dialog.locator('[name="amount"]').fill('-45');
+  await dialog.getByRole('button', { name: 'שמירת תנועה' }).click();
+  expect(createdPayload).toMatchObject({ action: 'create_manual_transaction', bank_account_id: account.bank_account_id, transaction_date: '2026-07-24', description: 'תנועה ידנית', reference_number: 'M-1', amount: -45 });
+  await expect(page.locator('[data-bank-row="manual-generated-id"]')).toContainText('מקור: MANUAL');
+  await expect(page.locator('[data-bank-row="manual-generated-id"] input[name="allocation_amount"]')).toHaveAttribute('readonly', '');
 });
 
 test('Bank File defaults to HIDDEN when the permission catalog has no explicit child row', async ({ page }) => {
