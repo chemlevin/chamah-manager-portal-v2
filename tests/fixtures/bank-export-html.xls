@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head><meta charset="utf-8"><title>תנועות חשבון</title></head>
+<body>
+  <div>מספר חשבון: 123456</div>
+  <table>
+    <tr><th>תאריך תנועה</th><th>תיאור תנועה</th><th>אסמכתא</th><th>סכום חתום</th><th>מספר חשבון</th></tr>
+    <tr><td>24/07/2026</td><td>תשלום לספק ירושלים</td><td>000012345</td><td>-1,234.56</td><td>123456</td></tr>
+    <tr><td>23.07.2026</td><td>הפקדה מלקוח</td><td>987654</td><td>2,500.00</td><td>123456</td></tr>
+  </table>
+</body>
+</html>

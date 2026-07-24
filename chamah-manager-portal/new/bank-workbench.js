@@ -27,7 +27,7 @@ const key = (value) => String(value ?? "").trim().toLowerCase().replace(/[\"'׳�
 const findColumn = (headers, name) => headers.findIndex((header) => aliases[name].some((alias) => key(header) === key(alias)));
 
 function parseCsv(data) {
-  const text = new TextDecoder("utf-8").decode(data).replace(/^\uFEFF/, "");
+  const text = decodeText(data).replace(/^\uFEFF/, "");
   const rows = []; let row = []; let cell = ""; let quoted = false;
   for (let index = 0; index < text.length; index += 1) {
     const char = text[index];
@@ -43,14 +43,59 @@ function parseCsv(data) {
   return rows;
 }
 
-async function parseWorkbook(file, data, knownAccounts = []) {
+function decodeText(data) {
+  const bytes = new Uint8Array(data);
+  const ascii = new TextDecoder("windows-1252").decode(bytes.slice(0, 2048));
+  const declared = ascii.match(/charset\s*=\s*["']?\s*([^"'\s;>]+)/i)?.[1]?.toLowerCase();
+  const encoding = declared === "windows-1255" || declared === "iso-8859-8" ? declared : "utf-8";
+  return new TextDecoder(encoding).decode(data);
+}
+
+function isHtml(data) {
+  const start = decodeText(data.slice(0, 4096)).replace(/^\uFEFF/, "").trimStart().toLowerCase();
+  return start.startsWith("<!doctype html") || start.startsWith("<html") || start.startsWith("<table") || /<table[\s>]/i.test(start);
+}
+
+function parseHtmlTable(data) {
+  const documentNode = new DOMParser().parseFromString(decodeText(data), "text/html");
+  const tables = [...documentNode.querySelectorAll("table")];
+  const table = tables.find((candidate) => {
+    const matrix = [...candidate.rows].map((row) => [...row.cells].map((cell) => cell.textContent.trim()));
+    return matrix.some((row) => findColumn(row, "transaction_date") >= 0 && findColumn(row, "amount") >= 0);
+  }) || tables[0];
+  if (!table) throw new Error("לא נמצאה טבלה בקובץ הבנק.");
+  return [...table.rows].map((row) => [...row.cells].map((cell) => cell.textContent.trim()));
+}
+
+function isZip(data) {
+  const bytes = new Uint8Array(data);
+  return bytes[0] === 0x50 && bytes[1] === 0x4b;
+}
+
+function isLegacyXls(data) {
+  const bytes = new Uint8Array(data);
+  return bytes.length >= 8 && [0xd0,0xcf,0x11,0xe0,0xa1,0xb1,0x1a,0xe1].every((value, index) => bytes[index] === value);
+}
+
+export async function parseWorkbook(file, data, knownAccounts = []) {
   let matrix;
-  if (file.name.toLowerCase().endsWith(".csv")) matrix = parseCsv(data);
-  else {
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(data);
-    const sheet = workbook.worksheets[0];
-    matrix = sheet.getRows(1, sheet.rowCount)?.map((row) => row.values.slice(1).map((value) => value?.result ?? value?.text ?? value ?? "")) || [];
+  try {
+    if (isHtml(data)) matrix = parseHtmlTable(data);
+    else if (isZip(data)) {
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(data);
+      const sheet = workbook.worksheets[0];
+      matrix = sheet?.getRows(1, sheet.rowCount)?.map((row) => row.values.slice(1).map((value) => value?.result ?? value?.text ?? value ?? "")) || [];
+    } else if (isLegacyXls(data)) {
+      if (!window.XLSX) throw new Error("רכיב קריאת XLS אינו זמין.");
+      const workbook = window.XLSX.read(data, { type: "array", cellDates: true });
+      matrix = window.XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, raw: true, defval: "" });
+    } else {
+      matrix = parseCsv(data);
+    }
+  } catch (error) {
+    if (/לא נמצאה טבלה|רכיב קריאת XLS/.test(error.message)) throw error;
+    throw new Error("לא ניתן לקרוא את קובץ הבנק. ודאי שהקובץ הוא XLSX, XLS, CSV או טבלת HTML תקינה.");
   }
   let headerIndex = matrix.findIndex((row) => findColumn(row, "transaction_date") >= 0 && findColumn(row, "amount") >= 0);
   if (headerIndex < 0) throw new Error("לא נמצאו עמודות תאריך וסכום חתום.");

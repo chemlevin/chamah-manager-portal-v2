@@ -2255,3 +2255,92 @@ Residual risk:
 
 - Several live tables/columns consumed by current portal code are not represented in the checked-in migration history, so production schema inspection remains necessary before exposing additional editors.
 - Orphaned/duplicated groups were documented rather than connected or removed because choosing an authoritative source is a business decision.
+
+## 2026-07-24 - TRACK015D Secretary Workbench UX Refinement
+
+Objective: Refine the existing Bank Transactions secretary workbench without changing business logic, database schema, APIs, import behavior, persistence, or allocation split behavior.
+
+Implementation:
+
+- Reduced spreadsheet row height, cell padding, input height, and action density to expose more transactions per viewport.
+- Reordered the workbench to the requested 14-column sequence, with a sticky UI-only row-number column first and a sticky status column second.
+- Added parent numbering and tree-style split numbering such as `25`, `25.1`, `25.2`, with collapsible parent/child grouping and indented allocation rows.
+- Added full-row workflow coloring: green for complete/ready, orange for missing required information or documents, and red for allocation balance errors.
+- Replaced generic incomplete labels with the exact missing fields, missing-document reason, or remaining imbalance amount.
+- Added original, allocated, and remaining amounts to split parent summaries with prominent balanced/unbalanced treatment.
+- Kept all allocation fields editable inline and kept metadata, import audit information, and future attachments in the details panel.
+- Moved the attachment placeholder to the final column, parent rows only, with a paperclip and document count.
+- Expanded search to description, reference, amount, allocation notes, and UI row number.
+- Added separate Clear Search, active removable filter chips, and Clear All Filters controls.
+- Preserved search/filter state, expanded split groups, horizontal/vertical table scroll, and selection state during inline renders and saves.
+- Added an Export dialog supporting the exact current view or a filtered selection by accounting month, calendar month, year, bank account, daycare, department, Budget category, accounting status, and workflow status.
+- Added live matching-transaction counts and Excel `.xlsx` generation through the existing ExcelJS runtime.
+- Added printable landscape PDF output through the browser print-to-PDF flow.
+- Kept row selection checkboxes available for future bulk actions.
+
+Files:
+
+- `chamah-manager-portal/new/bank-workbench.js`
+- `chamah-manager-portal/new/bank-workbench-ux.js`
+- `chamah-manager-portal/new/styles.css`
+- `tests/accounting-navigation.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- `node --check chamah-manager-portal/new/bank-workbench.js` passed.
+- `node --check chamah-manager-portal/new/bank-workbench-ux.js` passed.
+- `npm run build` passed.
+- Focused Bank Transactions regression passed across desktop 1440, laptop 1280, mobile 390, and mobile 430: 28 passed.
+- Tests cover exact status reasons and row coloring, UI row numbers, split tree rows, amount summaries, notes/row-number search, filter chips, export choices, live matching counts, a generated `.xlsx` download, row selection, empty state, and permission visibility.
+- Allocation, Budget, Management, and Payroll engine regression passed on desktop 1440: 37 passed.
+- The complete repository Playwright command exceeded the five-minute command timeout before producing a result; the scoped cross-viewport suite and the affected engine suites were therefore run separately and passed.
+
+Scope confirmation:
+
+- No database schema, Supabase function, API contract, import parser, save payload, or allocation split persistence logic changed.
+- Preview deployment only; no Production deployment or promotion.
+
+Residual risk:
+
+- PDF export intentionally uses the browser print dialog so the user can select Save as PDF; browser print styling and available paper options may vary.
+- Excel generation depends on the existing ExcelJS browser asset already used by the import workflow.
+
+## 2026-07-24 - TRACK015E Bank HTML/XLS Import Support
+
+Objective: Support bank exports whose extension or MIME type does not match their actual content, especially HTML tables downloaded with an `.xls` extension, without changing the database schema or import business logic.
+
+Implementation:
+
+- Replaced extension-only routing with content-signature detection.
+- Routes HTML documents and tables to a DOM-based table parser before any ZIP/XLSX parsing.
+- Keeps real XLSX parsing in ExcelJS, adds legacy OLE/XLS parsing through SheetJS, and treats remaining text files as CSV.
+- Detects declared Windows-1255 and ISO-8859-8 text encodings in addition to UTF-8 so Hebrew bank exports remain readable.
+- Reuses the existing alias-based column mapping and preview payload for transaction date, description, reference, signed amount, and account number.
+- Replaced low-level workbook/parser exceptions with a clear Hebrew file-format message.
+- Added an HTML-based `.xls` fixture that covers Hebrew text, slash/dot Israeli dates, a reference with leading zeroes, account matching, and positive/negative decimal amounts.
+
+Files changed:
+
+- `chamah-manager-portal/new/bank-workbench.js`
+- `chamah-manager-portal/new/index.html`
+- `scripts/build.mjs`
+- `package.json`
+- `package-lock.json`
+- `tests/accounting-navigation.spec.mjs`
+- `tests/fixtures/bank-export-html.xls`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- `node --check chamah-manager-portal/new/bank-workbench.js` passed.
+- `node --check tests/accounting-navigation.spec.mjs` passed.
+- `npm run build` passed.
+- Focused HTML-based `.xls` regression passed on desktop 1440: 1 passed.
+- Complete Accounting navigation/workbench regression passed on desktop 1440: 8 passed.
+- Budget, allocations, and management engine regression passed: 30 passed.
+- `git diff --check` passed.
+
+Scope confirmation:
+
+- No database schema, Supabase function, API contract, import preview contract, duplicate detection, or import persistence/business logic changed.

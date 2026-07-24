@@ -5,7 +5,7 @@ import { RULE_CATEGORIES, SYSTEM_RULES } from './management-catalog.generated.js
 import { DOCUMENTED_STATUS_RULES, REFERENCE_TABLES, VARIABLE_RULE_TABLES } from './management-data.js';
 import { mountAdministrationPrototype } from './administration-prototype.js';
 import { mountSettingsCenter } from './settings-center.js';
-import { bankWorkbenchTemplate as track015BankWorkbenchTemplate, mountBankWorkbench } from './bank-workbench.js';
+import { bankWorkbenchTemplateV2 as track015BankWorkbenchTemplate, mountBankWorkbenchV2 as mountBankWorkbench } from './bank-workbench-ux.js';
 
 const SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
