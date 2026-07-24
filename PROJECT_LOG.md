@@ -2280,6 +2280,7 @@ Implementation:
 
 Files:
 
+- `chamah-manager-portal/new/app.js`
 - `chamah-manager-portal/new/bank-workbench.js`
 - `chamah-manager-portal/new/bank-workbench-ux.js`
 - `chamah-manager-portal/new/styles.css`

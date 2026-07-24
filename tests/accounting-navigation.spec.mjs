@@ -44,6 +44,7 @@ test('Bank File exposes import, search, filters and export controls with an empt
 
 test('Bank File renders exact status reasons and tree-style split row numbers', async ({ page }) => {
   await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, { accounts: [account], transactions, allocations: [allocation] });
+  await expect(page.locator('.bank-workbench-table thead th')).toHaveText(['#', 'סטטוס', 'תאריך', 'תיאור', 'אסמכתא', 'סכום', 'סוג תנועה', 'מחלקה', 'מעון', 'סעיף תקציבי', 'חודש הנה"ח', 'סטטוס הנה"ח', 'הערות', 'מסמך']);
   const parent = page.locator('[data-bank-row="tx-1"]').first();
   await expect(parent).toContainText(/שגיאת איזון/);
   await expect(parent).toHaveClass(/bank-row-error/);
