@@ -2175,3 +2175,48 @@ Residual risk:
 
 - The Settings Edge Function still relies on authoritative database constraints as the final concurrency, uniqueness, and foreign-key deletion boundary.
 - Several allow-listed configuration tables predate the checked-in migration history. Their current production constraints remain authoritative where repository schema history is incomplete.
+
+## 2026-07-24 - TRACK 014C Settings Dependency Audit
+
+Objective: Trace every Settings / Rules page from business purpose and fields through authoritative tables, current consumers, business rules, relationship gaps, unused data, duplicated logic, and future modules.
+
+Audit deliverable:
+
+- Added `docs/architecture/settings-dependency-audit.md`.
+- Documented all 22 Settings groups and their field purposes.
+- Mapped each Settings page to its Supabase table, current dependent modules, governing rule contracts, missing integrations, and future consumers.
+- Added a Mermaid dependency map covering Settings → Tables → Dependent Modules → Business Rules → Future Modules.
+- Distinguished confirmed runtime consumers, settings-only relationships, integration identifiers, orphaned groups, and explicit inferences.
+
+Key findings:
+
+- Confirmed runtime-orphaned Settings groups: legal entity types, accounting statuses, staffing rules, travel rates, and certificate types at the current UI/runtime level.
+- Confirmed duplicated business logic: staffing rules versus staffing-shaped Budget rules; travel rates versus compensation rules; editable accounting statuses versus hardcoded allocation status labels; age-group text codes versus the age-group table; default-school-year handling; and compact Budget contracts versus imported calculation extensions.
+- Confirmed consumer fields missing from Settings: mixed-age compatibility, role grouping/relevance, compensation eligibility/proration, staffing Budget formula, imported Budget-rule extensions, and classroom age-group membership.
+- Confirmed incomplete relationships and missing validations around rule-range overlap, lifecycle transitions, stable-code immutability, school-year month continuity, daycare allocation-unit invariants, and mixed-age reciprocity.
+
+Narrow correction:
+
+- Corrected Budget category options to the Schema Freeze BR-0050 values: `INCOME`, `EXPENSE`, `INTERNAL_OFFSET`, and `MANUAL_UNDEFINED`.
+- Corrected Budget rule types to the frozen contract: `FORMULA_BASED`, `FIXED_AMOUNT`, `MANUAL`, and `EXTERNAL_SOURCE`.
+- Added editable calendar-year scope, calculation source, and actual-performance source.
+- Added Budget validation for required year scope and rule-type-specific numeric/text/source contracts.
+- This fixes a clear mismatch between TRACK 014B metadata and the later authoritative corrective migration. No Budget Engine calculations, APIs, database schema, or Google Sheets structure changed.
+
+Validation:
+
+- `node --check chamah-manager-portal/new/settings-center.js` passed.
+- `npm.cmd run build` passed.
+- Focused frozen-Budget-contract test passed.
+- Complete Settings regression passed on desktop 1440: 6 passed, 1 mobile-only skipped.
+- Complete Settings regression passed on mobile 390: 7 passed.
+- The first combined run was interrupted by the environment test-runner setup timeout before any test body executed; isolated and subsequent complete runs passed.
+
+Deployment:
+
+- Preview deployment only; no Production deployment, promotion, alias change, Supabase migration deployment, or Edge Function deployment.
+
+Residual risk:
+
+- Several live tables/columns consumed by current portal code are not represented in the checked-in migration history, so production schema inspection remains necessary before exposing additional editors.
+- Orphaned/duplicated groups were documented rather than connected or removed because choosing an authoritative source is a business decision.
