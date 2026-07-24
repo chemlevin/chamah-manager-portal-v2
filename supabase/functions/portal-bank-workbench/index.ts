@@ -115,41 +115,24 @@ Deno.serve(async (request) => {
     if (body.action === "confirm_import") {
       const rows = (Array.isArray(body.rows) ? body.rows : []).filter((row) => row.importable);
       if (!body.preview_token || !body.account_id || !rows.length) return json({ error: "אין שורות מאושרות לייבוא." }, 400);
-      const batchRows = await write("import_batches", "POST", {
-        source_type: "BANK_FILE",
-        source_name: "PORTAL",
-        source_file_name: normalizeText(body.file_name),
-        triggered_by_user_id: actor.id,
-        status: "RUNNING",
-        total_rows: Number(body.total_rows || rows.length),
-        warning_rows: Number(body.duplicate_rows || 0),
-        rejected_rows: Number(body.invalid_rows || 0),
-        metadata: { preview_token: body.preview_token, source_account_number: normalizeAccount(body.account_number) },
-      });
-      const batch = batchRows[0];
-      const inserted = [];
-      for (const row of rows) {
-        const transaction = await write("bank_transactions", "POST", {
-          bank_account_id: body.account_id,
-          transaction_date: row.transaction_date,
+      return json(await write("rpc/portal_confirm_bank_import", "POST", {
+        target_bank_account_id: body.account_id,
+        import_rows: rows.map((row) => ({
+          source_row_number: Number(row.source_row_number),
+          transaction_date: normalizeText(row.transaction_date),
           description: normalizeText(row.description),
           reference_number: normalizeText(row.reference_number) || null,
           amount: Number(row.amount),
-          debit_amount: Number(row.amount) < 0 ? Math.abs(Number(row.amount)) : 0,
-          credit_amount: Number(row.amount) > 0 ? Number(row.amount) : 0,
-          source_fingerprint: row.source_fingerprint,
-          source_payload: { source: "BANK", source_row_number: row.source_row_number, signed_amount: Number(row.amount) },
-          import_batch_id: batch.import_batch_id,
-          created_by_user_id: actor.id,
-        });
-        inserted.push(transaction[0]);
-      }
-      await write(`import_batches?import_batch_id=eq.${batch.import_batch_id}`, "PATCH", {
-        status: "COMPLETED",
-        accepted_rows: inserted.length,
-        completed_at: new Date().toISOString(),
-      });
-      return json({ batch_id: batch.import_batch_id, imported: inserted.length, transactions: inserted });
+          source_fingerprint: normalizeText(row.source_fingerprint),
+        })),
+        actor_id: actor.id,
+        source_file_name: normalizeText(body.file_name),
+        preview_token: body.preview_token,
+        source_account_number: normalizeAccount(body.account_number),
+        total_rows: Number(body.total_rows || rows.length),
+        duplicate_rows: Number(body.duplicate_rows || 0),
+        invalid_rows: Number(body.invalid_rows || 0),
+      }));
     }
 
     if (body.action === "create_manual_transaction") {
@@ -164,40 +147,20 @@ Deno.serve(async (request) => {
       if (!description) errors.push("תיאור נדרש");
       if (!Number.isFinite(amount) || amount === 0) errors.push("סכום שאינו אפס נדרש");
       if (errors.length) return json({ error: "הנתונים אינם תקינים.", errors }, 422);
-      const batchRows = await write("import_batches", "POST", {
-        source_type: "BANK_FILE",
-        source_name: "MANUAL",
-        source_file_name: null,
-        triggered_by_user_id: actor.id,
-        status: "RUNNING",
-        total_rows: 1,
-        metadata: { source: "MANUAL" },
-      });
-      const batch = batchRows[0];
       const sourceFingerprint = await fingerprint(accountId, {
         transaction_date: transactionDate,
         reference_number: `MANUAL:${crypto.randomUUID()}`,
         amount,
       });
-      const transactionRows = await write("bank_transactions", "POST", {
-        bank_account_id: accountId,
-        transaction_date: transactionDate,
-        description,
-        reference_number: referenceNumber || null,
-        amount,
-        debit_amount: amount < 0 ? Math.abs(amount) : 0,
-        credit_amount: amount > 0 ? amount : 0,
-        source_fingerprint: sourceFingerprint,
-        source_payload: { source: "MANUAL", signed_amount: amount },
-        import_batch_id: batch.import_batch_id,
-        created_by_user_id: actor.id,
-      });
-      await write(`import_batches?import_batch_id=eq.${batch.import_batch_id}`, "PATCH", {
-        status: "COMPLETED",
-        accepted_rows: 1,
-        completed_at: new Date().toISOString(),
-      });
-      return json({ batch_id: batch.import_batch_id, transaction: transactionRows[0] }, 201);
+      return json(await write("rpc/portal_create_manual_bank_transaction", "POST", {
+        target_bank_account_id: accountId,
+        target_transaction_date: transactionDate,
+        target_description: description,
+        target_reference_number: referenceNumber || null,
+        target_amount: amount,
+        target_source_fingerprint: sourceFingerprint,
+        actor_id: actor.id,
+      }), 201);
     }
 
     if (body.action === "save_allocations") {
@@ -245,10 +208,9 @@ Deno.serve(async (request) => {
       const ids = [...new Set((Array.isArray(body.bank_transaction_ids) ? body.bank_transaction_ids : [])
         .map(normalizeText).filter((value) => /^[0-9a-f-]{36}$/i.test(value)))];
       if (!ids.length) return json({ error: "לא נבחרו תנועות למחיקה." }, 400);
-      const filter = `in.(${ids.join(",")})`;
-      await write(`bank_allocations?bank_transaction_id=${filter}`, "DELETE", undefined, "return=minimal");
-      await write(`bank_transactions?bank_transaction_id=${filter}`, "DELETE", undefined, "return=minimal");
-      return json({ deleted: ids.length, bank_transaction_ids: ids });
+      return json(await write("rpc/portal_delete_bank_transactions", "POST", {
+        target_bank_transaction_ids: ids,
+      }));
     }
     return json({ error: "פעולה לא מוכרת." }, 400);
   } catch (error) {

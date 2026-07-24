@@ -2718,3 +2718,87 @@ Files changed:
 
 - `PROJECT_LOG.md`
 - `RELEASE_NOTES.md`
+
+## 2026-07-24 - TRACK017A Atomic Accounting Writes
+
+Objective: Resolve the final Production data-integrity blocker by making
+Accounting import, manual creation, and delete writes transactional without
+changing JWT verification, permissions, UI behavior, or browser payload
+contracts.
+
+Implementation:
+
+- Added forward migration
+  `20260724151321_track_017a_atomic_accounting_writes.sql`, aligned exactly to
+  the live applied migration version.
+- Added service-role-only `SECURITY INVOKER` RPCs:
+  - `portal_confirm_bank_import(...)`
+  - `portal_create_manual_bank_transaction(...)`
+  - `portal_delete_bank_transactions(uuid[])`
+- Confirmed import now validates the actor, preview token, active bank account,
+  summary counts, required row fields, duplicate fingerprints within the
+  request, and existing database fingerprints before creating the batch.
+- The import batch and every accepted bank transaction now commit in one
+  PostgreSQL transaction or roll back together.
+- Manual transaction batch creation and source-transaction insertion now use
+  one PostgreSQL transaction.
+- Delete now validates and locks every requested parent transaction before
+  deleting allocations and transactions in the same PostgreSQL transaction.
+  Missing or duplicate IDs fail before deletion.
+- Updated `portal-bank-workbench` to call the three transactional RPCs while
+  preserving the existing JWT validation, permission check, request actions,
+  response shapes, UI, and allocation-save RPC.
+
+Supabase deployment:
+
+- Applied live forward migration `20260724151321
+  track_017a_atomic_accounting_writes` to project
+  `vyyfuaqmbxvfqgbfqooc`.
+- Deployed `portal-bank-workbench` v8.
+- Verified the function is ACTIVE with `verify_jwt=true`.
+- No Auth, RLS, permission, UI, Budget, payroll, or legacy API behavior was
+  changed.
+
+Rollback and lifecycle validation:
+
+- Added a transactional rollback probe that deliberately causes the second
+  imported row to overflow after batch creation begins; batch and transaction
+  counts remain unchanged.
+- Added a transactional delete probe with a forced parent-delete failure after
+  allocation deletion begins; both the transaction and its allocation remain.
+- Added and executed an isolated Accounting lifecycle probe covering Import →
+  Manual → Save → Edit → Reload query → Split → Delete → Export source →
+  Dashboard source.
+- Both live probes run inside explicit `BEGIN`/`ROLLBACK`; no QA records,
+  temporary triggers, or test artifacts persist.
+
+Validation:
+
+- `node --check tests/atomic-accounting-writes.spec.mjs` passed.
+- `git diff --check` passed before this log entry.
+- `npm run build` passed.
+- Focused desktop Accounting and atomic-write tests passed: 15 tests.
+- Complete Accounting browser matrix passed across desktop, laptop, and two
+  mobile profiles: 64 tests.
+- Live import/delete rollback probe passed.
+- Live complete Accounting lifecycle probe passed.
+- The complete repository `npx playwright test` command was attempted after the
+  focused matrix but did not terminate within fifteen minutes. This is the
+  existing global runner-stability issue; it is not an Accounting functional
+  failure and does not reopen the resolved atomic-write blocker.
+
+Release assessment:
+
+- **GO for Production** for TRACK017A. The previously identified non-atomic
+  Accounting write blocker is resolved and verified.
+- Production was not deployed or promoted in this track. A new Vercel Preview
+  was deployed only.
+
+Files changed:
+
+- `supabase/migrations/20260724151321_track_017a_atomic_accounting_writes.sql`
+- `supabase/functions/portal-bank-workbench/index.ts`
+- `tests/atomic-accounting-writes.spec.mjs`
+- `tests/sql/track017a_atomic_accounting_rollback.sql`
+- `tests/sql/track017a_accounting_lifecycle.sql`
+- `PROJECT_LOG.md`
