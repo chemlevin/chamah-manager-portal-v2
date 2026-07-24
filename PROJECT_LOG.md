@@ -2481,3 +2481,160 @@ Validation:
 Deployment:
 
 - Preview only. No Production deployment, promotion or alias change.
+
+## 2026-07-24 - TRACK016 Production Readiness Audit
+
+Objective: Perform the final Production Readiness Audit for TRACK013 through
+TRACK015H without implementing features or deploying Production.
+
+Verdict: **NO-GO**.
+
+Release baseline:
+
+- The current branch `codex/track-015g-manual-transactions` contains the
+  TRACK013 through TRACK015H implementation commits through
+  `b77dca38f5a4aac137b9779f13325e6fdec845d5`.
+- The tracks are not merged into `main`; remote `main` remains at
+  `f08e8bb99d11736afc733fb9a6202cc835ba2240`.
+- Root and `chamah-manager-portal/` mirrored static modules are synchronized.
+- The latest Vercel Preview is READY at
+  `https://chamah-portal-ep25xmvmh-chamah.vercel.app`, but its deployment
+  metadata reports `gitDirty=1`. It is therefore not a reproducible clean
+  release artifact.
+- No Production deployment, promotion, alias change, migration application, or
+  Edge Function deployment was performed during TRACK016.
+
+Blocking findings:
+
+1. Repository and live Supabase migration histories are not synchronized.
+   Live Supabase contains seven applied migrations absent from source control:
+   `google_sheets_v2_delta`, `widen_bank_accounting_status`,
+   `payroll_sync_idempotency`, `portal_auth_and_read_access`,
+   `add_classroom_licensing_rules`, `create_and_seed_staffing_rules`, and
+   `add_school_year_travel_rates_and_employee_eligibility`. Several equivalent
+   checked-in migrations also have different version/name identities from the
+   applied history, including TRACK011, TRACK013, TRACK015, and TRACK015H.
+   A clean database cannot be reproduced from the repository as checked in.
+2. TRACK013 through TRACK015H are not merged into `main`.
+3. The linked Vercel project reports zero configured environment variables.
+   The Google-backed `/api/employees`, `/api/budget`, `/api/payroll`, and
+   `/api/allocations` handlers require service-account credentials. Their
+   Production configuration and secret rotation cannot be certified from this
+   project state.
+4. The full Accounting acceptance chain is not covered end-to-end. Existing
+   Playwright tests mock the Supabase Edge Function and prove import parsing,
+   manual creation UI, split editing UI, delete payloads, export download, and
+   dashboard navigation independently. They do not prove persisted Save,
+   persisted Edit, Reload, Delete, Export, and Dashboard propagation against an
+   isolated database in one workflow.
+5. No realistic-data performance/load test exists. The live project currently
+   contains 102 bank transactions and 5 allocations. The Edge Function caps
+   reads at 2,000 transactions and 5,000 allocations, performs one duplicate
+   lookup per preview row, and inserts imported rows sequentially. Production
+   latency and timeout behavior at the supported limits are unproven.
+6. Release hygiene is incomplete. Untracked `.preview-track010-clean/`,
+   `.track009b/`, and `.track010a/` directories remain in the worktree, and
+   generated/ignored QA artifacts remain locally. The latest Preview was built
+   from a dirty tree.
+7. Supabase security advisors report:
+   - `public.portal_my_access()` is a `SECURITY DEFINER` RPC executable by
+     `authenticated`. This may be intentional for self-access discovery, but
+     it requires an explicit threat-model decision before release.
+   - Auth leaked-password protection is disabled.
+8. Supabase performance advisors report multiple missing foreign-key indexes,
+   including the Accounting path
+   `bank_allocations.budget_category_id`, plus additional Budget, payroll,
+   permission, and configuration relationships.
+9. The complete repository Playwright command did not complete within ten
+   minutes. Required suites pass when scoped, but one mobile Settings test
+   timed out in the combined run and passed on isolated retry. Full-suite
+   stability is not proven.
+
+Verified live contracts:
+
+- Supabase project `chamah-manager` is `ACTIVE_HEALTHY`, Postgres 17,
+  region `eu-west-1`.
+- All 47 public tables have RLS enabled.
+- Live Edge Functions `portal-users` v4, `portal-settings` v1, and
+  `portal-bank-workbench` v7 are ACTIVE with JWT verification enabled.
+- The live TRACK015H accounting-status guard trigger is active.
+- `portal_save_bank_allocations(uuid, jsonb, uuid)` accepts only
+  `accounting_status_id`, is executable by `service_role`, and is revoked from
+  `public`, `anon`, and `authenticated`.
+- All 5 live allocations have `accounting_status_id`; no status ID is null.
+  The five historical text values remain populated in the deprecated,
+  trigger-protected compatibility column.
+- Supabase configuration tables are the runtime lookup source for bank
+  accounts, allocation units, daycares, Budget categories, accounting statuses,
+  school-year months, and calendar years in the workbench. Known broader
+  Settings Source-of-Truth duplications documented in TRACK014C remain
+  unresolved, including staffing rules, travel compensation, age-group codes,
+  and Budget contract extensions.
+- Vercel reported no runtime error clusters for the linked Preview project over
+  the preceding seven days. This is not evidence of exercised Production
+  traffic.
+
+Validation executed:
+
+- `node --check` passed for all 68 checked-in `.js` and `.mjs` source/test
+  files outside generated dependencies.
+- `npm run build` passed.
+- `git diff --check` passed before this log entry.
+- Required desktop audit suite passed: 63 tests covering Accounting UI/import/
+  manual/split/delete/export, Budget, Allocations, Payroll, Management, and
+  dashboards.
+- Mobile Accounting, permission security, permissions, and Settings combined
+  run: 33 passed and 1 timed out.
+- The timed-out mobile Settings inline-help test passed on immediate isolated
+  retry: 1 passed.
+- The complete `npx playwright test` command was attempted twice; the second
+  attempt exceeded ten minutes without producing a complete result and its
+  runner processes were stopped.
+- Supabase live migration list, Edge Function list/source, public table RLS,
+  policies, RPC privileges/definitions, triggers, accounting row counts,
+  security advisors, and performance advisors were inspected read-only.
+- Vercel project/deployment state, Preview metadata, seven-day runtime error
+  clusters, and environment-variable metadata were inspected read-only.
+- No destructive live Accounting workflow was executed because the connected
+  Supabase project is the live project and TRACK016 did not authorize mutation
+  of Production data.
+
+Production deployment plan after blockers are closed:
+
+1. Reconcile live migration history into immutable checked-in migration files;
+   prove a clean database can be built and matches live schema/RPC/trigger
+   definitions.
+2. Merge the audited release commit into `main` through review and require a
+   clean worktree/reproducible build.
+3. Configure and verify required Production environment variables and secret
+   ownership/rotation without exposing values.
+4. Resolve or formally accept the Supabase security advisories and add required
+   Accounting-path indexes through reviewed migrations.
+5. Run an isolated staging database acceptance test for the complete Accounting
+   workflow, including reload and dashboard propagation, with cleanup.
+6. Run realistic-data load tests at agreed transaction/allocation volumes and
+   establish latency/error thresholds.
+7. Run the complete Playwright suite successfully from the exact release SHA.
+8. Deploy an immutable Preview from that SHA, complete smoke tests, obtain
+   explicit approval, then promote that exact deployment to Production.
+
+Rollback plan:
+
+1. Record the current Production Vercel deployment ID, aliases, Supabase
+   migration version, Edge Function versions, database backup/PITR point, and
+   smoke-test baseline before promotion.
+2. Prefer backward-compatible, additive database changes; do not rely on an
+   untested down migration.
+3. If frontend/serverless smoke tests fail, immediately reassign the Production
+   alias to the recorded prior deployment.
+4. If an Edge Function fails, redeploy the recorded prior function version or
+   source artifact with its original JWT setting.
+5. If a database change causes data or contract failure, stop writes, restore
+   from the recorded backup/PITR point or apply a reviewed forward-fix, then
+   verify row counts, allocation reconciliation, audit history, permissions,
+   and dashboards before reopening access.
+6. Production deployment and rollback execution require explicit user approval.
+
+Files changed:
+
+- `PROJECT_LOG.md` only.
