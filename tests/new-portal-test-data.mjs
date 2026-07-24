@@ -98,6 +98,8 @@ const generalResponses = {
 
 export async function mockNewPortalSupabase(page, units = allocationUnits) {
   const requestedTables = [];
+  const settingsPrimaryKeys = { school_years:'school_year_id',calendar_years:'calendar_year_id',school_year_months:'school_year_month_id',legal_entity_types:'legal_entity_type_id',legal_entities:'legal_entity_id',allocation_units:'allocation_unit_id',daycares:'daycare_id',daycare_school_years:'daycare_school_year_id',classrooms:'classroom_id',age_groups:'age_group_id',budget_categories:'budget_category_id',bank_accounts:'bank_account_id',accounting_statuses:'accounting_status_id',roles:'role_id',certificate_types:'certificate_type_id',classroom_licensing_rules:'classroom_licensing_rule_id',staffing_rules:'staffing_rule_id',staffing_budget_parameters:'staffing_budget_parameter_id',compensation_factors:'compensation_factor_id',compensation_rules:'compensation_rule_id',budget_rules:'budget_rule_id',travel_rates:'travel_rate_id' };
+  const settingsData = Object.fromEntries(Object.keys(settingsPrimaryKeys).map((name) => [name, name === 'allocation_units' ? structuredClone(units) : structuredClone(generalResponses[name] || [])]));
   await page.route('**/auth/v1/user**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'test-user' }) }));
   await page.route('**/auth/v1/token**', (route) => {
     const url = new URL(route.request().url());
@@ -105,9 +107,25 @@ export async function mockNewPortalSupabase(page, units = allocationUnits) {
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ access_token: 'test-session', refresh_token: 'test-refresh', expires_in: 3600, token_type: 'bearer' }) });
   });
   await page.route('**/functions/v1/portal-settings', async (route) => {
-    const names = ['school_years','calendar_years','school_year_months','legal_entity_types','legal_entities','allocation_units','daycares','daycare_school_years','classrooms','age_groups','budget_categories','bank_accounts','accounting_statuses','roles','certificate_types','classroom_licensing_rules','staffing_rules','staffing_budget_parameters','compensation_factors','compensation_rules','budget_rules','travel_rates'];
-    const data = Object.fromEntries(names.map((name) => [name, name === 'allocation_units' ? units : (generalResponses[name] || [])]));
-    await route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8', body: JSON.stringify({ data }) });
+    const request = route.request(), method = request.method();
+    if (method === 'GET') return route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8', body: JSON.stringify({ data: settingsData }) });
+    const payload = request.postDataJSON(), key = settingsPrimaryKeys[payload.table];
+    if (method === 'POST') {
+      const row = { ...payload.values, [key]: `created-${payload.table}` };
+      settingsData[payload.table].push(row);
+      return route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8', body: JSON.stringify({ row }) });
+    }
+    if (method === 'PATCH') {
+      const index = settingsData[payload.table].findIndex((item) => String(item[key]) === String(payload.id));
+      const row = { ...settingsData[payload.table][index], ...payload.values };
+      settingsData[payload.table][index] = row;
+      return route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8', body: JSON.stringify({ row }) });
+    }
+    if (method === 'DELETE') {
+      settingsData[payload.table] = settingsData[payload.table].filter((item) => String(item[key]) !== String(payload.id));
+      return route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8', body: JSON.stringify({ row: null }) });
+    }
+    return route.fulfill({ status: 405, body: '{}' });
   });
   await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/rest/v1/**', async (route) => {
     const url = new URL(route.request().url());

@@ -2077,3 +2077,47 @@ Residual risk:
 
 - Imported facts, bank transactions, payroll rows, immutable snapshots, audit records, and data-quality workflow rows intentionally remain outside Settings.
 - Other portal modules already read these Supabase tables in several flows, but completing removal of every historical Google Sheets or local-code fallback is separate integration work and was not combined with this UI/data-foundation track.
+
+## 2026-07-24 - TRACK 014B Settings Audit
+
+Objective: Audit and repair only the unified Settings / Rules module, including CRUD, validation, relationships, dropdowns, navigation, rule accordions, and inline help.
+
+Audit scope:
+
+- Audited all 22 Settings groups in the five business sections.
+- Verified the shared create, read, update, delete, confirmation, permission, feedback, linked-selector, and dependent-selector workflows.
+- Compared editable field metadata with the frozen Supabase schema and the implemented portal consumers.
+- Kept the standalone documented system-rules catalog read-only.
+
+Issues found and fixed:
+
+- Added a Settings Back button using `history.back()`.
+- Changed all Settings groups to start as collapsed accordions, including every group in the multi-section Rules area.
+- Added inline Help to all nine workforce/rule groups. Each help panel documents purpose, business logic, dependencies, affected modules, required fields, and change impact.
+- Added required-field validation, stable-code validation, finite-number validation, positive/non-negative range validation, date-order validation, calendar-year consistency, seniority-range validation, travel-cap validation, Budget rule value validation, and dependent month-order validation.
+- Added visible validation summaries and automatically exposes advanced technical fields when validation fails.
+- Added safe defaults for lifecycle and Boolean fields on create.
+- Preserved and verified dependent legal-entity to allocation-unit and school-year to effective-month selectors.
+- Corrected Settings metadata that did not match authoritative columns: classroom lifecycle/effective fields, bank-account fields, Budget category types, compensation factor/rule fields, Budget rule type/value fields, daycare address/lifecycle dates, and calendar-year selectability.
+- Replaced free-text business-controlled values with dropdowns for age group, staffing standard, licensing rounding, compensation value type, and Budget rule type.
+- Corrected classroom licensing, staffing, compensation, travel, and Budget rule business validation without changing Budget Engine calculations or existing API contracts.
+- Expanded the Settings test fixture to exercise real POST, PATCH, and DELETE state transitions.
+
+Validation:
+
+- `node --check chamah-manager-portal/new/settings-center.js` passed.
+- `npm.cmd run build` passed and rebuilt the generated deployment output from source.
+- Focused Settings regression passed on desktop 1440: 5 passed, 1 mobile-only skipped.
+- Focused Settings regression passed on mobile 390: 6 passed.
+- Tests cover 22 collapsed groups, all nine rule help panels, linked selectors, complete create/update/delete, required-field validation, dependent month filtering/order, and horizontal containment.
+- A combined Settings plus portal-sections run was interrupted by the command timeout during test-runner setup; separate focused runs then passed.
+- The optional `agent-browser` CLI was unavailable in this environment, so live visual verification used the project Playwright browser suite instead.
+
+Deployment:
+
+- Preview deployment only; no Production deployment, promotion, alias change, Supabase migration deployment, or Edge Function deployment.
+
+Residual risk:
+
+- The Settings Edge Function still relies on authoritative database constraints as the final concurrency, uniqueness, and foreign-key deletion boundary.
+- Several allow-listed configuration tables predate the checked-in migration history. Their current production constraints remain authoritative where repository schema history is incomplete.
