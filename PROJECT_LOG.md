@@ -2638,3 +2638,83 @@ Rollback plan:
 Files changed:
 
 - `PROJECT_LOG.md` only.
+
+## 2026-07-24 - TRACK017 Production Release Gate
+
+Objective: Deploy the complete approved release to Production after closing all
+TRACK016 blockers.
+
+Final status: **FAILED — Production was not changed**.
+
+Release-gate findings:
+
+- The intended release remains
+  `f2d23f8fd58ef97088a4d82956778b031cf97110` on
+  `codex/track-015g-manual-transactions`; `main` and `origin/main` remain at
+  `f08e8bb99d11736afc733fb9a6202cc835ba2240`.
+- The release branch contains `main`, but the approved release has not been
+  merged into `main`.
+- The authenticated Vercel project `chamah-portal`
+  (`prj_6IND7ee2E9s3KispBh6iBDWwQo6X`) reports no Production environment
+  variables. The required Google-backed API credentials therefore cannot be
+  verified or supplied from repository state.
+- Live Supabase migration history still contains seven migrations absent from
+  the release source, and several checked-in TRACK migration identities still
+  differ from their live applied identities. Forward-only reconciliation is
+  not complete.
+- Supabase security advisors still report authenticated access to the
+  `SECURITY DEFINER` function `public.portal_my_access()` and disabled leaked
+  password protection.
+- The persisted Import → Manual → Save → Edit → Reload → Split → Delete →
+  Export → Dashboard acceptance chain has not been executed against an
+  isolated database, and no approved staging database or release-test
+  credentials were available.
+- Release-hygiene directories `.preview-track010-clean/`, `.track009b/`, and
+  `.track010a/` remain untracked. Their contents were not deleted because they
+  may contain user-owned worktrees or artifacts and their ownership/recovery
+  status was not established.
+
+Actions intentionally not performed:
+
+- Did not merge into or push `main`.
+- Did not apply migrations, change migration history, deploy RPCs, or deploy
+  Edge Functions.
+- Did not create, modify, or delete Production Supabase rows or Auth users.
+- Did not deploy, promote, alias, or roll back any Vercel deployment.
+- Did not claim smoke-test or end-to-end success.
+
+Verified read-only state:
+
+- Supabase project `vyyfuaqmbxvfqgbfqooc` is `ACTIVE_HEALTHY`.
+- Live Edge Functions remain ACTIVE: `portal-users` v4, `portal-settings` v1,
+  and `portal-bank-workbench` v7, all with JWT verification enabled.
+- Latest clean-metadata Preview deployment for the release audit commit is
+  READY at `https://chamah-portal-4tpk5rct6-chamah.vercel.app`; it is not a
+  Production deployment.
+- Vercel reports no runtime error clusters for the project in the preceding
+  seven days; this does not substitute for Production smoke testing.
+
+Required before retry:
+
+1. Add and verify the required Production Vercel environment variables with
+   confirmed secret ownership and rotation.
+2. Add immutable source-controlled copies of every live migration and reconcile
+   differing TRACK migration identities using reviewed forward migrations
+   only; prove clean-database reproducibility.
+3. Formally resolve or accept the `portal_my_access()` threat model and enable
+   leaked-password protection.
+4. Provide an isolated staging database and authorized release-test identity,
+   then pass the complete persisted Accounting acceptance chain and cleanup.
+5. Pass the complete Playwright suite and agreed realistic-volume load test
+   from the exact clean release SHA.
+6. Establish ownership of the untracked release-artifact directories before
+   removing them.
+
+Rollback:
+
+- No rollback is required because TRACK017 made no Production changes.
+
+Files changed:
+
+- `PROJECT_LOG.md`
+- `RELEASE_NOTES.md`
