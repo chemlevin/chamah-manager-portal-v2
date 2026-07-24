@@ -2132,6 +2132,41 @@ Residual risk:
 - Attachment storage and upload are intentionally absent until TRACK015A.
 - The temporary Workflow Configuration Provider is a dated snapshot and must be replaced, not bypassed, when the later configuration track is implemented.
 
+## 2026-07-24 - TRACK: 015 UX Polish
+
+Objective: Improve only the secretary-facing TRACK015 workflow without changing the import engine, backend architecture, API contracts, schema, or allocation model.
+
+Implementation:
+
+- Replaced financial-style top KPIs with clickable workflow cards for all transactions, untreated transactions, missing data, pending split reconciliation, missing documents, ready for Accounting, and completed work.
+- Made every workflow card an active table filter while preserving the existing account, month, status, search, and imported-batch filters.
+- Converted the workbench into a wide spreadsheet-style editor. Movement type, department, daycare, budget category, budget month, Accounting status, notes, and signed allocation amount are editable directly inside each transaction group.
+- Integrated the existing one-level split behavior into the table: child allocation rows appear directly below the immutable parent source cells, can be added or deleted inline, and show split numbering and reconciliation state.
+- Kept the existing atomic per-parent save contract. Enter or the row save action persists the complete child allocation set without changing the backend or import workflow.
+- Moved the lower details area to a read-only metadata panel containing bank source information, import batch details, audit-oriented identifiers/timestamps, and the future attachment placeholder only.
+- Added a transaction checkbox column, select-all control, and selection count for future bulk actions without implementing bulk mutations.
+- Improved large-batch usability with dense consistent row spacing, visible workflow-state pills, sticky selection/date/description columns on desktop and laptop, horizontal spreadsheet scrolling, and a sticky table footer.
+- On narrow mobile screens, kept the selection column sticky but released date/description columns so horizontally scrolled inline actions remain reachable.
+
+Files changed:
+
+- `chamah-manager-portal/new/bank-workbench.js`
+- `chamah-manager-portal/new/styles.css`
+- `tests/accounting-navigation.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- JavaScript syntax, production build, and `git diff --check` passed.
+- Accounting navigation, workflow-card filtering, inline allocation editing, integrated splits, metadata-only details, selection controls, permission behavior, and responsive mobile access passed across desktop 1440, laptop 1280, mobile 390, and mobile 430: 20 passed.
+- Budget, allocations, and management engine regression passed: 30 passed.
+- No Supabase migration, Edge Function, API, import parser, workflow provider, dependency, package, or calculation changes were made.
+
+Deployment:
+
+- Vercel Preview deployed from the pushed UX-polish commit only.
+- Production was not promoted, aliased, or replaced.
+
 ## 2026-07-24 - TRACK 014B Settings Audit
 
 Objective: Audit and repair only the unified Settings / Rules module, including CRUD, validation, relationships, dropdowns, navigation, rule accordions, and inline help.

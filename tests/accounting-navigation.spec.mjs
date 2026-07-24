@@ -32,18 +32,39 @@ test('Bank File exposes TRACK015 import and workbench controls with an empty dat
   await expect(page.getByRole('button', { name: 'ייבוא קובץ' })).toBeVisible();
 });
 
-test('Bank File renders a parent transaction and allocation editor without child source rows', async ({ page }) => {
+test('Bank File provides workflow filters and inline spreadsheet allocation editing', async ({ page }) => {
+  await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, {
+    accounts: [{ bank_account_id: 'account-1', display_name: 'חשבון מרכזי' }],
+    transactions: [
+      { bank_transaction_id: 'tx-1', bank_account_id: 'account-1', transaction_date: '2026-07-24', description: 'חשמל', reference_number: '100', amount: -100, attachment_count: 0 },
+      { bank_transaction_id: 'tx-2', bank_account_id: 'account-1', transaction_date: '2026-07-23', description: 'עמלה', reference_number: '101', amount: -20, attachment_count: 0 },
+    ],
+    allocations: [{ bank_allocation_id: 'allocation-1', bank_transaction_id: 'tx-1', movement_type: 'EXPENSE', allocation_unit_id: 'fe05de40-2551-4e90-befe-db4253d66e1c', budget_category_id: 'ab5e648d-c280-44ad-a56d-8fc6e825f92a', budget_month: '2026-07-01', accounting_status: 'PENDING_SUBMISSION', allocation_amount: -60, notes: '' }],
+  });
+  await expect(page.locator('[data-bank-row="tx-1"]')).toContainText('דורש טיפול');
+  await expect(page.locator('[data-bank-row="tx-1"] select[name="movement_type"]')).toBeVisible();
+  await expect(page.locator('[data-bank-row="tx-1"] select[name="allocation_unit_id"]')).toBeVisible();
+  await expect(page.locator('[data-bank-row="tx-1"] input[name="notes"]')).toBeVisible();
+  await page.locator('[data-add-split="tx-1"]').click();
+  await expect(page.locator('[data-bank-row="tx-1"]')).toHaveCount(2);
+  await page.locator('[data-workflow="untreated"]').click();
+  await expect(page.locator('[data-bank-row="tx-1"]')).toHaveCount(0);
+  await expect(page.locator('[data-bank-row="tx-2"]')).toHaveCount(1);
+  await page.locator('[data-workflow="all"]').click();
+  await page.locator('[data-open-metadata="tx-1"]').first().click();
+  await expect(page.getByText('מסמכים: 0')).toBeVisible();
+  await expect(page.locator('#bank-new-details select')).toHaveCount(0);
+});
+
+test('Bank File supports selection checkboxes for future bulk actions', async ({ page }) => {
   await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, {
     accounts: [{ bank_account_id: 'account-1', display_name: 'חשבון מרכזי' }],
     transactions: [{ bank_transaction_id: 'tx-1', bank_account_id: 'account-1', transaction_date: '2026-07-24', description: 'חשמל', reference_number: '100', amount: -100, attachment_count: 0 }],
-    allocations: [{ bank_allocation_id: 'allocation-1', bank_transaction_id: 'tx-1', movement_type: 'EXPENSE', allocation_unit_id: 'fe05de40-2551-4e90-befe-db4253d66e1c', budget_category_id: 'ab5e648d-c280-44ad-a56d-8fc6e825f92a', budget_month: '2026-07-01', accounting_status: 'PENDING_SUBMISSION', allocation_amount: -60, notes: '' }],
   });
-  await expect(page.locator('[data-bank-row="tx-1"]')).toContainText('חלקי');
-  await page.locator('[data-bank-row="tx-1"]').click();
-  await expect(page.locator('#allocation-form [data-allocation-row]')).toHaveCount(1);
-  await page.getByRole('button', { name: 'הוספת שורה' }).click();
-  await expect(page.locator('#allocation-form [data-allocation-row]')).toHaveCount(2);
-  await expect(page.getByText('מסמכים: 0')).toBeVisible();
+  await page.locator('[data-select-transaction="tx-1"]').check();
+  await expect(page.locator('#bank-selection-count')).toContainText('1 תנועות נבחרו');
+  await page.locator('#bank-select-all').uncheck();
+  await expect(page.locator('#bank-selection-count')).toContainText('לא נבחרו');
 });
 
 test('Bank File defaults to HIDDEN when the permission catalog has no explicit child row', async ({ page }) => {
