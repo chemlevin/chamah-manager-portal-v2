@@ -2453,6 +2453,11 @@ Implementation:
 - Updated the Bank workbench Edge Function, settings-backed workbench,
   Accounting dashboard, filters, exports and normal test fixtures to use the
   canonical foreign key.
+- Routed the Accounting dashboard through the same permission-checked Edge
+  Function as the workbench so RLS cannot silently replace live transaction
+  data with empty arrays.
+- Copied ExcelJS and SheetJS to both root and `/new/vendor` build locations so
+  exports and dashboard pages no longer emit vendor-script 404 errors.
 - Retained the old text column only as a documented read-only historical field.
 - Updated architecture and data-contract documentation.
 
@@ -2463,7 +2468,7 @@ Live Supabase verification:
   remain.
 - The live RPC contains the ID contract and no legacy JSON read.
 - The legacy-write guard trigger is active.
-- `portal-bank-workbench` version 6 deployed with JWT verification.
+- `portal-bank-workbench` version 7 deployed with JWT verification.
 
 Validation:
 
@@ -2471,11 +2476,8 @@ Validation:
 - `npm run build` passed.
 - Accounting/Bank workbench suite passed: 13 desktop and 13 mobile.
 - Budget, Allocations, Management and Payroll regression passed: 37 tests.
-- Dashboard functional assertions passed; three dashboard tests still report
-  the known local static-server 404s for `/new/vendor/exceljs.min.js` and
-  `/new/vendor/xlsx.full.min.js`, unrelated to accounting persistence.
+- Dashboard regression passed: 13 tests.
 
 Deployment:
 
-- Supabase Preview backend only at this stage. No Production deployment,
-  promotion or alias change.
+- Preview only. No Production deployment, promotion or alias change.

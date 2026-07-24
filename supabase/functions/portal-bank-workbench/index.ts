@@ -53,7 +53,7 @@ Deno.serve(async (request) => {
     if (!permission.ok || await permission.json() !== true) return json({ error: "אין הרשאה מתאימה לקובץ הבנקים." }, 403);
 
     if (request.method === "GET") {
-      const [transactions, allocations, accounts, units, daycares, categories, accountingStatuses, assignmentMonths, batches] = await Promise.all([
+      const [transactions, allocations, accounts, units, daycares, categories, accountingStatuses, assignmentMonths, calendarYears, batches] = await Promise.all([
         read("bank_transactions?select=*&order=transaction_date.desc,created_at.desc&limit=2000"),
         read("bank_allocations?select=*&limit=5000"),
         read("bank_accounts?select=*&order=display_order,display_name"),
@@ -62,9 +62,10 @@ Deno.serve(async (request) => {
         read("budget_categories?select=*&order=display_order,display_name"),
         read("accounting_statuses?select=*&order=display_order,display_name"),
         read("school_year_months?select=*&order=start_date"),
+        read("calendar_years?select=*&is_selectable=eq.true&order=start_date.desc"),
         read("import_batches?select=*&source_type=eq.BANK_FILE&order=started_at.desc&limit=50"),
       ]);
-      return json({ transactions, allocations, accounts, units, daycares, categories, accountingStatuses, assignmentMonths, batches });
+      return json({ transactions, allocations, accounts, units, daycares, categories, accountingStatuses, assignmentMonths, calendarYears, batches });
     }
 
     const body = await request.json();

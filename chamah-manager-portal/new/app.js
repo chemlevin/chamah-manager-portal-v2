@@ -1469,17 +1469,17 @@ async function loadAccountingDashboard() {
   if (accountingStatus === 'loading' || accountingStatus === 'ready') return;
   accountingStatus = 'loading'; accountingError = '';
   try {
-    const [years, transactions, allocations, accounts, units, daycares, categories, accountingStatuses] = await Promise.all([
-      rest('calendar_years', 'select=calendar_year_id,calendar_year_code,display_name,start_date,end_date,status,is_selectable&is_selectable=eq.true&order=start_date.desc'),
-      rest('bank_transactions', 'select=bank_transaction_id,bank_account_id,transaction_date,description,reference_number,amount,debit_amount,credit_amount&order=transaction_date.desc'),
-      rest('bank_allocations', 'select=bank_allocation_id,bank_transaction_id,allocation_unit_id,budget_month,budget_category_id,allocation_amount,accounting_status_id,notes'),
-      rest('bank_accounts', 'select=bank_account_id,display_name,bank_account_code,lifecycle_status'),
-      rest('allocation_units', 'select=allocation_unit_id,display_name,allocation_unit_type,lifecycle_status,display_order&lifecycle_status=eq.ACTIVE&order=display_order.asc,display_name.asc'),
-      rest('daycares', 'select=daycare_id,allocation_unit_id,display_name,lifecycle_status,display_order&order=display_order'),
-      rest('budget_categories', 'select=budget_category_id,display_name,category_type,lifecycle_status&lifecycle_status=eq.ACTIVE'),
-      rest('accounting_statuses', 'select=accounting_status_id,sheet_accounting_status_id,display_name,is_final,lifecycle_status&order=display_order,display_name')
-    ]);
-    accountingModel = { years, transactions, allocations, accounts, units: activeUnits(units), daycares, categories, accountingStatuses };
+    const workbench = await portalBankWorkbenchRequest('GET');
+    accountingModel = {
+      years: workbench.calendarYears || [],
+      transactions: workbench.transactions || [],
+      allocations: workbench.allocations || [],
+      accounts: workbench.accounts || [],
+      units: activeUnits(workbench.units || []),
+      daycares: workbench.daycares || [],
+      categories: (workbench.categories || []).filter((item) => item.lifecycle_status === 'ACTIVE'),
+      accountingStatuses: workbench.accountingStatuses || [],
+    };
     accountingStatus = 'ready'; accountingLastUpdated = new Date();
   } catch (error) { accountingStatus = 'error'; accountingError = error.message; }
 }
