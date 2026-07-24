@@ -2078,6 +2078,60 @@ Residual risk:
 - Imported facts, bank transactions, payroll rows, immutable snapshots, audit records, and data-quality workflow rows intentionally remain outside Settings.
 - Other portal modules already read these Supabase tables in several flows, but completing removal of every historical Google Sheets or local-code fallback is separate integration work and was not combined with this UI/data-foundation track.
 
+## 2026-07-24 - TRACK: 015 Bank Import & Accounting Workbench
+
+Objective: Complete manual bank-file import and convert the existing Bank Transactions prototype into the secretary's connected daily workbench.
+
+Implementation:
+
+- Added XLSX and CSV file parsing with Hebrew/English column aliases, signed-amount handling, normalized digits-only account detection, server-side preview, duplicate review, explicit confirmation, import summaries, and automatic filtering/opening of the imported batch.
+- Matched imported files only through `bank_accounts.source_account_number`; debit and credit source columns are not read by the import workflow.
+- Added the authenticated `portal-bank-workbench` Edge Function for workbench reads, preview checks, confirmed import batches, and allocation persistence.
+- Kept immutable bank source data on parent `bank_transactions` rows and manual workflow fields on child `bank_allocations` rows.
+- Added one-level child allocation editing with movement type, department, daycare, budget category, budget month, accounting status, free-text notes, signed allocation amount, add/delete row controls, running allocated total, remaining amount, balanced/partial indicators, validation, and an atomic service-only save function.
+- Added a temporary snapshot-based Workflow Configuration Provider containing the currently approved movement, department, daycare, budget-category, budget-month, and accounting-status values. Workbench dropdowns depend only on this provider so a later track can replace its implementation.
+- Added the parent-only attachment placeholder column, paperclip button, and counter. No upload or storage behavior was added; that remains TRACK015A.
+- Preserved active filters and scroll position after allocation saves, updated only the affected client model instead of reloading the page, and retained keyboard search, row navigation, Enter-to-edit, and fast field navigation.
+- Added additive schema support for normalized source account numbers, parent attachment counts, allocation movement type, optional draft fields, daycare targeting, and the Accounting Bank File catalog entry.
+- Replaced the initially selected SheetJS npm parser after audit identified unresolved high-severity advisories. The final implementation uses pinned ExcelJS for XLSX and a local CSV parser; the final production-dependency audit reports no high or critical vulnerabilities.
+- Applied both additive TRACK015 migrations and deployed the authenticated Edge Function to the connected Preview Supabase backend only.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/index.html`
+- `chamah-manager-portal/new/styles.css`
+- `chamah-manager-portal/new/bank-workbench.js`
+- `chamah-manager-portal/new/workflow-configuration.js`
+- `scripts/build.mjs`
+- `package.json`
+- `package-lock.json`
+- `supabase/functions/portal-bank-workbench/index.ts`
+- `supabase/migrations/20260724120000_track_015_bank_import_workbench.sql`
+- `supabase/migrations/20260724123000_track_015_atomic_allocation_save.sql`
+- `tests/accounting-navigation.spec.mjs`
+- `PROJECT_LOG.md`
+
+Validation:
+
+- JavaScript syntax checks, production build, and `git diff --check` passed.
+- Focused Accounting workbench coverage passed across desktop 1440, laptop 1280, mobile 390, and mobile 430: 16 passed.
+- Budget, allocations, and management engine regression passed: 30 passed.
+- Live schema verification confirmed the new source-account, attachment, movement, and nullable draft-allocation contracts.
+- Supabase advisors found no TRACK015 security error. Existing project warnings remain for the intentionally authenticated `portal_my_access()` SECURITY DEFINER function and disabled leaked-password protection.
+- Final `npm audit --omit=dev --audit-level=high` passed with no high or critical findings; five moderate `uuid` findings remain through existing Google APIs and ExcelJS dependency trees.
+
+Deployment:
+
+- Preview Supabase migrations and authenticated Edge Function deployed.
+- Vercel Preview deployed from the pushed TRACK015 commit only. Production was not promoted, aliased, or replaced.
+
+Residual risk:
+
+- Bank statement layouts still need representative files from every operating bank for alias coverage confirmation.
+- Attachment storage and upload are intentionally absent until TRACK015A.
+- The temporary Workflow Configuration Provider is a dated snapshot and must be replaced, not bypassed, when the later configuration track is implemented.
+
 ## 2026-07-24 - TRACK 014B Settings Audit
 
 Objective: Audit and repair only the unified Settings / Rules module, including CRUD, validation, relationships, dropdowns, navigation, rule accordions, and inline help.

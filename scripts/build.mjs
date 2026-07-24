@@ -4,6 +4,8 @@ await import('./generate-management-catalog.mjs');
 await rm('dist', { recursive: true, force: true });
 await mkdir('dist', { recursive: true });
 await cp('chamah-manager-portal', 'dist', { recursive: true });
+await mkdir(join('dist', 'vendor'), { recursive: true });
+await cp(join('node_modules', 'exceljs', 'dist', 'exceljs.min.js'), join('dist', 'vendor', 'exceljs.min.js'));
 const portalSource = 'chamah-manager-portal/new';
 for (const entry of await readdir(portalSource)) {
   await cp(join(portalSource, entry), join('dist', entry), { recursive: true });

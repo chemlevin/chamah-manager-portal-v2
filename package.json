@@ -10,6 +10,7 @@
     "@playwright/test": "^1.54.0"
   },
   "dependencies": {
+    "exceljs": "^4.4.0",
     "googleapis": "^140.0.1"
   }
 }

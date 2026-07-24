@@ -5,6 +5,7 @@ import { RULE_CATEGORIES, SYSTEM_RULES } from './management-catalog.generated.js
 import { DOCUMENTED_STATUS_RULES, REFERENCE_TABLES, VARIABLE_RULE_TABLES } from './management-data.js';
 import { mountAdministrationPrototype } from './administration-prototype.js';
 import { mountSettingsCenter } from './settings-center.js';
+import { bankWorkbenchTemplate as track015BankWorkbenchTemplate, mountBankWorkbench } from './bank-workbench.js';
 
 const SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
@@ -482,6 +483,14 @@ async function portalSettingsRequest(method = 'GET', body) {
   const response = await fetch(`${SUPABASE_URL}/functions/v1/portal-settings`, { method, headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
   const value = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(value.error || 'הפעולה נכשלה.');
+  return value;
+}
+
+async function portalBankWorkbenchRequest(method = 'GET', body) {
+  if (!await ensureAccessToken()) throw new Error('החיבור פג.');
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/portal-bank-workbench`, { method, headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const value = await response.json().catch(() => ({}));
+  if (!response.ok) { const error = new Error(value.error || 'הפעולה נכשלה.'); error.details = value.errors; throw error; }
   return value;
 }
 
@@ -1351,9 +1360,8 @@ async function render() {
       } else if (type.id === 'accounting' && route.dashboardChild === 'banks') {
         title = 'קובץ בנקים';
         activeDashboardUnit = unit;
-        bankWorkspaceState = { selected: null, expanded: new Set(), quick: 'all', query: '' };
-        $('#page-content').innerHTML = bankWorkspaceTemplate();
-        bindBankWorkspace();
+        $('#page-content').innerHTML = track015BankWorkbenchTemplate();
+        await mountBankWorkbench(portalBankWorkbenchRequest);
       } else if (type.id === 'accounting' && route.dashboardChild === 'summary') {
         title = type.title;
         dashboardMode = 'accounting';
