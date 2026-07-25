@@ -2878,3 +2878,88 @@ Files changed:
 
 - `PROJECT_LOG.md`
 - `RELEASE_NOTES.md`
+
+## 2026-07-25 - TRACK019 Configuration and Legacy API Audit
+
+Objective: Make Supabase/the root portal authoritative for configuration, complete
+the existing Settings workflow, and map remaining Google Sheets API dependencies
+without redesigning Employees or Payroll, changing calculations, or deploying
+Production.
+
+Final status: **COMPLETED — Preview-only portal release pending deployment at the
+time of this log entry.**
+
+Audit:
+
+- Confirmed the deployable root is built from `chamah-manager-portal/new` and
+  reads active portal data from Supabase/PostgREST and authenticated Edge
+  Functions.
+- Confirmed the root portal does not call `/api/employees`, `/api/budget`,
+  `/api/payroll`, or `/api/allocations`.
+- Mapped the four Google Sheets APIs to the older compatibility pages and
+  documented their Supabase replacements and removal constraints in
+  `docs/architecture/track019-configuration-legacy-api-audit.md`.
+- Audited all 22 Settings tables in the connected Supabase project; RLS remains
+  enabled on every table.
+
+Supabase/configuration:
+
+- Applied migration `20260725120000_track_019_configuration_source_of_truth`.
+- Made six Settings-managed `sheet_*` identifiers nullable so portal-created
+  configuration does not require legacy IDs.
+- Added portal-native, unique `accounting_status_code`, backfilled all five
+  statuses, and kept `sheet_accounting_status_id` only as a compatibility field.
+- Seeded the previously empty `certificate_types` catalog with caregiver,
+  graduation, first-aid, and safe-conduct types using portal-native codes.
+- Verified the connected project now has four certificate types, five coded
+  accounting statuses, and all six targeted legacy identifiers nullable.
+- Preserved RLS, permission resolution, audit behavior, existing rows, and all
+  calculation tables.
+
+Settings/UI:
+
+- Added editable ordering to ordered period, organization, daycare, classroom,
+  finance, role, and certificate lookups.
+- Added role group/daycare relevance and certificate expiry policy.
+- Replaced destructive Settings deletion with archive/deactivate behavior that
+  preserves history.
+- Retained create/edit and expanded validation.
+- Corrected the licensing-rounding selector to the database-enforced
+  `FLOOR_AFTER_TOTAL` value.
+- Changed active accounting workflow consumers to use `accounting_status_code`,
+  with the old sheet code only as a legacy fallback.
+
+Validation:
+
+- PASS: `npm run build`.
+- PASS: `node --check` for `app.js`, `settings-center.js`, and
+  `bank-workbench-ux.js`.
+- PASS: focused Settings, Accounting, atomic-write, and permission tests across
+  desktop/laptop/mobile: 101 passed, 2 skipped; one unrelated mobile import test
+  was flaky on the first run and passed immediately in isolation.
+- PASS: 55 Budget, Payroll, allocations, management, occupancy, salary, and
+  Budget regression tests.
+- PASS: `git diff --check`.
+- Supabase advisors after DDL reported no new TRACK019 RLS/security issue.
+  Existing warnings remain for the intentional authenticated
+  `portal_my_access()` SECURITY DEFINER RPC, disabled leaked-password protection,
+  and pre-existing performance/index recommendations.
+
+Deferred:
+
+- Employee status/certificate workflow redesign and `/api/employees` retirement.
+- Payroll workflow redesign and `/api/payroll` retirement.
+- Deleting compatibility pages/APIs and consolidating duplicate staffing/travel
+  rule models.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/bank-workbench-ux.js`
+- `chamah-manager-portal/new/settings-center.js`
+- `docs/architecture/track019-configuration-legacy-api-audit.md`
+- `supabase/migrations/20260725120000_track_019_configuration_source_of_truth.sql`
+- `tests/accounting-navigation.spec.mjs`
+- `tests/new-portal-test-data.mjs`
+- `tests/settings-center.spec.mjs`
+- `PROJECT_LOG.md`

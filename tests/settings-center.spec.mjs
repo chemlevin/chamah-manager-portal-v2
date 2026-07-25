@@ -38,7 +38,7 @@ test.describe('TRACK 013 Settings center', () => {
     }
   });
 
-  test('completes create, update and delete with validation', async ({ page }) => {
+  test('completes create, update and archive with validation', async ({ page }) => {
     await openNewPortal(page, 'training/settings');
     const roles = page.locator('.settings-card').filter({ has: page.getByText('תפקידים', { exact: true }) });
     await roles.locator('summary').click();
@@ -61,8 +61,11 @@ test.describe('TRACK 013 Settings center', () => {
 
     await roles.locator('article').filter({ hasText: 'תפקיד מעודכן' }).getByRole('button', { name: 'עריכה' }).click();
     page.once('dialog', (dialog) => dialog.accept());
-    await page.getByRole('button', { name: 'מחיקה' }).click();
-    await expect(page.getByRole('status')).toContainText('נמחקה');
+    await page.getByRole('button', { name: 'השבתה / העברה לארכיון' }).click();
+    await expect(page.getByRole('status')).toContainText('הושבתה');
+    await roles.locator('summary').click();
+    await roles.locator('article').filter({ hasText: 'תפקיד מעודכן' }).getByRole('button', { name: 'עריכה' }).click();
+    await expect(page.getByLabel('מצב *')).toHaveValue('ARCHIVED');
   });
 
   test('enforces rule ranges and dependent month dropdowns', async ({ page }) => {

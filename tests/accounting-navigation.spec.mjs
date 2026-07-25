@@ -13,9 +13,9 @@ async function openAccounting(page, route, access = portalAccessFixture, workben
       transactions: [], allocations: [], accounts: [], units: [], daycares: [], categories: [], batches: [],
       assignmentMonths: [{ school_year_month_id: 'month-2026-07', start_date: '2026-07-01', month_label: 'יולי 2026' }],
       accountingStatuses: [
-        { accounting_status_id: 'status-missing', sheet_accounting_status_id: 'ACC-MISSING-DOCS', display_name: 'חסרים מסמכים', display_order: 10, is_final: false, lifecycle_status: 'ACTIVE' },
-        { accounting_status_id: 'status-waiting', sheet_accounting_status_id: 'ACC-WAITING', display_name: 'ממתין לשליחה', display_order: 20, is_final: false, lifecycle_status: 'ACTIVE' },
-        { accounting_status_id: 'status-sent', sheet_accounting_status_id: 'ACC-SENT', display_name: 'נשלח להנה״ח', display_order: 30, is_final: true, lifecycle_status: 'ACTIVE' },
+        { accounting_status_id: 'status-missing', accounting_status_code: 'ACC-MISSING-DOCS', sheet_accounting_status_id: 'ACC-MISSING-DOCS', display_name: 'חסרים מסמכים', display_order: 10, is_final: false, lifecycle_status: 'ACTIVE' },
+        { accounting_status_id: 'status-waiting', accounting_status_code: 'ACC-WAITING', sheet_accounting_status_id: 'ACC-WAITING', display_name: 'ממתין לשליחה', display_order: 20, is_final: false, lifecycle_status: 'ACTIVE' },
+        { accounting_status_id: 'status-sent', accounting_status_code: 'ACC-SENT', sheet_accounting_status_id: 'ACC-SENT', display_name: 'נשלח להנה״ח', display_order: 30, is_final: true, lifecycle_status: 'ACTIVE' },
       ],
     };
     const response = { ...defaults, ...workbench };

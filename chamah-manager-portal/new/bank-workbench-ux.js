@@ -66,9 +66,10 @@ export async function mountBankWorkbenchV2(request) {
     const split = rows.length > 1;
     const balanced = rows.length > 0 && Math.abs(remaining) <= .01;
     const statuses = rows.map(accountingStatus).filter(Boolean);
-    const ready = balanced && !missing && statuses.every((value) => value.sheet_accounting_status_id === "ACC-WAITING");
+    const statusCode = (value) => value.accounting_status_code || value.sheet_accounting_status_id || "";
+    const ready = balanced && !missing && statuses.every((value) => statusCode(value) === "ACC-WAITING");
     const sent = balanced && !missing && statuses.every((value) => value.is_final);
-    return { rows, total, remaining, missing, split, balanced, ready, sent, missingDocuments: statuses.some((value) => value.sheet_accounting_status_id === "ACC-MISSING-DOCS") };
+    return { rows, total, remaining, missing, split, balanced, ready, sent, missingDocuments: statuses.some((value) => statusCode(value) === "ACC-MISSING-DOCS") };
   };
   const missingReason = (rows) => {
     if (!rows.length) return "טרם טופל — אין שורת שיוך";
