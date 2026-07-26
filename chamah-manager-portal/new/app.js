@@ -18,7 +18,11 @@ const SESSION_REFRESH_LEEWAY_SECONDS = 60;
 const AUTO_REFRESH_MAX_DELAY_MS = 30 * 60 * 1000;
 const AUTO_REFRESH_RETRY_MS = 30 * 1000;
 const MIN_PASSWORD_LENGTH = 10;
-const PRODUCTION_PORTAL_URL = 'https://chamah-portal-chamah.vercel.app/';
+const PRODUCTION_PORTAL_URL = 'https://chamah-portal.vercel.app/';
+const PRODUCTION_PORTAL_HOSTNAMES = new Set([
+  new URL(PRODUCTION_PORTAL_URL).hostname,
+  'chamah-portal-chamah.vercel.app',
+]);
 const PREVIEW_PORTAL_URL = 'https://chamah-portal-chemlevin-chamah.vercel.app/';
 const $ = (selector) => document.querySelector(selector);
 const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 });
@@ -221,7 +225,7 @@ async function signInWithPassword(email, password) {
 }
 
 async function requestPasswordRecovery(email) {
-  const redirectUrl = location.hostname === new URL(PRODUCTION_PORTAL_URL).hostname
+  const redirectUrl = PRODUCTION_PORTAL_HOSTNAMES.has(location.hostname)
     ? PRODUCTION_PORTAL_URL
     : location.hostname.endsWith('.vercel.app')
       ? PREVIEW_PORTAL_URL
