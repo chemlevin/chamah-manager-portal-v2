@@ -24,11 +24,11 @@ test('Actual Payroll Workbench shows month, matching KPIs and cost-hours split e
   await openNewPortal(page, 'dashboards/unit/organization/staffing/actual-payroll');
   await expect(page.getByRole('heading', { name: 'ביצוע שכר', exact: true })).toBeVisible();
   await expect(page.locator('#wf-month')).toBeVisible();
-  await expect(page.locator('#wf-kpis button')).toHaveCount(5);
+  await expect(page.locator('#wf-kpis button')).toHaveCount(6);
   await expect(page.locator('#wf-rows .bank-row-status').first()).toHaveText('מקושר');
   await page.getByRole('button', { name: 'פרטים' }).first().click();
-  await expect(page.locator('#wf-details')).toContainText('פער עלות');
-  await expect(page.locator('#wf-details')).toContainText('פער שעות');
+  await expect(page.locator('#wf-details')).toContainText('נתוני עובד קבועים');
+  await expect(page.locator('#wf-details')).toContainText('שמירה אוטומטית');
   await expect(page.locator('[name="allocation_unit_id"]').first()).toBeVisible();
   await expect(page.locator('[name="daycare_id"]').first()).toBeVisible();
   await expect(page.locator('[name="allocation_amount"]').first()).toBeVisible();
@@ -67,7 +67,7 @@ test('Employee CRUD and pay-term history dispatch canonical Supabase actions', a
   await expect.poll(() => actions.some((body) => body.action === 'save_pay_term' && body.record.valid_from === '2026-08-01')).toBeTruthy();
 });
 
-test('Payroll manual CRUD and split dispatch canonical Supabase actions', async ({ page }) => {
+test('Payroll add, autosave and split dispatch canonical Supabase actions', async ({ page }) => {
   const actions = [];
   await page.route('**/functions/v1/portal-workforce-workbench**', async (route) => {
     if (route.request().method() === 'GET') return route.fallback();
@@ -77,13 +77,39 @@ test('Payroll manual CRUD and split dispatch canonical Supabase actions', async 
   await openNewPortal(page, 'dashboards/unit/organization/staffing/actual-payroll');
 
   await page.locator('#wf-add').click();
-  await page.locator('#wf-form [name="source_employee_identifier"]').fill('EMP-1');
-  await page.locator('#wf-form [name="employer_cost"]').fill('12345');
-  await page.locator('#wf-form [name="regular_hours"]').fill('160');
-  await page.locator('#wf-form').getByRole('button', { name: 'שמירה' }).click();
+  await page.locator('#wf-form [name="employee_code"]').selectOption('EMP-1');
+  await page.locator('#wf-form').getByRole('button', { name: 'הוספה' }).click();
   await expect.poll(() => actions.some((body) => body.action === 'save_record' && body.record_origin === 'MANUAL')).toBeTruthy();
 
   await page.getByRole('button', { name: 'פרטים' }).first().click();
+  await page.locator('#payroll-monthly-form [name="employer_cost"]').fill('12345');
+  await expect.poll(() => actions.some((body) => body.action === 'save_record' && body.employer_cost === '12345')).toBeTruthy();
   await page.locator('[data-save-allocations]').click();
   await expect.poll(() => actions.some((body) => body.action === 'save_allocations' && Array.isArray(body.allocations))).toBeTruthy();
+});
+
+test('Payroll month opening and closing dispatch lifecycle actions', async ({ page }) => {
+  const actions = [];
+  await page.route('**/functions/v1/portal-workforce-workbench**', async (route) => {
+    if (route.request().method() === 'GET') return route.fallback();
+    actions.push(route.request().postDataJSON());
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+  });
+  await openNewPortal(page, 'dashboards/unit/organization/staffing/actual-payroll');
+
+  await page.locator('#wf-open-month').click();
+  await page.locator('#wf-form [name="payroll_month"]').fill('2026-08');
+  await page.locator('#wf-form [name="opening_method"][value="ACTIVE_EMPLOYEES"]').check();
+  await page.locator('#wf-form').getByRole('button', { name: 'פתיחה ומעבר לחודש' }).click();
+  await expect.poll(() => actions.some((body) => body.action === 'open_month' && body.opening_method === 'ACTIVE_EMPLOYEES')).toBeTruthy();
+
+  await expect(page.locator('#wf-close-month')).toBeVisible();
+});
+
+test('Accountant export offers organization, daycare and department without allocation rows', async ({ page }) => {
+  await openNewPortal(page, 'dashboards/unit/organization/staffing/actual-payroll');
+  await page.locator('#wf-export').click();
+  await expect(page.locator('#wf-form [name="scope"] option')).toHaveCount(3);
+  await expect(page.locator('#wf-dialog-content')).toContainText('שורה אחת לעובד');
+  await expect(page.locator('#wf-dialog-content')).toContainText('אינו כולל פיצולים פנימיים');
 });

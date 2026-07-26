@@ -151,10 +151,22 @@ export async function mockNewPortalSupabase(page, units = allocationUnits) {
   await page.route('**/functions/v1/portal-workforce-workbench**', (route) => {
     const payroll = new URL(route.request().url()).searchParams.get('page') === 'payroll';
     const body = payroll ? {
-      records: generalResponses.payroll_records.map((row) => ({ ...row, employee_match_status: 'LINKED', record_origin: 'IMPORT' })),
+      records: generalResponses.payroll_records.map((row) => ({
+        ...row,
+        employee_match_status: 'LINKED',
+        record_origin: 'IMPORT',
+        allocation_unit_id: activeDaycareId,
+        daycare_id: 'daycare-1',
+        role_id: 'role-caregiver',
+        employee_pay_term_id: 'term-1',
+      })),
       allocations: generalResponses.payroll_allocations,
       employees: generalResponses.employees.map((row) => ({ ...row, employee_code: 'EMP-1' })),
       employments: generalResponses.employments,
+      assignments: generalResponses.employee_assignments,
+      payTerms: generalResponses.employee_pay_terms,
+      months: [{ payroll_month: '2026-07-01', month_status: 'CURRENT', opening_method: 'ACTIVE_EMPLOYEES' }],
+      canReopen: true,
     } : {
       employees: generalResponses.employees.map((row) => ({ ...row, employee_code: 'EMP-1' })),
       employments: generalResponses.employments,

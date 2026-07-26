@@ -1,4 +1,5 @@
 import { parseWorkbook } from "./bank-workbench.js";
+import { createAutosave, readAutosaveDraft } from "./autosave.js";
 
 const money = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS" });
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" })[char]);
@@ -17,7 +18,7 @@ export function bankWorkbenchTemplateV2() {
 }
 
 export async function mountBankWorkbenchV2(request) {
-  const state = { data: null, selected: null, selectedRows: new Set(), expanded: new Set(), workflow: "all", query: "", account: "", month: "", status: "", batch: "", drafts: new Map(), saving: new Set() };
+  const state = { data: null, selected: null, selectedRows: new Set(), expanded: new Set(), workflow: "all", query: "", account: "", month: "", status: "", batch: "", drafts: new Map(), autosaves: new Map() };
   const $ = (selector) => document.querySelector(selector);
   const message = (text, tone = "") => { const node = $("#bank-message"); if (node) { node.textContent = text; node.className = tone; } };
   const movementTypes = [
@@ -116,7 +117,7 @@ export async function mountBankWorkbenchV2(request) {
     return `<td><select name="movement_type" aria-label="סוג תנועה">${options("movementTypes",row.movement_type)}</select></td><td>${departmentSelect(row)}<input name="allocation_unit_id" type="hidden" value="${esc(row.allocation_unit_id || "")}"></td><td><span data-daycare-field ${department === "DAYCARES" ? "" : "hidden"}><select name="daycare_id" aria-label="מעון">${options("daycares",row.daycare_id)}</select></span></td><td><select name="budget_category_id" aria-label="סעיף תקציבי">${options("budgetCategories",row.budget_category_id)}</select></td><td><select name="budget_month" aria-label="חודש שיוך">${options("budgetMonths",row.budget_month?.slice(0,7))}</select></td><td><select name="accounting_status_id" aria-label="סטטוס הנהלת חשבונות">${options("accountingStatuses",row.accounting_status_id)}</select></td><td><input name="notes" value="${esc(row.notes || "")}" aria-label="הערות"></td>`;
   };
   const amountSummary = (transaction, info) => `<div class="bank-amount-summary"><strong>${money.format(transaction.amount)}</strong><small>מקורי ${money.format(transaction.amount)}</small><small>מוקצה ${money.format(info.total)}</small><small class="${info.balanced ? "is-balanced" : "is-unbalanced"}">נותר ${money.format(info.remaining)} · ${info.balanced ? "מאוזן" : "לא מאוזן"}</small></div>`;
-  const actionButtons = (transaction, isSplit) => `<div class="bank-row-actions">${isSplit ? "" : `<button type="button" data-save-transaction="${transaction.bank_transaction_id}">שמירה</button>`}<button type="button" data-add-split="${transaction.bank_transaction_id}">＋ פיצול</button>${isSplit ? `<button type="button" data-toggle-split="${transaction.bank_transaction_id}" aria-expanded="${state.expanded.has(transaction.bank_transaction_id)}">${state.expanded.has(transaction.bank_transaction_id) ? "צמצום" : "הרחבה"}</button>` : ""}<button type="button" data-delete-transaction="${transaction.bank_transaction_id}">מחיקה</button></div>`;
+  const actionButtons = (transaction, isSplit) => `<div class="bank-row-actions"><span class="autosave-status" data-bank-autosave="${transaction.bank_transaction_id}" role="status">נשמר</span>${isSplit ? "" : `<button type="button" data-save-transaction="${transaction.bank_transaction_id}">שמירה</button>`}<button type="button" data-add-split="${transaction.bank_transaction_id}">＋ פיצול</button>${isSplit ? `<button type="button" data-toggle-split="${transaction.bank_transaction_id}" aria-expanded="${state.expanded.has(transaction.bank_transaction_id)}">${state.expanded.has(transaction.bank_transaction_id) ? "צמצום" : "הרחבה"}</button>` : ""}<button type="button" data-delete-transaction="${transaction.bank_transaction_id}">מחיקה</button></div>`;
   const rowNumberCell = (transaction, suffix = "") => `<td class="bank-sticky-number">${suffix ? '<span class="bank-tree-branch" aria-hidden="true">└─</span>' : ""}<span class="bank-tree-number">${transactionNumber(transaction)}${suffix}</span>${suffix ? "" : `<input type="checkbox" data-select-transaction="${transaction.bank_transaction_id}" ${state.selectedRows.has(transaction.bank_transaction_id) ? "checked" : ""} aria-label="בחירת תנועה ${transactionNumber(transaction)}">`}</td>`;
   const transactionRows = (transaction) => {
     const storedRows = allocationsFor(transaction.bank_transaction_id);
@@ -172,14 +173,27 @@ export async function mountBankWorkbenchV2(request) {
     document.querySelectorAll(`[data-bank-row="${transactionId}"]`).forEach((row)=>{row.classList.remove("bank-row-complete","bank-row-missing","bank-row-error");row.classList.add(`bank-row-${status.tone}`);});
     document.querySelectorAll(`[data-bank-row="${transactionId}"] .bank-sticky-status .bank-row-status`).forEach((node)=>{node.className=`bank-row-status ${status.tone}`;node.textContent=status.text;node.title=status.text;});
   };
+  const visibleRows = (transactionId) => {
+    const roots=[...document.querySelectorAll(`[data-bank-row="${transactionId}"][data-allocation-entry]`)];
+    return roots.length ? roots.map(readInlineRow) : (state.drafts.get(transactionId) || []);
+  };
+  const autosaveFor = (transactionId) => {
+    if (state.autosaves.has(transactionId)) return state.autosaves.get(transactionId);
+    const transaction=state.data.transactions.find((row)=>row.bank_transaction_id===transactionId);
+    const controller=createAutosave({
+      key:`bank.allocations.${transactionId}`,
+      read:()=>visibleRows(transactionId),
+      validate:(rows)=>{const info=inspect(transaction,rows);return !info.missing&&info.balanced;},
+      statusTargets:()=>document.querySelectorAll(`[data-bank-autosave="${transactionId}"]`),
+      save:(rows)=>request("POST",{action:"save_allocations",bank_transaction_id:transactionId,allocations:rows}),
+      onSaved:(result)=>{const scroll=captureScroll();state.data.allocations=state.data.allocations.filter((row)=>row.bank_transaction_id!==transactionId).concat(result.allocations||[]);state.drafts.delete(transactionId);render(false);restoreScroll(scroll);message("השורה נשמרה.","success");},
+    });
+    state.autosaves.set(transactionId,controller);
+    return controller;
+  };
   const saveTransaction = async (transactionId) => {
-    const scroll=captureScroll(), rows=[...document.querySelectorAll(`[data-bank-row="${transactionId}"][data-allocation-entry]`)].map(readInlineRow);
-    if (state.saving.has(transactionId)) return; state.saving.add(transactionId); message("שומר…");
-    try {
-      const result=await request("POST",{action:"save_allocations",bank_transaction_id:transactionId,allocations:rows});
-      state.data.allocations=state.data.allocations.filter((row)=>row.bank_transaction_id!==transactionId).concat(result.allocations||[]);
-      state.drafts.delete(transactionId); render(false); restoreScroll(scroll); message("השורה נשמרה.","success");
-    } catch(error) { message(error.details?.join(" · ")||error.message,"error"); refreshTransaction(transactionId); } finally { state.saving.delete(transactionId); }
+    try { await autosaveFor(transactionId).saveNow({manual:true}); }
+    catch(error) { message(error.details?.join(" · ")||error.message,"error"); refreshTransaction(transactionId); }
   };
   const render = (preserve = true) => {
     const scroll=preserve?captureScroll():null, rows=filtered(); renderWorkflowCards(); renderFilterChips(); $("#bank-new-count").textContent=`מציג ${rows.length} מתוך ${state.data.transactions.length} תנועות`;
@@ -200,7 +214,7 @@ export async function mountBankWorkbenchV2(request) {
       categories: [], accountingStatuses: [], assignmentMonths: [], batches: [],
       ...await request("GET"),
     };
-    state.drafts.clear(); state.data.transactions.forEach((row)=>{if(allocationsFor(row.bank_transaction_id).length>1)state.expanded.add(row.bank_transaction_id);}); renderToolbarFilters(); render(false);
+    state.drafts.clear(); state.data.transactions.forEach((row)=>{const draft=readAutosaveDraft(`bank.allocations.${row.bank_transaction_id}`);if(draft)state.drafts.set(row.bank_transaction_id,draft);if(allocationsFor(row.bank_transaction_id).length>1)state.expanded.add(row.bank_transaction_id);}); renderToolbarFilters(); render(false);
   };
   const exportColumns = ["#","סטטוס","חשבון בנק","תאריך","תיאור","אסמכתא","סכום","סוג תנועה","מחלקה","מעון","סעיף תקציבי","חודש שיוך","סטטוס הנה״ח","הערות","מסמכים","מקור"];
   const exportRowsFor = (transactions, exactView = false) => transactions.flatMap((transaction) => {
@@ -316,8 +330,8 @@ export async function mountBankWorkbenchV2(request) {
     const toggle=event.target.closest("[data-toggle-split]");if(toggle){const id=toggle.dataset.toggleSplit;state.expanded.has(id)?state.expanded.delete(id):state.expanded.add(id);render();return;}
     const save=event.target.closest("[data-save-transaction]");if(save){saveTransaction(save.dataset.saveTransaction);return;}
     const metadata=event.target.closest("[data-open-metadata]");if(metadata){state.selected=metadata.dataset.openMetadata;renderMetadata();return;}
-    const add=event.target.closest("[data-add-split]");if(add){const transaction=state.data.transactions.find((row)=>row.bank_transaction_id===add.dataset.addSplit),visible=[...document.querySelectorAll(`[data-bank-row="${transaction.bank_transaction_id}"][data-allocation-entry]`)],current=visible.length?visible.map(readInlineRow):allocationsFor(transaction.bank_transaction_id).map((row)=>({...row}));current.push({...emptyAllocation(transaction),allocation_amount:""});state.drafts.set(transaction.bank_transaction_id,current);state.expanded.add(transaction.bank_transaction_id);render();return;}
-    const remove=event.target.closest("[data-delete-split]");if(remove){const id=remove.dataset.deleteSplit,current=[...document.querySelectorAll(`[data-bank-row="${id}"][data-allocation-entry]`)].map(readInlineRow);current.splice(Number(remove.dataset.index),1);state.drafts.set(id,current);render();}
+    const add=event.target.closest("[data-add-split]");if(add){const transaction=state.data.transactions.find((row)=>row.bank_transaction_id===add.dataset.addSplit),visible=[...document.querySelectorAll(`[data-bank-row="${transaction.bank_transaction_id}"][data-allocation-entry]`)],current=visible.length?visible.map(readInlineRow):allocationsFor(transaction.bank_transaction_id).map((row)=>({...row}));current.push({...emptyAllocation(transaction),allocation_amount:""});state.drafts.set(transaction.bank_transaction_id,current);state.expanded.add(transaction.bank_transaction_id);render();autosaveFor(transaction.bank_transaction_id).markDirty();return;}
+    const remove=event.target.closest("[data-delete-split]");if(remove){const id=remove.dataset.deleteSplit,current=[...document.querySelectorAll(`[data-bank-row="${id}"][data-allocation-entry]`)].map(readInlineRow);current.splice(Number(remove.dataset.index),1);state.drafts.set(id,current);render();autosaveFor(id).markDirty();}
   });
   $("#bank-new-rows").addEventListener("change",(event)=>{
     const row=event.target.closest("[data-allocation-entry]");if(!row)return;
@@ -334,9 +348,9 @@ export async function mountBankWorkbenchV2(request) {
       const selected=state.data.daycares.find((item)=>item.daycare_id===event.target.value);
       row.querySelector('[name="allocation_unit_id"]').value=selected?.allocation_unit_id||"";
     }
-    refreshTransaction(row.dataset.bankRow);
+    refreshTransaction(row.dataset.bankRow);autosaveFor(row.dataset.bankRow).markDirty({immediate:true});
   });
-  $("#bank-new-rows").addEventListener("input",(event)=>{const row=event.target.closest("[data-allocation-entry]");if(row)refreshTransaction(row.dataset.bankRow);});
+  $("#bank-new-rows").addEventListener("input",(event)=>{const row=event.target.closest("[data-allocation-entry]");if(row){refreshTransaction(row.dataset.bankRow);autosaveFor(row.dataset.bankRow).markDirty();}});
   $("#bank-new-rows").addEventListener("keydown",(event)=>{const row=event.target.closest("[data-bank-row]");if(!row)return;if(event.key==="Enter"&&!event.target.matches("textarea,button")){event.preventDefault();saveTransaction(row.dataset.bankRow);}if(["ArrowDown","ArrowUp"].includes(event.key)&&!event.target.matches("select,input,textarea")){event.preventDefault();const rows=filtered(),index=rows.findIndex((item)=>item.bank_transaction_id===row.dataset.bankRow),next=Math.max(0,Math.min(rows.length-1,index+(event.key==="ArrowDown"?1:-1)));document.querySelector(`[data-bank-row="${rows[next]?.bank_transaction_id}"]`)?.focus({preventScroll:true});}});
   $("#bank-new-details").addEventListener("click",(event)=>{if(event.target.closest("[data-close-metadata]")){state.selected=null;renderMetadata();}});
   document.addEventListener("keydown",(event)=>{if(event.key==="/"&&!["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName)){event.preventDefault();$("#bank-new-search").focus();}});

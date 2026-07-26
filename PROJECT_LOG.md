@@ -3221,3 +3221,57 @@ Files changed:
 - `chamah-manager-portal/new/app.js`
 - `tests/new-portal-auth.spec.mjs`
 - `PROJECT_LOG.md`
+
+## 2026-07-26 - TRACK021B Global Autosave
+
+Objective: Establish one reusable Supabase-only autosave standard for editable
+Workbench pages without changing calculations, business rules, RLS, permissions,
+audit behavior or atomic RPC boundaries.
+
+Implementation:
+
+- Added `new/autosave.js` as the shared controller for the four standard states:
+  Unsaved, Saving, Saved and Save failed.
+- Standardized 1.5-second idle saves, immediate select/date/month saves,
+  single-flight serialization, queued follow-up saves, retry after transient
+  failures, origin-local draft persistence/restoration and `beforeunload` warnings.
+- Integrated Employees and Employee Pay Terms forms, Actual Payroll monthly
+  records and balanced allocation splits, and Bank allocation rows/splits.
+- Preserved every manual Save control and routed manual and automatic saves through
+  the same controller.
+- Invalid forms and incomplete or unbalanced splits remain persisted as Unsaved
+  drafts and are not sent automatically.
+- Bank and Payroll split saves still invoke their existing single Edge Function
+  action, preserving `portal_save_bank_allocations` and
+  `portal_save_payroll_allocations` atomic RPC operations.
+- Closed Payroll months remain read-only and do not create autosave controllers.
+- The active TRACK020A Payroll Workbench changes already present in the working
+  tree were retained and used as the integration baseline.
+
+Validation:
+
+- PASS: JavaScript syntax checks for the shared controller and all three Workbench
+  modules.
+- PASS: `node --test tests/autosave.spec.mjs` (draft persistence, idle/immediate
+  scheduling, invalid-record suppression, serialization and retry).
+- PASS: `npm run build`.
+- PASS: 40 focused desktop/mobile Playwright tests for Bank, Employees and Actual
+  Payroll Workbenches.
+- PASS: `git diff --check`.
+- The first sandboxed browser launch was blocked with `spawn EPERM`; the same
+  suite passed when rerun with browser-launch permission.
+
+Deployment:
+
+- Production was not deployed or promoted.
+- A Preview-only Vercel deployment follows the committed and pushed branch.
+
+Files changed for autosave:
+
+- `chamah-manager-portal/new/autosave.js`
+- `chamah-manager-portal/new/bank-workbench-ux.js`
+- `chamah-manager-portal/new/workforce-workbench.js`
+- `chamah-manager-portal/new/payroll-workbench.js`
+- `chamah-manager-portal/new/styles.css`
+- `tests/autosave.spec.mjs`
+- `PROJECT_LOG.md`

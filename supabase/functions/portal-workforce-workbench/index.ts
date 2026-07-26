@@ -82,14 +82,29 @@ Deno.serve(async (request) => {
     if (request.method === "GET") {
       const requestedMonth = monthDate(new URL(request.url).searchParams.get("month"));
       const monthFilter = requestedMonth ? `&payroll_month=eq.${requestedMonth}` : "";
-      const [records, allocations, employees, employments, lookupData] = await Promise.all([
+      const reopenPermission = await fetch(`${url}/rest/v1/rpc/portal_has_permission`, {
+        method: "POST", headers: serviceHeaders,
+        body: JSON.stringify({
+          target_user_id: actor.id,
+          target_screen_code: "dashboards.staffing.actual-payroll.reopen",
+          required_level: "EDIT",
+        }),
+      });
+      const [records, allocations, employees, employments, assignments, payTerms, months, lookupData] = await Promise.all([
         read(`payroll_records?select=*&order=payroll_month.desc,created_at.desc${monthFilter}&limit=3000`),
         read("payroll_allocations?select=*&limit=6000"),
         read("employees?select=employee_id,employee_code,first_name,last_name,lifecycle_status"),
         read("employments?select=employment_id,employee_id,employment_status,employment_start_date,employment_end_date"),
+        read("employee_assignments?select=*&order=effective_from.desc"),
+        read("employee_pay_terms?select=*&order=valid_from.desc"),
+        read("payroll_months?select=*&order=payroll_month.desc"),
         lookups(),
       ]);
-      return json({ records, allocations, employees, employments, ...lookupData });
+      return json({
+        records, allocations, employees, employments, assignments, payTerms, months,
+        canReopen: reopenPermission.ok && await reopenPermission.json() === true,
+        ...lookupData,
+      });
     }
 
     const body = await request.json();
@@ -146,12 +161,58 @@ Deno.serve(async (request) => {
     }
 
     if (page === "payroll") {
+      const currentMonth = async (value: unknown) => {
+        const normalized = monthDate(value);
+        if (!normalized) return null;
+        return (await read(`payroll_months?payroll_month=eq.${normalized}&limit=1`))[0] || null;
+      };
+      const requireCurrentMonth = async (value: unknown) => {
+        const month = await currentMonth(value);
+        if (!month) throw new Error("חודש השכר טרם נפתח.");
+        if (month.month_status !== "CURRENT") throw new Error("חודש השכר סגור לעריכה.");
+        return month;
+      };
       const activeEmploymentForCode = async (employeeCode: string) => {
         const employee = (await read(`employees?select=employee_id,employee_code,first_name,last_name&employee_code=eq.${encodeURIComponent(employeeCode)}&limit=1`))[0];
         if (!employee) return null;
         const employment = (await read(`employments?select=*&employee_id=eq.${employee.employee_id}&employment_status=eq.ACTIVE&order=employment_start_date.desc&limit=1`))[0];
         return employment ? { employee, employment } : null;
       };
+      if (body.action === "open_month") {
+        const result = await write("rpc/portal_open_payroll_month", "POST", {
+          target_month: monthDate(body.payroll_month),
+          opening_method: text(body.opening_method),
+          actor_id: actor.id,
+        });
+        return json(result);
+      }
+      if (body.action === "close_month") {
+        const result = await write("rpc/portal_close_payroll_month", "POST", {
+          target_month: monthDate(body.payroll_month),
+          actor_id: actor.id,
+          closing_notes: text(body.notes) || null,
+        });
+        return json(result);
+      }
+      if (body.action === "reopen_month") {
+        const allowed = await fetch(`${url}/rest/v1/rpc/portal_has_permission`, {
+          method: "POST", headers: serviceHeaders,
+          body: JSON.stringify({
+            target_user_id: actor.id,
+            target_screen_code: "dashboards.staffing.actual-payroll.reopen",
+            required_level: "EDIT",
+          }),
+        });
+        if (!allowed.ok || await allowed.json() !== true) {
+          return json({ error: "אין הרשאה לפתוח מחדש חודש שכר סגור." }, 403);
+        }
+        const result = await write("rpc/portal_reopen_payroll_month", "POST", {
+          target_month: monthDate(body.payroll_month),
+          actor_id: actor.id,
+          reopening_notes: text(body.notes),
+        });
+        return json(result);
+      }
       if (body.action === "preview_import") {
         const rows = Array.isArray(body.rows) ? body.rows : [];
         const prepared = [];
@@ -173,6 +234,7 @@ Deno.serve(async (request) => {
         } });
       }
       if (body.action === "save_record") {
+        await requireCurrentMonth(body.payroll_month);
         const code = text(body.source_employee_identifier);
         const linked = code ? await activeEmploymentForCode(code) : null;
         const id = uuid(body.payroll_record_id);
@@ -190,19 +252,34 @@ Deno.serve(async (request) => {
           employment_id: linked?.employment.employment_id || null,
           payroll_month: monthDate(body.payroll_month),
           source_employee_identifier: code, source_record_identifier: text(body.source_record_identifier) || crypto.randomUUID(),
-          gross_pay: body.gross_pay === "" ? null : Number(body.gross_pay),
-          employer_cost: Number(body.employer_cost), regular_hours: body.regular_hours === "" ? null : Number(body.regular_hours),
+          gross_pay: body.gross_pay === "" || body.gross_pay == null ? null : Number(body.gross_pay),
+          employer_cost: body.employer_cost === "" || body.employer_cost == null ? null : Number(body.employer_cost),
+          regular_hours: body.regular_hours === "" || body.regular_hours == null ? null : Number(body.regular_hours),
           overtime_hours: body.overtime_hours === "" ? null : Number(body.overtime_hours),
           hours_125: body.hours_125 === "" ? null : Number(body.hours_125),
           hours_150: body.hours_150 === "" ? null : Number(body.hours_150),
           vacation_hours: body.vacation_hours === "" ? null : Number(body.vacation_hours),
           sick_hours: body.sick_hours === "" ? null : Number(body.sick_hours),
+          other_absence_hours: body.other_absence_hours === "" ? null : Number(body.other_absence_hours),
+          unpaid_absence_hours: body.unpaid_absence_hours === "" ? null : Number(body.unpaid_absence_hours),
+          work_days: body.work_days === "" ? null : Number(body.work_days),
+          travel_reimbursement: body.travel_reimbursement === "" ? null : Number(body.travel_reimbursement),
+          bonus_amount: body.bonus_amount === "" ? null : Number(body.bonus_amount),
+          adjustment_amount: body.adjustment_amount === "" ? null : Number(body.adjustment_amount),
           notes: text(body.notes) || null, import_batch_id: importBatchId,
           employee_match_status: linked ? "LINKED" : (text(body.employee_match_status) || "MISSING"),
           record_origin: text(body.record_origin) || "MANUAL", source_payload: body.source_payload || {},
+          allocation_unit_id: uuid(body.allocation_unit_id) || null,
+          daycare_id: uuid(body.daycare_id) || null,
+          role_id: uuid(body.role_id) || null,
+          employee_pay_term_id: linked
+            ? (await read(`employee_pay_terms?select=employee_pay_term_id&employee_id=eq.${linked.employee.employee_id}&valid_from=lte.${monthDate(body.payroll_month)}&or=(valid_to.is.null,valid_to.gte.${monthDate(body.payroll_month)})&order=valid_from.desc&limit=1`))[0]?.employee_pay_term_id || null
+            : null,
           updated_by_user_id: actor.id,
         };
-        if (!payload.payroll_month || !code || !Number.isFinite(payload.employer_cost) || payload.employer_cost < 0) return json({ error: "חודש, מספר עובד ועלות מעסיק תקינה נדרשים." }, 422);
+        if (!payload.payroll_month || !code || (payload.employer_cost !== null && (!Number.isFinite(payload.employer_cost) || payload.employer_cost < 0))) {
+          return json({ error: "חודש, מספר עובד וערכי שכר תקינים נדרשים." }, 422);
+        }
         const previous = id ? (await read(`payroll_records?payroll_record_id=eq.${id}&limit=1`))[0] : null;
         const saved = id
           ? await write(`payroll_records?payroll_record_id=eq.${id}`, "PATCH", payload)
@@ -212,6 +289,8 @@ Deno.serve(async (request) => {
       }
       if (body.action === "approve_temporary") {
         const id = uuid(body.payroll_record_id);
+        const existing = (await read(`payroll_records?payroll_record_id=eq.${id}&limit=1`))[0];
+        await requireCurrentMonth(existing?.payroll_month);
         const rows = await write(`payroll_records?payroll_record_id=eq.${id}&employment_id=is.null`, "PATCH", {
           employee_match_status: "APPROVED_TEMPORARY", temporary_approved_by_user_id: actor.id,
           temporary_approved_at: new Date().toISOString(), temporary_approval_notes: text(body.notes) || null,
@@ -222,6 +301,8 @@ Deno.serve(async (request) => {
         return json({ record: rows[0] });
       }
       if (body.action === "save_allocations") {
+        const existing = (await read(`payroll_records?payroll_record_id=eq.${uuid(body.payroll_record_id)}&limit=1`))[0];
+        await requireCurrentMonth(existing?.payroll_month);
         const result = await write("rpc/portal_save_payroll_allocations", "POST", {
           target_payroll_record_id: uuid(body.payroll_record_id),
           allocation_rows: Array.isArray(body.allocations) ? body.allocations : [],
@@ -233,6 +314,7 @@ Deno.serve(async (request) => {
         const id = uuid(body.payroll_record_id);
         const previous = (await read(`payroll_records?payroll_record_id=eq.${id}&limit=1`))[0];
         if (!previous) return json({ error: "רשומת השכר לא נמצאה." }, 404);
+        await requireCurrentMonth(previous.payroll_month);
         await write(`payroll_allocations?payroll_record_id=eq.${id}`, "DELETE", undefined, "return=minimal");
         await write(`payroll_records?payroll_record_id=eq.${id}`, "DELETE", undefined, "return=minimal");
         await audit("payroll_records", id, "DELETE", previous, null, actor.id);
