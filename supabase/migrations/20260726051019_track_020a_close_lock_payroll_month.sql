@@ -18,7 +18,7 @@ begin
       or exists (
         select 1 from public.allocation_units unit
         where unit.allocation_unit_id = payroll_records.allocation_unit_id
-          and unit.unit_type = 'DAYCARE' and payroll_records.daycare_id is null
+          and unit.allocation_unit_type = 'DAYCARE' and payroll_records.daycare_id is null
       )
     );
   select count(*) into unresolved_count

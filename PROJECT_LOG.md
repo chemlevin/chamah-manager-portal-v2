@@ -3275,3 +3275,97 @@ Files changed for autosave:
 - `chamah-manager-portal/new/styles.css`
 - `tests/autosave.spec.mjs`
 - `PROJECT_LOG.md`
+
+## 2026-07-26 - TRACK020A Payroll Workbench Completion
+
+Objective: Complete the Supabase-only Actual Payroll Workbench month workflow,
+including month opening, preparation autosave, controlled closing/reopening and
+accountant export, without changing payroll calculation rules or deploying Vercel
+Production.
+
+Workflow:
+
+- Added explicit Payroll Month lifecycle records with Current and Closed states.
+- New Month offers copy-previous-month employees, all active employees, or an empty
+  month. Only employee identity, assignment and applicable Pay Terms references are
+  copied; monthly payroll values remain empty.
+- Opening automatically moves the Workbench to the new Current month.
+- The Current view reuses the Bank Workbench structure: KPI area, toolbar, sortable
+  main table and lower detail panel.
+- Existing Employees, temporary employees and Excel import all use employee number as
+  the TRACK020 canonical matching key. Missing rows remain in Payroll and never create
+  Employee records automatically.
+- Persistent Employee and effective Pay Terms values are displayed read-only.
+  Secretaries edit only monthly preparation fields.
+- Shared TRACK021B autosave persists valid monthly changes and preserves local drafts
+  for invalid/incomplete work.
+- Internal cost/hour allocations remain separate and continue to use the existing
+  atomic allocation RPC.
+
+Month closing:
+
+- Added service-role-only, `SECURITY INVOKER` RPCs for opening, closing and reopening
+  Payroll months.
+- Close validates required assignment/payroll fields and blocks Missing or Unresolved
+  employees.
+- Close stores the approving user and timestamp, finalizes internal allocations and
+  locks Payroll record/allocation writes with database triggers.
+- Reopen requires a dedicated fail-closed portal permission, a reason, approving user
+  and timestamp.
+- Live rollback probes verified Open -> Close -> write blocked -> Reopen without
+  retaining QA data.
+
+Export:
+
+- Accountant export supports the entire organization, selected daycare or selected
+  department.
+- The export consolidates source rows by employee number and returns exactly one row
+  per employee.
+- Internal allocation/split rows are intentionally excluded from accountant export.
+
+Supabase:
+
+- Applied forward migration identities `20260726050810` through `20260726051427`,
+  including Payroll month lifecycle, preparation fields, lookup indexes, backfill,
+  permission catalog, RPCs, write guards and the close-validation correction.
+- Deployed `portal-workforce-workbench` v4 with JWT verification enabled.
+- `payroll_months` has RLS enabled and browser roles revoked; access is through the
+  authenticated Edge Function and service-role-only RPCs.
+- Supabase advisor continues to report the intentional no-policy informational notice
+  for service-only `payroll_months`, plus the pre-existing `portal_my_access` and leaked
+  password protection warnings.
+
+Business-rule conflict:
+
+- Handbook BR-0083 still names National ID as the historical match key. TRACK020 and
+  this explicit user request make Employee Number canonical for the active Workbench.
+- Payroll Engine calculations, Budget Engine behavior and internal allocation formulas
+  were not changed.
+
+Validation:
+
+- PASS: `npm.cmd run build`.
+- PASS: JavaScript syntax checks and Deno Edge Function type-check.
+- PASS: 14 focused Payroll/Employees Workbench tests across desktop and mobile.
+- PASS: 4 shared autosave unit tests.
+- PASS: 41 Payroll Engine, Budget Engine, Allocations and dashboard regressions.
+- PASS: live transactional lifecycle and closed-month lock rollback probes.
+- PASS: `git diff --check`.
+
+Deployment:
+
+- Supabase migrations and the authenticated Edge Function were deployed.
+- Vercel Production was not deployed or promoted.
+- A Preview-only Vercel deployment follows the committed and pushed branch.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/payroll-workbench.js`
+- `chamah-manager-portal/new/styles.css`
+- `supabase/functions/portal-workforce-workbench/index.ts`
+- TRACK020A migrations under `supabase/migrations/`
+- `tests/new-portal-test-data.mjs`
+- `tests/workforce-workbench.spec.mjs`
+- `tests/sql/track020a_payroll_month_lifecycle.sql`
+- `PROJECT_LOG.md`

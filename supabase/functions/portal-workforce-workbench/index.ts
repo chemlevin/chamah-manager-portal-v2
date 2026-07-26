@@ -237,7 +237,13 @@ Deno.serve(async (request) => {
         await requireCurrentMonth(body.payroll_month);
         const code = text(body.source_employee_identifier);
         const linked = code ? await activeEmploymentForCode(code) : null;
-        const id = uuid(body.payroll_record_id);
+        const assignment = linked
+          ? (await read(`employee_assignments?select=allocation_unit_id,daycare_id,role_id&employment_id=eq.${linked.employment.employment_id}&effective_from=lte.${monthDate(body.payroll_month)}&or=(effective_to.is.null,effective_to.gte.${monthDate(body.payroll_month)})&order=is_primary.desc,effective_from.desc&limit=1`))[0]
+          : null;
+        let id = uuid(body.payroll_record_id);
+        if (!id) {
+          id = (await read(`payroll_records?select=payroll_record_id&payroll_month=eq.${monthDate(body.payroll_month)}&source_employee_identifier=eq.${encodeURIComponent(code)}&order=created_at.asc&limit=1`))[0]?.payroll_record_id || "";
+        }
         let importBatchId = uuid(body.import_batch_id);
         if (!importBatchId) {
           const batch = await write("import_batches", "POST", {
@@ -269,9 +275,9 @@ Deno.serve(async (request) => {
           notes: text(body.notes) || null, import_batch_id: importBatchId,
           employee_match_status: linked ? "LINKED" : (text(body.employee_match_status) || "MISSING"),
           record_origin: text(body.record_origin) || "MANUAL", source_payload: body.source_payload || {},
-          allocation_unit_id: uuid(body.allocation_unit_id) || null,
-          daycare_id: uuid(body.daycare_id) || null,
-          role_id: uuid(body.role_id) || null,
+          allocation_unit_id: uuid(body.allocation_unit_id) || assignment?.allocation_unit_id || null,
+          daycare_id: uuid(body.daycare_id) || assignment?.daycare_id || null,
+          role_id: uuid(body.role_id) || assignment?.role_id || null,
           employee_pay_term_id: linked
             ? (await read(`employee_pay_terms?select=employee_pay_term_id&employee_id=eq.${linked.employee.employee_id}&valid_from=lte.${monthDate(body.payroll_month)}&or=(valid_to.is.null,valid_to.gte.${monthDate(body.payroll_month)})&order=valid_from.desc&limit=1`))[0]?.employee_pay_term_id || null
             : null,
