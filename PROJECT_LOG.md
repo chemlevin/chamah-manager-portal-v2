@@ -3665,3 +3665,17 @@ Files changed:
   for an unauthenticated Edge Function request.
 - No real Production transfer or attachment record was created, changed, archived,
   imported or uploaded during smoke testing.
+
+## 2026-07-26 - TRACK023A Accounting Navigation Integration
+
+- Audited the TRACK023 route, page mount, Supabase `portal_sections` registration,
+  Accounting hub entry, permission mapping, icon and display order.
+- Root cause: the frontend fallback for the Bank Transfer child screen inherited
+  the parent Accounting permission. That did not preserve the explicit child
+  permission contract and did not normalize stale Super Admin access payloads.
+- Kept the existing route, backend, schema and Workbench business logic unchanged.
+- Updated navigation normalization so Super Admin always receives the existing
+  EDIT contract for this screen, while a non-admin fallback remains HIDDEN unless
+  Supabase returns an explicit VIEW or EDIT permission.
+- Added Accounting navigation coverage for the three ordered cards, the transfer
+  icon, explicit non-admin VIEW access, direct navigation and page loading.

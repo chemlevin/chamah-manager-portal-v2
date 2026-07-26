@@ -35,11 +35,31 @@ const transactions = [
 ];
 const allocation = { bank_allocation_id: 'allocation-1', bank_transaction_id: 'tx-1', movement_type: 'EXPENSE', allocation_unit_id: 'fe05de40-2551-4e90-befe-db4253d66e1c', budget_category_id: 'ab5e648d-c280-44ad-a56d-8fc6e825f92a', budget_month: '2026-07-01', accounting_status_id: 'status-waiting', allocation_amount: -60, notes: 'בדיקת חשמל' };
 
-test('Accounting presents Summary Dashboard and Bank File as equal sibling choices', async ({ page }) => {
+test('Accounting presents Summary, Bank File and Bank Transfers in catalog order', async ({ page }) => {
   await openAccounting(page, 'dashboards/unit/organization/accounting');
-  await expect(page.locator('.accounting-choice-grid .dashboard-type-card')).toHaveCount(2);
+  await expect(page.locator('.accounting-choice-grid .dashboard-type-card')).toHaveCount(3);
+  await expect(page.locator('.accounting-choice-grid .dashboard-type-card h2')).toHaveText(['דשבורד סיכום', 'קובץ בנקים', 'העברות בנקאיות']);
   await expect(page.locator('[data-accounting-screen="summary"]')).toBeVisible();
   await expect(page.locator('[data-accounting-screen="banks"]')).toBeVisible();
+  await expect(page.locator('[data-accounting-screen="bank-transfers"]')).toBeVisible();
+  await expect(page.locator('[data-accounting-screen="bank-transfers"] .dashboard-type-icon')).toHaveText('↔');
+});
+
+test('Bank Transfers navigation requires its explicit child permission for non-admin users', async ({ page }) => {
+  const child = portalAccessFixture.sections.find((item) => item.screen_code === 'dashboards.accounting.bank-transfers');
+  const access = {
+    ...portalAccessFixture,
+    profile: { ...portalAccessFixture.profile, is_super_admin: false },
+    sections: portalAccessFixture.sections.map((item) => ({
+      ...item,
+      permission_level: item.screen_code === child.screen_code ? 'VIEW' : item.permission_level,
+    })),
+  };
+  await openAccounting(page, 'dashboards/unit/organization/accounting', access);
+  await expect(page.locator('[data-accounting-screen="bank-transfers"]')).toBeVisible();
+  await page.locator('[data-accounting-screen="bank-transfers"]').click();
+  await expect(page).toHaveURL(/accounting\/bank-transfers$/);
+  await expect(page.getByRole('heading', { name: 'העברות בנקאיות' })).toBeVisible();
 });
 
 test('Bank File exposes import, search, filters and export controls with an empty state', async ({ page }) => {
