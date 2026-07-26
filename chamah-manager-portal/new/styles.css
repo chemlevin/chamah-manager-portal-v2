@@ -565,6 +565,24 @@ p { line-height: 1.65; }
 .transfer-table td{padding:.3rem;border-bottom:1px solid #e2e8e5;vertical-align:middle}
 .transfer-table input,.transfer-table select{width:100%;min-width:7.5rem;min-height:2rem;padding:.25rem .35rem;border:1px solid #cbd8d2;border-radius:.35rem;background:#fff}
 .transfer-table [name="name"],.transfer-table [name="notes"]{min-width:10rem}.transfer-table [name="amount"]{min-width:6.5rem}
+
+/* TRACK025 shared operational Workbench polish. */
+.workbench-product-bar{display:grid;gap:.75rem;margin-block-end:1rem;padding:.8rem 1rem;border-color:#cbdcd6;background:linear-gradient(135deg,#fff,#f5faf8)}
+.workbench-location,.workbench-data-status{display:flex;align-items:stretch;gap:.5rem;flex-wrap:wrap}
+.workbench-location span,.workbench-data-status span{display:grid;gap:.12rem;min-width:7.5rem;padding:.45rem .65rem;border-inline-end:1px solid var(--border-color)}
+.workbench-location small,.workbench-data-status small{color:var(--text-muted);font-size:.66rem}.workbench-location strong,.workbench-data-status strong{font-size:.76rem}
+.workbench-data-status{align-items:center;padding-block-start:.65rem;border-block-start:1px solid var(--border-color)}
+.workbench-data-status button{margin-inline-start:auto}.save-state-saved{color:#176249}.save-state-saving{color:#7b590d}.save-state-error{color:#963e35}
+.background-change-notice{padding:.6rem .75rem;border:1px solid #dec777;border-radius:.5rem;background:#fff7d9;color:#6d5310}
+.workforce-workbench tbody tr.bank-row-complete,.bank-workbench tbody tr.bank-row-complete,.bank-transfer-workbench tbody tr.bank-row-complete{--row-health:#edf8f3}
+.workforce-workbench tbody tr.bank-row-missing,.bank-workbench tbody tr.bank-row-missing,.bank-transfer-workbench tbody tr.bank-row-missing{--row-health:#fff8dc}
+.workforce-workbench tbody tr.bank-row-error,.bank-workbench tbody tr.bank-row-error,.bank-transfer-workbench tbody tr.bank-row-error{--row-health:#fdecea}
+.workforce-workbench tbody tr.bank-row-complete>td,.workforce-workbench tbody tr.bank-row-missing>td,.workforce-workbench tbody tr.bank-row-error>td{background:var(--row-health)}
+.workforce-inline{width:100%;min-width:6rem;padding:.35rem .4rem;border:1px solid transparent;border-radius:.35rem;background:transparent;font:inherit}
+.workforce-inline:hover{border-color:#a9c6bd;background:#fff}.workforce-inline:focus{border-color:var(--primary);outline:2px solid #d7ebe4;background:#fff}
+.workbench-bulk-bar{display:flex;align-items:center;gap:.5rem;min-height:2.5rem;padding:.45rem .65rem;background:#edf5f2;border-radius:.55rem}.workbench-bulk-bar[hidden]{display:none}
+dialog{border:0;border-radius:1rem;box-shadow:0 24px 70px #14372c40}dialog::backdrop{background:#102b2466;backdrop-filter:blur(2px)}
+@media(max-width:700px){.workbench-product-bar{padding:.65rem}.workbench-location,.workbench-data-status{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.workbench-location span,.workbench-data-status span{min-width:0;border:0;padding:.35rem}.workbench-data-status button{grid-column:1/-1;width:100%;margin:0}}
 .transfer-table tr.completed>td{background:#e7f6e9}.transfer-table tr.pending>td{background:#fff9df}.transfer-table tr.problem>td{background:#fde9e7}
 .transfer-table tr.split>td,.split-summary-row td,.transfer-add-child td{background:#eaf5ff}
 .transfer-table tr.transfer-child-row td:first-child{border-inline-start:4px solid #4c91c7}.system-cell{color:#53645e;white-space:nowrap;text-align:center}

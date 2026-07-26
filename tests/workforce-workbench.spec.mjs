@@ -10,14 +10,16 @@ test('Employees Workbench renders KPI, toolbar, master table and lower detail ca
   await expect(page.getByRole('heading', { name: 'עובדים', exact: true })).toBeVisible();
   await expect(page.locator('#wf-kpis button')).toHaveCount(4);
   await expect(page.locator('#wf-search')).toBeVisible();
+  await expect(page.locator('[data-workbench-polish]')).toContainText('Supabase');
+  await expect(page.locator('#wf-rows .workforce-inline').first()).toBeVisible();
   await expect(page.locator('#wf-rows tr')).toHaveCount(1);
-  await page.getByRole('button', { name: 'פרטים' }).click();
+  await page.getByRole('button', { name: 'פרטים מתקדמים' }).click();
   await expect(page.locator('#wf-details')).toContainText('היסטוריית תנאי שכר');
   await expect(page.locator('#wf-details')).toContainText('בונוסים וזכאויות');
   await expect(page.locator('#wf-details')).toContainText('רישוי והכשרות');
   await expect(page.locator('#wf-details')).toContainText('חופשות והיעדרויות');
   await expect(page.locator('#wf-details')).toContainText('Placeholder בלבד');
-  if (testInfo.project.name === 'desktop-1440') await page.screenshot({ path: 'test-results/track020-employees.png', fullPage: true });
+  if (testInfo.project.name === 'desktop-1440') await page.screenshot({ path: 'screenshots/track025/employees-workbench-desktop.png', fullPage: true });
 });
 
 test('Actual Payroll Workbench shows month, matching KPIs and cost-hours split editor', async ({ page }, testInfo) => {

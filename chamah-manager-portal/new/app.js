@@ -10,6 +10,7 @@ import { bankTransferWorkbenchTemplate, mountBankTransferWorkbench } from './ban
 import { workforceHubTemplate, employeesWorkbenchTemplate, payrollWorkbenchTemplate, parsePayrollWorkbook } from './workforce-workbench.js';
 import { mountEmployeesWorkbench } from './employees-workbench.js';
 import { mountPayrollWorkbench } from './payroll-workbench.js';
+import { mountWorkbenchPolish } from './workbench-polish.js';
 
 window.parsePayrollWorkbookForWorkbench = parsePayrollWorkbook;
 
@@ -1490,6 +1491,7 @@ async function render() {
         activeDashboardUnit = unit;
         $('#page-content').innerHTML = employeesWorkbenchTemplate();
         await mountEmployeesWorkbench(portalWorkforceRequest);
+        mountWorkbenchPolish({ title: 'עובדים', module: 'כוח אדם', organization: unit.display_name, onRefresh: () => render() });
       } else if (type.id === 'staffing' && route.dashboardChild === 'actual-payroll') {
         title = 'ביצוע שכר';
         activeDashboardUnit = unit;

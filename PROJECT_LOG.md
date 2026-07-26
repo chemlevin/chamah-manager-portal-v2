@@ -3824,3 +3824,65 @@ Final result:
 - Remaining schema/configuration differences: none.
 - Verdict: **REPRODUCIBLE**.
 - Production was not modified. PR #5 was not merged or closed.
+
+## 2026-07-26 - TRACK025 Portal UX & Product Polish (Partial)
+
+Scope:
+
+- UX-only changes. No business rules, calculations, APIs, Supabase schema, RLS,
+  migrations, Edge Functions, package files, or generated `dist` source were
+  changed.
+- Audited the current Employees, Payroll, Bank Files, and Bank Transfers
+  workbenches. Existing TRACK020-023 functionality already supplies much of the
+  requested table-first, autosave, import/export, lifecycle, and split behavior.
+
+Implemented:
+
+- Added a reusable Hebrew RTL Workbench product/status band with module, page,
+  organization, department, daycare, school year, month, Supabase source, last
+  refresh, last save, save state, and Refresh presentation.
+- Applied the shared band to Employees after compatibility testing.
+- Converted primary Employee entry from popup-first to table-first:
+  - Add Row inserts an editable row in the table.
+  - Employee code, first name, last name, phone, and lifecycle status are editable
+    inline.
+  - Existing row edits save through the existing canonical employee action.
+  - Added per-row archive, checkbox selection, and bulk archive.
+  - Added visible-row CSV export.
+  - Kept employment, assignment, pay-term, eligibility, certificate, leave, and
+    document information in the lower advanced panel.
+- Normalized Employee row health to `תקין`, `חסר מידע`, or `בעייתי`, with green,
+  light-yellow, and light-red presentation.
+- Refined shared Workbench, input, dialog, bulk-action, spacing, and mobile RTL
+  styles.
+
+Validation:
+
+- PASS: JavaScript syntax checks for `app.js`, `employees-workbench.js`, and
+  `workbench-polish.js`.
+- PASS: `npm.cmd run build`.
+- PASS: `git diff --check`.
+- PASS: focused desktop Employees Workbench Playwright test, including shared
+  status/context chrome, inline fields, advanced details, and screenshot.
+- PASS: existing Bank Transactions empty-state Playwright test.
+- BLOCKED: the existing Payroll detail test hangs while clicking `פרטים`; the
+  same failure remains when the TRACK025 enhancer is not mounted on Payroll.
+- BLOCKED: the existing Bank Transfers default-view test hangs on its first
+  `selectOption`; the same failure remains after removing the TRACK025 enhancer.
+  Both failures were left visible and were not bypassed.
+
+Screenshot:
+
+- `screenshots/track025/employees-workbench-desktop.png`
+
+Deferred / blockers:
+
+- The full shared status band was not activated on Payroll, Bank Files, or Bank
+  Transfers because their existing interaction tests hang in the current branch
+  and safe compatibility could not be established.
+- Employee Excel import is not available through the existing API contract; adding
+  it safely requires an approved persistence/import contract rather than a UX-only
+  patch.
+- The requested missing active `TRAVEL` salary rule is a business-rule/data issue
+  and conflicts with the explicit UX-only/no-business-rule constraint. It was not
+  changed.
