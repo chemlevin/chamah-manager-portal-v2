@@ -3558,3 +3558,92 @@ Files changed:
   closed months; the history view displayed its correct empty state.
 - No Workforce code, backend contract, RLS, RPC, Production business data,
   Budget Engine behavior or Payroll calculation was changed.
+## 2026-07-26 - TRACK023 Bank Transfer Workbench
+
+Objective: Add a Preview-only Supabase Workbench under Accounting for preparing,
+splitting and tracking bank transfers without changing Budget, Payroll, bank-import
+or Google Sheets contracts.
+
+Page and workflow:
+
+- Added `העברות בנקאיות` under `הנה״ח` with the existing Workbench table-first
+  structure: four KPIs, compact search/filter/sort toolbar and a wide editable RTL
+  table.
+- Added system row and transfer numbers, inline editing, add/soft-delete row,
+  shared 1.5-second autosave, direct `בוצע`, history/search, Excel import/export
+  and private attachment upload/open actions.
+- The default view contains pending and problem work only. Completed transfers
+  remain available through History/All and search.
+- Status colors are light green for Completed, light yellow for Pending, light red
+  for Problem and light blue for split parents/children.
+- Completion never assigns a date. Both the Edge Function and database reject
+  Completed without a manually entered execution date.
+
+Split behavior:
+
+- Reused a one-level parent/child flow. The parent preserves the original amount
+  and child rows are editable paid parts.
+- Split summaries show original amount, all parts, completed parts, remaining
+  amount and balanced/remaining/overallocated status.
+- Pending KPIs count and total unresolved split remainder; split KPIs report parent
+  count and total remaining split amount.
+- Database validation blocks split grandchildren and daycare/department mismatch.
+
+Import and export:
+
+- Excel/XLSX/XLS/CSV import reads the first worksheet and requires at least Name
+  and Amount.
+- Budget Category, Department and Daycare are resolved only against active
+  Supabase lookups by exact display name or business code. Missing or ambiguous
+  lookup values block import; no free text or hardcoded business lookup is stored.
+- Status import accepts only the three TRACK023 values. Completed imports require
+  an explicit execution date.
+- Export includes visible parent/child rows, system identifiers, lookup display
+  names, status, execution date and attachment name in a Hebrew RTL XLSX workbook.
+
+Supabase and security:
+
+- Applied migration `20260726090332_track_023_bank_transfer_workbench`.
+- Added service-only `bank_transfers` with RLS enabled, direct browser privileges
+  revoked, foreign keys to Supabase lookup tables, one-level split validation,
+  manual completion-date enforcement and row-version timestamps.
+- Added private 10MB `bank-transfer-attachments` Storage bucket.
+- Deployed JWT-verified `portal-bank-transfer-workbench` v1.
+- The Edge Function reuses `portal_has_permission`, service-role database/storage
+  access and `audit_events`; deletion is an audited archive rather than physical
+  removal.
+- Live probes confirmed RLS, no anon/authenticated SELECT, private bucket settings,
+  completion-date enforcement, split-depth enforcement and zero retained probe
+  rows.
+- Supabase security advisor reports the intentional service-only
+  `rls_enabled_no_policy` information item for `bank_transfers`; pre-existing
+  `portal_my_access` and leaked-password-protection warnings remain. Performance
+  advisor found no unindexed TRACK023 foreign key.
+
+Validation:
+
+- PASS: JavaScript syntax checks for the portal, Workbench and tests.
+- PASS: `npm.cmd run build`.
+- PASS: 6 focused desktop/mobile TRACK023 Playwright tests.
+- PASS: 4 shared autosave unit tests.
+- PASS: 52 Bank Files, portal permission/security, Budget, Payroll, Allocations and
+  Management regression tests.
+- PASS: `git diff --check`.
+
+Deployment:
+
+- Supabase migration and JWT-verified Edge Function were deployed for Preview
+  validation.
+- Vercel Production was not deployed, promoted or aliased.
+- A Preview-only Vercel deployment follows the committed and pushed branch.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/bank-transfer-workbench.js`
+- `chamah-manager-portal/new/styles.css`
+- `supabase/functions/portal-bank-transfer-workbench/index.ts`
+- `supabase/migrations/20260726090332_track_023_bank_transfer_workbench.sql`
+- `tests/bank-transfer-workbench.spec.mjs`
+- `tests/new-portal-test-data.mjs`
+- `PROJECT_LOG.md`

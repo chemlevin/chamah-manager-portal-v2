@@ -6,6 +6,7 @@ import { DOCUMENTED_STATUS_RULES, REFERENCE_TABLES, VARIABLE_RULE_TABLES } from 
 import { mountAdministrationPrototype } from './administration-prototype.js';
 import { mountSettingsCenter } from './settings-center.js';
 import { bankWorkbenchTemplateV2 as track015BankWorkbenchTemplate, mountBankWorkbenchV2 as mountBankWorkbench } from './bank-workbench-ux.js';
+import { bankTransferWorkbenchTemplate, mountBankTransferWorkbench } from './bank-transfer-workbench.js';
 import { workforceHubTemplate, employeesWorkbenchTemplate, payrollWorkbenchTemplate, parsePayrollWorkbook } from './workforce-workbench.js';
 import { mountEmployeesWorkbench } from './employees-workbench.js';
 import { mountPayrollWorkbench } from './payroll-workbench.js';
@@ -30,7 +31,7 @@ const number = new Intl.NumberFormat('he-IL', { maximumFractionDigits: 1 });
 const HEBREW_SCREEN_LABELS = {
   home: 'עמוד הבית', dashboards: 'דשבורדים', 'dashboards.finance': 'כספים',
   'dashboards.accounting': 'הנה״ח', 'dashboards.accounting.summary': 'דשבורד סיכום',
-  'dashboards.accounting.banks': 'קובץ בנקים', 'dashboards.licensing': 'רישוי', 'dashboards.team': 'צוות',
+  'dashboards.accounting.banks': 'קובץ בנקים', 'dashboards.accounting.bank-transfers': 'העברות בנקאיות', 'dashboards.licensing': 'רישוי', 'dashboards.team': 'צוות',
   'dashboards.staffing': 'צוות ורישוי', 'dashboards.staffing.employees': 'עובדים',
   'dashboards.staffing.actual-payroll': 'ביצוע שכר',
   'dashboards.occupancy': 'תפוסה ותקינה', calculators: 'מחשבונים',
@@ -58,6 +59,7 @@ function canonicalizeSections(sections) {
   const accounting = canonical.find((section) => section.screen_code === 'dashboards.accounting');
   if (accounting && !canonical.some((section) => section.screen_code === 'dashboards.accounting.summary')) canonical.push({ screen_code: 'dashboards.accounting.summary', parent_screen_code: 'dashboards.accounting', route: 'dashboards/unit/organization/accounting/summary', display_name: 'דשבורד סיכום', icon: '▦', description: 'בקרה מסכמת על תהליכי הנהלת החשבונות.', display_order: 23, is_navigation_item: false, is_scope_required: true, permission_level: accounting.permission_level });
   if (accounting && !canonical.some((section) => section.screen_code === 'dashboards.accounting.banks')) canonical.push({ screen_code: 'dashboards.accounting.banks', parent_screen_code: 'dashboards.accounting', route: 'dashboards/unit/organization/accounting/banks', display_name: 'קובץ בנקים', icon: '▤', description: 'סביבת עבודה לטיפול בתנועות בנק.', display_order: 24, is_navigation_item: false, is_scope_required: true, permission_level: portalAccess?.profile?.is_super_admin ? 'EDIT' : 'HIDDEN' });
+  if (accounting && !canonical.some((section) => section.screen_code === 'dashboards.accounting.bank-transfers')) canonical.push({ screen_code: 'dashboards.accounting.bank-transfers', parent_screen_code: 'dashboards.accounting', route: 'dashboards/unit/organization/accounting/bank-transfers', display_name: 'העברות בנקאיות', icon: '↔', description: 'סביבת עבודה להכנה ומעקב אחר העברות בנקאיות.', display_order: 25, is_navigation_item: false, is_scope_required: true, permission_level: accounting.permission_level });
   const staffing = canonical.find((section) => section.screen_code === 'dashboards.staffing');
   if (staffing && !canonical.some((section) => section.screen_code === 'dashboards.staffing.employees')) canonical.push({ screen_code: 'dashboards.staffing.employees', parent_screen_code: 'dashboards.staffing', route: 'dashboards/unit/organization/staffing/employees', display_name: 'עובדים', icon: '👥', description: 'סביבת עבודה לניהול עובדים.', display_order: 25, is_navigation_item: false, is_scope_required: true, permission_level: staffing.permission_level });
   if (staffing && !canonical.some((section) => section.screen_code === 'dashboards.staffing.actual-payroll')) canonical.push({ screen_code: 'dashboards.staffing.actual-payroll', parent_screen_code: 'dashboards.staffing', route: 'dashboards/unit/organization/staffing/actual-payroll', display_name: 'ביצוע שכר', icon: '₪', description: 'סביבת עבודה לביצוע שכר בפועל.', display_order: 26, is_navigation_item: false, is_scope_required: true, permission_level: staffing.permission_level });
@@ -579,6 +581,14 @@ async function portalBankWorkbenchRequest(method = 'GET', body) {
   return value;
 }
 
+async function portalBankTransferRequest(method = 'GET', body) {
+  if (!await ensureAccessToken()) throw new Error('החיבור פג.');
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/portal-bank-transfer-workbench`, { method, headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const value = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(value.error || 'הפעולה נכשלה.');
+  return value;
+}
+
 async function portalWorkforceRequest(page, method = 'GET', body, month = '') {
   if (!await ensureAccessToken()) throw new Error('החיבור פג.');
   const query = new URLSearchParams({ page });
@@ -959,7 +969,8 @@ function unitHubTemplate(unit) {
 function accountingHubTemplate(unit) {
   const cards = [
     { code: 'dashboards.accounting.summary', child: 'summary', icon: '▦', title: 'דשבורד סיכום', description: 'בקרה מסכמת על סטטוס הטיפול בתנועות והעברה להנהלת חשבונות.' },
-    { code: 'dashboards.accounting.banks', child: 'banks', icon: '▤', title: 'קובץ בנקים', description: 'סביבת עבודה מהירה לשיוך, מסמכים וטיפול בתנועות בנק.' }
+    { code: 'dashboards.accounting.banks', child: 'banks', icon: '▤', title: 'קובץ בנקים', description: 'סביבת עבודה מהירה לשיוך, מסמכים וטיפול בתנועות בנק.' },
+    { code: 'dashboards.accounting.bank-transfers', child: 'bank-transfers', icon: '↔', title: 'העברות בנקאיות', description: 'טבלה לעריכה, פיצול ומעקב אחר ביצוע העברות בנקאיות.' }
   ];
   return `<section class="page-heading"><div><p class="eyebrow">הנה״ח</p><h1>הנה״ח</h1><p>בחרי את סביבת העבודה שברצונך לפתוח.</p></div><a class="button button-secondary" href="${unitRoute(unit.allocation_unit_id)}">חזרה לדשבורדי היחידה</a></section><section class="accounting-choice-grid" aria-label="מסכי הנהלת חשבונות">${cards.filter((card) => canView(card.code)).map((card) => `<a class="dashboard-type-card card" data-accounting-screen="${card.child}" href="${unitRoute(unit.allocation_unit_id, `accounting/${card.child}`)}"><span class="dashboard-type-icon" aria-hidden="true">${card.icon}</span><div><h2>${card.title}</h2><p>${card.description}</p></div><span class="card-action">פתיחת המסך <span aria-hidden="true">←</span></span></a>`).join('') || '<section class="empty-state panel">אין מסכי הנה״ח זמינים לפי ההרשאות הנוכחיות.</section>'}</section>`;
 }
@@ -1393,7 +1404,7 @@ function breadcrumbsTemplate(route, unit, type) {
     const target = unitRoute('organization', route.dashboardType);
     parts.push('<span aria-hidden="true">/</span>', unit?.allocation_unit_id === 'organization' && !route.dashboardChild ? `<span aria-current="page">${label}</span>` : `<a href="${target}">${label}</a>`);
     if (unit && unit.allocation_unit_id !== 'organization') parts.push('<span aria-hidden="true">/</span>', `<span aria-current="page">${escapeHtml(unit.display_name)}</span>`);
-    if (route.dashboardChild) parts.push('<span aria-hidden="true">/</span>', `<span aria-current="page">${route.dashboardChild === 'employees' ? 'עובדים' : route.dashboardChild === 'actual-payroll' ? 'ביצוע שכר' : route.dashboardChild}</span>`);
+    if (route.dashboardChild) parts.push('<span aria-hidden="true">/</span>', `<span aria-current="page">${route.dashboardChild === 'employees' ? 'עובדים' : route.dashboardChild === 'actual-payroll' ? 'ביצוע שכר' : route.dashboardChild === 'bank-transfers' ? 'העברות בנקאיות' : route.dashboardChild}</span>`);
     return parts.join('');
   }
   parts.push('<span aria-hidden="true">/</span>', route.unitId ? '<a href="#dashboards">דשבורדים</a>' : '<span aria-current="page">דשבורדים</span>');
@@ -1458,6 +1469,11 @@ async function render() {
         activeDashboardUnit = unit;
         $('#page-content').innerHTML = track015BankWorkbenchTemplate();
         await mountBankWorkbench(portalBankWorkbenchRequest);
+      } else if (type.id === 'accounting' && route.dashboardChild === 'bank-transfers') {
+        title = 'העברות בנקאיות';
+        activeDashboardUnit = unit;
+        $('#page-content').innerHTML = bankTransferWorkbenchTemplate();
+        await mountBankTransferWorkbench(portalBankTransferRequest);
       } else if (type.id === 'accounting' && route.dashboardChild === 'summary') {
         title = type.title;
         dashboardMode = 'accounting';
