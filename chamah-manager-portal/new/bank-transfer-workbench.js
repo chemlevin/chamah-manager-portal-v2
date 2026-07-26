@@ -44,9 +44,9 @@ export function bankTransferWorkbenchTemplate() {
   </section>
   <section class="transfer-sheet panel">
     <div class="transfer-scroll"><table class="transfer-table"><thead><tr>
-      <th>מס׳ שורה</th><th>מס׳ העברה</th><th>שם</th><th>סכום</th><th>בנק</th><th>סניף</th><th>חשבון</th><th>בעל החשבון</th><th>סעיף תקציבי</th><th>הערות</th><th>מחלקה</th><th>מעון</th><th>סטטוס</th><th>תאריך ביצוע</th><th>קובץ</th><th>פעולות</th>
+      <th><input id="transfer-select-all" type="checkbox" aria-label="בחירת כל ההעברות"></th><th>מס׳ שורה</th><th>מס׳ העברה</th><th>שם</th><th>סכום</th><th>בנק</th><th>סניף</th><th>חשבון</th><th>בעל החשבון</th><th>סעיף תקציבי</th><th>הערות</th><th>מחלקה</th><th>מעון</th><th>סטטוס</th><th>תאריך ביצוע</th><th>קובץ</th><th>פעולות</th>
     </tr></thead><tbody id="transfer-rows"></tbody></table></div>
-    <footer>השמירה מתבצעת אוטומטית · תאריך ביצוע מוזן ידנית בלבד · העברות שבוצעו נשמרות בהיסטוריה</footer>
+    <footer><span id="transfer-selection">לא נבחרו שורות</span><button id="transfer-delete-selected" class="button button-danger" type="button" hidden>מחיקת נבחרות</button><span>השמירה מתבצעת אוטומטית · תאריך ביצוע מוזן ידנית בלבד · העברות שבוצעו נשמרות בהיסטוריה</span></footer>
   </section>`;
 }
 
@@ -54,7 +54,7 @@ export async function mountBankTransferWorkbench(request) {
   const state = {
     data: { transfers: [], categories: [], units: [], daycares: [] },
     query: "", view: "open", unit: "", sort: "row_number:asc",
-    drafts: new Map(), controllers: new Map(), expanded: new Set(),
+    drafts: new Map(), controllers: new Map(), expanded: new Set(), selectedRows: new Set(),
   };
   const $ = (selector) => document.querySelector(selector);
   const message = (value, tone = "") => {
@@ -122,8 +122,11 @@ export async function mountBankTransferWorkbench(request) {
     const summary = child ? null : splitSummary(source);
     const isSplit = Boolean(summary?.children.length);
     const temp = source.bank_transfer_id.startsWith("temp-");
-    const classes = [child || isSplit ? "split" : statusClasses[row.status], child ? "transfer-child-row" : ""].join(" ");
+    const health = !row.name || !Number(row.amount) ? "error" : row.status === "PROBLEM" ? "error" : row.status === "PENDING" ? "missing" : "complete";
+    const healthLabel = health === "error" ? "בעייתי" : health === "missing" ? "חסר מידע" : "תקין";
+    const classes = [child || isSplit ? "split" : statusClasses[row.status], child ? "transfer-child-row" : "", `bank-row-${health}`].join(" ");
     return `<tr class="${classes}" data-transfer-row="${source.bank_transfer_id}" data-parent-id="${row.parent_transfer_id || ""}">
+      <td><input type="checkbox" data-select-transfer="${source.bank_transfer_id}" ${state.selectedRows.has(source.bank_transfer_id) ? "checked" : ""}></td>
       <td class="system-cell">${child ? `↳ ${index + 1}` : row.row_number || "חדש"}</td>
       <td class="system-cell">${child ? `חלק ${index + 1}` : row.transfer_number ? `BT-${String(row.transfer_number).padStart(6, "0")}` : "יוקצה בשמירה"}</td>
       <td><input name="name" value="${esc(row.name)}" aria-label="שם"></td>
@@ -139,8 +142,8 @@ export async function mountBankTransferWorkbench(request) {
       <td><select name="status" aria-label="סטטוס">${Object.entries(statusLabels).map(([value, title]) => `<option value="${value}" ${row.status === value ? "selected" : ""}>${title}</option>`).join("")}</select></td>
       <td><input name="execution_date" type="date" value="${esc(row.execution_date)}" aria-label="תאריך ביצוע"></td>
       <td class="attachment-cell">${row.attachment_path ? `<button class="icon-button" data-open-attachment type="button" title="${esc(row.attachment_name)}">📎</button>` : ""}<button class="icon-button" data-upload-attachment type="button" ${temp ? "disabled" : ""} aria-label="העלאת קובץ">＋</button><input data-attachment-file type="file" hidden></td>
-      <td class="row-actions"><span class="autosave-status" data-save-status></span><button class="button button-quiet transfer-done" data-mark-completed type="button" ${row.status === "COMPLETED" || temp ? "disabled" : ""}>בוצע</button>${!child ? `<button class="button button-quiet" data-toggle-split type="button" ${temp ? "disabled" : ""}>${isSplit && state.expanded.has(source.bank_transfer_id) ? "סגירה" : "פיצול"}</button>` : ""}<button class="icon-button danger" data-delete-transfer type="button" aria-label="מחיקה">×</button></td>
-    </tr>${!child && isSplit ? `<tr class="split-summary-row"><td colspan="16"><button type="button" data-toggle-split="${source.bank_transfer_id}"><strong>פיצול:</strong> סכום מקורי ${money.format(Number(row.amount || 0))} · חלקים ${money.format(summary.parts)} · חלקים שבוצעו ${money.format(summary.paid)} · יתרה ${money.format(summary.remaining)} · <span class="split-badge">${Math.abs(summary.remaining) < .005 ? "מאוזן" : summary.remaining > 0 ? "נותרה יתרה" : "חריגה מהסכום"}</span></button></td></tr>${state.expanded.has(source.bank_transfer_id) ? summary.children.map((item, childIndex) => rowTemplate(item, { child: true, index: childIndex })).join("") + `<tr class="transfer-add-child"><td colspan="16"><button class="button button-secondary" data-add-split="${source.bank_transfer_id}" type="button">+ הוספת חלק</button></td></tr>` : ""}` : ""}`;
+      <td class="row-actions"><span class="bank-row-status ${health}">${healthLabel}</span><span class="autosave-status" data-save-status></span><button class="button button-quiet transfer-done" data-mark-completed type="button" ${row.status === "COMPLETED" || temp ? "disabled" : ""}>בוצע</button>${!child ? `<button class="button button-quiet" data-toggle-split type="button" ${temp ? "disabled" : ""}>${isSplit && state.expanded.has(source.bank_transfer_id) ? "סגירה" : "פיצול"}</button>` : ""}<button class="icon-button danger" data-delete-transfer type="button" aria-label="מחיקה">×</button></td>
+    </tr>${!child && isSplit ? `<tr class="split-summary-row"><td colspan="17"><button type="button" data-toggle-split="${source.bank_transfer_id}"><strong>פיצול:</strong> סכום מקורי ${money.format(Number(row.amount || 0))} · חלקים ${money.format(summary.parts)} · חלקים שבוצעו ${money.format(summary.paid)} · יתרה ${money.format(summary.remaining)} · <span class="split-badge">${Math.abs(summary.remaining) < .005 ? "מאוזן" : summary.remaining > 0 ? "נותרה יתרה" : "חריגה מהסכום"}</span></button></td></tr>${state.expanded.has(source.bank_transfer_id) ? summary.children.map((item, childIndex) => rowTemplate(item, { child: true, index: childIndex })).join("") + `<tr class="transfer-add-child"><td colspan="17"><button class="button button-secondary" data-add-split="${source.bank_transfer_id}" type="button">+ הוספת חלק</button></td></tr>` : ""}` : ""}`;
   };
   const readRow = (id) => {
     const source = state.data.transfers.find((row) => row.bank_transfer_id === id);
@@ -197,8 +200,10 @@ export async function mountBankTransferWorkbench(request) {
   const render = () => {
     destroyControllers();
     const rows = visibleRoots();
-    $("#transfer-rows").innerHTML = rows.map((row) => rowTemplate(row)).join("") || `<tr><td colspan="16"><div class="admin-state admin-empty"><strong>אין העברות בתצוגה</strong><p>אפשר להוסיף שורה חדשה או לשנות את המסננים.</p></div></td></tr>`;
+    $("#transfer-rows").innerHTML = rows.map((row) => rowTemplate(row)).join("") || `<tr><td colspan="17"><div class="admin-state admin-empty"><strong>אין העברות בתצוגה</strong><p>אפשר להוסיף שורה חדשה או לשנות את המסננים.</p></div></td></tr>`;
     $("#transfer-count").textContent = `${rows.length} העברות`;
+    $("#transfer-selection").textContent = state.selectedRows.size ? `${state.selectedRows.size} שורות נבחרו` : "לא נבחרו שורות";
+    $("#transfer-delete-selected").hidden = !state.selectedRows.size;
     updateKpis();
     bindAutosave();
   };
@@ -231,6 +236,21 @@ export async function mountBankTransferWorkbench(request) {
     }
     render();
     message("השורה נמחקה.", "success");
+  };
+  const deleteSelected = async () => {
+    const ids = [...state.selectedRows];
+    if (!ids.length || !confirm(`למחוק ${ids.length} שורות?`)) return;
+    for (const id of ids) {
+      if (id.startsWith("temp-")) {
+        state.data.transfers = state.data.transfers.filter((row) => row.bank_transfer_id !== id);
+      } else {
+        await request("POST", { action: "delete", bank_transfer_id: id });
+        state.data.transfers = state.data.transfers.filter((row) => row.bank_transfer_id !== id && row.parent_transfer_id !== id);
+      }
+    }
+    state.selectedRows.clear();
+    render();
+    message("השורות נמחקו.", "success");
   };
   const upload = async (id, file) => {
     if (file.size > 10 * 1024 * 1024) throw new Error("הקובץ חייב להיות בגודל של עד 10MB.");
@@ -298,6 +318,11 @@ export async function mountBankTransferWorkbench(request) {
   $("#transfer-view").addEventListener("change", (event) => { state.view = event.target.value; render(); });
   $("#transfer-unit-filter").addEventListener("change", (event) => { state.unit = event.target.value; render(); });
   $("#transfer-sort").addEventListener("change", (event) => { state.sort = event.target.value; render(); });
+  $("#transfer-select-all").addEventListener("change", (event) => {
+    visibleRoots().forEach((row) => event.target.checked ? state.selectedRows.add(row.bank_transfer_id) : state.selectedRows.delete(row.bank_transfer_id));
+    render();
+  });
+  $("#transfer-delete-selected").addEventListener("click", deleteSelected);
   $("#transfer-add").addEventListener("click", () => add());
   $("#transfer-import").addEventListener("click", () => $("#transfer-file").click());
   $("#transfer-export").addEventListener("click", () => exportExcel().catch((error) => message(error.message, "error")));
@@ -326,6 +351,13 @@ export async function mountBankTransferWorkbench(request) {
     state.drafts.set(id, readRow(id)); state.controllers.get(id)?.markDirty({ immediate: true }); updateKpis();
   });
   $("#transfer-rows").addEventListener("click", async (event) => {
+    const selection = event.target.closest("[data-select-transfer]");
+    if (selection) {
+      selection.checked ? state.selectedRows.add(selection.dataset.selectTransfer) : state.selectedRows.delete(selection.dataset.selectTransfer);
+      $("#transfer-selection").textContent = `${state.selectedRows.size} שורות נבחרו`;
+      $("#transfer-delete-selected").hidden = !state.selectedRows.size;
+      return;
+    }
     const row = event.target.closest("[data-transfer-row]");
     const id = row?.dataset.transferRow;
     try {

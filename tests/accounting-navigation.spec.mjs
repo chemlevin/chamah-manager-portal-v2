@@ -73,13 +73,16 @@ test('Bank File exposes import, search, filters and export controls with an empt
   await expect(page.locator('#bank-clear-all')).toBeVisible();
   await expect(page.locator('#bank-export-open')).toBeVisible();
   await expect(page.getByRole('button', { name: 'ייבוא קובץ' })).toBeVisible();
+  await page.locator('#bank-new-transaction').click();
+  await expect(page.locator('[data-manual-bank-row]')).toBeVisible();
+  await expect(page.locator('[data-manual-bank-row]')).toContainText('יוקצו אוטומטית');
 });
 
-test('Bank File renders exact status reasons and tree-style split row numbers', async ({ page }) => {
+test('Bank File renders automatic health and tree-style split row numbers', async ({ page }, testInfo) => {
   await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, { accounts: [account], transactions, allocations: [allocation] });
   await expect(page.locator('.bank-workbench-table thead th')).toHaveText(['#', 'סטטוס', 'חשבון בנק', 'תאריך', 'תיאור', 'אסמכתא', 'סכום', 'סוג תנועה', 'מחלקה', 'מעון', 'סעיף תקציבי', 'חודש שיוך', 'סטטוס הנה"ח', 'הערות', 'מסמך']);
   const parent = page.locator('[data-bank-row="tx-1"]').first();
-  await expect(parent).toContainText(/שגיאת איזון/);
+  await expect(parent.locator('.bank-row-status').first()).toHaveText('בעייתי');
   await expect(parent).toHaveClass(/bank-row-error/);
   await expect(parent.locator('.bank-tree-number')).toContainText('1');
   await expect(parent.locator('select[name="movement_type"]')).toBeVisible();
@@ -88,6 +91,7 @@ test('Bank File renders exact status reasons and tree-style split row numbers', 
   await expect(page.locator('[data-bank-row="tx-1"]')).toHaveCount(3);
   await expect(page.locator('[data-bank-row="tx-1"] .bank-tree-number')).toHaveText(['1', '1.1', '1.2']);
   await expect(page.locator('[data-bank-row="tx-1"]').first()).toContainText(/מקורי/);
+  if (testInfo.project.name === 'desktop-1440') await page.screenshot({ path: 'screenshots/track025a/bank-files-desktop.png', fullPage: true });
   await expect(page.locator('[data-bank-row="tx-1"]').first()).toContainText(/מוקצה/);
   await expect(page.locator('[data-bank-row="tx-1"]').first()).toContainText(/נותר/);
 });
@@ -278,13 +282,13 @@ test('Bank File creates a MANUAL transaction with the server-generated transacti
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ transactions: currentTransactions, allocations: [], accounts: [{ lifecycle_status: 'ACTIVE', ...account }], units: [], daycares: [], categories: [], accountingStatuses: [], assignmentMonths: [], batches: [] }) });
   });
   await page.locator('#bank-new-transaction').click();
-  const dialog = page.locator('#bank-manual-dialog');
-  await dialog.locator('[name="bank_account_id"]').selectOption(account.bank_account_id);
-  await dialog.locator('[name="transaction_date"]').fill('2026-07-24');
-  await dialog.locator('[name="description"]').fill('תנועה ידנית');
-  await dialog.locator('[name="reference_number"]').fill('M-1');
-  await dialog.locator('[name="amount"]').fill('-45');
-  await dialog.getByRole('button', { name: 'שמירת תנועה' }).click();
+  const row = page.locator('[data-manual-bank-row]');
+  await row.locator('[name="bank_account_id"]').selectOption(account.bank_account_id);
+  await row.locator('[name="transaction_date"]').fill('2026-07-24');
+  await row.locator('[name="description"]').fill('תנועה ידנית');
+  await row.locator('[name="reference_number"]').fill('M-1');
+  await row.locator('[name="amount"]').fill('-45');
+  await row.locator('[data-save-manual-inline]').click();
   expect(createdPayload).toMatchObject({ action: 'create_manual_transaction', bank_account_id: account.bank_account_id, transaction_date: '2026-07-24', description: 'תנועה ידנית', reference_number: 'M-1', amount: -45 });
   await expect(page.locator('[data-bank-row="manual-generated-id"]')).toContainText('מקור: MANUAL');
   await expect(page.locator('[data-bank-row="manual-generated-id"] input[name="allocation_amount"]')).toHaveAttribute('readonly', '');

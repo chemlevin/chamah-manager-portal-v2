@@ -3884,3 +3884,156 @@ Final result:
 - Production schema/data and application deployment were unchanged.
 - PR #5 was superseded after its required migration was confirmed in `main`.
 - Verdict: **FULLY REPRODUCIBLE**.
+
+## 2026-07-26 - TRACK025 Portal UX & Product Polish (Partial)
+
+Scope:
+
+- UX-only changes. No business rules, calculations, APIs, Supabase schema, RLS,
+  migrations, Edge Functions, package files, or generated `dist` source were
+  changed.
+- Audited the current Employees, Payroll, Bank Files, and Bank Transfers
+  workbenches. Existing TRACK020-023 functionality already supplies much of the
+  requested table-first, autosave, import/export, lifecycle, and split behavior.
+
+Implemented:
+
+- Added a reusable Hebrew RTL Workbench product/status band with module, page,
+  organization, department, daycare, school year, month, Supabase source, last
+  refresh, last save, save state, and Refresh presentation.
+- Applied the shared band to Employees after compatibility testing.
+- Converted primary Employee entry from popup-first to table-first:
+  - Add Row inserts an editable row in the table.
+  - Employee code, first name, last name, phone, and lifecycle status are editable
+    inline.
+  - Existing row edits save through the existing canonical employee action.
+  - Added per-row archive, checkbox selection, and bulk archive.
+  - Added visible-row CSV export.
+  - Kept employment, assignment, pay-term, eligibility, certificate, leave, and
+    document information in the lower advanced panel.
+- Normalized Employee row health to `תקין`, `חסר מידע`, or `בעייתי`, with green,
+  light-yellow, and light-red presentation.
+- Refined shared Workbench, input, dialog, bulk-action, spacing, and mobile RTL
+  styles.
+
+Validation:
+
+- PASS: JavaScript syntax checks for `app.js`, `employees-workbench.js`, and
+  `workbench-polish.js`.
+- PASS: `npm.cmd run build`.
+- PASS: `git diff --check`.
+- PASS: focused desktop Employees Workbench Playwright test, including shared
+  status/context chrome, inline fields, advanced details, and screenshot.
+- PASS: existing Bank Transactions empty-state Playwright test.
+- BLOCKED: the existing Payroll detail test hangs while clicking `פרטים`; the
+  same failure remains when the TRACK025 enhancer is not mounted on Payroll.
+- BLOCKED: the existing Bank Transfers default-view test hangs on its first
+  `selectOption`; the same failure remains after removing the TRACK025 enhancer.
+  Both failures were left visible and were not bypassed.
+
+Screenshot:
+
+- `screenshots/track025/employees-workbench-desktop.png`
+
+Deferred / blockers:
+
+- The full shared status band was not activated on Payroll, Bank Files, or Bank
+  Transfers because their existing interaction tests hang in the current branch
+  and safe compatibility could not be established.
+- Employee Excel import is not available through the existing API contract; adding
+  it safely requires an approved persistence/import contract rather than a UX-only
+  patch.
+- The requested missing active `TRAVEL` salary rule is a business-rule/data issue
+  and conflicts with the explicit UX-only/no-business-rule constraint. It was not
+  changed.
+
+## 2026-07-26 - TRACK025A Complete Portal UX
+
+Scope:
+
+- Completed the approved UX-only Workbench standard for Actual Payroll, Bank
+  Files, and Bank Transfers.
+- No business rules, calculations, API contracts, Supabase schema, RLS, migration,
+  Edge Function, or package files changed.
+
+Test-hang root cause:
+
+- The first TRACK025 shared status component observed the complete Workbench DOM
+  and then changed save-status text inside the same observed subtree. This caused
+  a self-triggering `MutationObserver` loop that blocked browser interactions.
+- Later attempts to remove the component still appeared to hang because Playwright
+  was serving stale generated `dist` output; the static build had not been
+  regenerated after the source change.
+- TRACK025A observes only the existing message node, guards no-op status updates,
+  and rebuilds before browser verification. The previously hanging Payroll detail
+  click and Bank Transfer view selection now pass.
+
+Shared Workbench UX:
+
+- Activated the shared context/data-status band on Payroll, Bank Files, and Bank
+  Transfers.
+- Each band displays module, page, organization, department, daycare, school year,
+  month, Supabase source, last refresh, last save, save state, and Refresh.
+- Preserved existing breadcrumbs and browser hash navigation.
+- Standardized green `תקין`, light-yellow `חסר מידע`, and light-red `בעייתי`
+  row health presentation.
+- Refined table inputs, bulk-action bars, dialogs, spacing, and mobile RTL.
+
+Actual Payroll:
+
+- Preserved separate `חדש`, `קיים`, and `טבלאות עבר` navigation.
+- Retained the guided month-opening options and clearer active-month lifecycle
+  presentation.
+- Add inserts an editable table row with existing-employee picker or temporary
+  employee entry.
+- Employer cost and regular hours are editable inline and save through the existing
+  canonical `save_record` action.
+- Added single-row and multi-row deletion while retaining closed-month locks.
+- Advanced monthly fields and allocation splits remain in the lower detail panel
+  with existing autosave.
+
+Bank Files:
+
+- Added explicit calendar-year/month context through the shared band and existing
+  month filter.
+- Retained compact search, account/month/status filters, removable filter chips,
+  sorting workflow cards, selection, bulk delete, import, and export.
+- Replaced the manual transaction popup with an inline editable row.
+- The system assigns the persisted transaction ID and row ordering through the
+  existing `create_manual_transaction` action after save.
+- Normalized visible health labels while retaining detailed validation reasons in
+  tooltips and existing allocation checks.
+
+Bank Transfers:
+
+- Applied shared context/status chrome and automatic health labels.
+- Retained inline Add Row, autosave, Excel import/export, temporary rows, split
+  workflow, attachments, status handling, and manual execution-date rule.
+- Added row selection, Select All, and audited multi-delete through the existing
+  per-row delete action.
+
+Validation:
+
+- PASS: JavaScript syntax checks for all changed portal modules.
+- PASS: `npm.cmd run build`.
+- PASS: `git diff --check`.
+- PASS: 26 focused desktop Playwright tests covering Workforce, Bank Files,
+  Accounting navigation, and Bank Transfers.
+- PASS: 4 targeted 390px mobile RTL Playwright tests for Payroll, Bank Files,
+  Bank Transfers, and Workforce overflow.
+- The initial non-escalated broad browser run could not launch Chromium with
+  `spawn EPERM`; the same pinned suite was rerun with the required browser-launch
+  permission and passed.
+
+Screenshots:
+
+- `screenshots/track025a/payroll-workbench-desktop.png`
+- `screenshots/track025a/bank-files-desktop.png`
+- `screenshots/track025a/bank-transfers-desktop.png`
+
+Residual risk:
+
+- Bulk Payroll deletion uses the existing delete action once per selected row
+  because no bulk API contract was introduced.
+- The ignored screenshot folder remains a local QA artifact and is not included
+  in the deployable source commit.

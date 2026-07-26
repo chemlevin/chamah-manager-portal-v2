@@ -18,7 +18,7 @@ export function bankWorkbenchTemplateV2() {
 }
 
 export async function mountBankWorkbenchV2(request) {
-  const state = { data: null, selected: null, selectedRows: new Set(), expanded: new Set(), workflow: "all", query: "", account: "", month: "", status: "", batch: "", drafts: new Map(), autosaves: new Map() };
+  const state = { data: null, selected: null, selectedRows: new Set(), expanded: new Set(), workflow: "all", query: "", account: "", month: "", status: "", batch: "", manualDraft: false, drafts: new Map(), autosaves: new Map() };
   const $ = (selector) => document.querySelector(selector);
   const message = (text, tone = "") => { const node = $("#bank-message"); if (node) { node.textContent = text; node.className = tone; } };
   const movementTypes = [
@@ -111,7 +111,7 @@ export async function mountBankWorkbenchV2(request) {
     return (!state.query || searchText(transaction).includes(state.query.toLowerCase())) && (!state.account || transaction.bank_account_id === state.account) && (!state.month || transaction.transaction_date?.startsWith(state.month)) && (!state.status || info.rows.some((row) => row.accounting_status_id === state.status)) && (!state.batch || transaction.import_batch_id === state.batch);
   });
   const filtered = () => baseFiltered().filter((transaction) => workflowMatches(transaction));
-  const statusMarkup = (transaction, rowsOverride) => { const status = statusInfo(transaction, rowsOverride); return `<span class="bank-row-status ${status.tone}" title="${esc(status.text)}">${esc(status.text)}</span>`; };
+  const statusMarkup = (transaction, rowsOverride) => { const status = statusInfo(transaction, rowsOverride); const label=status.tone==="complete"?"תקין":status.tone==="error"?"בעייתי":"חסר מידע";return `<span class="bank-row-status ${status.tone}" title="${esc(status.text)}">${label}</span>`; };
   const allocationInputs = (row) => {
     const department = departmentValue(row);
     return `<td><select name="movement_type" aria-label="סוג תנועה">${options("movementTypes",row.movement_type)}</select></td><td>${departmentSelect(row)}<input name="allocation_unit_id" type="hidden" value="${esc(row.allocation_unit_id || "")}"></td><td><span data-daycare-field ${department === "DAYCARES" ? "" : "hidden"}><select name="daycare_id" aria-label="מעון">${options("daycares",row.daycare_id)}</select></span></td><td><select name="budget_category_id" aria-label="סעיף תקציבי">${options("budgetCategories",row.budget_category_id)}</select></td><td><select name="budget_month" aria-label="חודש שיוך">${options("budgetMonths",row.budget_month?.slice(0,7))}</select></td><td><select name="accounting_status_id" aria-label="סטטוס הנהלת חשבונות">${options("accountingStatuses",row.accounting_status_id)}</select></td><td><input name="notes" value="${esc(row.notes || "")}" aria-label="הערות"></td>`;
@@ -197,7 +197,8 @@ export async function mountBankWorkbenchV2(request) {
   };
   const render = (preserve = true) => {
     const scroll=preserve?captureScroll():null, rows=filtered(); renderWorkflowCards(); renderFilterChips(); $("#bank-new-count").textContent=`מציג ${rows.length} מתוך ${state.data.transactions.length} תנועות`;
-    $("#bank-new-rows").innerHTML=rows.map(transactionRows).join("")||'<tr><td colspan="15"><div class="admin-state admin-empty"><strong>אין תנועות בנק להצגה</strong><p>שנו את הסינון או ייבאו קובץ חדש.</p></div></td></tr>';
+    const manual = state.manualDraft ? `<tr class="bank-row-missing bank-manual-inline" data-manual-bank-row><td class="bank-sticky-number"><span>חדש</span></td><td class="bank-sticky-status"><span class="bank-row-status missing">חסר מידע</span></td><td><select name="bank_account_id"><option value="">חשבון…</option>${state.data.accounts.filter((row)=>row.lifecycle_status==="ACTIVE").map((row)=>`<option value="${row.bank_account_id}">${esc(row.display_name)}</option>`).join("")}</select></td><td><input name="transaction_date" type="date"></td><td><input name="description" placeholder="תיאור"></td><td><input name="reference_number" placeholder="אסמכתא"></td><td><input name="amount" type="number" step=".01" placeholder="סכום"></td><td colspan="7"><span class="muted">מספר שורה ומספר תנועה יוקצו אוטומטית בשמירה</span></td><td><button class="button button-primary" data-save-manual-inline type="button">שמירה</button><button class="button button-quiet" data-cancel-manual-inline type="button">ביטול</button></td></tr>` : "";
+    $("#bank-new-rows").innerHTML=manual+(rows.map(transactionRows).join("")||(!state.manualDraft?'<tr><td colspan="15"><div class="admin-state admin-empty"><strong>אין תנועות בנק להצגה</strong><p>שנו את הסינון או ייבאו קובץ חדש.</p></div></td></tr>':""));
     updateSelection(); renderMetadata(); if(scroll)restoreScroll(scroll);
   };
   const renderToolbarFilters = () => {
@@ -313,7 +314,7 @@ export async function mountBankWorkbenchV2(request) {
     if(key==="query"){$("#bank-new-search").value="";state.query="";} else if(key==="workflow")state.workflow="all"; else if(key==="batch")state.batch=""; else {state[key]="";$(`#bank-${key}-filter`).value="";} render();
   };
   $("#bank-import").addEventListener("click",()=>$("#bank-file").click());
-  $("#bank-new-transaction").addEventListener("click",openManualTransaction);
+  $("#bank-new-transaction").addEventListener("click",()=>{state.manualDraft=true;render();$("[data-manual-bank-row] select")?.focus();});
   $("#bank-file").addEventListener("change",async(event)=>{const file=event.target.files[0];if(!file)return;try{message("קורא את הקובץ…");const data=await file.arrayBuffer(),parsed=await parseWorkbook(file,data,state.data.accounts);if(parsed.needsMapping){openMapping(file,data,parsed);message("");return;}const preview=await request("POST",{action:"preview",account_number:parsed.accountNumber,rows:parsed.rows});openPreview(parsed,preview);message("");}catch(error){message(error.message,"error");}finally{event.target.value="";}});
   $("#bank-export-open").addEventListener("click",()=>{renderExportDialog();$("#bank-export-dialog").showModal();});
   $("#bank-workflow-cards").addEventListener("click",(event)=>{const card=event.target.closest("[data-workflow]");if(card){state.workflow=card.dataset.workflow;render();}});
@@ -325,6 +326,12 @@ export async function mountBankWorkbenchV2(request) {
   $("#bank-select-all").addEventListener("change",(event)=>{filtered().forEach((row)=>event.target.checked?state.selectedRows.add(row.bank_transaction_id):state.selectedRows.delete(row.bank_transaction_id));render();});
   $("#bank-delete-selected").addEventListener("click",()=>deleteTransactions([...state.selectedRows]));
   $("#bank-new-rows").addEventListener("click",(event)=>{
+    if(event.target.closest("[data-cancel-manual-inline]")){state.manualDraft=false;render();return;}
+    if(event.target.closest("[data-save-manual-inline]")){
+      const row=$("[data-manual-bank-row]"), value=(name)=>row.querySelector(`[name="${name}"]`)?.value||"";
+      if(!value("bank_account_id")||!value("transaction_date")||!value("description")||!value("amount")){message("יש למלא חשבון, תאריך, תיאור וסכום.","error");return;}
+      request("POST",{action:"create_manual_transaction",bank_account_id:value("bank_account_id"),transaction_date:value("transaction_date"),description:value("description"),reference_number:value("reference_number"),amount:Number(value("amount"))}).then(async(result)=>{state.manualDraft=false;await reload();state.selected=result.transaction.bank_transaction_id;render();message("התנועה נוספה ומספרי המערכת הוקצו.","success");}).catch((error)=>message(error.details?.join(" · ")||error.message,"error"));return;
+    }
     const select=event.target.closest("[data-select-transaction]"); if(select){select.checked?state.selectedRows.add(select.dataset.selectTransaction):state.selectedRows.delete(select.dataset.selectTransaction);updateSelection();return;}
     const deleteTransaction=event.target.closest("[data-delete-transaction]");if(deleteTransaction){deleteTransactions([deleteTransaction.dataset.deleteTransaction]);return;}
     const toggle=event.target.closest("[data-toggle-split]");if(toggle){const id=toggle.dataset.toggleSplit;state.expanded.has(id)?state.expanded.delete(id):state.expanded.add(id);render();return;}

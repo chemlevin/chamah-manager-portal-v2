@@ -11,7 +11,7 @@ const optionRows = (rows, key, selected = "", filter = () => true) =>
 const rowLabel = (rows, id, key) => rows.find((row) => row[key] === id)?.display_name || "—";
 
 export async function mountEmployeesWorkbench(request) {
-  const state = { data:await request("employees"), selected:"", query:"", status:"", unit:"", daycare:"", sort:"name", direction:1, attention:false };
+  const state = { data:await request("employees"), selected:"", selectedRows:new Set(), newRow:false, query:"", status:"", unit:"", daycare:"", sort:"name", direction:1, attention:false };
   const $ = (selector) => document.querySelector(selector);
   const message = (text, tone="") => { $("#wf-message").textContent=text; $("#wf-message").className=tone; };
   const employmentFor = (employeeId) => state.data.employments.filter((row) => row.employee_id === employeeId)
@@ -50,6 +50,28 @@ export async function mountEmployeesWorkbench(request) {
       && (!state.attention || issuesFor(employee).length);
   }).sort((a,b)=>String(valueForSort(a)).localeCompare(String(valueForSort(b)),"he",{numeric:true})*state.direction);
   const reload = async () => { state.data=await request("employees"); render(); };
+  const saveInline = async (employee, field, value) => {
+    employee[field] = value;
+    message("שומר…");
+    try {
+      await request("employees","POST",{action:"save_employee",employee_id:employee.employee_id,...employee});
+      message("השינויים נשמרו אוטומטית.","success");
+    } catch (error) {
+      message(`השמירה נכשלה: ${error.message}`,"error");
+      await reload();
+    }
+  };
+  const archiveRows = async (ids) => {
+    if (!ids.length || !confirm(`להעביר ${ids.length} עובדים לארכיון? ההיסטוריה תישמר.`)) return;
+    message("מעביר לארכיון…");
+    for (const id of ids) {
+      const employee=state.data.employees.find((row)=>row.employee_id===id);
+      if (employee) await request("employees","POST",{action:"save_employee",employee_id:id,...employee,lifecycle_status:"ARCHIVED"});
+    }
+    state.selectedRows.clear();
+    await reload();
+    message("העובדים הועברו לארכיון.","success");
+  };
   const showDialog = (title, fields, onSubmit, key) => {
     $("#wf-dialog-content").innerHTML=`<h2>${title}</h2><form id="wf-form" class="workforce-form">${fields}<div class="dialog-actions wide"><button class="button button-primary">שמירה</button></div></form>`;
     $("#wf-dialog").showModal();
@@ -145,11 +167,21 @@ export async function mountEmployeesWorkbench(request) {
     const kpis=[["all","כל העובדים",all.length],["ACTIVE","פעילים",all.filter((row)=>row.lifecycle_status==="ACTIVE").length],["attention","דורש טיפול",all.filter((row)=>issuesFor(row).length).length],["INACTIVE","לא פעילים",all.filter((row)=>row.lifecycle_status==="INACTIVE").length]];
     $("#wf-kpis").innerHTML=kpis.map(([id,title,value])=>`<button data-kpi="${id}"><strong>${value}</strong><span>${title}</span><small>פתיחת מסנן</small></button>`).join("");
     const heads=[["code","מס׳ עובד"],["name","שם מלא"],["role","תפקיד ראשי"],["daycare","מעון ראשי"],["classroom","כיתה ראשית"],["phone","טלפון"],["status","סטטוס"],["seniority","וותק מוכר"],["start","תחילת העסקה"]];
-    $("#wf-head").innerHTML=`<tr>${heads.map(([key,label],index)=>`<th class="${index===0?"bank-sticky-number":""}"><button class="table-sort" data-sort="${key}">${label}${state.sort===key?(state.direction===1?" ↑":" ↓"):""}</button></th>`).join("")}<th>מצב נתונים</th><th>פעולות</th></tr>`;
+    $("#wf-head").innerHTML=`<tr><th><input type="checkbox" data-select-all aria-label="בחירת כל השורות"></th>${heads.map(([key,label],index)=>`<th class="${index===0?"bank-sticky-number":""}"><button class="table-sort" data-sort="${key}">${label}${state.sort===key?(state.direction===1?" ↑":" ↓"):""}</button></th>`).join("")}<th>מצב שורה</th><th>פעולות</th></tr>`;
     $("#wf-count").textContent=`${rows.length} עובדים`;
-    $("#wf-rows").innerHTML=rows.map((employee)=>{const employment=employmentFor(employee.employee_id),assignment=assignmentFor(employee.employee_id),issues=issuesFor(employee);return`<tr class="${issues.length?"bank-row-missing":"bank-row-complete"}"><td class="bank-sticky-number"><strong>${esc(employee.employee_code)}</strong></td><td>${esc(employee.first_name)} ${esc(employee.last_name)}</td><td>${esc(rowLabel(state.data.roles,assignment?.role_id,"role_id"))}</td><td>${esc(rowLabel(state.data.daycares,assignment?.daycare_id,"daycare_id"))}</td><td>${esc(rowLabel(state.data.classrooms,assignment?.classroom_id,"classroom_id"))}</td><td>${esc(employee.phone||"—")}</td><td>${statusLabels[employee.lifecycle_status]||esc(employee.lifecycle_status)}</td><td>${employment?.recognized_prior_seniority_months??"—"}</td><td>${employment?.employment_start_date||"—"}</td><td><span class="bank-row-status ${issues.length?"missing":"complete"}">${issues.join(", ")||"תקין"}</span></td><td><button class="button button-quiet" data-open="${employee.employee_id}">פרטים</button><button class="button button-quiet" data-edit="${employee.employee_id}">עריכה</button></td></tr>`;}).join("");
+    const draft=state.newRow?`<tr class="bank-row-missing" data-new-employee><td></td><td><input class="workforce-inline" name="employee_code" placeholder="מס׳ עובד"></td><td><span class="inline-name"><input class="workforce-inline" name="first_name" placeholder="שם פרטי"><input class="workforce-inline" name="last_name" placeholder="שם משפחה"></span></td><td>—</td><td>—</td><td>—</td><td><input class="workforce-inline" name="phone" placeholder="טלפון"></td><td>פעיל</td><td>—</td><td>—</td><td><span class="bank-row-status missing">חסר מידע</span></td><td><button class="button button-primary" data-save-new>שמירה</button><button class="button button-quiet" data-cancel-new>ביטול</button></td></tr>`:"";
+    $("#wf-rows").innerHTML=draft+rows.map((employee)=>{const employment=employmentFor(employee.employee_id),assignment=assignmentFor(employee.employee_id),issues=issuesFor(employee);const problematic=!employee.employee_code?.trim()||!employee.first_name?.trim()||!employee.last_name?.trim();const health=problematic?"error":issues.length?"missing":"complete";const healthLabel=problematic?"בעייתי":issues.length?"חסר מידע":"תקין";return`<tr class="bank-row-${health}"><td><input type="checkbox" data-select-row="${employee.employee_id}" ${state.selectedRows.has(employee.employee_id)?"checked":""}></td><td class="bank-sticky-number"><input class="workforce-inline" data-inline="${employee.employee_id}" name="employee_code" value="${esc(employee.employee_code)}"></td><td><span class="inline-name"><input class="workforce-inline" data-inline="${employee.employee_id}" name="first_name" value="${esc(employee.first_name)}"><input class="workforce-inline" data-inline="${employee.employee_id}" name="last_name" value="${esc(employee.last_name)}"></span></td><td>${esc(rowLabel(state.data.roles,assignment?.role_id,"role_id"))}</td><td>${esc(rowLabel(state.data.daycares,assignment?.daycare_id,"daycare_id"))}</td><td>${esc(rowLabel(state.data.classrooms,assignment?.classroom_id,"classroom_id"))}</td><td><input class="workforce-inline" data-inline="${employee.employee_id}" name="phone" value="${esc(employee.phone||"")}"></td><td><select class="workforce-inline" data-inline="${employee.employee_id}" name="lifecycle_status">${Object.entries(statusLabels).map(([value,label])=>`<option value="${value}" ${value===employee.lifecycle_status?"selected":""}>${label}</option>`).join("")}</select></td><td>${employment?.recognized_prior_seniority_months??"—"}</td><td>${employment?.employment_start_date||"—"}</td><td><span class="bank-row-status ${health}">${healthLabel}</span>${issues.length?`<small>${esc(issues.join(", "))}</small>`:""}</td><td><button class="button button-quiet" data-open="${employee.employee_id}">פרטים מתקדמים</button><button class="button button-quiet" data-archive="${employee.employee_id}">ארכוב</button></td></tr>`;}).join("");
+    let bulk=$("#wf-bulk");
+    if(!bulk){bulk=document.createElement("div");bulk.id="wf-bulk";bulk.className="workbench-bulk-bar";$("#wf-count").parentElement.after(bulk);}
+    bulk.hidden=!state.selectedRows.size;bulk.innerHTML=`<strong>${state.selectedRows.size} נבחרו</strong><button class="button button-danger" data-bulk-archive>העברה לארכיון</button>`;
     document.querySelectorAll("[data-open]").forEach((button)=>button.onclick=()=>{state.selected=button.dataset.open;renderDetails();});
-    document.querySelectorAll("[data-edit]").forEach((button)=>button.onclick=()=>employeeDialog(state.data.employees.find((row)=>row.employee_id===button.dataset.edit)));
+    document.querySelectorAll("[data-inline]").forEach((field)=>field.onchange=()=>saveInline(state.data.employees.find((row)=>row.employee_id===field.dataset.inline),field.name,field.value));
+    document.querySelectorAll("[data-select-row]").forEach((field)=>field.onchange=()=>{field.checked?state.selectedRows.add(field.dataset.selectRow):state.selectedRows.delete(field.dataset.selectRow);render();});
+    $("[data-select-all]")?.addEventListener("change",(event)=>{rows.forEach((row)=>event.target.checked?state.selectedRows.add(row.employee_id):state.selectedRows.delete(row.employee_id));render();});
+    document.querySelectorAll("[data-archive]").forEach((button)=>button.onclick=()=>archiveRows([button.dataset.archive]));
+    $("[data-bulk-archive]")?.addEventListener("click",()=>archiveRows([...state.selectedRows]));
+    $("[data-cancel-new]")?.addEventListener("click",()=>{state.newRow=false;render();});
+    $("[data-save-new]")?.addEventListener("click",async()=>{const inputs=[...$("[data-new-employee]").querySelectorAll("input")];const body=Object.fromEntries(inputs.map((input)=>[input.name,input.value.trim()]));if(!body.employee_code||!body.first_name||!body.last_name){message("יש למלא מספר עובד, שם פרטי ושם משפחה.","error");return;}await request("employees","POST",{action:"save_employee",lifecycle_status:"ACTIVE",...body});state.newRow=false;await reload();message("העובד נוסף ונשמר.","success");});
     document.querySelectorAll("[data-sort]").forEach((button)=>button.onclick=()=>{state.direction=state.sort===button.dataset.sort?state.direction*-1:1;state.sort=button.dataset.sort;render();});
     document.querySelectorAll("[data-kpi]").forEach((button)=>button.onclick=()=>{state.attention=button.dataset.kpi==="attention";state.status=["ACTIVE","INACTIVE","ARCHIVED"].includes(button.dataset.kpi)?button.dataset.kpi:"";$("#wf-status").value=state.status;render();});
     renderDetails();
@@ -162,8 +194,8 @@ export async function mountEmployeesWorkbench(request) {
   $("#wf-unit").onchange=(event)=>{state.unit=event.target.value;state.daycare="";$("#wf-daycare").innerHTML='<option value="">כל המעונות</option>'+optionRows(state.data.daycares,"daycare_id","",(row)=>!state.unit||row.allocation_unit_id===state.unit).replace('<option value="">בחירה…</option>',"");render();};
   $("#wf-daycare").onchange=(event)=>{state.daycare=event.target.value;render();};
   $("#wf-clear").onclick=()=>{state.query=state.status=state.unit=state.daycare="";state.attention=false;["#wf-search","#wf-status","#wf-unit","#wf-daycare"].forEach((selector)=>$(selector).value="");render();};
-  $("#wf-add").onclick=()=>employeeDialog();
-  $("#wf-export").onclick=()=>message("ייצוא העובדים נשמר במסך השכר; בכרטיס העובדים אין ייצוא תפעולי.","");
+  $("#wf-add").onclick=()=>{state.newRow=true;render();$("[data-new-employee] input")?.focus();};
+  $("#wf-export").onclick=()=>{const lines=[["מספר עובד","שם פרטי","שם משפחה","טלפון","סטטוס"],...filtered().map((row)=>[row.employee_code,row.first_name,row.last_name,row.phone||"",statusLabels[row.lifecycle_status]||row.lifecycle_status])];const blob=new Blob(["\ufeff"+lines.map((line)=>line.map((value)=>`"${String(value).replaceAll('"','""')}"`).join(",")).join("\n")],{type:"text/csv;charset=utf-8"});const link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download="עובדים.csv";link.click();URL.revokeObjectURL(link.href);message("קובץ העובדים יוצא בהצלחה.","success");};
   render();
   message("הנתונים נטענו מ־Supabase בלבד.","success");
 }

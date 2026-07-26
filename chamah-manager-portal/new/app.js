@@ -10,6 +10,7 @@ import { bankTransferWorkbenchTemplate, mountBankTransferWorkbench } from './ban
 import { workforceHubTemplate, employeesWorkbenchTemplate, payrollWorkbenchTemplate, parsePayrollWorkbook } from './workforce-workbench.js';
 import { mountEmployeesWorkbench } from './employees-workbench.js';
 import { mountPayrollWorkbench } from './payroll-workbench.js';
+import { mountWorkbenchPolish } from './workbench-polish.js';
 
 window.parsePayrollWorkbookForWorkbench = parsePayrollWorkbook;
 
@@ -1471,11 +1472,13 @@ async function render() {
         activeDashboardUnit = unit;
         $('#page-content').innerHTML = track015BankWorkbenchTemplate();
         await mountBankWorkbench(portalBankWorkbenchRequest);
+        mountWorkbenchPolish({ title: 'קובץ בנקים', module: 'הנה"ח', organization: unit.display_name, schoolYear: 'שנה קלנדרית', month: 'כל החודשים', onRefresh: () => render() });
       } else if (type.id === 'accounting' && route.dashboardChild === 'bank-transfers') {
         title = 'העברות בנקאיות';
         activeDashboardUnit = unit;
         $('#page-content').innerHTML = bankTransferWorkbenchTemplate();
         await mountBankTransferWorkbench(portalBankTransferRequest);
+        mountWorkbenchPolish({ title: 'העברות בנקאיות', module: 'הנה"ח', organization: unit.display_name, onRefresh: () => render() });
       } else if (type.id === 'accounting' && route.dashboardChild === 'summary') {
         title = type.title;
         dashboardMode = 'accounting';
@@ -1492,11 +1495,13 @@ async function render() {
         activeDashboardUnit = unit;
         $('#page-content').innerHTML = employeesWorkbenchTemplate();
         await mountEmployeesWorkbench(portalWorkforceRequest);
+        mountWorkbenchPolish({ title: 'עובדים', module: 'כוח אדם', organization: unit.display_name, onRefresh: () => render() });
       } else if (type.id === 'staffing' && route.dashboardChild === 'actual-payroll') {
         title = 'ביצוע שכר';
         activeDashboardUnit = unit;
         $('#page-content').innerHTML = payrollWorkbenchTemplate();
         await mountPayrollWorkbench(portalWorkforceRequest);
+        mountWorkbenchPolish({ title: 'ביצוע שכר', module: 'שכר', organization: unit.display_name, month: document.querySelector('#wf-month')?.value || 'חודש פעיל', onRefresh: () => render() });
       } else if (['licensing', 'team'].includes(type.id)) {
         title = type.title; dashboardMode = 'staffing'; activeDashboardUnit = unit; $('#page-content').innerHTML = staffDashboardShell(unit); await loadStaffDashboard(); if (parseRoute().unitId === unit.allocation_unit_id && parseRoute().dashboardType === type.id) renderStaffData();
       } else { title = type.title; $('#page-content').innerHTML = dashboardPlaceholderTemplate(unit, type); }

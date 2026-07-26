@@ -65,6 +65,8 @@ export async function mountPayrollWorkbench(request) {
     sort: "employee",
     direction: 1,
     workflowView: "CURRENT",
+    selectedRows: new Set(),
+    newRow: false,
     allocationDrafts: new Map(),
     monthlyAutosave: null,
     allocationAutosave: null,
@@ -164,6 +166,34 @@ export async function mountPayrollWorkbench(request) {
   const reload = async () => {
     state.data = await request("payroll", "GET", null, state.month);
     render();
+  };
+  const saveInline = async (record, field, value) => {
+    record[field] = field === "employer_cost" || field === "regular_hours" ? Number(value || 0) : value;
+    message("שומר…");
+    try {
+      await request("payroll", "POST", {
+        action: "save_record",
+        payroll_record_id: record.payroll_record_id,
+        import_batch_id: record.import_batch_id,
+        record_origin: record.record_origin,
+        payroll_month: state.month,
+        ...record,
+      });
+      message("השינויים נשמרו אוטומטית.", "success");
+    } catch (error) {
+      message(error.message, "error");
+      await reload();
+    }
+  };
+  const deleteRecords = async (ids) => {
+    const unique = [...new Set(ids)].filter(Boolean);
+    if (!unique.length || !confirm(`למחוק ${unique.length} שורות שכר?`)) return;
+    for (const payroll_record_id of unique) {
+      await request("payroll", "POST", { action: "delete_record", payroll_record_id });
+    }
+    state.selectedRows.clear();
+    await reload();
+    message("שורות השכר נמחקו.", "success");
   };
 
   const openMonthDialog = () => {
@@ -480,31 +510,99 @@ export async function mountPayrollWorkbench(request) {
     $("#wf-kpis").innerHTML = `<div class="payroll-month-state ${isClosed() ? "closed" : "current"}">
       <strong>${current ? (isClosed() ? "חודש סגור" : "חודש נוכחי") : "חודש טרם נפתח"}</strong><span>${state.month}</span></div>`
       + kpis.map(([id, title, value]) => `<button data-kpi="${id}"><strong>${value}</strong><span>${title}</span><small>פתיחת מסנן</small></button>`).join("");
-    $("#wf-head").innerHTML = `<tr><th class="bank-sticky-number"><button data-sort="code">מס׳ עובד</button></th>
+    $("#wf-head").innerHTML = `<tr><th><input type="checkbox" data-payroll-select-all aria-label="בחירת כל השורות"></th><th class="bank-sticky-number"><button data-sort="code">מס׳ עובד</button></th>
       <th><button data-sort="employee">עובד</button></th><th>מחלקה</th><th>מעון</th><th>תנאי שכר</th>
       <th><button data-sort="cost">עלות מעסיק</button></th><th><button data-sort="hours">שעות</button></th>
       <th>התאמה</th><th>מצב</th><th>פעולות</th></tr>`;
     $("#wf-count").textContent = `${rows.length} עובדים`;
-    $("#wf-rows").innerHTML = rows.map((record) => {
+    const activeEmployees = state.data.employees.filter((employee) => employee.lifecycle_status === "ACTIVE")
+      .map((employee) => ({ ...employee, display_name: `${employee.first_name} ${employee.last_name} · ${employee.employee_code}` }));
+    const draftRow = state.newRow && !isClosed() ? `<tr class="bank-row-missing" data-new-payroll-row>
+      <td></td><td colspan="2"><select class="workforce-inline" name="employee_code"><option value="">בחירת עובד…</option>${activeEmployees.map((employee) => `<option value="${esc(employee.employee_code)}">${esc(employee.display_name)}</option>`).join("")}<option value="TEMPORARY">עובד זמני…</option></select><input class="workforce-inline" name="temporary_code" placeholder="מספר עובד זמני" hidden></td>
+      <td><select class="workforce-inline" name="allocation_unit_id">${options(state.data.units,"allocation_unit_id")}</select></td><td><select class="workforce-inline" name="daycare_id">${options(state.data.daycares,"daycare_id")}</select></td><td>—</td>
+      <td><input class="workforce-inline" name="employer_cost" type="number" min="0" step=".01" placeholder="עלות"></td><td><input class="workforce-inline" name="regular_hours" type="number" min="0" step=".01" placeholder="שעות"></td>
+      <td><span class="bank-row-status missing">חסר מידע</span></td><td>חסר מידע</td><td><button class="button button-primary" data-save-new-payroll>שמירה</button><button class="button button-quiet" data-cancel-new-payroll>ביטול</button></td></tr>` : "";
+    $("#wf-rows").innerHTML = draftRow + rows.map((record) => {
       const employee = employeeFor(record);
       const payTerm = payTermFor(record);
-      return `<tr class="${invalid(record) ? "bank-row-error" : record.employee_match_status === "LINKED" ? "bank-row-complete" : "bank-row-missing"}">
+      const health = invalid(record) ? "error" : record.employee_match_status === "LINKED" ? "complete" : "missing";
+      const healthLabel = health === "error" ? "בעייתי" : health === "missing" ? "חסר מידע" : "תקין";
+      return `<tr class="bank-row-${health}">
+        <td><input type="checkbox" data-payroll-select="${record.payroll_record_id}" ${state.selectedRows.has(record.payroll_record_id) ? "checked" : ""}></td>
         <td class="bank-sticky-number">${esc(record.source_employee_identifier)}</td>
         <td>${esc(employee ? `${employee.first_name} ${employee.last_name}` : "לא נמצא")}</td>
         <td>${esc(lookup(state.data.units, record.allocation_unit_id, "allocation_unit_id"))}</td>
         <td>${esc(lookup(state.data.daycares, record.daycare_id, "daycare_id"))}</td>
         <td>${payTerm ? `${esc(payTerm.pay_type)} · ${money.format(payTerm.base_pay)}` : "—"}</td>
-        <td>${record.employer_cost == null ? "—" : money.format(record.employer_cost)}</td>
-        <td>${number.format(sumHours(record))}</td>
+        <td><input class="workforce-inline" data-payroll-inline="${record.payroll_record_id}" name="employer_cost" type="number" step=".01" value="${esc(record.employer_cost ?? "")}"></td>
+        <td><input class="workforce-inline" data-payroll-inline="${record.payroll_record_id}" name="regular_hours" type="number" step=".01" value="${esc(record.regular_hours ?? "")}"></td>
         <td><span class="bank-row-status ${record.employee_match_status === "LINKED" ? "complete" : record.employee_match_status === "MISSING" ? "error" : "missing"}">${statuses[record.employee_match_status]}</span></td>
-        <td>${invalid(record) ? "חסרים שדות" : "תקין"}</td>
-        <td><button class="button button-quiet" data-open="${record.payroll_record_id}">פרטים</button></td></tr>`;
+        <td><span class="bank-row-status ${health}">${healthLabel}</span></td>
+        <td><button class="button button-quiet" data-open="${record.payroll_record_id}">פרטים</button><button class="button button-quiet" data-delete-payroll="${record.payroll_record_id}" ${isClosed() ? "disabled" : ""}>מחיקה</button></td></tr>`;
     }).join("");
+    let bulk = $("#wf-payroll-bulk");
+    if (!bulk) {
+      bulk = document.createElement("div");
+      bulk.id = "wf-payroll-bulk";
+      bulk.className = "workbench-bulk-bar";
+      $("#wf-count").parentElement.after(bulk);
+    }
+    bulk.hidden = !state.selectedRows.size;
+    bulk.innerHTML = `<strong>${state.selectedRows.size} נבחרו</strong><button class="button button-danger" data-delete-selected-payroll ${isClosed() ? "disabled" : ""}>מחיקת נבחרות</button>`;
     document.querySelectorAll("[data-open]").forEach((button) => {
       button.onclick = () => {
         state.selected = button.dataset.open;
         renderDetails();
       };
+    });
+    document.querySelectorAll("[data-payroll-inline]").forEach((field) => {
+      field.onchange = () => saveInline(
+        state.data.records.find((record) => record.payroll_record_id === field.dataset.payrollInline),
+        field.name,
+        field.value
+      );
+    });
+    document.querySelectorAll("[data-payroll-select]").forEach((field) => {
+      field.onchange = () => {
+        field.checked ? state.selectedRows.add(field.dataset.payrollSelect) : state.selectedRows.delete(field.dataset.payrollSelect);
+        render();
+      };
+    });
+    $("[data-payroll-select-all]")?.addEventListener("change", (event) => {
+      rows.forEach((record) => event.target.checked
+        ? state.selectedRows.add(record.payroll_record_id)
+        : state.selectedRows.delete(record.payroll_record_id));
+      render();
+    });
+    document.querySelectorAll("[data-delete-payroll]").forEach((button) => {
+      button.onclick = () => deleteRecords([button.dataset.deletePayroll]);
+    });
+    $("[data-delete-selected-payroll]")?.addEventListener("click", () => deleteRecords([...state.selectedRows]));
+    $("[data-cancel-new-payroll]")?.addEventListener("click", () => { state.newRow = false; render(); });
+    const employeePicker = $("[data-new-payroll-row] [name=employee_code]");
+    employeePicker?.addEventListener("change", () => {
+      $("[data-new-payroll-row] [name=temporary_code]").hidden = employeePicker.value !== "TEMPORARY";
+    });
+    $("[data-save-new-payroll]")?.addEventListener("click", async () => {
+      const row = $("[data-new-payroll-row]");
+      const value = (name) => row.querySelector(`[name="${name}"]`)?.value || "";
+      const temporary = value("employee_code") === "TEMPORARY";
+      const code = temporary ? value("temporary_code") : value("employee_code");
+      if (!code) return message("יש לבחור עובד או להזין מספר עובד זמני.", "error");
+      await request("payroll", "POST", {
+        action: "save_record",
+        payroll_month: state.month,
+        source_employee_identifier: code,
+        employee_match_status: temporary ? "MISSING" : "LINKED",
+        record_origin: "MANUAL",
+        allocation_unit_id: value("allocation_unit_id") || null,
+        daycare_id: value("daycare_id") || null,
+        employer_cost: Number(value("employer_cost") || 0),
+        regular_hours: Number(value("regular_hours") || 0),
+      });
+      state.newRow = false;
+      await reload();
+      message("שורת השכר נוספה.", "success");
     });
     document.querySelectorAll("[data-sort]").forEach((button) => {
       button.onclick = () => {
@@ -583,7 +681,7 @@ export async function mountPayrollWorkbench(request) {
   };
   $("#wf-open-month").onclick = openMonthDialog;
   $("#wf-close-month").onclick = closeOrReopen;
-  $("#wf-add").onclick = addEmployeeDialog;
+  $("#wf-add").onclick = () => { state.newRow = true; render(); $("[data-new-payroll-row] select")?.focus(); };
   $("#wf-export").onclick = exportDialog;
   $("#wf-import").onclick = () => $("#wf-file").click();
   $("#wf-file").onchange = async (event) => {
