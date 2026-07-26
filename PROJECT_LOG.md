@@ -4037,3 +4037,33 @@ Residual risk:
   because no bulk API contract was introduced.
 - The ignored screenshot folder remains a local QA artifact and is not included
   in the deployable source commit.
+
+## 2026-07-26 - TRACK025B Production Promotion
+
+Scope:
+
+- Merged the approved TRACK025 and TRACK025A UX releases into `main`.
+- Promoted the existing linked Vercel project to Production without creating or
+  changing a project, domain, URL, schema, API, business rule, or calculation.
+- Preserved Production data; browser smoke checks did not submit edits or delete
+  records.
+
+Validation:
+
+- PASS: JavaScript syntax checks for all changed portal modules.
+- PASS: `npm.cmd run build`.
+- PASS: `git diff --check`.
+- PASS: 27 focused desktop Playwright tests on merged `main`.
+- PASS: 4 targeted 390px mobile RTL Playwright tests.
+- PASS: Production deployment reached `Ready`.
+- PASS: Existing Production aliases resolve to the new deployment.
+- PASS: Secure Production sign-in shell loads at desktop and mobile widths.
+- BLOCKED: Authenticated Production feature smoke checks could not run because
+  the available browser session was not signed in. No credentials were requested
+  or entered, and no Production data was mutated.
+
+Deployment:
+
+- Initial promoted source SHA: `2edd05d5ea6b4ed713f953c1ce1178d989c936ea`.
+- Deployment ID: `dpl_s5jWhrLbG58scWKx2fAsG26vhgao`.
+- Existing Production URL: `https://chamah-portal-chamah.vercel.app`.
