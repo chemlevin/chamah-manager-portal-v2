@@ -3762,3 +3762,65 @@ Verdict:
 - Do not merge the recovery branch into `main` and do not close PR #5 until the
   remaining function, index, and seed-source drift is reconciled and a new clean
   parity run passes.
+
+## 2026-07-26 - TASK024C Final Schema Parity Reconciliation
+
+Objective: Make a clean Supabase migration replay reproduce the read-only
+Production database exactly for the TASK024B function, index, configuration-seed
+and migration-history differences, without changing Production or merging PR #5.
+
+Root causes and recovery:
+
+- Nine functions retained different stored source bodies because repository
+  migration timestamps/order did not match the corresponding Production-applied
+  history. Added one forward migration that reinstates the exact normalized
+  Production definitions without changing signatures, privileges or behavior.
+- `payroll_records_employee_month_lookup_idx` was partial only in the repository
+  replay. The forward migration rebuilds the exact unfiltered Production index.
+- Five accounting statuses were live configuration not represented by a
+  zero-data replay.
+- Six staffing rules and the one travel rate used conditional inserts whose
+  required `SY-2026-2027` parent was absent in a zero-data replay. The forward
+  migration adds the required parent and exact requested Production rows.
+- Thirteen migration files had non-Production timestamps, and one also had a
+  non-Production name. Production
+  `supabase_migrations.schema_migrations` was the read-only authoritative source;
+  the files were renamed without changing their SQL contents. The 44 recovered
+  pre-TASK024C filenames now match Production history count and digest exactly.
+
+Files:
+
+- Added
+  `supabase/migrations/20260726134129_task024c_production_schema_parity.sql`.
+- Renamed 13 existing migration files to their exact Production-recorded
+  versions/names. No existing SQL body was rewritten.
+
+Isolated validation:
+
+- Supabase reported `$0/month` for an isolated project in organization
+  `hleokfgtwzyykbswufsp`.
+- Created `task024c-validation` (`nmmcykmxjjcoqsvvsjiu`) in `eu-west-1`.
+- Replayed all 45 migration files from zero using explicit UTF-8 decoding.
+- Production remained read-only throughout.
+- Exact Production/isolated count and digest matches:
+  - columns: 722
+  - functions: 25
+  - indexes: 206
+  - constraints: 402
+  - policies: 47
+  - RLS table flags: 51
+  - triggers: 45
+  - extensions: 5
+  - accounting statuses: 5
+  - staffing rules: 6
+  - travel rates: 1
+- The 44 pre-TASK024C repository migration rows match Production history digest
+  `6fdf4f0a4a46440f8f835b824dc244c6`; the clean validation project correctly has
+  one additional history entry for the TASK024C forward migration.
+- `git diff --check` passed.
+
+Final result:
+
+- Remaining schema/configuration differences: none.
+- Verdict: **REPRODUCIBLE**.
+- Production was not modified. PR #5 was not merged or closed.
