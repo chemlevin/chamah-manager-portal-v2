@@ -3679,3 +3679,208 @@ Files changed:
   Supabase returns an explicit VIEW or EDIT permission.
 - Added Accounting navigation coverage for the three ordered cards, the transfer
   icon, explicit non-admin VIEW access, direct navigation and page loading.
+
+## 2026-07-26 - TASK024B Migration Reproducibility Source Recovery
+
+Objective: Restore the seven Production-applied Supabase migration sources that
+were absent from `main`, without modifying Production schema/data, rewriting live
+migration history, rerunning applied migrations, or deploying application code.
+
+Recovered migrations:
+
+- Recovered the exact Git source for
+  `20260714203517_google_sheets_v2_delta.sql` from
+  `agent/google-sheets-v2-delta`.
+- Reconstructed the exact stored Production statements for:
+  - `20260715040145_widen_bank_accounting_status.sql`
+  - `20260715041513_payroll_sync_idempotency.sql`
+  - `20260715042905_portal_auth_and_read_access.sql`
+  - `20260716175719_add_classroom_licensing_rules.sql`
+  - `20260716185555_create_and_seed_staffing_rules.sql`
+  - `20260722103856_add_school_year_travel_rates_and_employee_eligibility.sql`
+- Production `supabase_migrations.schema_migrations.statements` was the
+  authoritative recovery source. Git history, the TRACK016/017 audit entries,
+  related migrations, schema objects and runtime code were used as corroborating
+  evidence.
+- Preserved every Production version and migration name exactly. Existing
+  migration files were not modified.
+
+Static validation:
+
+- All seven normalized SHA-256 hashes match the corresponding Production
+  migration statements exactly.
+- The repository contains 44 uniquely versioned migration filenames in
+  chronological lexical order with no invalid or duplicate version.
+- PostgreSQL 17 static parsing passed for all 44 files and 560 SQL statements
+  using temporary `@pgsql/parser` tooling outside the repository.
+- `git diff --check` passed.
+- Supabase CLI 2.109.1 was run from temporary tooling. Local status and migration
+  listing could not connect because no Docker daemon or local PostgreSQL server is
+  installed.
+- Docker, Podman, PostgreSQL server/client and WSL distributions are not
+  available on this machine. A free local clean-environment build therefore
+  requires installing a container runtime or PostgreSQL-compatible local
+  environment first.
+
+Temporary environment pricing:
+
+- Existing Production organization `hleokfgtwzyykbswufsp` reports a Supabase
+  branch price of `$0.01344/hour`.
+- The same organization currently reports a new project price of `$0/month`.
+- No branch or project was created and no cost was incurred.
+
+Remaining validation:
+
+- A clean Supabase environment has not yet been built, so full schema, function,
+  constraint, RLS, policy, index and seed parity with Production remains
+  unverified.
+- Production was queried read-only for migration metadata only. No Production
+  migration, schema, data, Edge Function or deployment was changed.
+
+## 2026-07-26 - TASK024B Isolated Supabase Parity Validation
+
+Environment:
+
+- Supabase reported `$0/month` for a new project in Production organization
+  `hleokfgtwzyykbswufsp`; paid branches remained `$0.01344/hour`.
+- Created free isolated project `task024b-validation`
+  (`isakngcltryhdvcqxujd`) in `eu-west-1` without Production data.
+- Applied all 44 repository migrations from zero successfully.
+- Deleted the isolated project after validation and verified that only the
+  pre-existing projects remain. Removed the temporary database-password file.
+- Production remained read-only and unchanged.
+
+Schema parity:
+
+- Exact matches: columns (722), constraints (402), extensions (5), policies
+  (47), RLS table flags (51), triggers (45), classroom-licensing seed rows (3),
+  portal-section rows (35), private portal-access seed (1), and the private
+  bank-transfer Storage bucket (1).
+- Nine normalized function bodies differ from Production:
+  `enforce_legacy_accounting_status_read_only`,
+  `portal_close_payroll_month`, `portal_effective_permission`,
+  `portal_guard_closed_payroll_month`, `portal_has_permission`,
+  `portal_open_payroll_month`, `portal_reopen_payroll_month`,
+  `portal_save_bank_allocations`, and `portal_version_employee_pay_term`.
+- Index `payroll_records_employee_month_lookup_idx` differs: the clean build
+  includes a `source_employee_identifier is not null` predicate while Production
+  has an unfiltered index.
+- Production has migration-relevant configuration absent from the clean build:
+  five `accounting_statuses`, six `SR-2026-*` staffing rules, and one
+  `TRAVEL-2026-2027` travel rate. The staffing/travel inserts depend on a
+  school-year row not seeded by the repository migration chain.
+
+Verdict:
+
+- Clean migration execution passes, but exact Production parity fails.
+- Do not merge the recovery branch into `main` and do not close PR #5 until the
+  remaining function, index, and seed-source drift is reconciled and a new clean
+  parity run passes.
+
+## 2026-07-26 - TASK024C Final Schema Parity Reconciliation
+
+Objective: Make a clean Supabase migration replay reproduce the read-only
+Production database exactly for the TASK024B function, index, configuration-seed
+and migration-history differences, without changing Production or merging PR #5.
+
+Root causes and recovery:
+
+- Nine functions retained different stored source bodies because repository
+  migration timestamps/order did not match the corresponding Production-applied
+  history. Added one forward migration that reinstates the exact normalized
+  Production definitions without changing signatures, privileges or behavior.
+- `payroll_records_employee_month_lookup_idx` was partial only in the repository
+  replay. The forward migration rebuilds the exact unfiltered Production index.
+- Five accounting statuses were live configuration not represented by a
+  zero-data replay.
+- Six staffing rules and the one travel rate used conditional inserts whose
+  required `SY-2026-2027` parent was absent in a zero-data replay. The forward
+  migration adds the required parent and exact requested Production rows.
+- Thirteen migration files had non-Production timestamps, and one also had a
+  non-Production name. Production
+  `supabase_migrations.schema_migrations` was the read-only authoritative source;
+  the files were renamed without changing their SQL contents. The 44 recovered
+  pre-TASK024C filenames now match Production history count and digest exactly.
+
+Files:
+
+- Added
+  `supabase/migrations/20260726134129_task024c_production_schema_parity.sql`.
+- Renamed 13 existing migration files to their exact Production-recorded
+  versions/names. No existing SQL body was rewritten.
+
+Isolated validation:
+
+- Supabase reported `$0/month` for an isolated project in organization
+  `hleokfgtwzyykbswufsp`.
+- Created `task024c-validation` (`nmmcykmxjjcoqsvvsjiu`) in `eu-west-1`.
+- Replayed all 45 migration files from zero using explicit UTF-8 decoding.
+- Production remained read-only throughout.
+- Exact Production/isolated count and digest matches:
+  - columns: 722
+  - functions: 25
+  - indexes: 206
+  - constraints: 402
+  - policies: 47
+  - RLS table flags: 51
+  - triggers: 45
+  - extensions: 5
+  - accounting statuses: 5
+  - staffing rules: 6
+  - travel rates: 1
+- The 44 pre-TASK024C repository migration rows match Production history digest
+  `6fdf4f0a4a46440f8f835b824dc244c6`; the clean validation project correctly has
+  one additional history entry for the TASK024C forward migration.
+- `git diff --check` passed.
+
+Final result:
+
+- Remaining schema/configuration differences: none.
+- Verdict: **REPRODUCIBLE**.
+- Production was not modified. PR #5 was not merged or closed.
+
+## 2026-07-26 - TASK024D Merge Reproducibility Fix
+
+Objective: Merge verified TASK024C commit
+`56e1bbf99c7c9f217f8751a4b47cf0217292f34a` into `main`, preserve the recovered
+migration identities, verify a clean Supabase replay and supersede PR #5 without
+deploying application code or rerunning migrations on Production.
+
+Merge and history:
+
+- Preserved both chronological `PROJECT_LOG.md` branches while resolving the
+  merge-only documentation conflict.
+- Preserved all recovered Production migration filenames and
+  `20260726134129_task024c_production_schema_parity.sql`.
+- `main` contains 45 migration files with unique chronological versions.
+- Confirmed `20260714203517_google_sheets_v2_delta.sql`, the migration required
+  by PR #5, is present in `main`.
+
+Clean validation:
+
+- Supabase reported `$0/month` for the isolated validation project.
+- Created `task024d-main-validation` (`htbjvsaeakvezralqrso`) in `eu-west-1`.
+- Replayed all 45 staged `main` migrations from zero with explicit UTF-8
+  decoding.
+- Exact Production/isolated count and digest matches:
+  - columns: 722
+  - functions: 25
+  - indexes: 206
+  - constraints: 402
+  - policies: 47
+  - RLS table flags: 51
+  - triggers: 45
+  - accounting statuses: 5
+  - staffing rules: 6
+  - travel rates: 1
+- Production retained 44 applied migrations with latest version
+  `20260726094238`; TASK024C was not applied to Production.
+- `git diff --check` passed. Application build/Playwright were not required
+  because this merge changes migration sources and documentation only and does
+  not deploy application code.
+
+Final result:
+
+- Production schema/data and application deployment were unchanged.
+- PR #5 was superseded after its required migration was confirmed in `main`.
+- Verdict: **FULLY REPRODUCIBLE**.
