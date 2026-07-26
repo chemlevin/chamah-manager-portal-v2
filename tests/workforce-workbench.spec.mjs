@@ -37,6 +37,7 @@ test('Actual Payroll Workbench shows month, matching KPIs and cost-hours split e
   await expect(page.locator('#wf-details')).toContainText('נתוני עובד קבועים');
   await expect(page.locator('#wf-details')).toContainText('שמירה אוטומטית');
   await expect(page.locator('[name="allocation_unit_id"]').first()).toBeVisible();
+  if (testInfo.project.name === 'desktop-1440') await page.screenshot({ path: 'screenshots/track025a/payroll-workbench-desktop.png', fullPage: true });
   await expect(page.locator('[name="daycare_id"]').first()).toBeVisible();
   await expect(page.locator('[name="allocation_amount"]').first()).toBeVisible();
   await expect(page.locator('[name="allocated_hours"]').first()).toBeVisible();
@@ -78,13 +79,13 @@ test('Employee CRUD and pay-term history dispatch canonical Supabase actions', a
   await openNewPortal(page, 'dashboards/unit/organization/staffing/employees');
 
   await page.locator('#wf-add').click();
-  await page.locator('#wf-form [name="employee_code"]').fill('EMP-NEW');
-  await page.locator('#wf-form [name="first_name"]').fill('חדשה');
-  await page.locator('#wf-form [name="last_name"]').fill('בדיקה');
-  await page.locator('#wf-form').getByRole('button', { name: 'שמירה' }).click();
+  await page.locator('[data-new-employee] [name="employee_code"]').fill('EMP-NEW');
+  await page.locator('[data-new-employee] [name="first_name"]').fill('חדשה');
+  await page.locator('[data-new-employee] [name="last_name"]').fill('בדיקה');
+  await page.locator('[data-save-new]').click();
   await expect.poll(() => actions.some((body) => body.action === 'save_employee' && body.employee_code === 'EMP-NEW')).toBeTruthy();
 
-  await page.getByRole('button', { name: 'פרטים' }).click();
+  await page.getByRole('button', { name: 'פרטים מתקדמים' }).click();
   await page.locator('[data-new-term]').click();
   await page.locator('#wf-form [name="valid_from"]').fill('2026-08-01');
   await page.locator('#wf-form [name="base_pay"]').fill('9500');
@@ -97,7 +98,7 @@ test('Employee table exposes required summary fields and dependent classroom loo
   await expect(page.locator('#wf-head')).toContainText('כיתה ראשית');
   await expect(page.locator('#wf-head')).toContainText('וותק מוכר');
   await expect(page.locator('#wf-head')).toContainText('תחילת העסקה');
-  await page.getByRole('button', { name: 'פרטים' }).click();
+  await page.getByRole('button', { name: 'פרטים מתקדמים' }).click();
   await page.locator('[data-edit-assignment]').click();
   await page.locator('#wf-form [name="daycare_id"]').selectOption('daycare-1');
   await expect(page.locator('#wf-form [name="classroom_id"] option[value="class-1"]')).toHaveText('כיתה א');
@@ -113,8 +114,8 @@ test('Payroll add, autosave and split dispatch canonical Supabase actions', asyn
   await openNewPortal(page, 'dashboards/unit/organization/staffing/actual-payroll');
 
   await page.locator('#wf-add').click();
-  await page.locator('#wf-form [name="employee_code"]').selectOption('EMP-1');
-  await page.locator('#wf-form').getByRole('button', { name: 'הוספה' }).click();
+  await page.locator('[data-new-payroll-row] [name="employee_code"]').selectOption('EMP-1');
+  await page.locator('[data-save-new-payroll]').click();
   await expect.poll(() => actions.some((body) => body.action === 'save_record' && body.record_origin === 'MANUAL')).toBeTruthy();
 
   await page.getByRole('button', { name: 'פרטים' }).first().click();

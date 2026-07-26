@@ -578,6 +578,10 @@ p { line-height: 1.65; }
 .workforce-workbench tbody tr.bank-row-missing,.bank-workbench tbody tr.bank-row-missing,.bank-transfer-workbench tbody tr.bank-row-missing{--row-health:#fff8dc}
 .workforce-workbench tbody tr.bank-row-error,.bank-workbench tbody tr.bank-row-error,.bank-transfer-workbench tbody tr.bank-row-error{--row-health:#fdecea}
 .workforce-workbench tbody tr.bank-row-complete>td,.workforce-workbench tbody tr.bank-row-missing>td,.workforce-workbench tbody tr.bank-row-error>td{background:var(--row-health)}
+.transfer-table tbody tr.bank-row-complete>td{background:#edf8f3}.transfer-table tbody tr.bank-row-missing>td{background:#fff8dc}.transfer-table tbody tr.bank-row-error>td{background:#fdecea}
+.transfer-sheet footer{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap}.transfer-sheet footer>span:last-child{margin-inline-start:auto}
+.bank-manual-inline td{background:#fff8dc!important}.bank-manual-inline input,.bank-manual-inline select{width:100%;min-width:7rem}
+.inline-name{display:flex;gap:.25rem}.payroll-month-new{border:1px solid #b9d7cd;background:linear-gradient(135deg,#fff,#edf8f3)}
 .workforce-inline{width:100%;min-width:6rem;padding:.35rem .4rem;border:1px solid transparent;border-radius:.35rem;background:transparent;font:inherit}
 .workforce-inline:hover{border-color:#a9c6bd;background:#fff}.workforce-inline:focus{border-color:var(--primary);outline:2px solid #d7ebe4;background:#fff}
 .workbench-bulk-bar{display:flex;align-items:center;gap:.5rem;min-height:2.5rem;padding:.45rem .65rem;background:#edf5f2;border-radius:.55rem}.workbench-bulk-bar[hidden]{display:none}

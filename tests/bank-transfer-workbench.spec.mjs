@@ -69,7 +69,7 @@ async function openWorkbench(page, actions = []) {
   return data;
 }
 
-test('default view, KPIs and split summary follow TRACK023 rules', async ({ page }) => {
+test('default view, KPIs and split summary follow TRACK023 rules', async ({ page }, testInfo) => {
   await openWorkbench(page);
   await expect(page.getByRole('heading', { name: 'העברות בנקאיות' })).toBeVisible();
   await expect(page.locator('#transfer-kpis article').nth(0)).toContainText('2');
@@ -80,6 +80,17 @@ test('default view, KPIs and split summary follow TRACK023 rules', async ({ page
   await expect(page.locator(`[data-transfer-row="${completedId}"]`)).toHaveCount(0);
   await page.locator('#transfer-view').selectOption('COMPLETED');
   await expect(page.locator(`[data-transfer-row="${completedId}"] [name="name"]`)).toHaveValue('תשלום היסטורי');
+  if (testInfo.project.name === 'desktop-1440') await page.screenshot({ path: 'screenshots/track025a/bank-transfers-desktop.png', fullPage: true });
+});
+
+test('multi-select deletes selected transfer rows', async ({ page }) => {
+  const actions = [];
+  await openWorkbench(page, actions);
+  await page.locator(`[data-select-transfer="${pendingId}"]`).check();
+  await expect(page.locator('#transfer-delete-selected')).toBeVisible();
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.locator('#transfer-delete-selected').click();
+  await expect.poll(() => actions.some((body) => body.action === 'delete' && body.bank_transfer_id === pendingId)).toBeTruthy();
 });
 
 test('inline autosave and direct completed action require a manual execution date', async ({ page }) => {
