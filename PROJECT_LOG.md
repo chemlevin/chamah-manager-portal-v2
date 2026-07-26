@@ -3537,3 +3537,24 @@ Files changed:
   - Workforce Playwright suite on desktop and mobile: `18/18`
   - Payroll and Budget engine regression suite: `21/21`
 - Desktop and mobile payroll screenshots were captured from the verified Playwright fixtures.
+
+## 2026-07-26 - TRACK020C Workforce Production Schema Fix
+
+- Audited the canonical `daycare_school_years` definition, the live Production
+  schema, remote migration history and the deployed Workforce Edge Function query.
+- Root cause: the canonical and Production table exposed `is_operating` but had
+  never received the `lifecycle_status` lifecycle contract already consumed by
+  `portal-workforce-workbench` for active configuration lookups.
+- Added and applied forward-only migration `20260726094238_track_020c_daycare_school_year_lifecycle.sql`.
+  It adds a non-null `lifecycle_status` column defaulting to `ACTIVE`, constrains
+  values to `ACTIVE`, `INACTIVE` or `ARCHIVED`, and adds the lookup index.
+- The migration contains schema DDL only. It performs no insert, update or delete,
+  and all seven existing daycare-school-year rows remain active.
+- Verified the live column type/default/nullability, check constraint, migration
+  history and active-row count after deployment.
+- Authenticated Production smoke passed for Employees, Actual Payroll, the
+  `חדש` / `קיים` / `טבלאות עבר` navigation, active month/status display and open
+  month navigation. Production currently has one open month (`2026-09`) and no
+  closed months; the history view displayed its correct empty state.
+- No Workforce code, backend contract, RLS, RPC, Production business data,
+  Budget Engine behavior or Payroll calculation was changed.
