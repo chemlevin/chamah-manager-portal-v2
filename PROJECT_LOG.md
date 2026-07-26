@@ -3369,3 +3369,57 @@ Files changed:
 - `tests/workforce-workbench.spec.mjs`
 - `tests/sql/track020a_payroll_month_lifecycle.sql`
 - `PROJECT_LOG.md`
+
+## 2026-07-26 - TRACK021C Production Release
+
+Objective: Release all approved work through TRACK021B to the existing Production
+site, including Supabase migrations and Edge Functions, while excluding unfinished
+TRACK022 work and preserving Production data.
+
+Release scope and hygiene:
+
+- Used approved application lineage `d8f52fe` (TRACK019), `c8129a3` (TRACK020),
+  `13f3766` (TRACK021), `b35fba1` (TRACK021A), `f710802` (TRACK021B) and
+  `266496b` (final TRACK020A completion).
+- Validated and deployed from isolated clean worktrees pinned to the approved
+  commits. Uncommitted workspace files and TRACK022 were excluded.
+- Fast-forwarded and pushed `main` without rewriting release history.
+
+Supabase:
+
+- Confirmed all approved migration IDs through `20260726051427` already existed in
+  Production, so no forward migration was pending.
+- Did not repair the known pre-existing remote-only migration-history entries.
+- Redeployed JWT-protected Edge Functions: `portal-users` v6,
+  `portal-settings` v3, `portal-bank-workbench` v10 and
+  `portal-workforce-workbench` v5. All are ACTIVE.
+- Read-only checks found zero known QA identifiers in Auth users, Employees,
+  Payroll records, Bank transactions and import batches. No data was deleted.
+
+Validation:
+
+- PASS: clean build and JavaScript syntax checks.
+- PASS: 4 shared autosave unit tests.
+- PASS: 101 desktop/mobile browser tests with 1 intentional duplicate skip.
+- Covered login/session persistence, Employees CRUD, Pay Terms history, Payroll
+  monthly preparation/import/splits, autosave, Dashboard Workforce/Payroll data,
+  Bank Workbench, legacy retirement, RTL and responsive layout.
+- PASS: Production root and required Workbench assets return HTTP 200.
+- PASS: retired Workforce APIs return HTTP 404.
+- PASS: all four Edge Functions enforce authentication with HTTP 401.
+- PASS: live mobile login shell is RTL, has no horizontal overflow and produced no
+  console errors.
+- BLOCKED: the Production browser had no authorized session and no release
+  credential was available. Authenticated live Employees, Pay Terms, Payroll,
+  autosave and Dashboard workflows were not exercised.
+
+Deployment:
+
+- Existing Vercel Production deployment:
+  `dpl_3ucC7p3eGC9Djc3bSNZEjtEgdNg5`.
+- Existing Production URL: `https://chamah-portal-chamah.vercel.app`.
+- Stable Preview alias was restored to the TRACK021B Preview artifact after the
+  Production alias update.
+- Final release status: **FAILED** because the mandatory authenticated live smoke
+  gate remains incomplete, although the release is deployed and all available
+  checks passed.

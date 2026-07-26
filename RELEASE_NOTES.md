@@ -1,5 +1,63 @@
 # Release Notes
 
+## TRACK021C — Production Release
+
+Date: 2026-07-26
+
+Status: **FAILED — deployed, authenticated Production smoke test unavailable**
+
+The approved TRACK019, TRACK020, TRACK020A, TRACK021, TRACK021A and TRACK021B
+lineage through application commit
+`266496b64bb07e3766d7fa76ca302b8f57dcafda` was fast-forwarded into `main`
+and pushed. The existing Vercel project and Production aliases were used; no
+project, domain or replacement Production site was created.
+
+Production deployment:
+
+- Deployment ID: `dpl_3ucC7p3eGC9Djc3bSNZEjtEgdNg5`
+- Existing Production URL: `https://chamah-portal-chamah.vercel.app`
+- State: `READY`
+- The stable Preview alias was restored to the TRACK021B Preview deployment after
+  Vercel initially included it in the Production alias update.
+- TRACK022 and all uncommitted workspace files were excluded by deploying from an
+  isolated clean `main` worktree.
+
+Supabase:
+
+- Production already contained every approved migration from TRACK019 through
+  TRACK020A, including `20260726050810` through `20260726051427`; no forward
+  migration remained to apply.
+- The generic `db push --dry-run` remains blocked by pre-existing remote-only
+  historical migration IDs. Migration history was not repaired or rewritten.
+- Redeployed the four checked-in Edge Functions with JWT verification enabled:
+  `portal-users` v6, `portal-settings` v3, `portal-bank-workbench` v10 and
+  `portal-workforce-workbench` v5. All report `ACTIVE`.
+- Read-only QA-identifier checks returned zero matching Auth users, Employees,
+  Payroll records, Bank transactions and import batches. No deletion was required.
+
+Validation:
+
+- PASS: clean build, JavaScript syntax checks, shared autosave unit tests and
+  `git diff --check`.
+- PASS: 101 desktop/mobile release-candidate browser tests; one intentional
+  duplicate mobile-landscape case skipped.
+- Covered login/session restoration and refresh, Employees CRUD, Pay Terms
+  history, Payroll month workflow and splits, autosave, Dashboard Workforce and
+  Payroll data, Bank Workbench, legacy API retirement, RTL and responsive layout.
+- PASS: live Production root and Workbench JavaScript assets return HTTP 200.
+- PASS: retired `/api/employees` and `/api/payroll` return HTTP 404.
+- PASS: all four Production Edge Functions reject unauthenticated requests with
+  HTTP 401.
+- PASS: live mobile Production login shell is Hebrew RTL, has zero horizontal
+  overflow and produced no browser console errors.
+- BLOCKED: no authorized Production browser session or release credential was
+  available. Employees, Pay Terms, Payroll/autosave and Dashboard could not be
+  exercised against live authenticated Production data.
+
+Final status is **FAILED** because the requested authenticated Production smoke
+gate could not be completed, even though the approved release is deployed and all
+non-authenticated Production checks passed.
+
 ## TRACK018 — Production Release
 
 Date: 2026-07-24
