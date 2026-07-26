@@ -2,19 +2,11 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/employees.js",
-      "use": "@vercel/node"
-    },
-    {
       "src": "api/budget.js",
       "use": "@vercel/node"
     },
     {
       "src": "api/budget-test.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/payroll.js",
       "use": "@vercel/node"
     },
     {
@@ -31,20 +23,12 @@
   ],
   "routes": [
     {
-      "src": "/api/employees",
-      "dest": "/api/employees.js"
-    },
-    {
       "src": "/api/budget",
       "dest": "/api/budget.js"
     },
     {
       "src": "/api/budget-test",
       "dest": "/api/budget-test.js"
-    },
-    {
-      "src": "/api/payroll",
-      "dest": "/api/payroll.js"
     },
     {
       "src": "/api/allocations",

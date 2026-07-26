@@ -1401,7 +1401,7 @@ async function render() {
         $('#page-content').innerHTML = payrollWorkbenchTemplate();
         await mountPayrollWorkbench(portalWorkforceRequest);
       } else if (['licensing', 'team'].includes(type.id)) {
-        title = type.title; dashboardMode = type.id; activeDashboardUnit = unit; $('#page-content').innerHTML = staffDashboardShell(unit); await loadStaffDashboard(); if (parseRoute().unitId === unit.allocation_unit_id && parseRoute().dashboardType === type.id) renderStaffData();
+        title = type.title; dashboardMode = 'staffing'; activeDashboardUnit = unit; $('#page-content').innerHTML = staffDashboardShell(unit); await loadStaffDashboard(); if (parseRoute().unitId === unit.allocation_unit_id && parseRoute().dashboardType === type.id) renderStaffData();
       } else { title = type.title; $('#page-content').innerHTML = dashboardPlaceholderTemplate(unit, type); }
     }
   }

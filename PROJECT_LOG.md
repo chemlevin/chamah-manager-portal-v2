@@ -3058,3 +3058,86 @@ Files changed:
 - `tests/new-portal-test-data.mjs`
 - `tests/workforce-workbench.spec.mjs`
 - `PROJECT_LOG.md`
+
+## 2026-07-26 - TRACK021 Workforce Legacy Retirement
+
+Objective: Complete the TRACK020 Workforce migration, remove active Employees and
+Payroll Google Sheets callers, move compatibility routes to the canonical portal,
+and keep Production unchanged.
+
+Implementation:
+
+- Audited all `/api/employees` and `/api/payroll` callers.
+- Replaced `/employees/` with a compatibility redirect to the authenticated
+  TRACK020 Employees Workbench.
+- Replaced `/dashboard/` with a compatibility redirect to the root Supabase
+  dashboard.
+- Removed the obsolete legacy Employees and Dashboard browser scripts after their
+  routes no longer loaded them.
+- Removed `api/employees.js`, `api/payroll.js`, and their Vercel build/route entries
+  only after no active caller remained.
+- Retained `api/payroll-engine.js` and its regression tests; payroll calculations
+  were not changed.
+- Corrected the Staff/Licensing dashboard mode so KPI information drill-down uses
+  the already loaded Supabase Workforce model on the licensing and team routes.
+- Kept root Employees, Pay Terms and Actual Payroll reads/writes on the authenticated
+  `portal-workforce-workbench` TRACK020 contract.
+- Kept root Workforce dashboard reads on Employees/Employment/Assignment/Pay Terms
+  Supabase tables and Finance payroll KPIs on `payroll_records` and
+  `payroll_allocations`.
+- Removed legacy Employees/Dashboard routes from generic static-page Production QA;
+  canonical root portal tests now cover those active surfaces.
+
+Security and data:
+
+- No schema, migration, RLS policy, permission, audit, history or business-rule
+  change was required.
+- Live inspection confirmed RLS enabled on all 14 inspected Workforce, Payroll and
+  lookup tables.
+- `portal_save_payroll_allocations` remains `SECURITY INVOKER`.
+- Live lookup inspection confirmed active Supabase rows for allocation units,
+  daycares, roles, certificate types and compensation factors.
+
+Validation:
+
+- PASS: `npm run build`.
+- PASS: `node --check` for active root `app.js` and `workforce-workbench.js`.
+- PASS: 53 focused desktop/mobile tests; 1 mobile-landscape duplicate was
+  intentionally skipped by the existing suite.
+- Covered Employee save, pay-term history insertion, Payroll manual save and split,
+  Workforce and Payroll dashboard KPIs, compatibility redirects, RTL/mobile
+  overflow, and unchanged Payroll Engine calculations.
+- PASS: `git diff --check`.
+
+Legacy disposition:
+
+- Retired: `/api/employees`, `/api/payroll`.
+- Retained: `/api/budget`, `/api/budget-test`, `/api/allocations` because
+  compatibility Budget/Accounting workflows still require them.
+- Remaining Google Sheets dependency is limited to those retained Budget and
+  Accounting compatibility handlers and historical reconciliation metadata.
+
+Deployment:
+
+- Vercel Production was not deployed or promoted.
+- A Preview-only Vercel deployment follows the committed and pushed branch.
+
+Files changed:
+
+- `api/employees.js` (removed)
+- `api/payroll.js` (removed)
+- `chamah-manager-portal/employees/index.html`
+- `chamah-manager-portal/employees/script.js` (removed)
+- `chamah-manager-portal/dashboard/index.html`
+- `chamah-manager-portal/dashboard/script.js` (removed)
+- mirrored root compatibility files under `employees/` and `dashboard/`
+- `chamah-manager-portal/new/app.js`
+- `vercel.json`
+- `tests/qa-helpers.mjs`
+- `tests/employees-kpis.spec.mjs` (removed)
+- `tests/israeli-dates.spec.mjs` (removed)
+- `tests/new-portal-dashboards.spec.mjs`
+- `tests/workforce-workbench.spec.mjs`
+- `tests/workforce-legacy-retirement.spec.mjs`
+- `docs/architecture/track021-workforce-legacy-retirement.md`
+- `PROJECT_LOG.md`

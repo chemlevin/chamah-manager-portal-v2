@@ -3,116 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>צוות ורישוי - פורטל מנהלות חמ״ה</title>
-    <link rel="stylesheet" href="../assets/styles.css" />
+    <title>מעבר לסביבת העובדים</title>
+    <meta http-equiv="refresh" content="0; url=/#dashboards/unit/organization/staffing/employees" />
+    <script>
+      location.replace("/#dashboards/unit/organization/staffing/employees");
+    </script>
   </head>
   <body>
-    <main class="portal-shell employees-page">
-      <header class="global-nav" aria-label="ניווט ראשי">
-        <a class="global-brand" href="../" aria-label="עמוד הבית של פורטל מנהלות חמ״ה">
-          <img src="../assets/chamah-logo.svg" alt="חמ״ה" />
-          <span>פורטל מנהלות חמ״ה</span>
-        </a>
-        <input class="nav-toggle" id="nav-toggle" type="checkbox" aria-hidden="true" />
-        <label class="hamburger-button" for="nav-toggle" aria-label="פתיחת תפריט" role="button"><span></span><span></span><span></span></label>
-        <nav class="desktop-nav" aria-label="ניווט עמודים">
-          <a class="global-nav-item " href="../"><span class="nav-icon" aria-hidden="true">🏠</span><span>בית</span></a>
-          <a class="global-nav-item " href="../calculators/"><span class="nav-icon" aria-hidden="true">🧮</span><span>מחשבונים</span></a>
-          <a class="global-nav-item current" href="../employees/"><span class="nav-icon" aria-hidden="true">👥</span><span>צוות ורישוי</span></a>
-          <a class="global-nav-item " href="../dashboard/"><span class="nav-icon" aria-hidden="true">📊</span><span>דשבורד</span></a>
-          <a class="global-nav-item " href="../maintenance/"><span class="nav-icon" aria-hidden="true">🔧</span><span>תחזוקה</span></a>
-          <a class="global-nav-item " href="../tasks/"><span class="nav-icon" aria-hidden="true">✅</span><span>משימות</span></a>
-        </nav>
-        <label class="nav-backdrop" for="nav-toggle" aria-hidden="true"></label>
-        <aside class="mobile-drawer" aria-label="תפריט מובייל">
-          <div class="drawer-brand">
-            <img src="../assets/chamah-logo.svg" alt="חמ״ה" />
-            <strong>פורטל מנהלות חמ״ה</strong>
-          </div>
-          <nav class="mobile-drawer-nav" aria-label="ניווט מובייל">
-          <a class="global-nav-item " href="../"><span class="nav-icon" aria-hidden="true">🏠</span><span>בית</span></a>
-          <a class="global-nav-item " href="../calculators/"><span class="nav-icon" aria-hidden="true">🧮</span><span>מחשבונים</span></a>
-          <a class="global-nav-item current" href="../employees/"><span class="nav-icon" aria-hidden="true">👥</span><span>צוות ורישוי</span></a>
-          <a class="global-nav-item " href="../dashboard/"><span class="nav-icon" aria-hidden="true">📊</span><span>דשבורד</span></a>
-          <a class="global-nav-item " href="../maintenance/"><span class="nav-icon" aria-hidden="true">🔧</span><span>תחזוקה</span></a>
-          <a class="global-nav-item " href="../tasks/"><span class="nav-icon" aria-hidden="true">✅</span><span>משימות</span></a>
-          </nav>
-          <small class="drawer-version">גרסה 1.0</small>
-        </aside>
-      </header>
-      <section class="employees-hero" aria-labelledby="employees-title">
-        <div>
-          <p class="eyebrow">מודול צוות ורישוי</p>
-          <h1 id="employees-title">צוות ורישוי</h1>
-          <p class="subtitle">תמונת צוות מהירה לפי מעון, תפקיד, ימי עבודה והכשרות. הנתונים נטענים מגיליון העובדים המאובטח בצד שרת.</p>
-        </div>
-      </section>
-
-      <section class="employee-insights" aria-label="תמונת מצב צוות">
-        <div class="employee-insight-heading">
-          <p class="eyebrow">תמונת מצב</p>
-          <h2 id="employee-insight-scope">נתוני צוות כלליים</h2>
-          <p id="employee-result-summary">מציג 0 עובדות מתוך 0</p>
-        </div>
-        <div class="employee-management-kpis" id="employee-management-kpis" aria-live="polite"></div>
-      </section>
-
-            <section class="employee-filters" aria-label="סינון עובדים">
-        <details class="employee-filter-details" id="employee-filter-details" open>
-          <summary>סינון וחיפוש</summary>
-          <div class="employee-filter-content">
-        <div class="employee-filter-head">
-          <div>
-            <p class="eyebrow">סינון עובדים</p>
-            <h2>מצאי צוות במהירות</h2>
-          </div>
-          <button class="employee-export-button" id="employee-export-button" type="button">ייצוא דוח</button>
-        </div>
-        <div class="employee-filter-row daycare-filter-row">
-          <span class="filter-label">מעונות</span>
-          <div class="daycare-chip-list" id="daycare-chip-list"></div>
-        </div>
-        <div class="employee-filter-row extra-filter-row">
-          <label><span>תנאי נוסף</span><select id="extra-filter-field"></select></label>
-          <label><span>ערך</span><select id="extra-filter-value" disabled></select></label>
-        </div>
-        <div class="employee-filter-row search-filter-row">
-          <label><span>חיפוש חופשי</span><input id="employee-search" type="search" placeholder="חיפוש חופשי לפי שם, כיתה, תפקיד, הערה..." /></label>
-          <div class="employee-filter-actions">
-            <button class="primary-button" id="employee-filter-apply" type="button">חפש</button>
-            <button class="secondary-button" id="employee-filter-reset" type="button">נקה סינון</button>
-          </div>
-        </div>
-        <div class="active-filter-chips" id="active-filter-chips" hidden></div>
-          </div>
-        </details>
-      </section>
-
-      <section class="employees-workspace">
-        <section class="employee-list-panel" aria-labelledby="employee-list-title">
-          <div class="employee-list-heading">
-            <div>
-              <p class="eyebrow">רשימת עובדות</p>
-              <h2 id="employee-list-title">עובדות בתצוגה</h2>
-            </div>
-            <span id="employee-count-label">0 עובדות</span>
-          </div>
-          <div class="employee-card-list" id="employee-card-list"></div>
-          <p class="employee-empty" id="employee-empty" hidden>לא נמצאו עובדות לפי הסינון הנוכחי.</p>
-        </section>
-
-        <aside class="employee-detail-panel" id="employee-detail-panel" aria-live="polite">
-          <div class="employee-detail-empty" id="employee-detail-empty">
-            <span>צ</span>
-            <strong>בחרי עובדת מהרשימה</strong>
-            <p>כאן יוצגו תפקיד, כיתה, יום חופשי, משרה והכשרות.</p>
-          </div>
-          <div class="employee-detail-content" id="employee-detail-content" hidden></div>
-        </aside>
-      </section>
-    </main>
-    <script src="../assets/date-utils.js"></script>
-    <script src="script.js"></script>
-    <script src="../assets/navigation.js"></script>
+    <p><a href="/#dashboards/unit/organization/staffing/employees">מעבר לסביבת העובדים החדשה</a></p>
   </body>
 </html>

@@ -2,9 +2,7 @@ import { expect } from '@playwright/test';
 
 export const pages = [
   { path: '/calculators/', name: 'calculators' },
-  { path: '/salary/', name: 'salary' },
-  { path: '/dashboard/', name: 'dashboard' },
-  { path: '/employees/', name: 'employees' }
+  { path: '/salary/', name: 'salary' }
 ];
 
 export const screenshotTargets = new Set(['desktop-1440', 'mobile-390']);

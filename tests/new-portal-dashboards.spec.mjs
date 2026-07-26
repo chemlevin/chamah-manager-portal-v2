@@ -60,7 +60,7 @@ test.describe('new portal organizational dashboards', () => {
     page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
     page.on('pageerror', (error) => consoleErrors.push(error.message));
     await mockNewPortalSupabase(page);
-    await openNewPortal(page, `dashboards/unit/${activeDaycareId}/staffing`);
+    await openNewPortal(page, `dashboards/unit/${activeDaycareId}/licensing`);
     await expect(page.getByRole('heading', { level: 1, name: 'דשבורד צוות ורישוי · יחידה פעילה א' })).toBeVisible();
     await expect(page.locator('[data-kpi-card="staff-active"] .kpi-open')).toContainText('1');
     await page.locator('details:has-text("רשימת עובדים") summary').click();
