@@ -3369,3 +3369,86 @@ Files changed:
 - `tests/workforce-workbench.spec.mjs`
 - `tests/sql/track020a_payroll_month_lifecycle.sql`
 - `PROJECT_LOG.md`
+
+## 2026-07-26 - TRACK020 Employees and Actual Payroll Workbench Completion
+
+Objective: Complete the two Supabase-only Workbench pages under Staff and
+Licensing, preserve the existing Payroll month workflow and calculations, and
+deliver Preview-only UI validation.
+
+Employees:
+
+- Added the complete employee summary grain: employee number, full name, primary
+  role, daycare and classroom, phone, lifecycle status, recognized seniority and
+  employment start date.
+- Added sortable headers, search, status/unit/daycare filters, KPI filters, row
+  selection and the shared lower details panel.
+- Added employee, employment and primary-assignment editing. Manager choices come
+  from active Employees. Units, daycares, classrooms, roles, legal entities,
+  certificates and compensation factors come from active Supabase configuration.
+- Classroom choices are dependent on the selected daycare through active
+  `daycare_school_years`; no operational lookup is hardcoded.
+- Added deactivate semantics (`INACTIVE`) while retaining all employee history.
+- Preserved the lower personal, pay terms, eligibility, licensing/training, leave
+  and documents-placeholder cards.
+
+Pay Terms:
+
+- Replaced direct pay-term updates in the active Workbench with service-role-only,
+  `SECURITY INVOKER` RPCs for creating versions and closing versions.
+- A new version atomically closes the overlapping version and respects an existing
+  future-version boundary. Expired value history is never overwritten.
+- Added audit events for VERSION and CLOSE operations.
+- Verified RPC privileges: no `anon` or `authenticated` execution; `service_role`
+  execution only.
+
+Actual Payroll:
+
+- Retained the completed TRACK020A month selector, open/close/reopen lifecycle,
+  Excel import, manual rows, autosave, search/filter/sort, temporary approval,
+  internal cost/hour allocations and accountant export.
+- Employee number remains canonical. Missing/unresolved/approved-temporary rows
+  remain Payroll records and never create Employees.
+- Persistent employee and applicable Pay Terms values remain read-only; monthly
+  preparation fields remain editable only in Actual Payroll.
+- Payroll, Budget and allocation calculation rules were not changed.
+
+Supabase:
+
+- Applied forward migrations for employee-manager linkage, immutable Pay Terms
+  version RPCs, future-version boundaries and removal of a duplicate live index.
+- Deployed the authenticated `portal-workforce-workbench` Edge Function with JWT
+  verification retained.
+- Supabase Advisor reports only the existing service-only no-policy notices and
+  pre-existing security warnings. No new duplicate-index warning remains after the
+  forward fix.
+
+Validation:
+
+- PASS: `npm.cmd run build`.
+- PASS: JavaScript syntax checks and Deno Edge Function type-check.
+- PASS: 16 focused Employees/Actual Payroll tests across desktop and mobile,
+  including final screenshots.
+- PASS: 4 shared autosave unit tests.
+- PASS: 37 Payroll Engine, Budget Engine, Allocations and Management regressions.
+- PASS: live RPC privilege query and migration application.
+- The first broad engine command used Node's test runner against Playwright specs
+  and failed due to runner mismatch; the same 37 specs passed with the repository
+  Playwright runner.
+
+Deployment:
+
+- Supabase migrations and Edge Function were deployed.
+- Vercel Production was not deployed or promoted.
+- A Preview-only Vercel deployment follows the committed and pushed branch.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/employees-workbench.js`
+- `supabase/functions/portal-workforce-workbench/index.ts`
+- TRACK020 completion migrations under `supabase/migrations/`
+- `tests/new-portal-test-data.mjs`
+- `tests/workforce-workbench.spec.mjs`
+- `tests/sql/track020_employee_pay_term_versioning.sql`
+- `PROJECT_LOG.md`
