@@ -3416,7 +3416,8 @@ Validation:
 Deployment:
 
 - Existing Vercel Production deployment:
-  `dpl_3ucC7p3eGC9Djc3bSNZEjtEgdNg5`.
+  `dpl_JCmTTSeocQgTkAQZFkDK9rvH3kJg`.
+- Production source SHA: `0c5a71c12af80bf6775d0eaf6103cd7d703d872e`.
 - Existing Production URL: `https://chamah-portal-chamah.vercel.app`.
 - Stable Preview alias was restored to the TRACK021B Preview artifact after the
   Production alias update.

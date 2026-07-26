@@ -14,7 +14,8 @@ project, domain or replacement Production site was created.
 
 Production deployment:
 
-- Deployment ID: `dpl_3ucC7p3eGC9Djc3bSNZEjtEgdNg5`
+- Deployment ID: `dpl_JCmTTSeocQgTkAQZFkDK9rvH3kJg`
+- Production source SHA: `0c5a71c12af80bf6775d0eaf6103cd7d703d872e`
 - Existing Production URL: `https://chamah-portal-chamah.vercel.app`
 - State: `READY`
 - The stable Preview alias was restored to the TRACK021B Preview deployment after
