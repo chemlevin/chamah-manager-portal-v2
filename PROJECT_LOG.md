@@ -3665,3 +3665,60 @@ Files changed:
   for an unauthenticated Edge Function request.
 - No real Production transfer or attachment record was created, changed, archived,
   imported or uploaded during smoke testing.
+
+## 2026-07-26 - TASK024B Migration Reproducibility Source Recovery
+
+Objective: Restore the seven Production-applied Supabase migration sources that
+were absent from `main`, without modifying Production schema/data, rewriting live
+migration history, rerunning applied migrations, or deploying application code.
+
+Recovered migrations:
+
+- Recovered the exact Git source for
+  `20260714203517_google_sheets_v2_delta.sql` from
+  `agent/google-sheets-v2-delta`.
+- Reconstructed the exact stored Production statements for:
+  - `20260715040145_widen_bank_accounting_status.sql`
+  - `20260715041513_payroll_sync_idempotency.sql`
+  - `20260715042905_portal_auth_and_read_access.sql`
+  - `20260716175719_add_classroom_licensing_rules.sql`
+  - `20260716185555_create_and_seed_staffing_rules.sql`
+  - `20260722103856_add_school_year_travel_rates_and_employee_eligibility.sql`
+- Production `supabase_migrations.schema_migrations.statements` was the
+  authoritative recovery source. Git history, the TRACK016/017 audit entries,
+  related migrations, schema objects and runtime code were used as corroborating
+  evidence.
+- Preserved every Production version and migration name exactly. Existing
+  migration files were not modified.
+
+Static validation:
+
+- All seven normalized SHA-256 hashes match the corresponding Production
+  migration statements exactly.
+- The repository contains 44 uniquely versioned migration filenames in
+  chronological lexical order with no invalid or duplicate version.
+- PostgreSQL 17 static parsing passed for all 44 files and 560 SQL statements
+  using temporary `@pgsql/parser` tooling outside the repository.
+- `git diff --check` passed.
+- Supabase CLI 2.109.1 was run from temporary tooling. Local status and migration
+  listing could not connect because no Docker daemon or local PostgreSQL server is
+  installed.
+- Docker, Podman, PostgreSQL server/client and WSL distributions are not
+  available on this machine. A free local clean-environment build therefore
+  requires installing a container runtime or PostgreSQL-compatible local
+  environment first.
+
+Temporary environment pricing:
+
+- Existing Production organization `hleokfgtwzyykbswufsp` reports a Supabase
+  branch price of `$0.01344/hour`.
+- The same organization currently reports a new project price of `$0/month`.
+- No branch or project was created and no cost was incurred.
+
+Remaining validation:
+
+- A clean Supabase environment has not yet been built, so full schema, function,
+  constraint, RLS, policy, index and seed parity with Production remains
+  unverified.
+- Production was queried read-only for migration metadata only. No Production
+  migration, schema, data, Edge Function or deployment was changed.
