@@ -3456,6 +3456,43 @@ Files changed:
 - `tests/new-portal-auth.spec.mjs`
 - `PROJECT_LOG.md`
 
+## 2026-07-26 - Production Bank Workbench Promotion
+
+Objective: Promote the exact approved Bank Workbench Preview artifact to the
+existing `chamah-portal` Production project and verify the authorized workflow on
+the primary Production hostname.
+
+Deployment:
+
+- Promoted Preview deployment `dpl_5QmgdThYBfKGNRKCKV5CGybLnKM1`.
+- Vercel created Production deployment
+  `dpl_BLNxz6q2gYgD6F6saJa5TSFhyZv2`, status READY.
+- Explicitly assigned `https://chamah-portal.vercel.app` to the promoted
+  Production deployment.
+- Source SHA: `5c1a5bdb47991f0972c51658249efacfdc379157`.
+- The stable Preview alias remains attached to its Preview deployment.
+- No Vercel project or domain was created.
+
+Authorized Production verification:
+
+- PASS: 102 live bank transactions loaded at the primary Production hostname.
+- PASS: import accepts `.xlsx`, `.xls` and `.csv`; manual transaction and export
+  dialogs open with their approved validation and format controls.
+- PASS: editable allocation fields, manual Save, Delete, Split and row actions
+  are present for live rows.
+- PASS: 102 row autosave indicators reported Saved.
+- PASS: workflow validation reported 99 untreated rows, 101 rows with missing
+  required data and one pending/unbalanced split.
+- PASS: Supabase read-only counts remained 102 bank transactions, 5 bank
+  accounts, 5 allocations and 2 BANK_FILE import batches.
+- PASS: Production root, `app.js`, `bank-workbench-ux.js` and `autosave.js`
+  returned HTTP 200.
+- PASS: no browser console errors.
+- Verification did not submit imports, create/delete transactions or persist
+  edits; Production data was preserved.
+
+Final status: **SUCCESS**.
+
 ## 2026-07-26 - TRACK021C Production Release
 
 Objective: Release all approved work through TRACK021B to the existing Production
