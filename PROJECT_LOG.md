@@ -3506,3 +3506,17 @@ Files changed:
 - `tests/workforce-workbench.spec.mjs`
 - `tests/sql/track020_employee_pay_term_versioning.sql`
 - `PROJECT_LOG.md`
+
+## 2026-07-26 - TRACK020 Production Promotion
+
+- Promoted approved TRACK020 commit `ee8ae1526e574263c1d0dd095ed2676b8e1d8939` by merging it into `main` with merge commit `320644ea72009c018ccb14a1105c629ff6e8e8d6`.
+- Confirmed the TRACK020 forward migrations were already applied in Production:
+  - `20260726065224` — `track020_employee_pay_term_versioning`
+  - `20260726065334` — `track020_employee_manager_index_fix`
+  - `20260726065634` — `track020_pay_term_future_boundary_fix`
+- Redeployed `portal-workforce-workbench` to the existing Supabase project. Production Edge Function version is `7`, status `ACTIVE`, with `verify_jwt=true`.
+- Deployed the existing Vercel Production project and preserved its existing Production aliases. No new project, domain, or Production URL was created.
+- Validation passed: production build, JavaScript syntax checks, Deno Edge Function check, TRACK020 Playwright suite (`16/16`), and Payroll/Budget/Allocations/Management regression suite (`37/37`).
+- Read-only Production probes passed for database entities, RPC permissions, JWT rejection (`401` without a token), live TRACK020 static assets, and absence of recent Vercel runtime errors.
+- Authenticated live workflow testing could not be completed because no Production credentials or authenticated browser session were available. No credentials were invented and no Production data was mutated for testing.
+- Release gate status: `FAILED` pending authenticated live smoke verification, although the Production deployment itself is Ready.
