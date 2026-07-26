@@ -2,14 +2,14 @@ export const activeDaycareId = '11111111-1111-4111-8111-111111111111';
 export const activeOfficeId = '22222222-2222-4222-8222-222222222222';
 export const inactiveUnitId = '33333333-3333-4333-8333-333333333333';
 const portalSectionLabels = {
-  home: 'עמוד הבית', dashboards: 'דשבורדים', 'dashboards.finance': 'כספים', 'dashboards.accounting': 'הנה״ח', 'dashboards.accounting.summary': 'דשבורד סיכום', 'dashboards.accounting.banks': 'קובץ בנקים', 'dashboards.licensing': 'רישוי', 'dashboards.team': 'צוות', 'dashboards.staffing': 'צוות ורישוי', 'dashboards.occupancy': 'תפוסה ותקינה',
+  home: 'עמוד הבית', dashboards: 'דשבורדים', 'dashboards.finance': 'כספים', 'dashboards.accounting': 'הנה״ח', 'dashboards.accounting.summary': 'דשבורד סיכום', 'dashboards.accounting.banks': 'קובץ בנקים', 'dashboards.licensing': 'רישוי', 'dashboards.team': 'צוות', 'dashboards.staffing': 'צוות ורישוי', 'dashboards.staffing.employees': 'עובדים', 'dashboards.staffing.actual-payroll': 'ביצוע שכר', 'dashboards.occupancy': 'תפוסה ותקינה',
   calculators: 'מחשבונים', 'calculators.salary': 'מחשבון שכר', 'calculators.occupancy': 'מחשבון תפוסה, תקינה ורווחיות',
   payroll: 'שכר', 'payroll.calculations': 'חישובי שכר', 'payroll.calculations.new': 'חדש', 'payroll.calculations.existing': 'קיים', 'payroll.calculations.history': 'טבלאות עבר',
   management: 'ניהול והגדרות', 'management.permissions': 'הרשאות', 'management.permissions.users': 'רשימת משתמשים והרשאות', 'management.rules': 'כללים', 'management.rules.calculation': 'כללי חישוב', 'management.rules.system': 'כללי מערכת', 'management.settings': 'הגדרות', 'management.tables': 'טבלאות', 'management.tables.calculation': 'טבלאות חישוב', 'management.tables.variables': 'משתנים', 'management.audit': 'יומן שינויים',
   knowledge: 'מרכז הידע למשתמש', maintenance: 'תחזוקה', tasks: 'משימות'
 };
 export const portalAccessFixture = { profile: { user_id: 'test-user', display_name: 'משתמשת בדיקה', is_active: true, is_super_admin: true, scope_mode: 'ORGANIZATION' }, allocation_unit_ids: [], daycare_ids: [], sections: [
-  ['home', 'home', null], ['dashboards', 'dashboards', null], ['dashboards.finance', 'dashboards/unit/organization/finance', 'dashboards'], ['dashboards.accounting', 'dashboards/unit/organization/accounting', 'dashboards'], ['dashboards.accounting.summary', 'dashboards/unit/organization/accounting/summary', 'dashboards.accounting'], ['dashboards.accounting.banks', 'dashboards/unit/organization/accounting/banks', 'dashboards.accounting'], ['dashboards.licensing', 'dashboards/unit/organization/licensing', 'dashboards'], ['dashboards.team', 'dashboards/unit/organization/team', 'dashboards'], ['dashboards.staffing', 'dashboards/unit/organization/staffing', 'dashboards'], ['dashboards.occupancy', 'dashboards/unit/organization/occupancy', 'dashboards'], ['calculators', 'calculators', null], ['calculators.salary', 'calculators/salary', 'calculators'], ['calculators.occupancy', 'calculators/occupancy', 'calculators'], ['payroll', 'payroll', null], ['payroll.calculations', 'payroll/calculations', 'payroll'], ['payroll.calculations.new', 'payroll/calculations/new', 'payroll.calculations'], ['payroll.calculations.existing', 'payroll/calculations/existing', 'payroll.calculations'], ['payroll.calculations.history', 'payroll/calculations/history', 'payroll.calculations'], ['management', 'training', null], ['management.permissions', 'training/permissions', 'management'], ['management.permissions.users', 'training/permissions/users', 'management.permissions'], ['management.rules', 'training/rules', 'management'], ['management.rules.calculation', 'training/rules/calculation', 'management.rules'], ['management.rules.system', 'training/rules/system', 'management.rules'], ['management.settings', 'training/settings', 'management'], ['management.tables', 'training/tables', 'management'], ['management.tables.calculation', 'training/tables/calculation', 'management.tables'], ['management.tables.variables', 'training/tables/variables', 'management.tables'], ['management.audit', 'training/audit', 'management'], ['knowledge', 'knowledge', null], ['maintenance', 'maintenance', null], ['tasks', 'tasks', null]
+  ['home', 'home', null], ['dashboards', 'dashboards', null], ['dashboards.finance', 'dashboards/unit/organization/finance', 'dashboards'], ['dashboards.accounting', 'dashboards/unit/organization/accounting', 'dashboards'], ['dashboards.accounting.summary', 'dashboards/unit/organization/accounting/summary', 'dashboards.accounting'], ['dashboards.accounting.banks', 'dashboards/unit/organization/accounting/banks', 'dashboards.accounting'], ['dashboards.licensing', 'dashboards/unit/organization/licensing', 'dashboards'], ['dashboards.team', 'dashboards/unit/organization/team', 'dashboards'], ['dashboards.staffing', 'dashboards/unit/organization/staffing', 'dashboards'], ['dashboards.staffing.employees', 'dashboards/unit/organization/staffing/employees', 'dashboards.staffing'], ['dashboards.staffing.actual-payroll', 'dashboards/unit/organization/staffing/actual-payroll', 'dashboards.staffing'], ['dashboards.occupancy', 'dashboards/unit/organization/occupancy', 'dashboards'], ['calculators', 'calculators', null], ['calculators.salary', 'calculators/salary', 'calculators'], ['calculators.occupancy', 'calculators/occupancy', 'calculators'], ['payroll', 'payroll', null], ['payroll.calculations', 'payroll/calculations', 'payroll'], ['payroll.calculations.new', 'payroll/calculations/new', 'payroll.calculations'], ['payroll.calculations.existing', 'payroll/calculations/existing', 'payroll.calculations'], ['payroll.calculations.history', 'payroll/calculations/history', 'payroll.calculations'], ['management', 'training', null], ['management.permissions', 'training/permissions', 'management'], ['management.permissions.users', 'training/permissions/users', 'management.permissions'], ['management.rules', 'training/rules', 'management'], ['management.rules.calculation', 'training/rules/calculation', 'management.rules'], ['management.rules.system', 'training/rules/system', 'management.rules'], ['management.settings', 'training/settings', 'management'], ['management.tables', 'training/tables', 'management'], ['management.tables.calculation', 'training/tables/calculation', 'management.tables'], ['management.tables.variables', 'training/tables/variables', 'management.tables'], ['management.audit', 'training/audit', 'management'], ['knowledge', 'knowledge', null], ['maintenance', 'maintenance', null], ['tasks', 'tasks', null]
 ].map(([screen_code, route, parent_screen_code], display_order) => ({ screen_code, route, parent_screen_code, display_name: portalSectionLabels[screen_code], display_order, permission_level: 'EDIT' })) };
 
 export const allocationUnits = [
@@ -148,6 +148,25 @@ export async function mockNewPortalSupabase(page, units = allocationUnits) {
       batches: [],
     }),
   }));
+  await page.route('**/functions/v1/portal-workforce-workbench**', (route) => {
+    const payroll = new URL(route.request().url()).searchParams.get('page') === 'payroll';
+    const body = payroll ? {
+      records: generalResponses.payroll_records.map((row) => ({ ...row, employee_match_status: 'LINKED', record_origin: 'IMPORT' })),
+      allocations: generalResponses.payroll_allocations,
+      employees: generalResponses.employees.map((row) => ({ ...row, employee_code: 'EMP-1' })),
+      employments: generalResponses.employments,
+    } : {
+      employees: generalResponses.employees.map((row) => ({ ...row, employee_code: 'EMP-1' })),
+      employments: generalResponses.employments,
+      assignments: generalResponses.employee_assignments,
+      payTerms: generalResponses.employee_pay_terms,
+      eligibility: [], employeeCertificates: [], leave: [],
+    };
+    return route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8', body: JSON.stringify({
+      ...body, units, daycares: generalResponses.daycares, roles: generalResponses.roles,
+      certificates: [], compensationFactors: [], entities: [],
+    }) });
+  });
   await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/rest/v1/**', async (route) => {
     const url = new URL(route.request().url());
     const table = url.pathname.split('/').pop();

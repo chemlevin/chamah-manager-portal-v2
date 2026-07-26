@@ -2963,3 +2963,98 @@ Files changed:
 - `tests/new-portal-test-data.mjs`
 - `tests/settings-center.spec.mjs`
 - `PROJECT_LOG.md`
+
+## 2026-07-25 - TRACK020 Employees and Actual Payroll Workbenches
+
+Objective: Add Preview-only, Supabase-authoritative Employees and Actual Payroll
+Workbench pages under Staff and Licensing, reusing the Bank Workbench interaction
+and security architecture without changing payroll calculations or reading Google
+Sheets operationally.
+
+Implementation:
+
+- Added sibling `עובדים` and `ביצוע שכר` portal screens under
+  `dashboards.staffing`, with independent inherited permissions and routes.
+- Added a shared Hebrew RTL workforce Workbench presentation using the existing
+  KPI cards, dense toolbar, master table, lower detail panel, dialogs, responsive
+  behavior, status chips, dependent selects, and CSV export patterns.
+- Employees includes summary search/filtering, create/edit/archive, personal
+  details, effective-dated pay-term history, compensation eligibility, certificates
+  and training, leave history, and a documents placeholder pending an approved
+  Storage contract.
+- Pay terms are inserted as effective-dated versions; existing history is not
+  overwritten by the UI.
+- Actual Payroll includes month selection, Excel/CSV import preview, manual rows,
+  edit/delete, employee matching, matching-state KPIs and filters, and parent/child
+  allocation editing for both employer cost and hours.
+- Employee number (`employees.employee_code`) is the canonical TRACK020 matching
+  key. A matching active employment is linked and employee data is derived. Missing
+  employees remain in Payroll and are not auto-created.
+- Added `LINKED`, `MISSING`, `APPROVED_TEMPORARY`, and `UNRESOLVED` states.
+  Temporary approval persists approving Auth user, timestamp, and notes.
+- Department, daycare, role, certificate, compensation-factor, and other business
+  lookups are read from Supabase. Daycare choices depend on the selected allocation
+  unit.
+- Added authenticated `portal-workforce-workbench` Edge Function using the existing
+  service-role transport, JWT verification, portal permission RPC, validation, and
+  audit-event pattern. No service-role credential is exposed to the browser.
+
+Database:
+
+- Applied forward migration
+  `20260725201829_track_020_employees_actual_payroll.sql` to project
+  `vyyfuaqmbxvfqgbfqooc`.
+- Made payroll employment optional so unmatched source rows can persist.
+- Added payroll match/temporary-approval metadata, record origin, allocation
+  daycare, supporting indexes, and effective-dated `employee_leave_periods`.
+- Added service-role-only, `SECURITY INVOKER`
+  `portal_save_payroll_allocations(uuid,jsonb,uuid)` for atomic replacement of
+  cost and hours allocation children.
+- Enabled RLS on `employee_leave_periods`, revoked browser-role table privileges,
+  and retained service-role access through the authenticated Edge Function.
+- Deployed `portal-workforce-workbench` with JWT verification enabled.
+
+Rule conflict:
+
+- The current handbook says cross-system employee matching uses National ID.
+  TRACK020 explicitly requires Employee Number as canonical. The implementation
+  follows TRACK020 and leaves National ID as employee profile data. The handbook
+  was not rewritten in this track.
+
+Validation:
+
+- PASS: `node --check` for `app.js` and `workforce-workbench.js`.
+- PASS: Deno type check for `portal-workforce-workbench`.
+- PASS: `npm run build`.
+- PASS: six focused Employees/Actual Payroll tests across desktop and mobile.
+- PASS: three desktop screenshot-generation tests.
+- PASS: 41 Accounting navigation, allocations, Budget Engine, and Payroll Engine
+  regression tests.
+- PASS: `git diff --check`.
+- PASS: live schema probe confirmed two screens, RLS, match/daycare columns,
+  service-role RPC execution, and no authenticated RPC execution.
+- Supabase security advisors reported one expected informational item for the
+  service-role-only leave table having no browser RLS policy. Pre-existing warnings
+  remain for `portal_my_access()` and leaked-password protection.
+
+Screenshots:
+
+- `test-results/track020-employees.png`
+- `test-results/track020-actual-payroll.png`
+
+Deployment:
+
+- Supabase migration and Edge Function were applied for Preview validation.
+- Vercel Production was not changed. A Vercel Preview deployment follows this log
+  entry from the committed and pushed branch.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `chamah-manager-portal/new/styles.css`
+- `chamah-manager-portal/new/workforce-workbench.js`
+- `supabase/functions/portal-workforce-workbench/index.ts`
+- `supabase/migrations/20260725201829_track_020_employees_actual_payroll.sql`
+- `tests/new-portal-test-data.mjs`
+- `tests/workforce-workbench.spec.mjs`
+- `PROJECT_LOG.md`

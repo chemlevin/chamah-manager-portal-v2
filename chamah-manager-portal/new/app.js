@@ -6,6 +6,7 @@ import { DOCUMENTED_STATUS_RULES, REFERENCE_TABLES, VARIABLE_RULE_TABLES } from 
 import { mountAdministrationPrototype } from './administration-prototype.js';
 import { mountSettingsCenter } from './settings-center.js';
 import { bankWorkbenchTemplateV2 as track015BankWorkbenchTemplate, mountBankWorkbenchV2 as mountBankWorkbench } from './bank-workbench-ux.js';
+import { workforceHubTemplate, employeesWorkbenchTemplate, payrollWorkbenchTemplate, mountEmployeesWorkbench, mountPayrollWorkbench } from './workforce-workbench.js';
 
 const SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
@@ -23,7 +24,8 @@ const HEBREW_SCREEN_LABELS = {
   home: 'עמוד הבית', dashboards: 'דשבורדים', 'dashboards.finance': 'כספים',
   'dashboards.accounting': 'הנה״ח', 'dashboards.accounting.summary': 'דשבורד סיכום',
   'dashboards.accounting.banks': 'קובץ בנקים', 'dashboards.licensing': 'רישוי', 'dashboards.team': 'צוות',
-  'dashboards.staffing': 'צוות ורישוי',
+  'dashboards.staffing': 'צוות ורישוי', 'dashboards.staffing.employees': 'עובדים',
+  'dashboards.staffing.actual-payroll': 'ביצוע שכר',
   'dashboards.occupancy': 'תפוסה ותקינה', calculators: 'מחשבונים',
   'calculators.salary': 'מחשבון שכר', 'calculators.occupancy': 'מחשבון תפוסה, תקינה ורווחיות',
   payroll: 'שכר', 'payroll.calculations': 'חישובי שכר', 'payroll.calculations.new': 'חדש',
@@ -49,6 +51,9 @@ function canonicalizeSections(sections) {
   const accounting = canonical.find((section) => section.screen_code === 'dashboards.accounting');
   if (accounting && !canonical.some((section) => section.screen_code === 'dashboards.accounting.summary')) canonical.push({ screen_code: 'dashboards.accounting.summary', parent_screen_code: 'dashboards.accounting', route: 'dashboards/unit/organization/accounting/summary', display_name: 'דשבורד סיכום', icon: '▦', description: 'בקרה מסכמת על תהליכי הנהלת החשבונות.', display_order: 23, is_navigation_item: false, is_scope_required: true, permission_level: accounting.permission_level });
   if (accounting && !canonical.some((section) => section.screen_code === 'dashboards.accounting.banks')) canonical.push({ screen_code: 'dashboards.accounting.banks', parent_screen_code: 'dashboards.accounting', route: 'dashboards/unit/organization/accounting/banks', display_name: 'קובץ בנקים', icon: '▤', description: 'סביבת עבודה לטיפול בתנועות בנק.', display_order: 24, is_navigation_item: false, is_scope_required: true, permission_level: portalAccess?.profile?.is_super_admin ? 'EDIT' : 'HIDDEN' });
+  const staffing = canonical.find((section) => section.screen_code === 'dashboards.staffing');
+  if (staffing && !canonical.some((section) => section.screen_code === 'dashboards.staffing.employees')) canonical.push({ screen_code: 'dashboards.staffing.employees', parent_screen_code: 'dashboards.staffing', route: 'dashboards/unit/organization/staffing/employees', display_name: 'עובדים', icon: '👥', description: 'סביבת עבודה לניהול עובדים.', display_order: 25, is_navigation_item: false, is_scope_required: true, permission_level: staffing.permission_level });
+  if (staffing && !canonical.some((section) => section.screen_code === 'dashboards.staffing.actual-payroll')) canonical.push({ screen_code: 'dashboards.staffing.actual-payroll', parent_screen_code: 'dashboards.staffing', route: 'dashboards/unit/organization/staffing/actual-payroll', display_name: 'ביצוע שכר', icon: '₪', description: 'סביבת עבודה לביצוע שכר בפועל.', display_order: 26, is_navigation_item: false, is_scope_required: true, permission_level: staffing.permission_level });
   return canonical.sort((a, b) => Number(a.display_order || 0) - Number(b.display_order || 0));
 }
 
@@ -349,6 +354,7 @@ function navigationScreenCode(route) {
 function routeScreenCode(route) {
   if (route.section === 'training' && ['settings', 'tables'].includes(route.page)) return 'management.settings';
   if (route.section === 'dashboards' && route.dashboardType === 'accounting' && route.dashboardChild) return `dashboards.accounting.${route.dashboardChild}`;
+  if (route.section === 'dashboards' && route.dashboardType === 'staffing' && route.dashboardChild) return `dashboards.staffing.${route.dashboardChild}`;
   if (route.section === 'dashboards' && route.dashboardType) return `dashboards.${route.dashboardType}`;
   if (route.section === 'calculators' && route.calculator) return `calculators.${route.calculator}`;
   if (route.section === 'payroll' && route.child) return `payroll.calculations.${route.child}`;
@@ -489,6 +495,16 @@ async function portalSettingsRequest(method = 'GET', body) {
 async function portalBankWorkbenchRequest(method = 'GET', body) {
   if (!await ensureAccessToken()) throw new Error('החיבור פג.');
   const response = await fetch(`${SUPABASE_URL}/functions/v1/portal-bank-workbench`, { method, headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const value = await response.json().catch(() => ({}));
+  if (!response.ok) { const error = new Error(value.error || 'הפעולה נכשלה.'); error.details = value.errors; throw error; }
+  return value;
+}
+
+async function portalWorkforceRequest(page, method = 'GET', body, month = '') {
+  if (!await ensureAccessToken()) throw new Error('החיבור פג.');
+  const query = new URLSearchParams({ page });
+  if (month) query.set('month', month);
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/portal-workforce-workbench?${query}`, { method, headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
   const value = await response.json().catch(() => ({}));
   if (!response.ok) { const error = new Error(value.error || 'הפעולה נכשלה.'); error.details = value.errors; throw error; }
   return value;
@@ -1296,8 +1312,9 @@ function breadcrumbsTemplate(route, unit, type) {
   if (route.dashboardType === 'staffing' || route.dashboardType === 'accounting') {
     const label = route.dashboardType === 'staffing' ? 'צוות ורישוי' : 'הנה״ח';
     const target = unitRoute('organization', route.dashboardType);
-    parts.push('<span aria-hidden="true">/</span>', unit?.allocation_unit_id === 'organization' ? `<span aria-current="page">${label}</span>` : `<a href="${target}">${label}</a>`);
+    parts.push('<span aria-hidden="true">/</span>', unit?.allocation_unit_id === 'organization' && !route.dashboardChild ? `<span aria-current="page">${label}</span>` : `<a href="${target}">${label}</a>`);
     if (unit && unit.allocation_unit_id !== 'organization') parts.push('<span aria-hidden="true">/</span>', `<span aria-current="page">${escapeHtml(unit.display_name)}</span>`);
+    if (route.dashboardChild) parts.push('<span aria-hidden="true">/</span>', `<span aria-current="page">${route.dashboardChild === 'employees' ? 'עובדים' : route.dashboardChild === 'actual-payroll' ? 'ביצוע שכר' : route.dashboardChild}</span>`);
     return parts.join('');
   }
   parts.push('<span aria-hidden="true">/</span>', route.unitId ? '<a href="#dashboards">דשבורדים</a>' : '<span aria-current="page">דשבורדים</span>');
@@ -1369,7 +1386,21 @@ async function render() {
         $('#page-content').innerHTML = accountingDashboardShell(unit);
         await loadAccountingDashboard();
         if (parseRoute().unitId === unit.allocation_unit_id && parseRoute().dashboardType === 'accounting' && parseRoute().dashboardChild === 'summary') renderAccountingData();
-      } else if (['staffing', 'licensing', 'team'].includes(type.id)) {
+      } else if (type.id === 'staffing' && !route.dashboardChild) {
+        title = 'צוות ורישוי';
+        activeDashboardUnit = unit;
+        $('#page-content').innerHTML = workforceHubTemplate(canView('dashboards.staffing.employees'), canView('dashboards.staffing.actual-payroll'));
+      } else if (type.id === 'staffing' && route.dashboardChild === 'employees') {
+        title = 'עובדים';
+        activeDashboardUnit = unit;
+        $('#page-content').innerHTML = employeesWorkbenchTemplate();
+        await mountEmployeesWorkbench(portalWorkforceRequest);
+      } else if (type.id === 'staffing' && route.dashboardChild === 'actual-payroll') {
+        title = 'ביצוע שכר';
+        activeDashboardUnit = unit;
+        $('#page-content').innerHTML = payrollWorkbenchTemplate();
+        await mountPayrollWorkbench(portalWorkforceRequest);
+      } else if (['licensing', 'team'].includes(type.id)) {
         title = type.title; dashboardMode = type.id; activeDashboardUnit = unit; $('#page-content').innerHTML = staffDashboardShell(unit); await loadStaffDashboard(); if (parseRoute().unitId === unit.allocation_unit_id && parseRoute().dashboardType === type.id) renderStaffData();
       } else { title = type.title; $('#page-content').innerHTML = dashboardPlaceholderTemplate(unit, type); }
     }
