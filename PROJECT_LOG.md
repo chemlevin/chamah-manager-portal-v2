@@ -3141,3 +3141,83 @@ Files changed:
 - `tests/workforce-legacy-retirement.spec.mjs`
 - `docs/architecture/track021-workforce-legacy-retirement.md`
 - `PROJECT_LOG.md`
+
+## 2026-07-26 - TRACK021A Persistent Authentication
+
+Objective: Keep authenticated users signed in on the same browser/device, restore
+sessions before showing login, refresh access tokens automatically, preserve secure
+logout, and keep the release Preview-only.
+
+Auth audit:
+
+- The portal uses direct Supabase GoTrue REST calls rather than `supabase-js`.
+- Valid access and refresh tokens were already normalized and stored in
+  origin-scoped `localStorage` under `chamah.portal.session`.
+- Existing bootstrap validated and refreshed stored sessions, but the login view
+  was visible in the initial HTML while that asynchronous restoration ran.
+- Existing refresh happened only during bootstrap or immediately before protected
+  requests; there was no scheduled automatic refresh lifecycle.
+- Logout already cleared local tokens before attempting remote revocation.
+
+Implementation:
+
+- Added a dedicated authentication-restoration view and made login hidden in the
+  initial HTML.
+- Login is revealed only after restoration definitively finds no valid session.
+- Added a single-flight token-refresh operation to prevent refresh-token rotation
+  races.
+- Added scheduled access-token refresh before expiry, capped foreground checks,
+  retry scheduling for transient failures, and resume checks on visibility,
+  focus, online and pageshow events.
+- Persisted rotated access and refresh tokens after every successful refresh.
+- Stopped all refresh scheduling before explicit logout and retained remote
+  `/auth/v1/logout` revocation plus local token removal.
+- Preserved refresh-session validation before all protected REST/RPC/Edge Function
+  calls.
+- Updated the canonical Production portal URL to the verified Vercel Production
+  domain `https://chamah-portal-chamah.vercel.app/`.
+- Recovery redirects use that canonical URL on Production and the current origin on
+  local hosts. Generated Vercel Preview deployments use the stable Preview-only
+  alias `https://chamah-portal-chemlevin-chamah.vercel.app/`, keeping browser storage
+  and callbacks isolated from Production origins without requiring every generated
+  deployment hostname in the Supabase allow-list.
+
+Security:
+
+- No RLS, permissions, JWT claims, service-role handling or database contracts were
+  changed.
+- Sessions remain origin-scoped and are not copied between Preview and Production.
+- Invalid/expired refresh tokens still clear local authentication.
+- Transient refresh failures do not discard a potentially valid refresh token.
+- No service-role or secret credential was added to the browser.
+
+Validation:
+
+- PASS: `node --check chamah-manager-portal/new/app.js`.
+- PASS: `npm run build`.
+- PASS: 32 authentication tests across desktop and mobile.
+- Covered no-session bootstrap, login, reload, same-browser restart, restoration
+  without login flash, direct protected navigation, expired-token refresh,
+  scheduled pre-expiry refresh, rotated-token persistence, recovery/invitation,
+  logout/relogin boundary and mobile behavior.
+- PASS: 104 broader desktop/mobile portal, navigation, permissions and Workforce
+  regression tests.
+- Vercel project inspection confirmed the Production domain
+  `chamah-portal-chamah.vercel.app`.
+- Supabase Auth Site URL and additional redirect allow-list values are not exposed
+  by the available project connector or database settings and require a final
+  dashboard-owner confirmation before Production promotion. Production was not
+  changed.
+
+Deployment:
+
+- Vercel Production was not deployed or promoted.
+- A Preview-only deployment follows the committed and pushed branch.
+
+Files changed:
+
+- `chamah-manager-portal/new/index.html`
+- `chamah-manager-portal/new/styles.css`
+- `chamah-manager-portal/new/app.js`
+- `tests/new-portal-auth.spec.mjs`
+- `PROJECT_LOG.md`

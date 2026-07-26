@@ -89,7 +89,8 @@ test.describe('payroll and training portal sections', () => {
 
     await page.locator('.module-card[href="#dashboards/unit/organization/staffing"]').click();
     await expect(page).toHaveURL(/#dashboards\/unit\/organization\/staffing$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'דשבורד צוות ורישוי · כלל הארגון' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'צוות ורישוי' })).toBeVisible();
+    await expect(page.locator('.accounting-choice-grid .accounting-choice')).toHaveCount(2);
     await expect(page.locator('[data-route="staffing"].active')).toHaveCount(2);
     await expect(page.locator('[data-route="dashboards"].active')).toHaveCount(0);
     await expect(page.locator('#breadcrumbs [aria-current="page"]')).toHaveText('צוות ורישוי');

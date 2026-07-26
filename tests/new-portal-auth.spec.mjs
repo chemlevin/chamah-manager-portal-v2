@@ -104,7 +104,7 @@ test.describe('new portal Supabase authentication', () => {
     await page.locator('#request-recovery').click();
     await expect(page.locator('#recovery-request-message')).toContainText('אם הכתובת מורשית במערכת');
     expect(recoveryBody).toEqual({ email: 'existing@example.org' });
-    expect(new URL(recoveryUrl).searchParams.get('redirect_to')).toBe('https://chamah-portal.vercel.app/');
+    expect(new URL(recoveryUrl).searchParams.get('redirect_to')).toBe('http://127.0.0.1:4176/');
     await expect(page.locator('#login-submit')).toBeVisible();
   });
 
@@ -230,6 +230,63 @@ test.describe('new portal Supabase authentication', () => {
     await expect.poll(() => authorization).toBe('Bearer fresh-access');
     const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), sessionKey);
     expect(stored.refresh_token).toBe('fresh-refresh');
+  });
+
+  test('keeps login hidden while a persisted session is being restored', async ({ page }) => {
+    await installSession(page);
+    let releaseValidation;
+    const validationGate = new Promise((resolve) => { releaseValidation = resolve; });
+    await page.route(`${supabaseUrl}/auth/v1/user`, async (route) => {
+      await validationGate;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'authorized-user' }) });
+    });
+    await page.goto('/#dashboards', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#auth-restoring-view')).toBeVisible();
+    await expect(page.locator('#login-view')).toBeHidden();
+    releaseValidation();
+    await expect(page.locator('#app-view')).toBeVisible();
+    await expect(page.locator('#auth-restoring-view')).toBeHidden();
+  });
+
+  test('restores the persisted session in a new page on the same browser context', async ({ browser }) => {
+    const context = await browser.newContext();
+    await context.addInitScript(({ key, value }) => {
+      if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(value));
+    }, { key: sessionKey, value: validSession });
+    await context.route(`${supabaseUrl}/auth/v1/user`, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'authorized-user' }) }));
+    await context.route(`${supabaseUrl}/rest/v1/rpc/portal_my_access**`, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(authAccess) }));
+
+    const firstPage = await context.newPage();
+    await firstPage.goto('/#dashboards');
+    await expect(firstPage.locator('#app-view')).toBeVisible();
+    await firstPage.close();
+
+    const restartedPage = await context.newPage();
+    await restartedPage.goto('/#dashboards/unit/organization/staffing/employees');
+    await expect(restartedPage.locator('#app-view')).toBeVisible();
+    await expect(restartedPage.locator('#login-view')).toBeHidden();
+    await context.close();
+  });
+
+  test('automatically refreshes before expiry and persists the rotated refresh token', async ({ page }) => {
+    const expiresAt = Math.floor(Date.now() / 1000) + 61;
+    await installSession(page, { access_token: 'short-access', refresh_token: 'short-refresh', expires_at: expiresAt });
+    await page.route(`${supabaseUrl}/auth/v1/user`, async (route) => {
+      expect(['Bearer short-access', 'Bearer scheduled-access']).toContain(route.request().headers().authorization);
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'authorized-user' }) });
+    });
+    let refreshRequests = 0;
+    await page.route(`${supabaseUrl}/auth/v1/token?grant_type=refresh_token`, async (route) => {
+      refreshRequests += 1;
+      expect(route.request().postDataJSON()).toEqual({ refresh_token: 'short-refresh' });
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ access_token: 'scheduled-access', refresh_token: 'scheduled-refresh', expires_in: 3600, token_type: 'bearer' }) });
+    });
+    await page.goto('/');
+    await expect(page.locator('#app-view')).toBeVisible();
+    await expect.poll(() => refreshRequests, { timeout: 5_000 }).toBe(1);
+    const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), sessionKey);
+    expect(stored.access_token).toBe('scheduled-access');
+    expect(stored.refresh_token).toBe('scheduled-refresh');
   });
 
   test('signs out remotely, clears local state, and returns to login', async ({ page }) => {

@@ -12,8 +12,11 @@ const SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
 const SESSION_KEY = 'chamah.portal.session';
 const SESSION_REFRESH_LEEWAY_SECONDS = 60;
+const AUTO_REFRESH_MAX_DELAY_MS = 30 * 60 * 1000;
+const AUTO_REFRESH_RETRY_MS = 30 * 1000;
 const MIN_PASSWORD_LENGTH = 10;
-const CANONICAL_PORTAL_URL = 'https://chamah-portal.vercel.app/';
+const PRODUCTION_PORTAL_URL = 'https://chamah-portal-chamah.vercel.app/';
+const PREVIEW_PORTAL_URL = 'https://chamah-portal-chemlevin-chamah.vercel.app/';
 const $ = (selector) => document.querySelector(selector);
 const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 });
 const number = new Intl.NumberFormat('he-IL', { maximumFractionDigits: 1 });
@@ -125,6 +128,9 @@ let recoveryRequestPending = false;
 const protectedRequests = new Set();
 let authPending = false;
 let recoveryPending = false;
+let refreshTimer = 0;
+let refreshSessionPromise = null;
+let authLifecycleActive = false;
 let salaryModel = { status: 'idle', factors: [], rules: [], years: [], error: '' };
 const managementData = new Map();
 let portalAccess = null;
@@ -138,6 +144,7 @@ function readSession() {
 function saveSession(value) {
   session = normalizeSession(value);
   session ? localStorage.setItem(SESSION_KEY, JSON.stringify(session)) : localStorage.removeItem(SESSION_KEY);
+  if (authLifecycleActive) scheduleSessionRefresh();
 }
 
 function normalizeSession(value) {
@@ -211,7 +218,12 @@ async function signInWithPassword(email, password) {
 }
 
 async function requestPasswordRecovery(email) {
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(CANONICAL_PORTAL_URL)}`, {
+  const redirectUrl = location.hostname === new URL(PRODUCTION_PORTAL_URL).hostname
+    ? PRODUCTION_PORTAL_URL
+    : location.hostname.endsWith('.vercel.app')
+      ? PREVIEW_PORTAL_URL
+      : `${location.origin}/`;
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(redirectUrl)}`, {
     method: 'POST',
     headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
     body: JSON.stringify({ email })
@@ -256,6 +268,7 @@ async function updateRecoveryPassword(password) {
 }
 
 function showRecoveryView(error = '', mode = 'recovery') {
+  $('#auth-restoring-view').hidden = true;
   $('#login-view').style.display = 'none';
   $('#app-view').hidden = true;
   $('#recovery-view').hidden = false;
@@ -269,6 +282,8 @@ function showRecoveryView(error = '', mode = 'recovery') {
 }
 
 async function showPortalHome() {
+  startSessionLifecycle();
+  $('#auth-restoring-view').hidden = true;
   $('#login-view').style.display = 'none';
   $('#recovery-view').hidden = true;
   $('#app-view').hidden = false;
@@ -278,13 +293,73 @@ async function showPortalHome() {
 }
 
 async function refreshSession() {
+  if (refreshSessionPromise) return refreshSessionPromise;
   if (!session?.refresh_token) return false;
   const refreshToken = session.refresh_token;
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, { method: 'POST', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: refreshToken }) });
-  if (!response.ok) { saveSession(null); return false; }
-  const value = await response.json();
-  saveSession({ ...value, refresh_token: value.refresh_token || refreshToken });
-  return Boolean(session);
+  refreshSessionPromise = (async () => {
+    try {
+      const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, { method: 'POST', headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: refreshToken }) });
+      if (!response.ok) {
+        if ([400, 401, 403].includes(response.status)) saveSession(null);
+        return false;
+      }
+      const value = await response.json();
+      saveSession({ ...value, refresh_token: value.refresh_token || refreshToken });
+      return Boolean(session);
+    } catch {
+      return false;
+    } finally {
+      refreshSessionPromise = null;
+    }
+  })();
+  return refreshSessionPromise;
+}
+
+function stopSessionRefresh() {
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = 0;
+}
+
+function scheduleSessionRefresh(retry = false) {
+  stopSessionRefresh();
+  if (!authLifecycleActive || !session?.refresh_token) return;
+  const expiresAtMs = Number(session.expires_at || 0) * 1000;
+  const desiredDelay = retry
+    ? AUTO_REFRESH_RETRY_MS
+    : expiresAtMs
+      ? Math.max(0, expiresAtMs - Date.now() - SESSION_REFRESH_LEEWAY_SECONDS * 1000)
+      : AUTO_REFRESH_RETRY_MS;
+  refreshTimer = setTimeout(async () => {
+    if (!authLifecycleActive || !session) return;
+    const refreshed = await ensureAccessToken();
+    scheduleSessionRefresh(!refreshed);
+  }, Math.min(desiredDelay, AUTO_REFRESH_MAX_DELAY_MS));
+}
+
+async function resumeSessionLifecycle() {
+  if (!authLifecycleActive || !session || document.visibilityState === 'hidden') return;
+  const refreshed = await ensureAccessToken();
+  scheduleSessionRefresh(!refreshed);
+}
+
+function startSessionLifecycle() {
+  authLifecycleActive = true;
+  scheduleSessionRefresh();
+}
+
+function stopSessionLifecycle() {
+  authLifecycleActive = false;
+  stopSessionRefresh();
+}
+
+function showLogin(message = '') {
+  stopSessionLifecycle();
+  $('#auth-restoring-view').hidden = true;
+  $('#recovery-view').hidden = true;
+  $('#app-view').hidden = true;
+  $('#login-view').hidden = false;
+  $('#login-view').style.display = '';
+  $('#login-message').textContent = message;
 }
 
 async function ensureAccessToken() {
@@ -1750,15 +1825,14 @@ $('#return-to-login').addEventListener('click', async () => {
   const accessToken = session?.access_token;
   saveSession(null);
   cleanRecoveryUrl('home');
-  $('#recovery-view').hidden = true;
-  $('#login-view').style.display = '';
-  $('#login-message').textContent = '';
+  showLogin();
   if (accessToken) {
     try { await fetch(`${SUPABASE_URL}/auth/v1/logout`, { method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${accessToken}` } }); } catch { /* Local recovery session is already cleared. */ }
   }
 });
 $('#logout').addEventListener('click', async () => {
   const accessToken = session?.access_token;
+  stopSessionLifecycle();
   protectedRequests.forEach((controller) => controller.abort());
   protectedRequests.clear();
   saveSession(null);
@@ -1771,6 +1845,7 @@ $('#logout').addEventListener('click', async () => {
   $('#toggle-password').setAttribute('aria-label', 'הצגת הסיסמה');
   $('#toggle-password').setAttribute('aria-pressed', 'false');
   $('#app-view').hidden = true;
+  $('#login-view').hidden = false;
   $('#login-view').style.display = '';
   $('#login-message').textContent = 'ההתנתקות הושלמה.';
   history.replaceState({}, '', `${location.pathname}#home`);
@@ -1783,8 +1858,13 @@ $('#mobile-more').addEventListener('click', openMenu);
 $('#sidebar-backdrop').addEventListener('click', closeMenu);
 window.addEventListener('hashchange', render);
 window.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMenu(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') resumeSessionLifecycle(); });
+window.addEventListener('focus', resumeSessionLifecycle);
+window.addEventListener('online', resumeSessionLifecycle);
+window.addEventListener('pageshow', resumeSessionLifecycle);
 
 async function initializeAuth() {
+  $('#auth-restoring-view').hidden = false;
   preserveLegacyCallbackAtRoot();
   const recovery = parseRecoveryCallback();
   if (recovery.isRecovery) {
@@ -1794,8 +1874,7 @@ async function initializeAuth() {
     return;
   }
   if (!await validateSession()) {
-    $('#app-view').hidden = true;
-    $('#login-view').style.display = '';
+    showLogin();
     return;
   }
   await showPortalHome();
