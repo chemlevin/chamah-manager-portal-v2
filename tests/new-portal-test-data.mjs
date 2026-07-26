@@ -176,7 +176,9 @@ export async function mockNewPortalSupabase(page, units = allocationUnits) {
     };
     return route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8', body: JSON.stringify({
       ...body, units, daycares: generalResponses.daycares, roles: generalResponses.roles,
-      certificates: [], compensationFactors: [], entities: [],
+      certificates: [], compensationFactors: [], entities: [{ legal_entity_id:'entity-1', display_name:'עמותה' }],
+      daycareSchoolYears: generalResponses.daycare_school_years,
+      classrooms: generalResponses.classrooms,
     }) });
   });
   await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/rest/v1/**', async (route) => {

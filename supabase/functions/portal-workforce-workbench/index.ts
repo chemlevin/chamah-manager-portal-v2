@@ -55,15 +55,17 @@ Deno.serve(async (request) => {
     if (!permission.ok || await permission.json() !== true) return json({ error: "אין הרשאה מתאימה." }, 403);
 
     const lookups = async () => {
-      const [units, daycares, roles, certificates, entities, compensationFactors] = await Promise.all([
+      const [units, daycares, daycareSchoolYears, classrooms, roles, certificates, entities, compensationFactors] = await Promise.all([
         read("allocation_units?select=*&lifecycle_status=eq.ACTIVE&order=display_order,display_name"),
         read("daycares?select=*&lifecycle_status=eq.ACTIVE&order=display_order,display_name"),
+        read("daycare_school_years?select=daycare_school_year_id,daycare_id,school_year_id,lifecycle_status&lifecycle_status=eq.ACTIVE"),
+        read("classrooms?select=*&lifecycle_status=eq.ACTIVE&order=display_order,display_name"),
         read("roles?select=*&lifecycle_status=eq.ACTIVE&order=display_order,display_name"),
         read("certificate_types?select=*&lifecycle_status=eq.ACTIVE&order=display_order,display_name"),
         read("legal_entities?select=*&lifecycle_status=eq.ACTIVE&order=display_order,display_name"),
         read("compensation_factors?select=*&lifecycle_status=eq.ACTIVE&order=display_order,display_name"),
       ]);
-      return { units, daycares, roles, certificates, entities, compensationFactors };
+      return { units, daycares, daycareSchoolYears, classrooms, roles, certificates, entities, compensationFactors };
     };
 
     if (request.method === "GET" && page === "employees") {
@@ -114,7 +116,8 @@ Deno.serve(async (request) => {
           employee_code: text(body.employee_code), national_id: text(body.national_id) || null,
           first_name: text(body.first_name), last_name: text(body.last_name),
           phone: text(body.phone) || null, email: text(body.email) || null,
-          birth_date: text(body.birth_date) || null, lifecycle_status: text(body.lifecycle_status) || "ACTIVE",
+          birth_date: text(body.birth_date) || null, manager_employee_id: uuid(body.manager_employee_id) || null,
+          lifecycle_status: text(body.lifecycle_status) || "ACTIVE",
           notes: text(body.notes) || null, updated_by_user_id: actor.id,
         };
         if (!payload.employee_code || !payload.first_name || !payload.last_name) return json({ error: "מספר עובד, שם פרטי ושם משפחה נדרשים." }, 422);
@@ -127,18 +130,35 @@ Deno.serve(async (request) => {
         await audit("employees", row.employee_id, id ? "UPDATE" : "INSERT", previous, row, actor.id);
         return json({ employee: row }, id ? 200 : 201);
       }
-      if (body.action === "delete_employee") {
+      if (body.action === "deactivate_employee" || body.action === "delete_employee") {
         const id = uuid(body.employee_id);
         const previous = (await read(`employees?employee_id=eq.${id}&limit=1`))[0];
         if (!previous) return json({ error: "העובד לא נמצא." }, 404);
-        await write(`employees?employee_id=eq.${id}`, "PATCH", { lifecycle_status: "ARCHIVED", updated_by_user_id: actor.id });
-        await audit("employees", id, "STATUS_CHANGE", previous, { ...previous, lifecycle_status: "ARCHIVED" }, actor.id);
-        return json({ archived: id });
+        const lifecycleStatus = body.action === "deactivate_employee" ? "INACTIVE" : "ARCHIVED";
+        await write(`employees?employee_id=eq.${id}`, "PATCH", { lifecycle_status: lifecycleStatus, updated_by_user_id: actor.id });
+        await audit("employees", id, "STATUS_CHANGE", previous, { ...previous, lifecycle_status: lifecycleStatus }, actor.id);
+        return json({ employee_id: id, lifecycle_status: lifecycleStatus });
+      }
+      if (body.action === "version_pay_term") {
+        const result = await write("rpc/portal_version_employee_pay_term", "POST", {
+          target_employee_id: uuid(body.employee_id),
+          effective_from: text(body.record?.valid_from),
+          term_values: body.record || {},
+          actor_id: actor.id,
+        });
+        return json({ record: result });
+      }
+      if (body.action === "close_pay_term") {
+        const result = await write("rpc/portal_close_employee_pay_term", "POST", {
+          target_pay_term_id: uuid(body.employee_pay_term_id),
+          close_on: text(body.close_on),
+          actor_id: actor.id,
+        });
+        return json({ record: result });
       }
       const childTables: Record<string, { table: string; key: string; parent: string }> = {
         save_employment: { table: "employments", key: "employment_id", parent: "employee_id" },
         save_assignment: { table: "employee_assignments", key: "assignment_id", parent: "employment_id" },
-        save_pay_term: { table: "employee_pay_terms", key: "employee_pay_term_id", parent: "employee_id" },
         save_eligibility: { table: "employee_compensation_eligibility", key: "employee_compensation_eligibility_id", parent: "employment_id" },
         save_certificate: { table: "employee_certificates", key: "employee_certificate_id", parent: "employee_id" },
         save_leave: { table: "employee_leave_periods", key: "employee_leave_period_id", parent: "employment_id" },

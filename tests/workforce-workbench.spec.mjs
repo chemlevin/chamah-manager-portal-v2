@@ -16,7 +16,7 @@ test('Employees Workbench renders KPI, toolbar, master table and lower detail ca
   await expect(page.locator('#wf-details')).toContainText('בונוסים וזכאויות');
   await expect(page.locator('#wf-details')).toContainText('רישוי והכשרות');
   await expect(page.locator('#wf-details')).toContainText('חופשות והיעדרויות');
-  await expect(page.locator('#wf-details')).toContainText('placeholder בלבד');
+  await expect(page.locator('#wf-details')).toContainText('Placeholder בלבד');
   if (testInfo.project.name === 'desktop-1440') await page.screenshot({ path: 'test-results/track020-employees.png', fullPage: true });
 });
 
@@ -60,11 +60,22 @@ test('Employee CRUD and pay-term history dispatch canonical Supabase actions', a
   await expect.poll(() => actions.some((body) => body.action === 'save_employee' && body.employee_code === 'EMP-NEW')).toBeTruthy();
 
   await page.getByRole('button', { name: 'פרטים' }).click();
-  await page.locator('[data-add-child="pay_term"]').click();
-  await page.locator('#wf-child-form [name="valid_from"]').fill('2026-08-01');
-  await page.locator('#wf-child-form [name="base_pay"]').fill('9500');
-  await page.locator('#wf-child-form').getByRole('button', { name: 'שמירה' }).click();
-  await expect.poll(() => actions.some((body) => body.action === 'save_pay_term' && body.record.valid_from === '2026-08-01')).toBeTruthy();
+  await page.locator('[data-new-term]').click();
+  await page.locator('#wf-form [name="valid_from"]').fill('2026-08-01');
+  await page.locator('#wf-form [name="base_pay"]').fill('9500');
+  await page.locator('#wf-form').getByRole('button', { name: 'שמירה' }).click();
+  await expect.poll(() => actions.some((body) => body.action === 'version_pay_term' && body.record.valid_from === '2026-08-01')).toBeTruthy();
+});
+
+test('Employee table exposes required summary fields and dependent classroom lookup', async ({ page }) => {
+  await openNewPortal(page, 'dashboards/unit/organization/staffing/employees');
+  await expect(page.locator('#wf-head')).toContainText('כיתה ראשית');
+  await expect(page.locator('#wf-head')).toContainText('וותק מוכר');
+  await expect(page.locator('#wf-head')).toContainText('תחילת העסקה');
+  await page.getByRole('button', { name: 'פרטים' }).click();
+  await page.locator('[data-edit-assignment]').click();
+  await page.locator('#wf-form [name="daycare_id"]').selectOption('daycare-1');
+  await expect(page.locator('#wf-form [name="classroom_id"] option[value="class-1"]')).toHaveText('כיתה א');
 });
 
 test('Payroll add, autosave and split dispatch canonical Supabase actions', async ({ page }) => {

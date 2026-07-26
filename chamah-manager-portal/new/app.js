@@ -6,7 +6,8 @@ import { DOCUMENTED_STATUS_RULES, REFERENCE_TABLES, VARIABLE_RULE_TABLES } from 
 import { mountAdministrationPrototype } from './administration-prototype.js';
 import { mountSettingsCenter } from './settings-center.js';
 import { bankWorkbenchTemplateV2 as track015BankWorkbenchTemplate, mountBankWorkbenchV2 as mountBankWorkbench } from './bank-workbench-ux.js';
-import { workforceHubTemplate, employeesWorkbenchTemplate, payrollWorkbenchTemplate, mountEmployeesWorkbench, parsePayrollWorkbook } from './workforce-workbench.js';
+import { workforceHubTemplate, employeesWorkbenchTemplate, payrollWorkbenchTemplate, parsePayrollWorkbook } from './workforce-workbench.js';
+import { mountEmployeesWorkbench } from './employees-workbench.js';
 import { mountPayrollWorkbench } from './payroll-workbench.js';
 
 window.parsePayrollWorkbookForWorkbench = parsePayrollWorkbook;
