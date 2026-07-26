@@ -3647,3 +3647,21 @@ Files changed:
 - `tests/bank-transfer-workbench.spec.mjs`
 - `tests/new-portal-test-data.mjs`
 - `PROJECT_LOG.md`
+
+## 2026-07-26 - TRACK023 Production Promotion
+
+- Merged approved TRACK023 commit `b2de7f1` into `main`.
+- Confirmed Production migration `20260726090332_track_023_bank_transfer_workbench`
+  is applied; no migration replay or Production data rewrite was performed.
+- Redeployed `portal-bank-transfer-workbench` with JWT verification enabled.
+- Promoted the existing Vercel `chamah-portal` Production project and preserved
+  its existing `https://chamah-portal-chamah.vercel.app` alias.
+- Verified the service-side permission contract: active Super Admin users resolve
+  to EDIT; non-admin users fail closed and require an explicit VIEW or EDIT grant
+  for `dashboards.accounting.bank-transfers`; writes require EDIT.
+- Fixture-only Playwright smoke passed for add, edit/autosave, archive, import,
+  export, attachment, status/manual execution date and split behavior. Read-only
+  Production probes returned HTTP 200 for the portal and Workbench asset, and 401
+  for an unauthenticated Edge Function request.
+- No real Production transfer or attachment record was created, changed, archived,
+  imported or uploaded during smoke testing.
