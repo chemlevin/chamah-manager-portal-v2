@@ -3370,6 +3370,92 @@ Files changed:
 - `tests/sql/track020a_payroll_month_lifecycle.sql`
 - `PROJECT_LOG.md`
 
+## 2026-07-26 - Production Bank Workbench Preview Fix
+
+Objective: Diagnose the Production Bank Workbench empty/legacy surface, reuse the
+approved TRACK015-TRACK017 implementation unchanged, and validate the correction
+on Preview without changing Production.
+
+Root cause:
+
+- The hostname used by the affected Production session,
+  `https://chamah-portal.vercel.app`, remained attached to the July 23 legacy
+  Production deployment `dpl_CVLwqd7ZVrVyvQc6v3uShxZrD5Ce`.
+- That artifact predates `bank-workbench-ux.js` and `autosave.js`; it therefore
+  rendered the old read-only Accounting table and could not expose the approved
+  import, manual transaction, row editing, delete, split, export, validation or
+  save-state behavior.
+- The TRACK021C deployment existed on the same Vercel project under
+  `chamah-portal-chamah.vercel.app`, but the primary project hostname had not
+  moved to it. This was a Vercel alias/version mismatch, not an empty Supabase
+  dataset or permission gate.
+
+Implementation:
+
+- Kept the approved TRACK015-TRACK017 Bank Workbench, Edge Function contracts,
+  atomic RPC writes, validation and TRACK021B autosave implementation unchanged.
+- Restored `https://chamah-portal.vercel.app/` as the application canonical
+  Production URL while recognizing the interim
+  `chamah-portal-chamah.vercel.app` hostname as Production for recovery routing.
+- Made the local recovery redirect test assert the active local origin instead
+  of hardcoding the standard QA port.
+
+Data and permissions:
+
+- Read-only Production checks found 102 bank transactions, 5 bank accounts,
+  5 bank allocations and 2 BANK_FILE import batches.
+- The affected authenticated account is active, organization-scoped and a
+  super-admin with effective `EDIT` permission for
+  `dashboards.accounting.banks`.
+- No Production records, permissions, RLS policies, migrations, Edge Functions
+  or business rules were changed.
+
+Validation:
+
+- PASS: JavaScript syntax checks, clean build, four shared autosave tests and
+  `git diff --check`.
+- PASS: 58 focused Bank Workbench/authentication tests across desktop and mobile
+  after making the local-origin assertion port-independent.
+- One HTML/XLS import test timed out once in the combined run and passed
+  immediately in isolation; the same case had passed in the preceding combined
+  run.
+- Automated coverage confirms file import/preview/confirmation, manual
+  transaction, add/edit/delete, one-level balanced split, bulk delete, export,
+  dependent dropdowns, validation, manual Save, autosave status, session restore
+  and permission fail-closed behavior.
+- Direct browser automation remained outside the user's authenticated browser
+  session because Vercel and portal sessions are browser-context isolated. The
+  user confirmed that the authorized Preview loaded live data and actions; this
+  confirmation is recorded separately from agent-observed automated evidence.
+
+Preview:
+
+- Source commit: `5c1a5bd`
+- Deployment: `dpl_5QmgdThYBfKGNRKCKV5CGybLnKM1`
+- Stable Preview URL:
+  `https://chamah-portal-chemlevin-chamah.vercel.app`
+- Vercel reports the deployment READY with target `preview`.
+- Production was not deployed, promoted or re-aliased.
+- An accidental disposable project created by the first isolated-worktree CLI
+  invocation was removed; the valid Preview remains on the established
+  `chamah-portal` project.
+
+Production recommendation:
+
+- Promote or redeploy the approved fix artifact to the existing
+  `chamah-portal` Production target, then explicitly assign
+  `chamah-portal.vercel.app` to that resulting deployment.
+- Retain `chamah-portal-chamah.vercel.app` temporarily as a compatibility alias,
+  confirm both hostnames resolve to the same deployment, and repeat an
+  authenticated read/write-with-rollback Bank Workbench smoke test before
+  closing the Production release gate.
+
+Files changed:
+
+- `chamah-manager-portal/new/app.js`
+- `tests/new-portal-auth.spec.mjs`
+- `PROJECT_LOG.md`
+
 ## 2026-07-26 - TRACK021C Production Release
 
 Objective: Release all approved work through TRACK021B to the existing Production
