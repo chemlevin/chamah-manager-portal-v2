@@ -24,6 +24,11 @@ test('Actual Payroll Workbench shows month, matching KPIs and cost-hours split e
   await openNewPortal(page, 'dashboards/unit/organization/staffing/actual-payroll');
   await expect(page.getByRole('heading', { name: 'ביצוע שכר', exact: true })).toBeVisible();
   await expect(page.locator('#wf-month')).toBeVisible();
+  await expect(page.locator('.payroll-active-month')).toContainText('2026-07');
+  await expect(page.locator('.payroll-active-month')).toContainText('פתוח');
+  await expect(page.locator('.payroll-month-tabs')).toContainText('חדש');
+  await expect(page.locator('.payroll-month-tabs')).toContainText('קיים');
+  await expect(page.locator('.payroll-month-tabs')).toContainText('טבלאות עבר');
   await expect(page.locator('#wf-kpis button')).toHaveCount(6);
   await expect(page.locator('#wf-rows .bank-row-status').first()).toHaveText('מקושר');
   await page.getByRole('button', { name: 'פרטים' }).first().click();
@@ -33,13 +38,31 @@ test('Actual Payroll Workbench shows month, matching KPIs and cost-hours split e
   await expect(page.locator('[name="daycare_id"]').first()).toBeVisible();
   await expect(page.locator('[name="allocation_amount"]').first()).toBeVisible();
   await expect(page.locator('[name="allocated_hours"]').first()).toBeVisible();
-  if (testInfo.project.name === 'desktop-1440') await page.screenshot({ path: 'test-results/track020-actual-payroll.png', fullPage: true });
+  await page.screenshot({
+    path: `test-results/track020b-actual-payroll-${testInfo.project.name}.png`,
+    fullPage: true,
+  });
+});
+
+test('Payroll month navigation separates open work from closed history', async ({ page }) => {
+  await openNewPortal(page, 'dashboards/unit/organization/staffing/actual-payroll');
+  await expect(page.locator('.payroll-active-month')).toContainText('2026-07');
+  await page.getByRole('button', { name: /טבלאות עבר/ }).click();
+  await expect(page.locator('.payroll-month-view')).toContainText('2026-06');
+  await page.locator('[data-month="2026-06"]').click();
+  await expect(page.locator('.payroll-active-month')).toContainText('2026-06');
+  await expect(page.locator('.payroll-active-month')).toContainText('סגור');
+  await expect(page.locator('#wf-add')).toBeDisabled();
+  await expect(page.locator('#wf-import')).toBeDisabled();
 });
 
 test('workforce pages stay RTL and avoid viewport overflow on mobile', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openNewPortal(page, 'dashboards/unit/organization/staffing/employees');
   expect(await page.evaluate(() => document.documentElement.dir)).toBe('rtl');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+  await openNewPortal(page, 'dashboards/unit/organization/staffing/actual-payroll');
+  await expect(page.locator('.payroll-month-workflow')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
 });
 
@@ -113,6 +136,8 @@ test('Payroll month opening and closing dispatch lifecycle actions', async ({ pa
   await page.locator('#wf-form [name="opening_method"][value="ACTIVE_EMPLOYEES"]').check();
   await page.locator('#wf-form').getByRole('button', { name: 'פתיחה ומעבר לחודש' }).click();
   await expect.poll(() => actions.some((body) => body.action === 'open_month' && body.opening_method === 'ACTIVE_EMPLOYEES')).toBeTruthy();
+  await expect(page.locator('#wf-month')).toHaveValue('2026-08');
+  await expect(page.locator('.payroll-active-month')).toContainText('2026-08');
 
   await expect(page.locator('#wf-close-month')).toBeVisible();
 });

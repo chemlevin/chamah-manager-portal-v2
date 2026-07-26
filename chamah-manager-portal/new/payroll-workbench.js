@@ -64,6 +64,7 @@ export async function mountPayrollWorkbench(request) {
     daycare: "",
     sort: "employee",
     direction: 1,
+    workflowView: "CURRENT",
     allocationDrafts: new Map(),
     monthlyAutosave: null,
     allocationAutosave: null,
@@ -75,11 +76,55 @@ export async function mountPayrollWorkbench(request) {
 
   document.querySelector(".bank-import-actions").insertAdjacentHTML(
     "afterbegin",
-    '<button id="wf-open-month" class="button button-secondary">חודש חדש</button><button id="wf-close-month" class="button button-primary">סגירת חודש</button>'
+    '<button id="wf-open-month" class="button button-secondary">חדש</button><button id="wf-close-month" class="button button-primary">סגירת חודש</button>'
   );
 
+  const monthKey = (row) => row?.payroll_month?.slice(0, 7) || "";
+  const sortedMonths = (rows) => [...rows].sort((a, b) => monthKey(b).localeCompare(monthKey(a)));
   const month = () => state.data.months.find((row) => row.payroll_month.slice(0, 7) === state.month);
   const isClosed = () => month()?.month_status === "CLOSED";
+  const monthStatus = (row) => row?.month_status === "CLOSED" ? "סגור" : "פתוח";
+  const selectMonth = async (value, view) => {
+    state.month = value;
+    state.selected = "";
+    state.workflowView = view;
+    $("#wf-month").value = value;
+    await reload();
+  };
+  const renderMonthWorkflow = () => {
+    const opened = sortedMonths(state.data.months.filter((row) => row.month_status !== "CLOSED"));
+    const closed = sortedMonths(state.data.months.filter((row) => row.month_status === "CLOSED"));
+    const current = month();
+    const monthButtons = (rows, view, emptyText) => rows.length
+      ? rows.map((row) => `<button class="payroll-month-link ${monthKey(row) === state.month ? "active" : ""}" data-month="${monthKey(row)}" data-month-target="${view}">
+          <strong>${monthKey(row)}</strong><span>${monthStatus(row)}</span>
+        </button>`).join("")
+      : `<p class="payroll-month-empty">${emptyText}</p>`;
+    const content = state.workflowView === "NEW"
+      ? `<div class="payroll-month-view payroll-month-new"><div><strong>פתיחת חודש שכר</strong><p>בחירת עובדים בלבד; ערכי השכר החודשיים אינם מועתקים.</p></div><button class="button button-primary" data-open-month-primary>פתיחת חודש חדש</button></div>`
+      : state.workflowView === "HISTORY"
+        ? `<div class="payroll-month-view"><p class="payroll-month-view-title">חודשים סגורים</p><div class="payroll-month-list">${monthButtons(closed, "HISTORY", "אין עדיין חודשי עבר סגורים.")}</div></div>`
+        : `<div class="payroll-month-view"><p class="payroll-month-view-title">חודשים פתוחים לעבודה</p><div class="payroll-month-list">${monthButtons(opened, "CURRENT", "אין כרגע חודש פתוח.")}</div></div>`;
+    $("#payroll-month-workflow").innerHTML = `<div class="payroll-active-month">
+        <div><p class="eyebrow">חודש פעיל</p><h2>${state.month || "לא נבחר חודש"}</h2></div>
+        <span class="payroll-month-badge ${current?.month_status === "CLOSED" ? "closed" : current ? "open" : "empty"}">${current ? monthStatus(current) : state.month ? "טרם נפתח" : "ללא בחירה"}</span>
+      </div>
+      <nav class="payroll-month-tabs" aria-label="שלבי עבודה חודשיים">
+        <button data-month-view="NEW" class="${state.workflowView === "NEW" ? "active" : ""}">חדש</button>
+        <button data-month-view="CURRENT" class="${state.workflowView === "CURRENT" ? "active" : ""}">קיים <span>${opened.length}</span></button>
+        <button data-month-view="HISTORY" class="${state.workflowView === "HISTORY" ? "active" : ""}">טבלאות עבר <span>${closed.length}</span></button>
+      </nav>${content}`;
+    document.querySelectorAll("[data-month-view]").forEach((button) => {
+      button.onclick = () => {
+        state.workflowView = button.dataset.monthView;
+        renderMonthWorkflow();
+      };
+    });
+    document.querySelectorAll("[data-month-target]").forEach((button) => {
+      button.onclick = () => selectMonth(button.dataset.month, button.dataset.monthTarget);
+    });
+    $("[data-open-month-primary]")?.addEventListener("click", openMonthDialog);
+  };
   const employeeFor = (record) => {
     const employment = state.data.employments.find((row) => row.employment_id === record.employment_id);
     return state.data.employees.find((row) => row.employee_id === employment?.employee_id);
@@ -140,6 +185,7 @@ export async function mountPayrollWorkbench(request) {
       const payload = Object.fromEntries(new FormData(event.target));
       await request("payroll", "POST", { action: "open_month", ...payload });
       state.month = payload.payroll_month;
+      state.workflowView = "CURRENT";
       $("#wf-month").value = state.month;
       $("#wf-dialog").close();
       await reload();
@@ -154,6 +200,7 @@ export async function mountPayrollWorkbench(request) {
       const notes = prompt("סיבת פתיחת החודש מחדש:");
       if (!notes) return;
       await request("payroll", "POST", { action: "reopen_month", payroll_month: state.month, notes });
+      state.workflowView = "CURRENT";
       await reload();
       return message("החודש נפתח מחדש.", "success");
     }
@@ -164,6 +211,7 @@ export async function mountPayrollWorkbench(request) {
     }
     if (!confirm(`לסגור את חודש ${state.month} ולנעול עריכה?`)) return;
     await request("payroll", "POST", { action: "close_month", payroll_month: state.month });
+    state.workflowView = "HISTORY";
     await reload();
     message("החודש נסגר וננעל.", "success");
   };
@@ -474,11 +522,31 @@ export async function mountPayrollWorkbench(request) {
     });
     $("#wf-add").disabled = isClosed() || !current;
     $("#wf-import").disabled = isClosed() || !current;
+    $("#wf-export").disabled = !current;
+    $("#wf-search").disabled = !current;
+    $("#wf-status").disabled = !current;
+    $("#wf-unit").disabled = !current;
+    $("#wf-daycare").disabled = !current;
+    $("#wf-clear").disabled = !current;
+    $("#wf-close-month").disabled = !current || (isClosed() && !state.data.canReopen);
     $("#wf-close-month").textContent = isClosed() ? "פתיחה מחדש" : "סגירת חודש";
+    renderMonthWorkflow();
     renderDetails();
   }
 
   state.data = await request("payroll", "GET", null, state.month);
+  const initialOpenMonth = sortedMonths(state.data.months.filter((row) => row.month_status !== "CLOSED"))[0];
+  const initialExistingMonth = state.data.months.find((row) => monthKey(row) === state.month);
+  const initialClosedMonth = sortedMonths(state.data.months.filter((row) => row.month_status === "CLOSED"))[0];
+  const initialMonth = initialOpenMonth || initialExistingMonth || initialClosedMonth;
+  if (initialMonth && monthKey(initialMonth) !== state.month) {
+    state.month = monthKey(initialMonth);
+    state.workflowView = initialMonth.month_status === "CLOSED" ? "HISTORY" : "CURRENT";
+    state.data = await request("payroll", "GET", null, state.month);
+  } else if (!initialMonth) {
+    state.month = "";
+    state.workflowView = "NEW";
+  }
   $("#wf-status").innerHTML = '<option value="">כל הסטטוסים</option>'
     + Object.entries(statuses).map(([key, value]) => `<option value="${key}">${value}</option>`).join("");
   $("#wf-unit").innerHTML = '<option value="">כל המחלקות</option>'
@@ -487,9 +555,8 @@ export async function mountPayrollWorkbench(request) {
     + options(state.data.daycares, "daycare_id").replace('<option value="">בחירה…</option>', "");
   $("#wf-month").value = state.month;
   $("#wf-month").onchange = async (event) => {
-    state.month = event.target.value;
-    state.selected = "";
-    await reload();
+    const target = state.data.months.find((row) => monthKey(row) === event.target.value);
+    await selectMonth(event.target.value, target?.month_status === "CLOSED" ? "HISTORY" : "CURRENT");
   };
   $("#wf-search").oninput = (event) => {
     state.query = event.target.value;

@@ -165,7 +165,10 @@ export async function mockNewPortalSupabase(page, units = allocationUnits) {
       employments: generalResponses.employments,
       assignments: generalResponses.employee_assignments,
       payTerms: generalResponses.employee_pay_terms,
-      months: [{ payroll_month: '2026-07-01', month_status: 'CURRENT', opening_method: 'ACTIVE_EMPLOYEES' }],
+      months: [
+        { payroll_month: '2026-07-01', month_status: 'CURRENT', opening_method: 'ACTIVE_EMPLOYEES' },
+        { payroll_month: '2026-06-01', month_status: 'CLOSED', opening_method: 'PREVIOUS_MONTH' },
+      ],
       canReopen: true,
     } : {
       employees: generalResponses.employees.map((row) => ({ ...row, employee_code: 'EMP-1' })),

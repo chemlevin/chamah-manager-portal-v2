@@ -3520,3 +3520,20 @@ Files changed:
 - Read-only Production probes passed for database entities, RPC permissions, JWT rejection (`401` without a token), live TRACK020 static assets, and absence of recent Vercel runtime errors.
 - Authenticated live workflow testing could not be completed because no Production credentials or authenticated browser session were available. No credentials were invented and no Production data was mutated for testing.
 - Release gate status: `FAILED` pending authenticated live smoke verification, although the Production deployment itself is Ready.
+
+## 2026-07-26 - TRACK020B Workforce UX Completion
+
+- Refined the Preview-only Employees and Actual Payroll Workbench experience without changing backend contracts, calculations, RLS, RPCs, migrations, or the data model.
+- Preserved the Employees KPI, toolbar, primary table, row selection, add/export/filter controls, and lower employee details card.
+- Added an explicit payroll month workspace with `חדש`, `קיים`, and `טבלאות עבר` views.
+- The payroll page now selects the latest open month automatically, shows the active month and its open/closed status prominently, navigates directly to a newly opened month, lists open months under `קיים`, and lists closed months under `טבלאות עבר`.
+- Add/import/close/reopen/export/filter actions now reflect whether the selected month exists and whether it is open or closed; closed months remain read-only.
+- Kept the editable payroll table as the primary work surface and preserved manual rows, Excel import, accountant export, autosave, employee matching, temporary approvals, and cost/hour splits.
+- Improved mobile RTL wrapping for payroll actions and month navigation, with no document-level horizontal overflow.
+- Validation passed:
+  - `node --check chamah-manager-portal/new/payroll-workbench.js`
+  - `node --check chamah-manager-portal/new/workforce-workbench.js`
+  - `npm run build`
+  - Workforce Playwright suite on desktop and mobile: `18/18`
+  - Payroll and Budget engine regression suite: `21/21`
+- Desktop and mobile payroll screenshots were captured from the verified Playwright fixtures.
