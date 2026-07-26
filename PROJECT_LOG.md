@@ -3722,3 +3722,43 @@ Remaining validation:
   unverified.
 - Production was queried read-only for migration metadata only. No Production
   migration, schema, data, Edge Function or deployment was changed.
+
+## 2026-07-26 - TASK024B Isolated Supabase Parity Validation
+
+Environment:
+
+- Supabase reported `$0/month` for a new project in Production organization
+  `hleokfgtwzyykbswufsp`; paid branches remained `$0.01344/hour`.
+- Created free isolated project `task024b-validation`
+  (`isakngcltryhdvcqxujd`) in `eu-west-1` without Production data.
+- Applied all 44 repository migrations from zero successfully.
+- Deleted the isolated project after validation and verified that only the
+  pre-existing projects remain. Removed the temporary database-password file.
+- Production remained read-only and unchanged.
+
+Schema parity:
+
+- Exact matches: columns (722), constraints (402), extensions (5), policies
+  (47), RLS table flags (51), triggers (45), classroom-licensing seed rows (3),
+  portal-section rows (35), private portal-access seed (1), and the private
+  bank-transfer Storage bucket (1).
+- Nine normalized function bodies differ from Production:
+  `enforce_legacy_accounting_status_read_only`,
+  `portal_close_payroll_month`, `portal_effective_permission`,
+  `portal_guard_closed_payroll_month`, `portal_has_permission`,
+  `portal_open_payroll_month`, `portal_reopen_payroll_month`,
+  `portal_save_bank_allocations`, and `portal_version_employee_pay_term`.
+- Index `payroll_records_employee_month_lookup_idx` differs: the clean build
+  includes a `source_employee_identifier is not null` predicate while Production
+  has an unfiltered index.
+- Production has migration-relevant configuration absent from the clean build:
+  five `accounting_statuses`, six `SR-2026-*` staffing rules, and one
+  `TRAVEL-2026-2027` travel rate. The staffing/travel inserts depend on a
+  school-year row not seeded by the repository migration chain.
+
+Verdict:
+
+- Clean migration execution passes, but exact Production parity fails.
+- Do not merge the recovery branch into `main` and do not close PR #5 until the
+  remaining function, index, and seed-source drift is reconciled and a new clean
+  parity run passes.
