@@ -4434,6 +4434,14 @@ Follow-up validation correction:
   split allocation expands as compact inline child rows limited to Accounting
   values.
 
+## 2026-07-27 — TRACK026C Payroll Workbench UX Alignment
+
+- Aligned Payroll with the portal Workbench pattern: the active worksheet is
+  the only operational surface, manual-add remains inline, and `+` expands
+  editable inline accounting split children directly below the employee row.
+- Removed visible calculation terminology from component headers and kept
+  component checkboxes/amounts as presentation of the backend result only.
+
 ## 2026-07-27 — TRACK027 Preview permission-validation correction
 
 Root cause:

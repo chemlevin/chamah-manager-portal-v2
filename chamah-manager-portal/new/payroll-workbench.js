@@ -542,6 +542,11 @@ export async function mountPayrollWorkbench(request) {
       ${component?.eligible ? `<strong>${money.format(Number(component.monthly_impact || 0))}</strong>` : ""}
     </div>`;
   };
+  const componentLabel = (value) => String(value || "")
+    .replace(/\s*[–-]\s*(חודשי|שעתי|שנתי)/g, "")
+    .replace(/^(מענק|תוספת)\s+/g, "")
+    .replace(/\s+עד סכום חודשי מרבי/g, "")
+    .trim();
   const inlineLookup = (record, field, rows, idField, label) =>
     `<select class="workforce-inline payroll-cell-select" aria-label="${label}" data-payroll-inline="${record.payroll_record_id}" name="${field}" ${isClosed() ? "disabled" : ""}>${options(rows, idField, record[field])}</select>`;
 
@@ -567,7 +572,7 @@ export async function mountPayrollWorkbench(request) {
       <th><input type="checkbox" data-payroll-select-all aria-label="בחירת כל השורות"></th>
       <th class="bank-sticky-number"><button data-sort="code">מס׳ עובד</button></th><th class="payroll-sticky-employee"><button data-sort="employee">שם</button></th>
       ${inputColumns.map((column) => `<th>${esc(column.display_name)}</th>`).join("")}
-      ${componentColumns.map((column) => `<th>${esc(column.display_name)}</th>`).join("")}<th>הערות</th>
+      ${componentColumns.map((column) => `<th>${esc(componentLabel(column.display_name))}</th>`).join("")}<th>הערות</th>
       <th>ברוטו</th>
       <th>מחלקה</th><th>מעון</th><th>תקן</th><th>נטו</th><th>ברוטו</th><th><button data-sort="cost">עלות</button></th><th>פעולות</th></tr>`;
     $("#wf-count").textContent = `${rows.length} עובדים`;
@@ -595,7 +600,7 @@ export async function mountPayrollWorkbench(request) {
         <td>${inlineNumber(record, "standard_hours", "שעות תקן")}</td><td>${inlineNumber(record, "actual_gross", "נטו")}</td>
         <td>${inlineNumber(record, "actual_gross", "ברוטו בפועל")}</td><td>${inlineNumber(record, "employer_cost", "עלות מעסיק")}</td>
         <td><button class="payroll-split-add" title="פיצול שעות, עלות והקצאה" aria-label="פיצול" data-inline-split="${record.payroll_record_id}">+</button><button class="button button-quiet" data-delete-payroll="${record.payroll_record_id}" ${isClosed() ? "disabled" : ""}>מחיקה</button></td></tr>`
-        + (state.inlineSplit === record.payroll_record_id ? allocationsFor(record).map((split) => `<tr class="payroll-inline-split"><td></td><td colspan="${3 + inputColumns.length + componentColumns.length}">פיצול</td><td>${esc(lookup(state.data.units, split.allocation_unit_id, "allocation_unit_id"))}</td><td>${esc(lookup(state.data.daycares, split.daycare_id, "daycare_id"))}</td><td>—</td><td>—</td><td>${number.format(split.allocated_hours || 0)}</td><td>${money.format(split.allocation_amount || 0)}</td><td></td></tr>`).join("") : "");
+        + (state.inlineSplit === record.payroll_record_id ? (allocationsFor(record).length ? allocationsFor(record) : [{ allocation_unit_id:"", daycare_id:"", allocated_hours:"", allocation_amount:"" }]).map((split, index) => `<tr class="payroll-inline-split" data-inline-allocation="${record.payroll_record_id}" data-inline-allocation-index="${index}"><td></td><td colspan="${3 + inputColumns.length + componentColumns.length}">פיצול</td><td><select name="allocation_unit_id">${options(state.data.units, "allocation_unit_id", split.allocation_unit_id)}</select></td><td><select name="daycare_id">${options(state.data.daycares, "daycare_id", split.daycare_id)}</select></td><td>—</td><td>—</td><td><input name="allocated_hours" type="number" step=".01" value="${esc(split.allocated_hours ?? "")}"></td><td><input name="allocation_amount" type="number" step=".01" value="${esc(split.allocation_amount ?? "")}"></td><td>${index ? `<button class="button button-quiet" data-delete-inline-split="${record.payroll_record_id}" data-split-index="${index}">מחיקה</button>` : ""}</td></tr>`).join("") : "");
     }).join("");
     let bulk = $("#wf-payroll-bulk");
     if (!bulk) {
@@ -620,7 +625,26 @@ export async function mountPayrollWorkbench(request) {
       );
     });
     document.querySelectorAll("[data-inline-split]").forEach((button) => {
-      button.onclick = () => { state.inlineSplit = state.inlineSplit === button.dataset.inlineSplit ? null : button.dataset.inlineSplit; render(); };
+      button.onclick = () => {
+        const record = state.data.records.find((row) => row.payroll_record_id === button.dataset.inlineSplit);
+        if (state.inlineSplit !== button.dataset.inlineSplit && !allocationsFor(record).length) state.allocationDrafts.set(record.payroll_record_id, [{ allocation_unit_id:"", daycare_id:"", allocated_hours:"", allocation_amount:"" }]);
+        state.inlineSplit = state.inlineSplit === button.dataset.inlineSplit ? null : button.dataset.inlineSplit; render();
+      };
+    });
+    const saveInlineAllocations = async (recordId) => {
+      const rows = [...document.querySelectorAll(`[data-inline-allocation="${recordId}"]`)].map((row) => ({
+        ...Object.fromEntries([...row.querySelectorAll("input,select")].map((input) => [input.name, input.value])),
+        role_id: state.data.records.find((record) => record.payroll_record_id === recordId)?.role_id,
+      }));
+      state.allocationDrafts.set(recordId, rows);
+      await request("payroll", "POST", { action:"save_allocations", payroll_record_id:recordId, allocations:rows });
+      await reload(); state.inlineSplit = recordId;
+    };
+    document.querySelectorAll("[data-inline-allocation] input,[data-inline-allocation] select").forEach((field) => field.onchange = () => saveInlineAllocations(field.closest("[data-inline-allocation]").dataset.inlineAllocation));
+    document.querySelectorAll("[data-delete-inline-split]").forEach((button) => button.onclick = async () => {
+      const rows = [...allocationsFor(state.data.records.find((row) => row.payroll_record_id === button.dataset.deleteInlineSplit))];
+      rows.splice(Number(button.dataset.splitIndex), 1); state.allocationDrafts.set(button.dataset.deleteInlineSplit, rows);
+      await request("payroll", "POST", { action:"save_allocations", payroll_record_id:button.dataset.deleteInlineSplit, allocations:rows }); await reload(); state.inlineSplit = button.dataset.deleteInlineSplit;
     });
     document.querySelectorAll("[data-payroll-component]").forEach((field) => {
       field.onchange = () => {
