@@ -113,6 +113,17 @@ Deno.serve(async (request) => {
     const body = await request.json();
     if (page === "employees") {
       if (body.action === "import_employees") {
+        const importPermission = await fetch(`${url}/rest/v1/rpc/portal_has_permission`, {
+          method: "POST", headers: serviceHeaders,
+          body: JSON.stringify({
+            target_user_id: actor.id,
+            target_screen_code: "dashboards.staffing.employees.import",
+            required_level: "EDIT",
+          }),
+        });
+        if (!importPermission.ok || await importPermission.json() !== true) {
+          return json({ error: "אין הרשאת עריכה לייבוא עובדים." }, 403);
+        }
         const rows = Array.isArray(body.rows) ? body.rows : [];
         if (!rows.length || rows.length > 5000) return json({ error: "נדרשות 1–5,000 שורות תקינות לייבוא." }, 422);
         const result = await write("rpc/portal_import_employees", "POST", {
