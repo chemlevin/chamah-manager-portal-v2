@@ -4537,3 +4537,10 @@ Validation:
 - No frontend rates, formulas, amounts, Payroll Engine behavior or database
   rules changed. Preview-only validation remains pending authenticated live
   matrix verification and reload confirmation.
+
+Follow-up:
+
+- Changed configured monthly-input saves from blur-only to a 250ms debounced
+  input event. This makes a typed Hours 100% value autosave and recalculate
+  without requiring a secondary click, while keeping the calculation entirely
+  in the Edge projection.

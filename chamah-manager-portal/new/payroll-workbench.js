@@ -98,6 +98,7 @@ export async function mountPayrollWorkbench(request) {
     inlineSplit: null,
     allocationDrafts: new Map(),
     splitPreviews: new Map(),
+    monthlyInputTimers: new Map(),
     monthlyAutosave: null,
     allocationAutosave: null,
   };
@@ -721,12 +722,15 @@ export async function mountPayrollWorkbench(request) {
       };
     });
     document.querySelectorAll("[data-payroll-monthly-input]").forEach((field) => {
-      field.onchange = () => {
+      field.oninput = () => {
         const record = state.data.records.find((row) => row.payroll_record_id === field.dataset.payrollMonthlyInput);
         const inputs = { ...(record.monthly_inputs || {}) };
         inputs[field.dataset.inputField] = field.type === "checkbox" ? field.checked : field.value;
-        return saveInline(record, "monthly_inputs", inputs);
+        const key = `${record.payroll_record_id}:${field.dataset.inputField}`;
+        clearTimeout(state.monthlyInputTimers.get(key));
+        state.monthlyInputTimers.set(key, setTimeout(() => saveInline(record, "monthly_inputs", inputs), 250));
       };
+      field.onchange = field.oninput;
     });
     document.querySelectorAll("[data-payroll-select]").forEach((field) => {
       field.onchange = () => {
