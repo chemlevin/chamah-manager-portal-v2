@@ -4516,3 +4516,22 @@ Validation:
 - Added source-contract coverage for observer replacement. Preview deployed
   to `https://chamah-portal-qydidyhi0-chamah.vercel.app`. Production was not
   modified.
+
+## 2026-07-27 — TRACK027 canonical Production promotion
+
+- Merged the approved TRACK027 branch into `main` as
+  `34a58c0b150e2ea2a0e3617af593069c7e86510d` and pushed `main`.
+- Deployed the existing Vercel `chamah-portal` Production project as
+  `dpl_6ka2S6r5Ly4VhzABjmk67EEYkxLi`. Vercel deployment metadata confirms
+  target `production`, READY state, and serving Git SHA
+  `34a58c0b150e2ea2a0e3617af593069c7e86510d`.
+- Updated only the canonical alias `https://chamah-portal.vercel.app` to that
+  deployment and verified alias resolution through Vercel inspect.
+- Authenticated Production smoke test: Actual Payroll resolved EDIT with
+  enabled controls; an `actual_status` temporary value saved, was restored to
+  blank, and remained blank after reopening the screen from Supabase.
+- Authenticated Production smoke test: Employees, Bank Files and Bank
+  Transfers loaded without enabled mutation controls for the supplied account.
+- The supplied mixed-permission session did not expose a route which rendered
+  the distinct access-denied screen during this Production pass; HIDDEN denial
+  therefore remains a follow-up verification item rather than a claimed pass.
