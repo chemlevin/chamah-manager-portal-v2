@@ -69,7 +69,10 @@ function projectPayrollRecords(input: {
     const date = text(record.payroll_month);
     const employment = input.employments.find((row) => row.employment_id === record.employment_id);
     const payTerm = input.payTerms.find((row) => row.employee_pay_term_id === record.employee_pay_term_id);
-    const seniorityMonths = seniorityAt(employment, date);
+    const manualEmployee = record.source_payload && typeof record.source_payload === "object"
+      ? (record.source_payload as Record<string, unknown>).manual_employee as Record<string, unknown> | undefined : undefined;
+    const seniorityMonths = seniorityAt(employment, date) ?? (Number.isFinite(Number(manualEmployee?.seniority_months))
+      ? Number(manualEmployee?.seniority_months) : null);
     const explicitEligibility = new Map(input.eligibility
       .filter((row) => row.employment_id === record.employment_id && activeOn(row, date)
         && ["ELIGIBLE", "NOT_ELIGIBLE", "SUSPENDED"].includes(text(row.eligibility_status).toUpperCase()))
@@ -83,8 +86,8 @@ function projectPayrollRecords(input: {
       const rule = input.calculationInputRules.find((candidate) => text(candidate.source_field) === sourceField);
       return rule ? inputValue(rule) : record[sourceField];
     };
-    const eligibilityContext = { ...(payTerm || {}), ...record, ...monthlyInputs };
-    const baseHourlyRate = Number(payTerm?.base_pay || 0);
+    const eligibilityContext = { ...(payTerm || {}), ...(manualEmployee || {}), ...record, ...monthlyInputs };
+    const baseHourlyRate = Number(payTerm?.base_pay ?? manualEmployee?.base_hourly_rate ?? 0);
     const schoolYear = input.daycareSchoolYears.find((row) => row.daycare_id === record.daycare_id);
     const payrollComponents = input.compensationFactors.map((factor) => {
       const factorId = text(factor.compensation_factor_id);
@@ -163,7 +166,10 @@ function projectPayrollRecords(input: {
     const actualUnit = input.units.find((row) => row.allocation_unit_id === record.actual_allocation_unit_id);
     const daycareMissing = (unit?.unit_type === "DAYCARE" || unit?.allocation_unit_type === "DAYCARE") && !record.daycare_id;
     const actualDaycareMissing = (actualUnit?.unit_type === "DAYCARE" || actualUnit?.allocation_unit_type === "DAYCARE") && !record.actual_daycare_id;
-    if (!record.source_employee_identifier || record.employer_cost == null || !record.allocation_unit_id || !record.role_id
+    const isManualDraft = text(record.record_origin).toUpperCase() === "MANUAL" && text(manualEmployee?.draft).toLowerCase() === "true";
+    if (isManualDraft || (text(record.record_origin).toUpperCase() === "MANUAL" && record.employee_match_status !== "LINKED")) {
+      rowStatus = "MISSING"; rowHealthReason = "שורת טיוטה דורשת השלמת פרטי עובד";
+    } else if (!record.source_employee_identifier || record.employer_cost == null || !record.allocation_unit_id || !record.role_id
       || !record.actual_allocation_unit_id || daycareMissing || actualDaycareMissing) {
       rowStatus = "ERROR"; rowHealthReason = "חסרים שדות חובה";
     } else if (allocations.length && (Math.abs(remainingCost) > .01 || Math.abs(remainingHours) > .01
@@ -178,6 +184,7 @@ function projectPayrollRecords(input: {
       ...record,
       seniority_months: seniorityMonths,
       base_hourly_rate: baseHourlyRate,
+      manual_employee: manualEmployee || null,
       effective_hourly_rate: effectiveHours > 0 ? calculatedGross / effectiveHours : null,
       base_gross: baseGross,
       monthly_input_values: Object.fromEntries(input.calculationInputRules.map((rule) => [rule.source_field, inputValue(rule) ?? null])),
@@ -636,11 +643,17 @@ Deno.serve(async (request) => {
         };
         const completeActuals = payload.actual_hours !== null && payload.actual_net !== null && payload.actual_gross !== null && payload.employer_cost !== null;
         const completeAssignment = Boolean(payload.allocation_unit_id && payload.role_id && payload.actual_allocation_unit_id);
+        const savedManualEmployee = payload.source_payload && typeof payload.source_payload === "object"
+          ? (payload.source_payload as Record<string, unknown>).manual_employee as Record<string, unknown> | undefined
+          : undefined;
+        const manualDraft = payload.record_origin === "MANUAL" && text(savedManualEmployee?.draft).toLowerCase() === "true";
         const acceptedEmployee = ["LINKED", "APPROVED_TEMPORARY"].includes(payload.employee_match_status);
         Object.assign(payload, {
-          row_status: completeActuals && completeAssignment && acceptedEmployee ? "VALID"
-            : acceptedEmployee ? "MISSING" : "ERROR",
-          row_health_reason: !acceptedEmployee ? "עובד לא מקושר או באישור זמני"
+          row_status: manualDraft || (!acceptedEmployee && payload.record_origin === "MANUAL") ? "MISSING"
+            : completeActuals && completeAssignment && acceptedEmployee ? "VALID"
+              : acceptedEmployee ? "MISSING" : "ERROR",
+          row_health_reason: manualDraft || (!acceptedEmployee && payload.record_origin === "MANUAL") ? "שורת טיוטה דורשת השלמת פרטי עובד"
+            : !acceptedEmployee ? "עובד לא מקושר או באישור זמני"
             : !completeAssignment ? "חסרים שדות שיוך חובה"
             : !completeActuals ? "חסרים נתוני הנהלת חשבונות"
             : "כל שדות החובה תקינים",

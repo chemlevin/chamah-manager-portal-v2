@@ -59,3 +59,17 @@ test("TRACK026E reuses the portal worksheet row and inline-split patterns", () =
   expect(transfers).toContain("split-summary-row");
   expect(transfers).toContain("transfer-add-child");
 });
+
+test("TRACK026F persists manual payroll drafts and uses Bank-style split children", () => {
+  const ui = read("chamah-manager-portal/new/payroll-workbench.js");
+  const edge = read("supabase/functions/portal-workforce-workbench/index.ts");
+
+  for (const contract of [
+    "data-add-payroll-row", "createPayrollDraft", "DRAFT-", "payroll-employee-search",
+    "data-payroll-manual", "employee_identifier", "entryInputFields", "absenceInputFields",
+    "payroll-row-number", "manual_employee", "allocated_standard_hours",
+  ]) expect(ui).toContain(contract);
+  expect(edge).toContain("manualEmployee");
+  expect(edge).toContain("manualDraft");
+  expect(edge).toContain("שורת טיוטה דורשת השלמת פרטי עובד");
+});

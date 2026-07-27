@@ -4596,3 +4596,24 @@ Final authenticated Preview validation:
   viewport, and the browser console has no errors.
 - Preview deployed to `https://chamah-portal-kb0wf8ai4-chamah.vercel.app`.
   Production was not modified.
+
+## 2026-07-27 — TRACK026F Payroll clerk worksheet flow
+
+- Reordered the worksheet for payroll entry: row number, employee number/name,
+  employee details, working days and hours, component columns, then
+  vacation/sick/notes and accounting. The component order remains a backend
+  projection and its cells stay checkbox-plus-calculated-amount only.
+- Replaced the transient Add Row draft with an immediately persisted manual
+  payroll draft. A draft remains visible after reload as Missing; it accepts a
+  native smart employee search by number or name, or temporary/manual identity
+  details and an explicit base rate and seniority.
+- Extended the existing Edge Function projection so manual records use their
+  saved manual seniority/base-rate context while all gross and component values
+  continue to be calculated by Supabase. No frontend payroll formula or rate was
+  introduced.
+- Updated inline split initialization to follow the Bank parent/child workflow:
+  the first child copies the parent accounting allocation and a second child is
+  blank. Existing atomic save/preview validation remains the source of balanced,
+  remaining and over statuses.
+- Implementation validation passed locally. Edge Function deployment and
+  authenticated Preview validation are pending.
