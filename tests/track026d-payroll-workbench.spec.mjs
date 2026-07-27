@@ -39,3 +39,23 @@ test("TRACK026D hourly components use the saved configured Hours 100% input", ()
   expect(ui).toContain("field.oninput");
   expect(ui).toContain("monthlyInputTimers");
 });
+
+test("TRACK026E reuses the portal worksheet row and inline-split patterns", () => {
+  const ui = read("chamah-manager-portal/new/payroll-workbench.js");
+  const employees = read("chamah-manager-portal/new/employees-workbench.js");
+  const bankFiles = read("chamah-manager-portal/new/bank-workbench.js");
+  const transfers = read("chamah-manager-portal/new/bank-transfer-workbench.js");
+
+  for (const contract of [
+    "data-new-payroll-row", "data-save-new-payroll", "data-cancel-new-payroll",
+    "workbench-bulk-bar", "bank-split-line", "split-summary-row", "transfer-add-child",
+    "data-add-inline-split", "data-delete-inline-split", '$("#wf-kpis").hidden = true',
+    '$("#payroll-month-workflow").hidden = true',
+  ]) expect(ui).toContain(contract);
+
+  expect(employees).toContain("data-new-employee");
+  expect(employees).toContain("workbench-bulk-bar");
+  expect(bankFiles).toContain("bank-split-line");
+  expect(transfers).toContain("split-summary-row");
+  expect(transfers).toContain("transfer-add-child");
+});

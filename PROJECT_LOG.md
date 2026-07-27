@@ -4560,3 +4560,24 @@ Final authenticated Preview validation:
 - PASS: desktop RTL worksheet and mobile 390px RTL check completed with no
   page-level horizontal overflow and no browser console errors. Production was
   not modified.
+
+## 2026-07-27 — TRACK026E Payroll Workbench UX alignment
+
+- Audited the Employees, Bank Files, Bank Transfers and Accounting table
+  implementations before changing Payroll. Payroll now follows the existing
+  Workbench conventions: an inline draft row for Add Row, the shared bulk
+  action bar, and directly nested child allocation rows.
+- Kept Payroll as a single worksheet by hiding the legacy month-flow and KPI
+  card surfaces. All employee, monthly input, payroll component and accounting
+  work remains in the table.
+- Reused the Bank/Transfer child-row visual contracts for split rows, summary
+  totals and the inline “add split” action. Split rows retain only the
+  accounting allocation fields and show parent, allocated and remaining hours,
+  net, gross and employer cost.
+- Component columns remain backend-projected. The worksheet renders one compact
+  checkbox and amount per configured component, including one recovery column
+  whether the backend calls it recovery or convalescence pay. No rates,
+  formulas, eligibility rules or validation logic were moved to the browser.
+- Added focused TRACK026E source-contract coverage. Preview validation and
+  screenshots are pending the deployment and authenticated review. Production
+  was not modified.
