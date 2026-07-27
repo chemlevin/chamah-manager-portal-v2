@@ -183,6 +183,43 @@ APIs and engines are separate. Preserve this separation: API handlers handle tra
 - Prefer implementation evidence over stale documentation.
 - Every completed task must be pushed to its remote branch before reporting completion. Never report completion or provide a Preview URL for code that exists only locally.
 
+## Shared Supabase Policy
+
+The linked Supabase project is the canonical backend for this project.
+
+Unless the task explicitly requests an isolated Supabase branch or project, all approved TRACK implementations may:
+
+- Apply forward-only migrations.
+- Deploy matching Edge Functions.
+- Validate against the linked Supabase project.
+
+The linked Supabase project is considered the Preview backend.
+
+Production Vercel deployment remains a separate approval step.
+
+Never leave the project in a partial deployment state.
+
+If a TRACK requires both a database migration and an Edge Function, they must always be deployed together before the TRACK is considered complete.
+
+Frontend Production deployment must not occur without explicit approval.
+
+If an isolated Supabase environment is required, state the reason before blocking the task.
+
+## Canonical Production Rule
+
+The only canonical Production URL is:
+
+`https://chamah-portal.vercel.app`
+
+Every Production deployment must verify:
+
+- The serving deployment ID.
+- The serving Git SHA.
+- The canonical alias.
+- That the expected approved commit is included.
+
+Do not report success until the canonical Production URL serves the expected deployment.
+
 # Business Rules
 
 ## Shared Rules

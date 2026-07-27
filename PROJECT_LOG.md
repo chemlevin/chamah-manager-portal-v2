@@ -4171,7 +4171,6 @@ Validation:
 - Authenticated Production smoke passed for Employees import controls and data,
   Actual Payroll data/context, Supabase save-state indicators and RTL layout.
   No new console errors appeared in the stable post-deployment checks.
-
 ## 2026-07-27 - TRACK025D Canonical Production Promotion
 
 Scope:
@@ -4269,3 +4268,251 @@ Canonical Production validation:
   Functions were otherwise changed during promotion.
 - No browser console errors were recorded during the authenticated canonical
   verification.
+
+## 2026-07-27 — TRACK026 Payroll Monthly Workflow
+
+Implemented the Payroll module as a Supabase-backed monthly Workbench while
+keeping the Salary Calculator separate and leaving Payroll Engine, Budget
+Engine, formulas and unrelated business rules unchanged.
+
+Implementation:
+
+- Added scoped Payroll month identity for organization, department and daycare,
+  with duplicate prevention per month/scope and combined options to copy the
+  previous employee list and load active employees. Monthly hours, absences,
+  gross and costs are never copied.
+- Extended canonical Payroll monthly records with preparation inputs,
+  monthly eligibility overrides, accounting-return actuals, row health,
+  calculated-component storage, and one-level parent/split identity.
+- Added atomic service-only RPCs for month opening, multi-row save/import,
+  validated close with database locking, and permission-controlled reopen with
+  a mandatory reason and preserved user/timestamp history.
+- Extended the existing Workforce Edge Function to load canonical Employees,
+  effective assignments, Pay Terms, eligibility, compensation rules and travel
+  rates, and to call the TRACK026 atomic RPCs.
+- Routed the top-level Payroll module directly to the Workbench. The separate
+  Salary Calculator route and both calculation engines remain unchanged.
+- Expanded the monthly detail editor with preparation, eligibility override and
+  accountant-return fields while retaining inline editing, autosave, filters,
+  import/export, allocation balance, temporary approval and read-only closed
+  months from the existing Workbench.
+
+Validation:
+
+- PASS: JavaScript syntax checks for changed browser modules and TRACK026 tests.
+- PASS: `npm.cmd run build`.
+- PASS: 34 focused desktop Playwright tests covering TRACK026 contracts,
+  Payroll Engine, Budget Engine and portal permissions.
+- PASS: `git diff --check`.
+- Supabase migration application, Edge Function deployment, Preview deployment
+  and live authenticated smoke verification are recorded in the deployment
+  completion entry after remote validation.
+
+### Preview acceptance correction
+
+- Replaced the legacy Payroll month tabs with the required Reports, Open Month,
+  Working Months and Closed Months workflow.
+- Added preparation, hours, actual gross, employer cost, error, organizational
+  totals and calculated-versus-actual variance reports derived from the same
+  loaded Payroll dataset.
+- Expanded export to all, filtered, department and daycare scopes; accountant
+  and actual-cost report shapes; and CSV, XLS and XLSX formats.
+- Removed Payroll from the Employees & Licensing hub while preserving the
+  separate top-level Payroll module and Salary Calculator.
+- PASS: changed JavaScript syntax checks, `git diff --check`, build, and 92
+  focused desktop/laptop/mobile TRACK026, Payroll Engine and Budget Engine
+  tests. Live authenticated Preview validation follows the replacement deploy.
+
+## 2026-07-27 — TRACK026A Complete Payroll Workbench
+
+- Moved employee identity, assignment, monthly preparation inputs, eligibility
+  overrides, calculated gross, accounting-return values, actual assignment,
+  status, notes and row-health reasons into the main horizontally scrollable
+  Payroll table.
+- Kept employee identity, seniority and active pay terms read-only and sourced
+  from canonical Supabase data. Calculated gross and component breakdown remain
+  read-only outputs from the canonical Payroll record; no salary values or
+  dropdown business entities were added to the frontend.
+- Reduced the lower details card to advanced read-only calculation context,
+  temporary approval/delete actions and one-level split allocation.
+- Restricted split editing to actual hours, employer cost and department/daycare
+  allocation. Added original/allocated/remaining balance visibility and
+  client-side close blocking for unbalanced splits.
+- Added green/yellow/red/blue row health with an inline reason, sticky employee
+  columns, complete inline autosave fields, immediate Add Row, and retained
+  single/bulk delete and import/export.
+- Corrected the Workforce Edge Function to persist accounting-return
+  `actual_allocation_unit_id` and `actual_daycare_id` into their existing
+  canonical columns.
+- PASS: JavaScript syntax, Edge Function Deno type-check, `git diff --check`,
+  build, and 96 focused desktop/laptop/mobile TRACK026A, Payroll Engine and
+  Budget Engine tests. The broader browser-runner suite was attempted twice but
+  stalled without test output and was terminated; authenticated deployed
+  desktop/mobile verification is the remaining Preview gate.
+
+Architecture correction:
+
+- Enforced the Workbench as a presentation layer only. Removed frontend
+  derivation of seniority, calculated gross/components, eligibility, row
+  health, split balance and close validation.
+- Added a Supabase Edge projection that evaluates effective canonical pay
+  terms, compensation factors/rules, employee eligibility, travel rates and
+  monthly caps, assignments and saved allocations on every Payroll load.
+- Inline saves now reload the backend projection immediately, so configuration
+  changes are reflected without duplicating rates, limits or formulas in the
+  browser.
+- Split-save and month-close validation now execute in the Supabase Edge
+  backend before canonical RPC persistence/locking. The UI only renders returned
+  statuses, reasons, components and balance values.
+- PASS after the correction: build, JavaScript checks, Edge Deno type-check,
+  `git diff --check`, and 96 focused desktop/laptop/mobile regression tests.
+- Moved Payroll KPI counts, report totals, organizational totals and variance
+  into the same Supabase backend projection, and removed browser-side export
+  aggregation. The frontend now only filters, formats and serializes returned
+  values.
+
+## 2026-07-27 — TRACK027 Runtime Configuration Layer
+
+Replaced direct browser reads of Supabase configuration tables with one
+permission-aware runtime configuration Edge Function for Home, Finance,
+Staffing, Salary, Occupancy and the read-only management table views.
+
+Implementation:
+
+- Added `portal-runtime-config`, a JWT-protected, GET-only Edge Function with an
+  immutable per-screen dataset and column whitelist.
+- VIEW, EDIT and Super Admin receive the bounded configuration required by the
+  authorized screen. HIDDEN receives `403 PERMISSION_DENIED`.
+- Organizational-unit and daycare configuration is scope-filtered before it
+  reaches the browser.
+- Required empty datasets return `CONFIGURATION_MISSING` with exact dataset
+  keys, distinct from authorization failure.
+- The browser cannot submit table names, columns or filters and no longer reads
+  runtime configuration directly from PostgREST tables.
+- No schema, RLS policy, calculation, Budget Engine behavior or business-rule
+  value changed.
+
+Validation and deployment:
+
+- PASS: JavaScript syntax check, build and `git diff --check`.
+- PASS: 4 focused TRACK027 contract tests.
+- PASS: live Super Admin, EDIT, VIEW and HIDDEN permission evaluation.
+- PASS: `portal-runtime-config` version 1 deployed ACTIVE with JWT verification.
+- PASS: Supabase security advisors; only pre-existing unrelated findings remain.
+- PASS: Vercel Preview deployment `dpl_866GmCr2JR3qAzAN4WYo2MfY3feG` reached
+  READY at `https://chamah-portal-g353iknfv-chamah.vercel.app`.
+- Production was not modified.
+
+Follow-up validation correction:
+
+- Authenticated Preview validation exposed that the first generic evaluator did
+  not understand canonical `AUTOMATIC_BY_SENIORITY`, `IN (...)` or
+  `ELIGIBILITY_ONLY` rule expressions. Added generic DSL support and recorded
+  the existing certificate, persistence and recovery-pay semantics in two
+  forward-only canonical rule migrations (`20260727122923` and
+  `20260727123051`).
+- Revalidated the existing sample employee: base rate ₪38, effective rate ₪44,
+  calculated gross ₪4,360, with canonical seniority ₪110, certificate ₪200,
+  excellence ₪250, no persistence where the monthly no-absence condition is
+  unset, and recovery pay eligibility-only (₪0 impact).
+
+## 2026-07-27 — TRACK026A Dynamic Supabase Payroll Components
+
+- Removed the Workbench's fixed compensation-component columns and replaced
+  them with columns returned by the Payroll Edge projection from active
+  `compensation_factors`. Each active component now displays its Supabase
+  eligibility result, configured rate and calculated monthly impact.
+- Added the forward-only `payroll_calculation_input_rules` configuration table
+  for existing monthly input coefficients and operations. Base gross and
+  effective hourly rate now come from this Supabase-owned configuration instead
+  of frontend or Edge constants.
+- Reworked the Edge projection to evaluate active compensation rules,
+  effective dates, seniority bands, eligibility conditions, employee
+  eligibility, monthly factor-ID overrides, proration methods and travel caps
+  generically. It returns base hourly rate, effective hourly rate, base gross,
+  calculated gross and a factor-ID-based breakdown.
+- The browser now only renders backend component metadata/results and persists
+  factor-ID eligibility overrides in `monthly_overrides`; the advanced panel is
+  read-only calculation context and split allocation.
+- Applied migration `20260727120559` to the linked shared Preview project and
+  deployed `portal-workforce-workbench` version 14 ACTIVE with JWT verification.
+  Migration history and function status were verified after deployment.
+- PASS: build, JavaScript syntax, `git diff --check`, 12 TRACK026/A contract
+  tests and 96 focused desktop/laptop/mobile TRACK026A, Payroll Engine and
+  Budget Engine regression tests.
+- Production was not modified.
+
+## 2026-07-27 — TRACK026A Generic Monthly Input Framework
+
+- Replaced fixed Workbench monthly-input columns with `monthlyInputColumns`
+  returned from Supabase configuration. The browser renders controls solely by
+  configured source field, label, order and value kind.
+- Added `payroll_records.monthly_inputs` JSON storage. New configured inputs
+  persist and recalculate without frontend changes; existing canonical fields
+  remain supported as backward-compatible fallbacks.
+
+## 2026-07-27 — Payroll Clerk Spreadsheet View
+
+- Simplified the Payroll Workbench table for fast monthly entry: concise
+  headers, small checkbox inputs, zero-value unchecked components, calculated
+  amounts only when checked, and a compact in-row split `+` action.
+- Kept calculation, eligibility and persistence entirely backend-driven; no
+  payroll formula, rate or rule was added to the browser.
+
+## 2026-07-27 — TRACK027 Preview permission-validation correction
+
+Root cause:
+
+- Authenticated Preview validation showed that some Workbench pages rendered
+  mutation controls for a user whose resolved screen entitlement was VIEW.
+  The server-side Workbench permission checks continued to reject writes, but
+  the browser presentation was not consistently aligned with that entitlement.
+
+Implementation:
+
+- Added a shared, mutation-observing read-only presentation gate for VIEW
+  Workbenches. It hides and disables Add, Edit, Delete, Bulk Delete, Import,
+  Save, Archive, Split, month-open/close and transaction/transfer actions;
+  disables editable row fields and selection checkboxes; and applies to the
+  Employees, Payroll, Actual Payroll, Bank Files and Bank Transfers routes.
+- Kept backend permission enforcement unchanged.
+- Surface the runtime configuration error returned by the backend on Salary
+  and Occupancy screens, preserving a distinct missing-configuration message
+  from the existing access-denied state.
+
+Validation:
+
+- PASS: `node --check chamah-manager-portal/new/app.js`.
+- PASS: `node node_modules/@playwright/test/cli.js test
+  tests/runtime-configuration.spec.mjs --project=desktop-1440` (5 tests).
+- PASS: `npm.cmd run build` and `git diff --check`.
+- PASS: authenticated mixed-permission Preview session confirmed the Employees
+  screen loads with filtering/export only and without active mutation controls.
+- PASS: final Preview protected routes redirect to the distinct access-denied
+  screen (including Settings), with no configuration payload rendered.
+- NOTE: the supplied mixed-permission session did not expose an EDIT-assigned
+  Workbench among the requested operational routes; its available Workbenches
+  resolved to VIEW and were validated read-only. No alternate account was
+  requested or used.
+- Preview deployed to `https://chamah-portal-ccak3zwpy-chamah.vercel.app`.
+  Production was not modified.
+
+## 2026-07-27 — TRACK027 EDIT permission validation completion
+
+- Corrected the VIEW presentation gate lifecycle: each route render now
+  disconnects the prior Workbench `MutationObserver`. This prevents a VIEW
+  observer from carrying over to and hiding controls on a subsequently opened
+  EDIT-assigned Workbench.
+- Authenticated Preview validation on Actual Payroll (`ביצוע שכר`) confirmed
+  the mixed-permission account resolves this screen as EDIT: Import, Add and
+  row Delete controls are visible and enabled, as are editable row fields.
+- Performed an inline `actual_status` save with a temporary validation value,
+  restored it to blank, and reopened the screen. The restored blank value was
+  loaded from Supabase, confirming the authorized backend update and cleanup.
+- Opened the manual-add row and verified its enabled inputs and Save action.
+  The existing backend row-health validation retained the incomplete temporary
+  draft rather than creating a record; the draft was cancelled, so no test
+  record or business data remains.
+- Added source-contract coverage for observer replacement. Preview deployed
+  to `https://chamah-portal-qydidyhi0-chamah.vercel.app`. Production was not
+  modified.

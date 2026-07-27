@@ -410,6 +410,20 @@ async function rest(table, query = '') {
   return rows;
 }
 
+async function runtimeConfiguration(screenCode) {
+  if (!await ensureAccessToken()) throw new Error('החיבור פג. יש להתחבר מחדש.');
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/portal-runtime-config?screen=${encodeURIComponent(screenCode)}`, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}` }
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (response.status === 403) throw new Error('אין הרשאה לצפות במסך המבוקש.');
+  if (!response.ok) throw new Error(payload.error || 'טעינת הגדרות המסך נכשלה.');
+  if (payload.status === 'CONFIGURATION_MISSING') {
+    throw new Error(`חסרה הגדרת מערכת נדרשת: ${(payload.missing || []).join(', ')}`);
+  }
+  return payload.configuration || {};
+}
+
 async function rpc(name, body = {}) {
   if (!await ensureAccessToken()) throw new Error('החיבור פג. יש להתחבר מחדש.');
   const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, { method: 'POST', headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -428,6 +442,29 @@ async function loadPortalAccess() {
 function permissionFor(code) { return portalAccess?.sections?.find((item) => item.screen_code === code)?.permission_level || 'HIDDEN'; }
 function canView(code) { return permissionFor(code) !== 'HIDDEN'; }
 function portalSection(code) { return portalAccess?.sections?.find((item) => item.screen_code === code) || null; }
+
+// Workbench APIs already reject writes without EDIT. Keep the presentation in
+// the same state so VIEW users never receive an editable control that would
+// inevitably fail at save time.
+function enforceWorkbenchReadOnly(root = $('#page-content')) {
+  if (!root) return;
+  const mutationControls = [
+    '#wf-add', '#wf-import', '#employee-import', '#wf-open-month', '#wf-close-month', '[data-open-month-primary]', '[data-save-new-payroll]', '[data-delete-allocation]', '[data-add-allocation]', '[data-save-allocations]', '[data-approve-temporary]', '[data-delete-record]', '[data-delete-payroll]', '[data-delete-selected-payroll]', '#wf-confirm-import',
+    '[data-save-new]', '[data-edit-employee]', '[data-edit-employment]', '[data-edit-assignment]', '[data-version-term]', '[data-close-term]', '[data-new-term]', '[data-child]', '[data-deactivate]', '[data-archive]', '[data-bulk-archive]',
+    '#bank-new-transaction', '#bank-import', '#bank-delete-selected', '[data-save-transaction]', '[data-add-split]', '[data-delete-transaction]', '[data-delete-split]', '[data-save-manual-inline]', '#confirm-bank-import', '#bank-apply-mapping', '#bank-manual-form button[type="submit"]',
+    '#transfer-add', '#transfer-import', '#transfer-delete-selected', '[data-mark-completed]', '[data-delete-transfer]', '[data-upload-attachment]'
+  ].join(',');
+  const editableFields = '#wf-rows input, #wf-rows select, #wf-details input, #wf-details select, #wf-details textarea, #bank-new-rows input:not([readonly]), #bank-new-rows select, #bank-new-rows textarea, [data-transfer-row] input:not([readonly]), [data-transfer-row] select, [data-transfer-row] textarea';
+  const apply = () => {
+    root.querySelectorAll(mutationControls).forEach((control) => { control.hidden = true; control.disabled = true; control.setAttribute('aria-hidden', 'true'); });
+    root.querySelectorAll(editableFields).forEach((field) => { field.disabled = true; field.setAttribute('aria-readonly', 'true'); });
+    root.querySelectorAll('[data-select-row], [data-select-all], [data-payroll-select], [data-select-transaction], #bank-select-all, [data-select-transfer]').forEach((field) => { field.disabled = true; });
+  };
+  apply();
+  const observer = new MutationObserver(apply);
+  observer.observe(root, { childList: true, subtree: true });
+  root.__workbenchReadOnlyObserver = observer;
+}
 function canViewRoute(route) {
   const section = portalAccess?.sections?.find((item) => item.route === route);
   return Boolean(section && section.permission_level !== 'HIDDEN');
@@ -492,7 +529,7 @@ async function loadUnits() {
   if (unitState.status === 'loading' || unitState.status === 'ready') return;
   unitState = { status: 'loading', items: [], error: '' };
   try {
-    const rows = await rest('allocation_units', 'select=allocation_unit_id,display_name,allocation_unit_type,lifecycle_status,display_order,notes&lifecycle_status=eq.ACTIVE&order=display_order.asc,display_name.asc,allocation_unit_id.asc');
+    const { units: rows = [] } = await runtimeConfiguration('home');
     unitState = { status: 'ready', items: activeUnits(rows), error: '' };
   } catch (error) {
     unitState = { status: 'error', items: [], error: error.message };
@@ -724,7 +761,9 @@ function dataTableTemplate(descriptor, rows) {
 async function loadManagementTables(kind) {
   const descriptors = kind === 'reference' ? REFERENCE_TABLES : VARIABLE_RULE_TABLES;
   const cacheKey = `tables:${kind}`;
-  if (!managementData.has(cacheKey)) managementData.set(cacheKey, Promise.all(descriptors.map(async (descriptor) => { try { return { descriptor, rows: await rest(descriptor.table, 'select=*&limit=500') }; } catch (error) { return { descriptor, rows: [], error: error.message }; } })));
+  if (!managementData.has(cacheKey)) managementData.set(cacheKey, runtimeConfiguration(kind === 'reference' ? 'management.tables.calculation' : 'management.tables.variables')
+    .then((configuration) => descriptors.map((descriptor) => ({ descriptor, rows: configuration[descriptor.table] || [] })))
+    .catch((error) => descriptors.map((descriptor) => ({ descriptor, rows: [], error: error.message }))));
   const results = await managementData.get(cacheKey);
   if (parseRoute().section !== 'training') return;
   const container = $('#management-tables'); if (!container) return;
@@ -764,14 +803,7 @@ async function loadOccupancyRules() {
   if (occupancyModel.status === 'loading' || occupancyModel.status === 'ready') return;
   occupancyModel = { status: 'loading', error: '' };
   try {
-    const [ages, licensing, rules, categories, parameters, years] = await Promise.all([
-      rest('age_groups', 'select=age_group_id,age_group_code,display_name,display_order,lifecycle_status&lifecycle_status=eq.ACTIVE&order=display_order'),
-      rest('classroom_licensing_rules', 'select=classroom_licensing_rule_id,age_group,sqm_per_child,max_children,allowed_mixed_with,valid_from,valid_to,rounding_method,lifecycle_status&lifecycle_status=eq.ACTIVE'),
-      rest('budget_rules', 'select=budget_rule_id,budget_category_id,school_year_id,age_group_id,effective_from,effective_to,numeric_value,lifecycle_status,calculation_method,parameter_1,standard_type,minimum_staff,rounding_method&lifecycle_status=eq.ACTIVE'),
-      rest('budget_categories', 'select=budget_category_id,budget_category_code,category_type,lifecycle_status&lifecycle_status=eq.ACTIVE'),
-      rest('staffing_budget_parameters', 'select=staffing_budget_parameter_id,school_year_id,monthly_hours_per_fte,lifecycle_status&lifecycle_status=eq.ACTIVE'),
-      rest('school_years', 'select=school_year_id,display_name,start_date,end_date,is_default,is_selectable&is_selectable=eq.true')
-    ]);
+    const { ages, licensing, rules, categories, parameters, years } = await runtimeConfiguration('calculators.occupancy');
     occupancyModel = { status: 'ready', error: '', ages, licensing, rules, categories, parameters, years };
   } catch (error) { occupancyModel = { status: 'error', error: error.message }; }
 }
@@ -919,11 +951,7 @@ async function loadSalaryRules() {
   if (salaryModel.status === 'loading' || salaryModel.status === 'ready') return;
   salaryModel.status = 'loading';
   try {
-    const [factors, rules, years] = await Promise.all([
-      rest('compensation_factors', 'select=compensation_factor_id,compensation_factor_code,display_name,value_type,lifecycle_status,display_order&lifecycle_status=eq.ACTIVE&order=display_order'),
-      rest('compensation_rules', 'select=compensation_rule_id,compensation_factor_id,school_year_id,effective_from,effective_to,minimum_seniority_months,maximum_seniority_months,amount,eligibility_condition,proration_method,lifecycle_status&lifecycle_status=eq.ACTIVE'),
-      rest('school_years', 'select=school_year_id,school_year_code,display_name,start_date,end_date,is_default,is_selectable&is_selectable=eq.true')
-    ]);
+    const { factors, rules, years } = await runtimeConfiguration('calculators.salary');
     const yearRules = rules.map((rule) => ({
       ...rule,
       minimum_seniority_years: Math.ceil(Number(rule.minimum_seniority_months || 0) / 12),
@@ -1044,13 +1072,15 @@ async function loadStaffDashboard() {
   if (staffStatus === 'loading' || staffStatus === 'ready') return;
   staffStatus = 'loading'; staffError = '';
   try {
-    const [employees, employments, assignments, terms, roles, daycares, classrooms, units] = await Promise.all([
+    const [employees, employments, assignments, terms, config] = await Promise.all([
       rest('employees', 'select=employee_id,employee_code,national_id,first_name,last_name,phone,email,birth_date,hebrew_birth_date,lifecycle_status,manager_employee_id,notes'),
       rest('employments', 'select=employment_id,employee_id,employment_start_date,employment_end_date,recognized_prior_seniority_months,employment_status,notes'),
       rest('employee_assignments', 'select=assignment_id,employment_id,allocation_unit_id,daycare_id,classroom_id,role_id,effective_from,effective_to,is_primary,notes'),
       rest('employee_pay_terms', 'select=employee_pay_term_id,employee_id,valid_from,valid_to,pay_type,base_pay,estimated_employment_percentage,caregiver_certificate_status,studies_end_date,has_degree,is_class_manager,first_aid_valid_until,safe_conduct_valid_until,weekly_schedule,notes'),
-      rest('roles', 'select=role_id,display_name,daycare_relevant,lifecycle_status'), rest('daycares', 'select=daycare_id,allocation_unit_id,display_name,lifecycle_status'), rest('classrooms', 'select=classroom_id,display_name,lifecycle_status'), rest('allocation_units', 'select=allocation_unit_id,display_name,allocation_unit_type,lifecycle_status')
-    ]); staffModel = { employees, employments, assignments, terms, roles, daycares, classrooms, units: activeUnits(units) }; staffStatus = 'ready'; staffLastUpdated = new Date();
+      runtimeConfiguration('dashboards.staffing')
+    ]);
+    const { roles = [], daycares = [], classrooms = [], units = [] } = config;
+    staffModel = { employees, employments, assignments, terms, roles, daycares, classrooms, units: activeUnits(units) }; staffStatus = 'ready'; staffLastUpdated = new Date();
   } catch (error) { staffStatus = 'error'; staffError = error.message; }
 }
 
@@ -1097,30 +1127,20 @@ async function loadGeneralDashboard() {
   generalStatus = 'loading';
   generalError = '';
   try {
-    const [years, months, daycares, dsy, classrooms, enrollment, payroll, pa, bank, ba, units, issues, budgetSnapshots, budgetCategories, budgetRules, workCalendars, staffingParameters, ageGroups, roles, employments, employees, assignments] = await Promise.all([
-      rest('school_years', 'select=school_year_id,display_name,start_date,end_date,is_default,is_selectable&is_selectable=eq.true&order=start_date.desc'),
-      rest('school_year_months', 'select=school_year_month_id,school_year_id,month_label,start_date,school_year_sequence&order=school_year_sequence'),
-      rest('daycares', 'select=daycare_id,daycare_code,allocation_unit_id,display_name,lifecycle_status,display_order&order=display_order'),
-      rest('daycare_school_years', 'select=daycare_school_year_id,daycare_id,school_year_id,is_operating,tuition_calculation_mode,tuition_standard_type,staffing_calculation_mode,staffing_standard_type'),
-      rest('classrooms', 'select=classroom_id,daycare_school_year_id,display_name,lifecycle_status,effective_from,effective_to'),
+    const [config, enrollment, payroll, pa, bank, ba, issues, budgetSnapshots, employments, employees, assignments] = await Promise.all([
+      runtimeConfiguration('dashboards.finance'),
       rest('monthly_enrollment', 'select=monthly_enrollment_id,classroom_id,reporting_month,age_group_id,children_count'),
       rest('payroll_records', 'select=payroll_record_id,employment_id,payroll_month,source_employee_identifier,source_record_identifier,employer_cost,regular_hours,overtime_hours'),
       rest('payroll_allocations', 'select=payroll_allocation_id,payroll_record_id,allocation_unit_id,role_id,allocation_amount,allocated_hours,budget_category_id'),
       rest('bank_transactions', 'select=bank_transaction_id,transaction_date,description,amount'),
       rest('bank_allocations', 'select=bank_allocation_id,bank_transaction_id,allocation_unit_id,budget_month,allocation_amount,budget_category_id'),
-      rest('allocation_units', 'select=allocation_unit_id,display_name,allocation_unit_type,lifecycle_status,display_order&lifecycle_status=eq.ACTIVE&order=display_order.asc,display_name.asc'),
       rest('data_quality_issues', 'select=data_quality_issue_id,severity,status,explanation,entity_type&status=eq.OPEN'),
       rest('budget_snapshots', 'select=budget_snapshot_id,allocation_unit_id,daycare_id,reporting_month,budget_category_id,planned_amount,actual_amount,snapshot_status&snapshot_status=eq.LOCKED'),
-      rest('budget_categories', 'select=budget_category_id,budget_category_code,display_name,category_type,lifecycle_status,requires_budget,budget_source&lifecycle_status=eq.ACTIVE'),
-      rest('budget_rules', 'select=budget_rule_id,budget_category_id,school_year_id,daycare_id,allocation_unit_id,age_group_id,effective_from,effective_to,rule_type,numeric_value,text_value,lifecycle_status,sheet_rule_id,calculation_method,parameter_1,parameter_2,show_budget,display_scope,effective_from_month_id,effective_to_month_id,standard_type,minimum_staff,rounding_method'),
-      rest('monthly_work_calendars', 'select=monthly_work_calendar_id,school_year_month_id,sun_thu_hours_per_day,friday_hours_per_day,sun_thu_workdays,friday_workdays'),
-      rest('staffing_budget_parameters', 'select=staffing_budget_parameter_id,school_year_id,monthly_hours_per_fte,hourly_budget_cost,budget_formula,effective_from_month_id,effective_to_month_id,lifecycle_status'),
-      rest('age_groups', 'select=age_group_id,age_group_code,display_name,lifecycle_status'),
-      rest('roles', 'select=role_id,role_code,display_name,role_group'),
       rest('employments', 'select=employment_id,employee_id,employment_start_date,employment_end_date,employment_status'),
       rest('employees', 'select=employee_id,first_name,last_name,lifecycle_status'),
       rest('employee_assignments', 'select=assignment_id,employment_id,allocation_unit_id,daycare_id,classroom_id,role_id,effective_from,effective_to,is_primary')
     ]);
+    const { years = [], months = [], daycares = [], dsy = [], classrooms = [], units = [], budgetCategories = [], budgetRules = [], workCalendars = [], staffingParameters = [], ageGroups = [], roles = [] } = config;
     generalModel = { years, months, daycares, dsy, classrooms, enrollment, payroll, pa, bank, ba, units: activeUnits(units), issues, budgetSnapshots, budgetCategories, budgetRules, workCalendars, staffingParameters, ageGroups, roles, employments, employees, assignments };
     generalStatus = 'ready';
     generalLastUpdated = new Date();
@@ -1420,6 +1440,9 @@ function breadcrumbsTemplate(route, unit, type) {
 }
 
 async function render() {
+  const pageContent = $('#page-content');
+  pageContent.__workbenchReadOnlyObserver?.disconnect();
+  delete pageContent.__workbenchReadOnlyObserver;
   const route = parseRoute();
   if (!portalAccess) return;
   const requestedScreen = routeScreenCode(route);
@@ -1435,12 +1458,16 @@ async function render() {
   let unit = null;
   let type = null;
   if (route.section === 'home') $('#page-content').innerHTML = homeTemplate();
-  else if (route.section === 'calculators' && route.calculator === 'salary') { $('#page-content').innerHTML = salaryCalculatorTemplate(); await loadSalaryRules(); if (parseRoute().calculator === 'salary') { if (salaryModel.status === 'error') { $('#salary-state').className = 'state error panel'; $('#salary-state').textContent = 'לא ניתן לטעון את כללי השכר הפעילים. נסי שוב מאוחר יותר.'; } else { bindSalaryCalculator(); } } }
-  else if (route.section === 'calculators' && route.calculator === 'occupancy') { $('#page-content').innerHTML = occupancyManagementCalculatorTemplate(); await loadOccupancyRules(); if (parseRoute().calculator === 'occupancy') { if (occupancyModel.status === 'error') { $('#occupancy-state').className = 'state error panel'; $('#occupancy-state').textContent = 'לא ניתן לטעון את כללי התפוסה הפעילים.'; } else { bindOccupancyManagementCalculator(); } } }
+  else if (route.section === 'calculators' && route.calculator === 'salary') { $('#page-content').innerHTML = salaryCalculatorTemplate(); await loadSalaryRules(); if (parseRoute().calculator === 'salary') { if (salaryModel.status === 'error') { $('#salary-state').className = 'state error panel'; $('#salary-state').textContent = salaryModel.error || 'לא ניתן לטעון את כללי השכר הפעילים. נסי שוב מאוחר יותר.'; } else { bindSalaryCalculator(); } } }
+  else if (route.section === 'calculators' && route.calculator === 'occupancy') { $('#page-content').innerHTML = occupancyManagementCalculatorTemplate(); await loadOccupancyRules(); if (parseRoute().calculator === 'occupancy') { if (occupancyModel.status === 'error') { $('#occupancy-state').className = 'state error panel'; $('#occupancy-state').textContent = occupancyModel.error || 'לא ניתן לטעון את כללי התפוסה הפעילים.'; } else { bindOccupancyManagementCalculator(); } } }
   else if (route.section === 'calculators') $('#page-content').innerHTML = calculatorsTemplate();
-  else if (route.section === 'payroll' && route.child) $('#page-content').innerHTML = placeholderTemplate(title, 'payroll/calculations', 'חישובי שכר');
-  else if (route.section === 'payroll' && route.page === 'calculations') $('#page-content').innerHTML = sectionCardsTemplate('payroll', payrollCalculationCards, 'חישובי שכר', 'בחירת מסלול לחישוב חדש, עבודה קיימת או טבלאות עבר.');
-  else if (route.section === 'payroll') $('#page-content').innerHTML = sectionCardsTemplate('payroll');
+  else if (route.section === 'payroll') {
+    title = 'שכר';
+    $('#page-content').innerHTML = payrollWorkbenchTemplate();
+    await mountPayrollWorkbench(portalWorkforceRequest);
+    if (permissionFor('dashboards.staffing.actual-payroll') !== 'EDIT') enforceWorkbenchReadOnly();
+    mountWorkbenchPolish({ title: 'שכר', module: 'שכר', organization: 'כל הארגון', month: document.querySelector('#wf-month')?.value || 'חודש פעיל', onRefresh: () => render() });
+  }
   else if (route.section === 'training' && route.page === 'permissions' && route.child === 'users') { $('#page-content').innerHTML = usersPermissionsTemplate(); await loadPermissionsAdmin(); }
   else if (route.section === 'training' && route.page === 'rules' && route.child === 'system') { $('#page-content').innerHTML = systemRulesTemplate(); bindSystemRules(); }
   else if (route.section === 'training' && route.page === 'rules' && route.child === 'calculation') { $('#page-content').innerHTML = '<div id="prototype-admin-root"></div>'; mountAdministrationPrototype($('#prototype-admin-root'), 'rules'); }
@@ -1475,12 +1502,14 @@ async function render() {
         activeDashboardUnit = unit;
         $('#page-content').innerHTML = track015BankWorkbenchTemplate();
         await mountBankWorkbench(portalBankWorkbenchRequest);
+        if (permissionFor('dashboards.accounting.banks') !== 'EDIT') enforceWorkbenchReadOnly();
         mountWorkbenchPolish({ title: 'קובץ בנקים', module: 'הנה"ח', organization: unit.display_name, schoolYear: 'שנה קלנדרית', month: 'כל החודשים', onRefresh: () => render() });
       } else if (type.id === 'accounting' && route.dashboardChild === 'bank-transfers') {
         title = 'העברות בנקאיות';
         activeDashboardUnit = unit;
         $('#page-content').innerHTML = bankTransferWorkbenchTemplate();
         await mountBankTransferWorkbench(portalBankTransferRequest);
+        if (permissionFor('dashboards.accounting.bank-transfers') !== 'EDIT') enforceWorkbenchReadOnly();
         mountWorkbenchPolish({ title: 'העברות בנקאיות', module: 'הנה"ח', organization: unit.display_name, onRefresh: () => render() });
       } else if (type.id === 'accounting' && route.dashboardChild === 'summary') {
         title = type.title;
@@ -1492,18 +1521,20 @@ async function render() {
       } else if (type.id === 'staffing' && !route.dashboardChild) {
         title = 'צוות ורישוי';
         activeDashboardUnit = unit;
-        $('#page-content').innerHTML = workforceHubTemplate(canView('dashboards.staffing.employees'), canView('dashboards.staffing.actual-payroll'));
+        $('#page-content').innerHTML = workforceHubTemplate(canView('dashboards.staffing.employees'), false);
       } else if (type.id === 'staffing' && route.dashboardChild === 'employees') {
         title = 'עובדים';
         activeDashboardUnit = unit;
         $('#page-content').innerHTML = employeesWorkbenchTemplate(permissionFor('dashboards.staffing.employees.import') === 'EDIT');
         await mountEmployeesWorkbench(portalWorkforceRequest);
+        if (permissionFor('dashboards.staffing.employees') !== 'EDIT') enforceWorkbenchReadOnly();
         mountWorkbenchPolish({ title: 'עובדים', module: 'כוח אדם', organization: unit.display_name, onRefresh: () => render() });
       } else if (type.id === 'staffing' && route.dashboardChild === 'actual-payroll') {
         title = 'ביצוע שכר';
         activeDashboardUnit = unit;
         $('#page-content').innerHTML = payrollWorkbenchTemplate();
         await mountPayrollWorkbench(portalWorkforceRequest);
+        if (permissionFor('dashboards.staffing.actual-payroll') !== 'EDIT') enforceWorkbenchReadOnly();
         mountWorkbenchPolish({ title: 'ביצוע שכר', module: 'שכר', organization: unit.display_name, month: document.querySelector('#wf-month')?.value || 'חודש פעיל', onRefresh: () => render() });
       } else if (['licensing', 'team'].includes(type.id)) {
         title = type.title; dashboardMode = 'staffing'; activeDashboardUnit = unit; $('#page-content').innerHTML = staffDashboardShell(unit); await loadStaffDashboard(); if (parseRoute().unitId === unit.allocation_unit_id && parseRoute().dashboardType === type.id) renderStaffData();
