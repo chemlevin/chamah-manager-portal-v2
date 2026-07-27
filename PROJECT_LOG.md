@@ -4067,3 +4067,53 @@ Deployment:
 - Initial promoted source SHA: `2edd05d5ea6b4ed713f953c1ce1178d989c936ea`.
 - Deployment ID: `dpl_s5jWhrLbG58scWKx2fAsG26vhgao`.
 - Existing Production URL: `https://chamah-portal-chamah.vercel.app`.
+
+## 2026-07-27 - TRACK025C Fix TRAVEL Salary Rule
+
+Scope:
+
+- Fixed only the missing active TRAVEL salary-rule resolution.
+- Did not change calculator logic, other salary rules, API contracts, RLS,
+  schema, Edge Functions, or business-rule values.
+
+Root cause:
+
+- The TRAVEL factor and its `PAR-TRAVEL` rule were both active in Supabase.
+- Migration `20260722103856` renamed the factor identity from
+  `TRAVEL-GLOBAL_MONTHLY` to `TRAVEL-DAILY-CAPPED-MONTHLY`.
+- The salary calculator resolves the stable TRAVEL identity from the established
+  `*-HOURLY` and `*-GLOBAL_MONTHLY` code convention. The new value-type suffix
+  therefore prevented the existing active rule from being recognized as
+  TRAVEL.
+- `value_type` already stores `DAILY_CAPPED_MONTHLY`; encoding the new
+  calculation mode into the stable factor identity was unnecessary.
+
+Implementation:
+
+- Added forward-only migration
+  `20260727035936_track025c_fix_travel_salary_rule_identity.sql`.
+- Restored only the factor code to its calculator-compatible historical identity
+  `TRAVEL-GLOBAL_MONTHLY`.
+- Preserved factor/rule IDs, `DAILY_CAPPED_MONTHLY` value type, amount,
+  eligibility, proration, lifecycle, school-year relationship and effective
+  dates.
+- Applied only TRACK025C to linked Supabase and recorded migration version
+  `20260727035936` as applied. A normal `db push` was intentionally not used
+  because dry-run exposed the pre-existing unrecorded TASK024C migration
+  `20260726134129`, which was outside this TRACK.
+
+Validation:
+
+- PASS: rolled-back database transaction proved the identity repair resolves the
+  active rule without changing its value type.
+- PASS: linked Supabase returns active factor and active `PAR-TRAVEL` rule.
+- PASS: effective endpoints `2026-09-01` and `2027-08-31` resolve active.
+- PASS: adjacent dates `2026-08-31` and `2027-09-01` resolve inactive.
+- PASS: 5 focused salary-calculation Playwright tests.
+- PASS: `npm.cmd run build`.
+- PASS: `git diff --check`.
+- PASS: Supabase migration history records `20260727035936`.
+- Supabase advisors reported only six pre-existing warnings unrelated to this
+  data-only migration; no new advisor finding was introduced.
+- Preview deployed. Authenticated visual verification is pending because Preview
+  has a separate sign-in domain from the authorized Production session.
