@@ -442,6 +442,28 @@ async function loadPortalAccess() {
 function permissionFor(code) { return portalAccess?.sections?.find((item) => item.screen_code === code)?.permission_level || 'HIDDEN'; }
 function canView(code) { return permissionFor(code) !== 'HIDDEN'; }
 function portalSection(code) { return portalAccess?.sections?.find((item) => item.screen_code === code) || null; }
+
+// Workbench APIs already reject writes without EDIT. Keep the presentation in
+// the same state so VIEW users never receive an editable control that would
+// inevitably fail at save time.
+function enforceWorkbenchReadOnly(root = $('#page-content')) {
+  if (!root) return;
+  const mutationControls = [
+    '#wf-add', '#wf-import', '#employee-import', '#wf-open-month', '#wf-close-month', '[data-open-month-primary]', '[data-save-new-payroll]', '[data-delete-allocation]', '[data-add-allocation]', '[data-save-allocations]', '[data-approve-temporary]', '[data-delete-record]', '[data-delete-payroll]', '[data-delete-selected-payroll]', '#wf-confirm-import',
+    '[data-save-new]', '[data-edit-employee]', '[data-edit-employment]', '[data-edit-assignment]', '[data-version-term]', '[data-close-term]', '[data-new-term]', '[data-child]', '[data-deactivate]', '[data-archive]', '[data-bulk-archive]',
+    '#bank-new-transaction', '#bank-import', '#bank-delete-selected', '[data-save-transaction]', '[data-add-split]', '[data-delete-transaction]', '[data-delete-split]', '[data-save-manual-inline]', '#confirm-bank-import', '#bank-apply-mapping', '#bank-manual-form button[type="submit"]',
+    '#transfer-add', '#transfer-import', '#transfer-delete-selected', '[data-mark-completed]', '[data-delete-transfer]', '[data-upload-attachment]'
+  ].join(',');
+  const editableFields = '#wf-rows input, #wf-rows select, #wf-details input, #wf-details select, #wf-details textarea, #bank-new-rows input:not([readonly]), #bank-new-rows select, #bank-new-rows textarea, [data-transfer-row] input:not([readonly]), [data-transfer-row] select, [data-transfer-row] textarea';
+  const apply = () => {
+    root.querySelectorAll(mutationControls).forEach((control) => { control.hidden = true; control.disabled = true; control.setAttribute('aria-hidden', 'true'); });
+    root.querySelectorAll(editableFields).forEach((field) => { field.disabled = true; field.setAttribute('aria-readonly', 'true'); });
+    root.querySelectorAll('[data-select-row], [data-select-all], [data-payroll-select], [data-select-transaction], #bank-select-all, [data-select-transfer]').forEach((field) => { field.disabled = true; });
+  };
+  apply();
+  const observer = new MutationObserver(apply);
+  observer.observe(root, { childList: true, subtree: true });
+}
 function canViewRoute(route) {
   const section = portalAccess?.sections?.find((item) => item.route === route);
   return Boolean(section && section.permission_level !== 'HIDDEN');
@@ -1432,13 +1454,14 @@ async function render() {
   let unit = null;
   let type = null;
   if (route.section === 'home') $('#page-content').innerHTML = homeTemplate();
-  else if (route.section === 'calculators' && route.calculator === 'salary') { $('#page-content').innerHTML = salaryCalculatorTemplate(); await loadSalaryRules(); if (parseRoute().calculator === 'salary') { if (salaryModel.status === 'error') { $('#salary-state').className = 'state error panel'; $('#salary-state').textContent = 'לא ניתן לטעון את כללי השכר הפעילים. נסי שוב מאוחר יותר.'; } else { bindSalaryCalculator(); } } }
-  else if (route.section === 'calculators' && route.calculator === 'occupancy') { $('#page-content').innerHTML = occupancyManagementCalculatorTemplate(); await loadOccupancyRules(); if (parseRoute().calculator === 'occupancy') { if (occupancyModel.status === 'error') { $('#occupancy-state').className = 'state error panel'; $('#occupancy-state').textContent = 'לא ניתן לטעון את כללי התפוסה הפעילים.'; } else { bindOccupancyManagementCalculator(); } } }
+  else if (route.section === 'calculators' && route.calculator === 'salary') { $('#page-content').innerHTML = salaryCalculatorTemplate(); await loadSalaryRules(); if (parseRoute().calculator === 'salary') { if (salaryModel.status === 'error') { $('#salary-state').className = 'state error panel'; $('#salary-state').textContent = salaryModel.error || 'לא ניתן לטעון את כללי השכר הפעילים. נסי שוב מאוחר יותר.'; } else { bindSalaryCalculator(); } } }
+  else if (route.section === 'calculators' && route.calculator === 'occupancy') { $('#page-content').innerHTML = occupancyManagementCalculatorTemplate(); await loadOccupancyRules(); if (parseRoute().calculator === 'occupancy') { if (occupancyModel.status === 'error') { $('#occupancy-state').className = 'state error panel'; $('#occupancy-state').textContent = occupancyModel.error || 'לא ניתן לטעון את כללי התפוסה הפעילים.'; } else { bindOccupancyManagementCalculator(); } } }
   else if (route.section === 'calculators') $('#page-content').innerHTML = calculatorsTemplate();
   else if (route.section === 'payroll') {
     title = 'שכר';
     $('#page-content').innerHTML = payrollWorkbenchTemplate();
     await mountPayrollWorkbench(portalWorkforceRequest);
+    if (permissionFor('payroll') !== 'EDIT') enforceWorkbenchReadOnly();
     mountWorkbenchPolish({ title: 'שכר', module: 'שכר', organization: 'כל הארגון', month: document.querySelector('#wf-month')?.value || 'חודש פעיל', onRefresh: () => render() });
   }
   else if (route.section === 'training' && route.page === 'permissions' && route.child === 'users') { $('#page-content').innerHTML = usersPermissionsTemplate(); await loadPermissionsAdmin(); }
@@ -1475,12 +1498,14 @@ async function render() {
         activeDashboardUnit = unit;
         $('#page-content').innerHTML = track015BankWorkbenchTemplate();
         await mountBankWorkbench(portalBankWorkbenchRequest);
+        if (permissionFor('dashboards.accounting.banks') !== 'EDIT') enforceWorkbenchReadOnly();
         mountWorkbenchPolish({ title: 'קובץ בנקים', module: 'הנה"ח', organization: unit.display_name, schoolYear: 'שנה קלנדרית', month: 'כל החודשים', onRefresh: () => render() });
       } else if (type.id === 'accounting' && route.dashboardChild === 'bank-transfers') {
         title = 'העברות בנקאיות';
         activeDashboardUnit = unit;
         $('#page-content').innerHTML = bankTransferWorkbenchTemplate();
         await mountBankTransferWorkbench(portalBankTransferRequest);
+        if (permissionFor('dashboards.accounting.bank-transfers') !== 'EDIT') enforceWorkbenchReadOnly();
         mountWorkbenchPolish({ title: 'העברות בנקאיות', module: 'הנה"ח', organization: unit.display_name, onRefresh: () => render() });
       } else if (type.id === 'accounting' && route.dashboardChild === 'summary') {
         title = type.title;
@@ -1498,12 +1523,14 @@ async function render() {
         activeDashboardUnit = unit;
         $('#page-content').innerHTML = employeesWorkbenchTemplate(permissionFor('dashboards.staffing.employees.import') === 'EDIT');
         await mountEmployeesWorkbench(portalWorkforceRequest);
+        if (permissionFor('dashboards.staffing.employees') !== 'EDIT') enforceWorkbenchReadOnly();
         mountWorkbenchPolish({ title: 'עובדים', module: 'כוח אדם', organization: unit.display_name, onRefresh: () => render() });
       } else if (type.id === 'staffing' && route.dashboardChild === 'actual-payroll') {
         title = 'ביצוע שכר';
         activeDashboardUnit = unit;
         $('#page-content').innerHTML = payrollWorkbenchTemplate();
         await mountPayrollWorkbench(portalWorkforceRequest);
+        if (permissionFor('dashboards.staffing.actual-payroll') !== 'EDIT') enforceWorkbenchReadOnly();
         mountWorkbenchPolish({ title: 'ביצוע שכר', module: 'שכר', organization: unit.display_name, month: document.querySelector('#wf-month')?.value || 'חודש פעיל', onRefresh: () => render() });
       } else if (['licensing', 'team'].includes(type.id)) {
         title = type.title; dashboardMode = 'staffing'; activeDashboardUnit = unit; $('#page-content').innerHTML = staffDashboardShell(unit); await loadStaffDashboard(); if (parseRoute().unitId === unit.allocation_unit_id && parseRoute().dashboardType === type.id) renderStaffData();

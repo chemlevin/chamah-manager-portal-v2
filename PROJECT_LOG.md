@@ -4417,3 +4417,41 @@ Follow-up validation correction:
 - Added `payroll_records.monthly_inputs` JSON storage. New configured inputs
   persist and recalculate without frontend changes; existing canonical fields
   remain supported as backward-compatible fallbacks.
+
+## 2026-07-27 — TRACK027 Preview permission-validation correction
+
+Root cause:
+
+- Authenticated Preview validation showed that some Workbench pages rendered
+  mutation controls for a user whose resolved screen entitlement was VIEW.
+  The server-side Workbench permission checks continued to reject writes, but
+  the browser presentation was not consistently aligned with that entitlement.
+
+Implementation:
+
+- Added a shared, mutation-observing read-only presentation gate for VIEW
+  Workbenches. It hides and disables Add, Edit, Delete, Bulk Delete, Import,
+  Save, Archive, Split, month-open/close and transaction/transfer actions;
+  disables editable row fields and selection checkboxes; and applies to the
+  Employees, Payroll, Actual Payroll, Bank Files and Bank Transfers routes.
+- Kept backend permission enforcement unchanged.
+- Surface the runtime configuration error returned by the backend on Salary
+  and Occupancy screens, preserving a distinct missing-configuration message
+  from the existing access-denied state.
+
+Validation:
+
+- PASS: `node --check chamah-manager-portal/new/app.js`.
+- PASS: `node node_modules/@playwright/test/cli.js test
+  tests/runtime-configuration.spec.mjs --project=desktop-1440` (5 tests).
+- PASS: `npm.cmd run build` and `git diff --check`.
+- PASS: authenticated mixed-permission Preview session confirmed the Employees
+  screen loads with filtering/export only and without active mutation controls.
+- PASS: final Preview protected routes redirect to the distinct access-denied
+  screen (including Settings), with no configuration payload rendered.
+- NOTE: the supplied mixed-permission session did not expose an EDIT-assigned
+  Workbench among the requested operational routes; its available Workbenches
+  resolved to VIEW and were validated read-only. No alternate account was
+  requested or used.
+- Preview deployed to `https://chamah-portal-ccak3zwpy-chamah.vercel.app`.
+  Production was not modified.

@@ -31,11 +31,20 @@ test.describe('TRACK027 runtime configuration contract', () => {
   test('missing configuration is distinct from permission denial', () => {
     expect(runtime).toContain('status: missing.length ? "CONFIGURATION_MISSING" : "READY"');
     expect(runtime).toContain('return json({ error: "PERMISSION_DENIED", screen: screenCode }, 403)');
+    expect(app).toContain("$('#salary-state').textContent = salaryModel.error");
+    expect(app).toContain("$('#occupancy-state').textContent = occupancyModel.error");
   });
 
   test('scope filtering happens before configuration reaches the browser', () => {
     expect(runtime).toContain('access.profile?.scope_mode === "SELECTED"');
     expect(runtime).toContain('unitIds.has(row.allocation_unit_id)');
     expect(runtime).toContain('daycareIds.has(row.daycare_id)');
+  });
+
+  test('VIEW workbenches suppress every primary mutation entry point', () => {
+    for (const selector of ['#wf-add', '#wf-import', '#employee-import', '#bank-new-transaction', '#bank-import', '#transfer-add', '#transfer-import']) {
+      expect(app).toContain(`'${selector}'`);
+    }
+    expect(app).toContain('control.hidden = true; control.disabled = true;');
   });
 });
