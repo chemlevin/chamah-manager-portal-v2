@@ -4146,3 +4146,28 @@ Validation:
 - PASS: `git diff --check`.
 - Preview and linked Supabase deployment details are recorded in the completion
   report after deployment verification.
+
+### TRACK025D deployment completion
+
+- Applied and recorded migration `20260727041915` in linked Supabase migration
+  history.
+- Deployed `portal-workforce-workbench` version 8 and verified the deployed
+  source contains saved mapping retrieval, `import_employees`, and
+  `portal_import_employees` RPC integration.
+- Verified database objects and permissions: mapping table and RPC exist;
+  authenticated users cannot execute the RPC directly; service role execution
+  is enabled.
+- Authenticated Preview smoke passed for Employees data loading, archived
+  employee preservation, import dialog/cancel, template action, workbench
+  context/save state, 390px mobile RTL and 1440px desktop layout.
+- The bundled spreadsheet smoke-fixture runtime did not expose its declared
+  `@oai/artifact-tool` package, so live invalid-file upload was not repeated.
+  Row validation, duplicate prevention and archived-state preservation remain
+  covered by the 12 passing focused Playwright tests. No employee data changed
+  during live verification.
+- Deployed the validated UI to the existing `chamah-portal` Production project
+  as deployment `dpl_DRdbSTBhYsLoqbtTXC5nszFzzbTG`; existing Production aliases
+  were preserved.
+- Authenticated Production smoke passed for Employees import controls and data,
+  Actual Payroll data/context, Supabase save-state indicators and RTL layout.
+  No new console errors appeared in the stable post-deployment checks.
