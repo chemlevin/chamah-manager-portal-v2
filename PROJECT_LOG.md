@@ -4499,3 +4499,28 @@ Validation:
 - Added source-contract coverage for observer replacement. Preview deployed
   to `https://chamah-portal-qydidyhi0-chamah.vercel.app`. Production was not
   modified.
+
+## 2026-07-27 — TRACK026D Final Payroll Workbench Flow
+
+- Consolidated Payroll into one continuous RTL worksheet with the prescribed
+  employee identity, monthly-input, component, accounting, split, delete and
+  save-status columns. Payroll no longer renders a lower details or technical
+  calculation surface.
+- Kept payroll inputs and components backend-projected. The visible component
+  cells are compact; seniority is automatic, recovery pay is eligibility-only,
+  and the single persistence checkbox is the configured no-absence monthly
+  input rather than a duplicate field.
+- Added an inline split child-row workflow. It keeps accounting fields only,
+  previews parent/allocated/remaining totals through the Edge Function while
+  typing, and autosaves only when the backend confirms every allocation total
+  is balanced.
+- Applied forward-only migration `20260727141324_track026d_accounting_split_fields.sql`
+  to the linked Preview project. It adds the canonical actual net and split
+  standard-hours/net/gross persistence fields, and atomically validates all
+  accounting allocation totals in the existing payroll allocation RPC.
+- Deployed the matching `portal-workforce-workbench` Edge Function after the
+  migration. The function now projects and validates four split totals and
+  supplies a non-mutating allocation preview for immediate worksheet feedback.
+- PASS: JavaScript checks, Edge Deno type check, build, diff check, migration
+  history verification and focused TRACK026D contract test. Production was not
+  modified.

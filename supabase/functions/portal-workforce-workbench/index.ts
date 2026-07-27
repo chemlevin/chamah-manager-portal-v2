@@ -145,8 +145,14 @@ function projectPayrollRecords(input: {
     const allocations = input.allocations.filter((row) => row.payroll_record_id === record.payroll_record_id);
     const allocatedCost = allocations.reduce((sum, row) => sum + Number(row.allocation_amount || 0), 0);
     const allocatedHours = allocations.reduce((sum, row) => sum + Number(row.allocated_hours || 0), 0);
+    const allocatedStandardHours = allocations.reduce((sum, row) => sum + Number(row.allocated_standard_hours || 0), 0);
+    const allocatedNet = allocations.reduce((sum, row) => sum + Number(row.allocated_net || 0), 0);
+    const allocatedGross = allocations.reduce((sum, row) => sum + Number(row.allocated_gross || 0), 0);
     const remainingCost = Number(record.employer_cost || 0) - allocatedCost;
     const remainingHours = Number(record.actual_hours || 0) - allocatedHours;
+    const remainingStandardHours = Number(record.standard_hours || 0) - allocatedStandardHours;
+    const remainingNet = Number(record.actual_net || 0) - allocatedNet;
+    const remainingGross = Number(record.actual_gross || 0) - allocatedGross;
     let rowStatus = "VALID";
     let rowHealthReason = "כל שדות החובה תקינים";
     const unit = input.units.find((row) => row.allocation_unit_id === record.allocation_unit_id);
@@ -156,7 +162,8 @@ function projectPayrollRecords(input: {
     if (!record.source_employee_identifier || record.employer_cost == null || !record.allocation_unit_id || !record.role_id
       || !record.actual_allocation_unit_id || daycareMissing || actualDaycareMissing) {
       rowStatus = "ERROR"; rowHealthReason = "חסרים שדות חובה";
-    } else if (allocations.length && (Math.abs(remainingCost) > .01 || Math.abs(remainingHours) > .01)) {
+    } else if (allocations.length && (Math.abs(remainingCost) > .01 || Math.abs(remainingHours) > .01
+      || Math.abs(remainingStandardHours) > .01 || Math.abs(remainingNet) > .01 || Math.abs(remainingGross) > .01)) {
       rowStatus = "ERROR"; rowHealthReason = "פיצול לא מאוזן";
     } else if (allocations.length) {
       rowStatus = "SPLIT"; rowHealthReason = "ההקצאה מאוזנת";
@@ -175,7 +182,13 @@ function projectPayrollRecords(input: {
       calculated_gross: calculatedGross,
       row_status: rowStatus,
       row_health_reason: rowHealthReason,
-      split_summary: { allocated_cost: allocatedCost, allocated_hours: allocatedHours, remaining_cost: remainingCost, remaining_hours: remainingHours, has_split: allocations.length > 0 },
+      split_summary: {
+        allocated_cost: allocatedCost, allocated_hours: allocatedHours,
+        allocated_standard_hours: allocatedStandardHours, allocated_net: allocatedNet, allocated_gross: allocatedGross,
+        remaining_cost: remainingCost, remaining_hours: remainingHours,
+        remaining_standard_hours: remainingStandardHours, remaining_net: remainingNet, remaining_gross: remainingGross,
+        has_split: allocations.length > 0,
+      },
     };
   });
 }
@@ -323,10 +336,11 @@ Deno.serve(async (request) => {
         reportSummary: payrollSummary(projectedRecords, lookupData.units, lookupData.daycares),
         componentColumns: lookupData.compensationFactors.map((factor: Record<string, unknown>) => ({
           compensation_factor_id: factor.compensation_factor_id,
+          compensation_factor_code: factor.compensation_factor_code,
           display_name: factor.display_name,
           value_type: factor.value_type,
         })),
-        monthlyInputColumns: calculationInputRules.map((rule) => ({
+        monthlyInputColumns: calculationInputRules.map((rule: Record<string, unknown>) => ({
           source_field: rule.source_field, display_name: rule.display_name,
           input_value_kind: rule.input_value_kind, display_order: rule.display_order,
         })),
@@ -471,11 +485,17 @@ Deno.serve(async (request) => {
           const splits = closingAllocations.filter((item: Record<string, unknown>) => item.payroll_record_id === row.payroll_record_id);
           const cost = splits.reduce((sum: number, item: Record<string, unknown>) => sum + Number(item.allocation_amount || 0), 0);
           const hours = splits.reduce((sum: number, item: Record<string, unknown>) => sum + Number(item.allocated_hours || 0), 0);
+          const standardHours = splits.reduce((sum: number, item: Record<string, unknown>) => sum + Number(item.allocated_standard_hours || 0), 0);
+          const net = splits.reduce((sum: number, item: Record<string, unknown>) => sum + Number(item.allocated_net || 0), 0);
+          const gross = splits.reduce((sum: number, item: Record<string, unknown>) => sum + Number(item.allocated_gross || 0), 0);
           return !row.source_employee_identifier || !row.allocation_unit_id || !row.role_id || !row.actual_allocation_unit_id
             || ["MISSING", "UNRESOLVED"].includes(text(row.employee_match_status))
-            || row.actual_hours == null || row.actual_gross == null || row.employer_cost == null
+            || row.standard_hours == null || row.actual_hours == null || row.actual_net == null || row.actual_gross == null || row.employer_cost == null
             || (splits.length > 0 && (Math.abs(cost - Number(row.employer_cost || 0)) > .01
-              || Math.abs(hours - Number(row.actual_hours || 0)) > .01));
+              || Math.abs(hours - Number(row.actual_hours || 0)) > .01
+              || Math.abs(standardHours - Number(row.standard_hours || 0)) > .01
+              || Math.abs(net - Number(row.actual_net || 0)) > .01
+              || Math.abs(gross - Number(row.actual_gross || 0)) > .01));
         });
         if (invalidRows.length) {
           return json({ error: "PAYROLL_MONTH_VALIDATION_FAILED", invalid_record_ids: invalidRows.map((row: Record<string, unknown>) => row.payroll_record_id) }, 422);
@@ -576,6 +596,7 @@ Deno.serve(async (request) => {
           unpaid_absence_hours: body.unpaid_absence_hours === "" ? null : Number(body.unpaid_absence_hours),
           standard_hours: body.standard_hours === "" ? null : Number(body.standard_hours),
           actual_hours: body.actual_hours === "" ? null : Number(body.actual_hours),
+          actual_net: body.actual_net == null || body.actual_net === "" ? null : Number(body.actual_net),
           actual_gross: body.actual_gross === "" ? null : Number(body.actual_gross),
           actual_allocation_unit_id: uuid(body.actual_allocation_unit_id) || null,
           actual_daycare_id: uuid(body.actual_daycare_id) || null,
@@ -609,7 +630,7 @@ Deno.serve(async (request) => {
             : null,
           updated_by_user_id: actor.id,
         };
-        const completeActuals = payload.actual_hours !== null && payload.actual_gross !== null && payload.employer_cost !== null;
+        const completeActuals = payload.actual_hours !== null && payload.actual_net !== null && payload.actual_gross !== null && payload.employer_cost !== null;
         const completeAssignment = Boolean(payload.allocation_unit_id && payload.role_id && payload.actual_allocation_unit_id);
         const acceptedEmployee = ["LINKED", "APPROVED_TEMPORARY"].includes(payload.employee_match_status);
         Object.assign(payload, {
@@ -649,13 +670,22 @@ Deno.serve(async (request) => {
         const allocationRows = Array.isArray(body.allocations) ? body.allocations : [];
         const allocatedCost = allocationRows.reduce((sum: number, row: Record<string, unknown>) => sum + Number(row.allocation_amount || 0), 0);
         const allocatedHours = allocationRows.reduce((sum: number, row: Record<string, unknown>) => sum + Number(row.allocated_hours || 0), 0);
+        const allocatedStandardHours = allocationRows.reduce((sum: number, row: Record<string, unknown>) => sum + Number(row.allocated_standard_hours || 0), 0);
+        const allocatedNet = allocationRows.reduce((sum: number, row: Record<string, unknown>) => sum + Number(row.allocated_net || 0), 0);
+        const allocatedGross = allocationRows.reduce((sum: number, row: Record<string, unknown>) => sum + Number(row.allocated_gross || 0), 0);
         if (!allocationRows.length
           || allocationRows.some((row: Record<string, unknown>) => !uuid(row.allocation_unit_id) || !uuid(row.role_id))
           || Math.abs(allocatedCost - Number(existing?.employer_cost || 0)) > .01
-          || Math.abs(allocatedHours - Number(existing?.actual_hours || 0)) > .01) {
+          || Math.abs(allocatedHours - Number(existing?.actual_hours || 0)) > .01
+          || Math.abs(allocatedStandardHours - Number(existing?.standard_hours || 0)) > .01
+          || Math.abs(allocatedNet - Number(existing?.actual_net || 0)) > .01
+          || Math.abs(allocatedGross - Number(existing?.actual_gross || 0)) > .01) {
           return json({ error: "PAYROLL_SPLIT_UNBALANCED", details: {
             original_cost: Number(existing?.employer_cost || 0), allocated_cost: allocatedCost,
             original_hours: Number(existing?.actual_hours || 0), allocated_hours: allocatedHours,
+            original_standard_hours: Number(existing?.standard_hours || 0), allocated_standard_hours: allocatedStandardHours,
+            original_net: Number(existing?.actual_net || 0), allocated_net: allocatedNet,
+            original_gross: Number(existing?.actual_gross || 0), allocated_gross: allocatedGross,
           } }, 422);
         }
         const result = await write("rpc/portal_save_payroll_allocations", "POST", {
@@ -664,6 +694,23 @@ Deno.serve(async (request) => {
           actor_id: actor.id,
         });
         return json(result);
+      }
+      if (body.action === "preview_allocations") {
+        const existing = (await read(`payroll_records?payroll_record_id=eq.${uuid(body.payroll_record_id)}&limit=1`))[0];
+        await requireCurrentMonth(existing?.payroll_month);
+        const rows = Array.isArray(body.allocations) ? body.allocations : [];
+        const sum = (field: string) => rows.reduce((total: number, row: Record<string, unknown>) => total + Number(row[field] || 0), 0);
+        const parent = {
+          standard_hours: Number(existing?.standard_hours || 0), actual_hours: Number(existing?.actual_hours || 0),
+          net: Number(existing?.actual_net || 0), gross: Number(existing?.actual_gross || 0), employer_cost: Number(existing?.employer_cost || 0),
+        };
+        const allocated = {
+          standard_hours: sum("allocated_standard_hours"), actual_hours: sum("allocated_hours"),
+          net: sum("allocated_net"), gross: sum("allocated_gross"), employer_cost: sum("allocation_amount"),
+        };
+        const remaining = Object.fromEntries(Object.entries(parent).map(([field, amount]) => [field, amount - allocated[field as keyof typeof allocated]]));
+        const balanced = Object.values(remaining).every((amount) => Math.abs(Number(amount)) <= .01);
+        return json({ parent, allocated, remaining, balanced, state: balanced ? "BALANCED" : Object.values(remaining).some((amount) => Number(amount) < -.01) ? "OVER" : "MISSING" });
       }
       if (body.action === "delete_record") {
         const id = uuid(body.payroll_record_id);

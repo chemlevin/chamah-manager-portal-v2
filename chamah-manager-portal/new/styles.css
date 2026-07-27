@@ -524,6 +524,15 @@ p { line-height: 1.65; }
 .workforce-workbench tbody tr.bank-row-split>td{background:var(--row-health)}
 .bank-row-status.split{color:#174f93;background:#cfe1fb}
 .workforce-table td,.workforce-table th{white-space:nowrap}
+.workforce-table .payroll-group-head th{background:#eaf5f1;color:#173a34;font-size:.76rem;text-align:center}
+.workforce-table .payroll-inline-split td{background:#f7fbff;border-top:1px dashed #b8c9dc}
+.workforce-table .payroll-inline-split input,.workforce-table .payroll-inline-split select{min-width:86px;width:86px}
+.payroll-split-parent{font-weight:700;color:#31577c}
+.workforce-table .payroll-split-summary td{padding:.55rem .7rem;white-space:normal}
+.payroll-split-summary span{display:inline-block;margin-inline-start:1rem;font-size:.78rem}
+.payroll-split-summary strong{display:inline-block;border-radius:999px;padding:.15rem .48rem}
+.payroll-split-summary.complete strong{background:#dff5e9;color:#17653b}.payroll-split-summary.missing strong{background:#fff4c8;color:#836000}.payroll-split-summary.error strong{background:#ffe2e2;color:#9a2929}
+.workforce-table .payroll-eligibility strong{font-size:.74rem}
 .workforce-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
 .workforce-detail-grid>section{padding:.8rem;border:1px solid var(--border-color);border-radius:.65rem;background:#fff}
 .workforce-detail-grid h3{margin:0 0 .6rem}.workforce-detail-grid p{margin:.35rem 0}
