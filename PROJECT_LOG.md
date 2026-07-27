@@ -4418,6 +4418,14 @@ Follow-up validation correction:
   persist and recalculate without frontend changes; existing canonical fields
   remain supported as backward-compatible fallbacks.
 
+## 2026-07-27 — Payroll Clerk Spreadsheet View
+
+- Simplified the Payroll Workbench table for fast monthly entry: concise
+  headers, small checkbox inputs, zero-value unchecked components, calculated
+  amounts only when checked, and a compact in-row split `+` action.
+- Kept calculation, eligibility and persistence entirely backend-driven; no
+  payroll formula, rate or rule was added to the browser.
+
 ## 2026-07-27 — TRACK027 Preview permission-validation correction
 
 Root cause:
