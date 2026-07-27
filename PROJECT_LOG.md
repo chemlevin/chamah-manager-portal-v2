@@ -4408,3 +4408,12 @@ Follow-up validation correction:
   tests and 96 focused desktop/laptop/mobile TRACK026A, Payroll Engine and
   Budget Engine regression tests.
 - Production was not modified.
+
+## 2026-07-27 — TRACK026A Generic Monthly Input Framework
+
+- Replaced fixed Workbench monthly-input columns with `monthlyInputColumns`
+  returned from Supabase configuration. The browser renders controls solely by
+  configured source field, label, order and value kind.
+- Added `payroll_records.monthly_inputs` JSON storage. New configured inputs
+  persist and recalculate without frontend changes; existing canonical fields
+  remain supported as backward-compatible fallbacks.

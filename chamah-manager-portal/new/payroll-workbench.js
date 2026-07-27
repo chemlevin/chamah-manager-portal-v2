@@ -523,6 +523,13 @@ export async function mountPayrollWorkbench(request) {
 
   const inlineNumber = (record, field, label) =>
     `<input class="workforce-inline payroll-cell-input" aria-label="${label}" data-payroll-inline="${record.payroll_record_id}" name="${field}" type="number" min="0" step=".01" value="${esc(record[field] ?? "")}" ${isClosed() ? "disabled" : ""}>`;
+  const inlineMonthlyInput = (record, column) => {
+    const value = record.monthly_input_values?.[column.source_field] ?? "";
+    const control = column.input_value_kind === "BOOLEAN"
+      ? `<select class="workforce-inline payroll-cell-select" data-payroll-monthly-input="${record.payroll_record_id}" data-input-field="${column.source_field}" ${isClosed() ? "disabled" : ""}><option value="">—</option><option value="true" ${value === true ? "selected" : ""}>כן</option><option value="false" ${value === false ? "selected" : ""}>לא</option></select>`
+      : `<input class="workforce-inline payroll-cell-input" data-payroll-monthly-input="${record.payroll_record_id}" data-input-field="${column.source_field}" type="${column.input_value_kind === "TEXT" ? "text" : "number"}" step=".01" value="${esc(value)}" ${isClosed() ? "disabled" : ""}>`;
+    return control;
+  };
   const inlineText = (record, field, label) =>
     `<input class="workforce-inline payroll-cell-input" aria-label="${label}" data-payroll-inline="${record.payroll_record_id}" name="${field}" value="${esc(record[field] ?? "")}" ${isClosed() ? "disabled" : ""}>`;
   const inlineComponent = (record, column) => {
@@ -562,7 +569,7 @@ export async function mountPayrollWorkbench(request) {
       <th><input type="checkbox" data-payroll-select-all aria-label="בחירת כל השורות"></th>
       <th class="bank-sticky-number"><button data-sort="code">מס׳ עובד</button></th><th class="payroll-sticky-employee"><button data-sort="employee">שם</button></th>
       <th>מחלקה</th><th>מעון</th><th>תפקיד</th><th>ותק</th><th>תעריף בסיס</th>
-      <th>ימי עבודה</th><th>100%</th><th>125%</th><th>150%</th><th>ניכוי חופשה</th><th>תשלום חופשה</th><th>ימי מחלה לניכוי</th><th>שעות מחלה לתשלום</th>
+      ${(state.data.monthlyInputColumns || []).map((column) => `<th>${esc(column.display_name)}</th>`).join("")}
       ${(state.data.componentColumns || []).map((column) => `<th>${esc(column.display_name)}<small>זכאות · תעריף · השפעה</small></th>`).join("")}<th>הערות</th>
       <th>תעריף אפקטיבי</th><th>ברוטו מחושב</th><th>פירוט</th>
       <th>שעות תקן</th><th>שעות בפועל</th><th>ברוטו בפועל</th><th><button data-sort="cost">עלות מעסיק</button></th>
@@ -588,10 +595,7 @@ export async function mountPayrollWorkbench(request) {
         <td>${inlineLookup(record, "daycare_id", state.data.daycares, "daycare_id", "מעון")}</td>
         <td>${inlineLookup(record, "role_id", state.data.roles, "role_id", "תפקיד")}</td>
         <td>${months == null ? "—" : `${Math.floor(months / 12)} שנים ${months % 12} ח׳`}</td><td>${record.base_hourly_rate == null ? "—" : money.format(record.base_hourly_rate)}</td>
-        <td>${inlineNumber(record, "work_days", "ימי עבודה")}</td><td>${inlineNumber(record, "regular_hours", "שעות 100%")}</td>
-        <td>${inlineNumber(record, "hours_125", "שעות 125%")}</td><td>${inlineNumber(record, "hours_150", "שעות 150%")}</td>
-        <td>${inlineNumber(record, "vacation_deduct", "ניכוי חופשה")}</td><td>${inlineNumber(record, "vacation_pay", "תשלום חופשה")}</td>
-        <td>${inlineNumber(record, "sick_deduct", "ימי מחלה לניכוי")}</td><td>${inlineNumber(record, "sick_pay", "שעות מחלה לתשלום")}</td>
+        ${(state.data.monthlyInputColumns || []).map((column) => `<td>${inlineMonthlyInput(record, column)}</td>`).join("")}
         ${(state.data.componentColumns || []).map((column) => `<td>${inlineComponent(record, column)}</td>`).join("")}<td>${inlineText(record, "notes", "הערות חודשיות")}</td>
         <td>${record.effective_hourly_rate == null ? "—" : money.format(record.effective_hourly_rate)}</td>
         <td>${record.calculated_gross == null ? "—" : money.format(record.calculated_gross)}</td><td><button class="button button-quiet" data-open="${record.payroll_record_id}">פירוט</button></td>
@@ -632,6 +636,14 @@ export async function mountPayrollWorkbench(request) {
         if (field.value === "") delete overrides[field.dataset.componentId];
         else overrides[field.dataset.componentId] = field.value === "true";
         return saveInline(record, "monthly_overrides", overrides);
+      };
+    });
+    document.querySelectorAll("[data-payroll-monthly-input]").forEach((field) => {
+      field.onchange = () => {
+        const record = state.data.records.find((row) => row.payroll_record_id === field.dataset.payrollMonthlyInput);
+        const inputs = { ...(record.monthly_inputs || {}) };
+        inputs[field.dataset.inputField] = field.value === "true" ? true : field.value === "false" ? false : field.value;
+        return saveInline(record, "monthly_inputs", inputs);
       };
     });
     document.querySelectorAll("[data-payroll-select]").forEach((field) => {

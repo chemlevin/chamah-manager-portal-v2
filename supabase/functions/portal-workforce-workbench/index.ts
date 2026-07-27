@@ -76,7 +76,10 @@ function projectPayrollRecords(input: {
       .map((row) => [row.compensation_factor_id, comparable(row.eligibility_status) === true]));
     const monthlyOverrides = record.monthly_overrides && typeof record.monthly_overrides === "object"
       ? record.monthly_overrides as Record<string, unknown> : {};
-    const eligibilityContext = { ...(payTerm || {}), ...record };
+    const monthlyInputs = record.monthly_inputs && typeof record.monthly_inputs === "object"
+      ? record.monthly_inputs as Record<string, unknown> : {};
+    const inputValue = (rule: Record<string, unknown>) => monthlyInputs[text(rule.source_field)] ?? record[text(rule.source_field)];
+    const eligibilityContext = { ...(payTerm || {}), ...record, ...monthlyInputs };
     const baseHourlyRate = Number(payTerm?.base_pay || 0);
     const schoolYear = input.daycareSchoolYears.find((row) => row.daycare_id === record.daycare_id);
     const payrollComponents = input.compensationFactors.map((factor) => {
@@ -130,14 +133,14 @@ function projectPayrollRecords(input: {
       };
     });
     const baseGross = input.calculationInputRules.reduce((sum, rule) => {
-      const value = Number(record[text(rule.source_field)] || 0);
+      const value = Number(inputValue(rule) || 0);
       const rate = rule.uses_base_hourly_rate ? baseHourlyRate : 1;
       const sign = rule.operation === "SUBTRACT" ? -1 : 1;
       return sum + value * Number(rule.multiplier || 0) * rate * sign;
     }, 0);
     const effectiveHours = input.calculationInputRules
       .filter((rule) => rule.counts_for_effective_hours)
-      .reduce((sum, rule) => sum + Number(record[text(rule.source_field)] || 0), 0);
+      .reduce((sum, rule) => sum + Number(inputValue(rule) || 0), 0);
     const calculatedGross = baseGross + payrollComponents.reduce((sum, component) => sum + component.monthly_impact, 0);
     const allocations = input.allocations.filter((row) => row.payroll_record_id === record.payroll_record_id);
     const allocatedCost = allocations.reduce((sum, row) => sum + Number(row.allocation_amount || 0), 0);
@@ -166,6 +169,7 @@ function projectPayrollRecords(input: {
       base_hourly_rate: baseHourlyRate,
       effective_hourly_rate: effectiveHours > 0 ? calculatedGross / effectiveHours : null,
       base_gross: baseGross,
+      monthly_input_values: Object.fromEntries(input.calculationInputRules.map((rule) => [rule.source_field, inputValue(rule) ?? null])),
       payroll_components: payrollComponents,
       calculated_components: Object.fromEntries(payrollComponents.map((component) => [component.compensation_factor_id, component.monthly_impact])),
       calculated_gross: calculatedGross,
@@ -321,6 +325,10 @@ Deno.serve(async (request) => {
           compensation_factor_id: factor.compensation_factor_id,
           display_name: factor.display_name,
           value_type: factor.value_type,
+        })),
+        monthlyInputColumns: calculationInputRules.map((rule) => ({
+          source_field: rule.source_field, display_name: rule.display_name,
+          input_value_kind: rule.input_value_kind, display_order: rule.display_order,
         })),
         compensationRules, travelRates, calculationInputRules, months,
         canReopen: reopenPermission.ok && await reopenPermission.json() === true,
@@ -587,6 +595,7 @@ Deno.serve(async (request) => {
           degree_override: body.degree_override === "" ? null : body.degree_override === true || body.degree_override === "true",
           certificate_override: text(body.certificate_override) || null,
           monthly_overrides: body.monthly_overrides && typeof body.monthly_overrides === "object" ? body.monthly_overrides : {},
+          monthly_inputs: body.monthly_inputs && typeof body.monthly_inputs === "object" ? body.monthly_inputs : {},
           actual_status: text(body.actual_status) || null,
           actual_notes: text(body.actual_notes) || null,
           notes: text(body.notes) || null, import_batch_id: importBatchId,
