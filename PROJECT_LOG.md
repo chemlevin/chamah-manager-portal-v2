@@ -4289,3 +4289,30 @@ Validation:
 - PASS: changed JavaScript syntax checks, `git diff --check`, build, and 92
   focused desktop/laptop/mobile TRACK026, Payroll Engine and Budget Engine
   tests. Live authenticated Preview validation follows the replacement deploy.
+
+## 2026-07-27 — TRACK026A Complete Payroll Workbench
+
+- Moved employee identity, assignment, monthly preparation inputs, eligibility
+  overrides, calculated gross, accounting-return values, actual assignment,
+  status, notes and row-health reasons into the main horizontally scrollable
+  Payroll table.
+- Kept employee identity, seniority and active pay terms read-only and sourced
+  from canonical Supabase data. Calculated gross and component breakdown remain
+  read-only outputs from the canonical Payroll record; no salary values or
+  dropdown business entities were added to the frontend.
+- Reduced the lower details card to advanced read-only calculation context,
+  temporary approval/delete actions and one-level split allocation.
+- Restricted split editing to actual hours, employer cost and department/daycare
+  allocation. Added original/allocated/remaining balance visibility and
+  client-side close blocking for unbalanced splits.
+- Added green/yellow/red/blue row health with an inline reason, sticky employee
+  columns, complete inline autosave fields, immediate Add Row, and retained
+  single/bulk delete and import/export.
+- Corrected the Workforce Edge Function to persist accounting-return
+  `actual_allocation_unit_id` and `actual_daycare_id` into their existing
+  canonical columns.
+- PASS: JavaScript syntax, Edge Function Deno type-check, `git diff --check`,
+  build, and 96 focused desktop/laptop/mobile TRACK026A, Payroll Engine and
+  Budget Engine tests. The broader browser-runner suite was attempted twice but
+  stalled without test output and was terminated; authenticated deployed
+  desktop/mobile verification is the remaining Preview gate.

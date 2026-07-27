@@ -59,3 +59,22 @@ test("TRACK026 workbench exposes scope, combined loading options, preparation an
   expect(app).toContain("await mountPayrollWorkbench(portalWorkforceRequest)");
   expect(app).toContain("workforceHubTemplate(canView('dashboards.staffing.employees'), false)");
 });
+
+test("TRACK026A keeps the complete monthly workflow inline and details advanced-only", () => {
+  const ui = read("chamah-manager-portal/new/payroll-workbench.js");
+  const edge = read("supabase/functions/portal-workforce-workbench/index.ts");
+
+  for (const contract of [
+    "ימי עבודה", "שעות 100%", "שעות 125%", "שעות 150%",
+    "ניכוי חופשה", "תשלום חופשה", "ימי מחלה לניכוי", "שעות מחלה לתשלום",
+    "ללא היעדרות", "התמדה", "מצוינות", "אחראית כיתה", "תואר", "תעודה",
+    "ברוטו מחושב", "שעות תקן", "שעות בפועל", "ברוטו בפועל",
+    "actual_allocation_unit_id", "actual_daycare_id", "פיצול לא מאוזן",
+    "פירוט חישוב מתקדם · לקריאה בלבד", "payroll-sticky-employee",
+  ]) expect(ui).toContain(contract);
+
+  expect(ui).not.toContain('id="payroll-monthly-form"');
+  expect(ui).toContain('Number(record.actual_hours || 0) - allocatedHours');
+  expect(edge).toContain("actual_allocation_unit_id: uuid(body.actual_allocation_unit_id) || null");
+  expect(edge).toContain("actual_daycare_id: uuid(body.actual_daycare_id) || null");
+});

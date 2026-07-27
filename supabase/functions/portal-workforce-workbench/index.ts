@@ -338,6 +338,8 @@ Deno.serve(async (request) => {
           standard_hours: body.standard_hours === "" ? null : Number(body.standard_hours),
           actual_hours: body.actual_hours === "" ? null : Number(body.actual_hours),
           actual_gross: body.actual_gross === "" ? null : Number(body.actual_gross),
+          actual_allocation_unit_id: uuid(body.actual_allocation_unit_id) || null,
+          actual_daycare_id: uuid(body.actual_daycare_id) || null,
           vacation_deduct: body.vacation_deduct === "" ? null : Number(body.vacation_deduct),
           vacation_pay: body.vacation_pay === "" ? null : Number(body.vacation_pay),
           sick_deduct: body.sick_deduct === "" ? null : Number(body.sick_deduct),

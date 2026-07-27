@@ -515,6 +515,13 @@ p { line-height: 1.65; }
 /* TRACK020 workforce workbenches reuse the Bank Workbench visual system. */
 .workforce-kpis{grid-template-columns:repeat(5,minmax(130px,1fr))}
 .workforce-table{min-width:1320px!important}
+.workforce-table .payroll-sticky-employee{position:sticky;right:78px;z-index:4;min-width:150px;background:inherit;box-shadow:-5px 0 8px -8px #203552}
+.workforce-table thead .payroll-sticky-employee{z-index:7;background:#f4f7fb}
+.workforce-table .payroll-cell-input{min-width:82px;width:82px}
+.workforce-table .payroll-cell-select{min-width:112px;width:112px}
+.workforce-workbench tbody tr.bank-row-split{--row-health:#e8f1ff}
+.workforce-workbench tbody tr.bank-row-split>td{background:var(--row-health)}
+.bank-row-status.split{color:#174f93;background:#cfe1fb}
 .workforce-table td,.workforce-table th{white-space:nowrap}
 .workforce-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
 .workforce-detail-grid>section{padding:.8rem;border:1px solid var(--border-color);border-radius:.65rem;background:#fff}
