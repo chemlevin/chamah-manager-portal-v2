@@ -99,6 +99,7 @@ export async function mountPayrollWorkbench(request) {
     allocationDrafts: new Map(),
     splitPreviews: new Map(),
     monthlyInputTimers: new Map(),
+    manualInputTimers: new Map(),
     monthlyAutosave: null,
     allocationAutosave: null,
   };
@@ -774,7 +775,7 @@ export async function mountPayrollWorkbench(request) {
     });
     $("[data-delete-selected-payroll]")?.addEventListener("click", () => deleteRecords([...state.selectedRows]));
     document.querySelectorAll("[data-payroll-manual]").forEach((field) => {
-      field.onchange = async () => {
+      const saveManual = async () => {
         const record = state.data.records.find((row) => row.payroll_record_id === field.dataset.payrollManual);
         if (!record) return;
         const manual = { ...manualEmployeeFor(record), draft: false };
@@ -804,6 +805,14 @@ export async function mountPayrollWorkbench(request) {
           await reload();
         }
       };
+      field.onchange = saveManual;
+      if (field.tagName === "INPUT") {
+        field.oninput = () => {
+          const key = `${field.dataset.payrollManual}:${field.dataset.manualField}`;
+          clearTimeout(state.manualInputTimers.get(key));
+          state.manualInputTimers.set(key, setTimeout(saveManual, 250));
+        };
+      }
     });
     $("[data-add-payroll-row]")?.addEventListener("click", createPayrollDraft);
     document.querySelectorAll("[data-sort]").forEach((button) => {
