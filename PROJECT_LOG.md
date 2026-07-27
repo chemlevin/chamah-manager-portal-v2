@@ -4337,3 +4337,35 @@ Architecture correction:
   into the same Supabase backend projection, and removed browser-side export
   aggregation. The frontend now only filters, formats and serializes returned
   values.
+
+## 2026-07-27 — TRACK027 Runtime Configuration Layer
+
+Replaced direct browser reads of Supabase configuration tables with one
+permission-aware runtime configuration Edge Function for Home, Finance,
+Staffing, Salary, Occupancy and the read-only management table views.
+
+Implementation:
+
+- Added `portal-runtime-config`, a JWT-protected, GET-only Edge Function with an
+  immutable per-screen dataset and column whitelist.
+- VIEW, EDIT and Super Admin receive the bounded configuration required by the
+  authorized screen. HIDDEN receives `403 PERMISSION_DENIED`.
+- Organizational-unit and daycare configuration is scope-filtered before it
+  reaches the browser.
+- Required empty datasets return `CONFIGURATION_MISSING` with exact dataset
+  keys, distinct from authorization failure.
+- The browser cannot submit table names, columns or filters and no longer reads
+  runtime configuration directly from PostgREST tables.
+- No schema, RLS policy, calculation, Budget Engine behavior or business-rule
+  value changed.
+
+Validation and deployment:
+
+- PASS: JavaScript syntax check, build and `git diff --check`.
+- PASS: 4 focused TRACK027 contract tests.
+- PASS: live Super Admin, EDIT, VIEW and HIDDEN permission evaluation.
+- PASS: `portal-runtime-config` version 1 deployed ACTIVE with JWT verification.
+- PASS: Supabase security advisors; only pre-existing unrelated findings remain.
+- PASS: Vercel Preview deployment `dpl_866GmCr2JR3qAzAN4WYo2MfY3feG` reached
+  READY at `https://chamah-portal-g353iknfv-chamah.vercel.app`.
+- Production was not modified.
