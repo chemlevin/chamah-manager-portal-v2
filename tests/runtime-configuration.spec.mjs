@@ -46,5 +46,7 @@ test.describe('TRACK027 runtime configuration contract', () => {
       expect(app).toContain(`'${selector}'`);
     }
     expect(app).toContain('control.hidden = true; control.disabled = true;');
+    expect(app).toContain('pageContent.__workbenchReadOnlyObserver?.disconnect();');
+    expect(app).toContain('root.__workbenchReadOnlyObserver = observer;');
   });
 });

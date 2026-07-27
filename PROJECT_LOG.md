@@ -4455,3 +4455,23 @@ Validation:
   requested or used.
 - Preview deployed to `https://chamah-portal-ccak3zwpy-chamah.vercel.app`.
   Production was not modified.
+
+## 2026-07-27 — TRACK027 EDIT permission validation completion
+
+- Corrected the VIEW presentation gate lifecycle: each route render now
+  disconnects the prior Workbench `MutationObserver`. This prevents a VIEW
+  observer from carrying over to and hiding controls on a subsequently opened
+  EDIT-assigned Workbench.
+- Authenticated Preview validation on Actual Payroll (`ביצוע שכר`) confirmed
+  the mixed-permission account resolves this screen as EDIT: Import, Add and
+  row Delete controls are visible and enabled, as are editable row fields.
+- Performed an inline `actual_status` save with a temporary validation value,
+  restored it to blank, and reopened the screen. The restored blank value was
+  loaded from Supabase, confirming the authorized backend update and cleanup.
+- Opened the manual-add row and verified its enabled inputs and Save action.
+  The existing backend row-health validation retained the incomplete temporary
+  draft rather than creating a record; the draft was cancelled, so no test
+  record or business data remains.
+- Added source-contract coverage for observer replacement. Preview deployed
+  to `https://chamah-portal-qydidyhi0-chamah.vercel.app`. Production was not
+  modified.
