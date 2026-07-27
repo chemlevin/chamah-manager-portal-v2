@@ -4426,6 +4426,14 @@ Follow-up validation correction:
 - Kept calculation, eligibility and persistence entirely backend-driven; no
   payroll formula, rate or rule was added to the browser.
 
+## 2026-07-27 — TRACK026B Payroll Workbench UX
+
+- Reorganized the clerk worksheet into Employee, Monthly Inputs, Payroll
+  Components and Accounting column groups, with short visible labels.
+- Simplified component cells to a small checkbox and a calculated amount only;
+  split allocation expands as compact inline child rows limited to Accounting
+  values.
+
 ## 2026-07-27 — TRACK027 Preview permission-validation correction
 
 Root cause:
