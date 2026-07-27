@@ -25,18 +25,31 @@ const seniorityAt = (employment: Record<string, unknown> | undefined, date: stri
     + target.getUTCMonth() - start.getUTCMonth()
     + Number(employment.recognized_prior_seniority_months || 0));
 };
-const factorKind = (factor: Record<string, unknown>) => {
-  const key = `${text(factor.compensation_factor_code)} ${text(factor.display_name)}`.toUpperCase();
-  if (key.includes("TRAVEL") || key.includes("נסיע")) return "transportation";
-  if (key.includes("SENIOR") || key.includes("ותק")) return "seniority";
-  if (key.includes("PERSIST") || key.includes("התמד")) return "persistence";
-  if (key.includes("NO-ABSENCE") || key.includes("NO_ABSENCE") || key.includes("ללא היעדר")) return "no_absence";
-  if (key.includes("EXCELL") || key.includes("מצוינ")) return "excellence";
-  if (key.includes("CLASS") || key.includes("כיתה")) return "class_manager";
-  if (key.includes("DEGREE") || key.includes("תואר")) return "degree";
-  if (key.includes("CERT") || key.includes("תעוד") || key.includes("תעודה")) return "certificate";
-  if (key.includes("RECOVER") || key.includes("הבראה")) return "recovery_pay";
-  return text(factor.compensation_factor_code) || text(factor.compensation_factor_id);
+const fieldName = (value: unknown) => text(value).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+const comparable = (value: unknown) => {
+  const normalized = text(value).toUpperCase();
+  if (["TRUE", "YES", "ELIGIBLE", "1"].includes(normalized)) return true;
+  if (["FALSE", "NO", "NOT_ELIGIBLE", "SUSPENDED", "0"].includes(normalized)) return false;
+  const numeric = Number(value);
+  return text(value) !== "" && Number.isFinite(numeric) ? numeric : normalized;
+};
+const conditionMatches = (condition: unknown, context: Record<string, unknown>) => {
+  const clauses = text(condition).split(/\s+(?:AND|&&)\s+/i).filter(Boolean);
+  return !clauses.length || clauses.every((clause) => {
+    if (text(clause).toUpperCase() === "AUTOMATIC_BY_SENIORITY") return true;
+    const inMatch = clause.match(/^\s*([A-Z0-9_-]+)\s+IN\s*\(?(.+?)\)?\s*$/i);
+    if (inMatch) return inMatch[2].split(",").map((value) => comparable(value.replace(/["']/g, "").trim()))
+      .includes(comparable(context[fieldName(inMatch[1])]));
+    const match = clause.match(/^\s*([A-Z0-9_-]+)\s*(=|>=|<=|>|<)\s*(.+?)\s*$/i);
+    if (!match) return false;
+    const actual = comparable(context[fieldName(match[1])]);
+    const expected = comparable(match[3].replace(/["']/g, ""));
+    if (match[2] === "=") return actual === expected;
+    return typeof actual === "number" && typeof expected === "number" && (
+      match[2] === ">=" ? actual >= expected : match[2] === "<=" ? actual <= expected
+        : match[2] === ">" ? actual > expected : actual < expected
+    );
+  });
 };
 
 function projectPayrollRecords(input: {
@@ -48,68 +61,84 @@ function projectPayrollRecords(input: {
   compensationRules: Array<Record<string, unknown>>;
   compensationFactors: Array<Record<string, unknown>>;
   travelRates: Array<Record<string, unknown>>;
+  calculationInputRules: Array<Record<string, unknown>>;
   daycareSchoolYears: Array<Record<string, unknown>>;
   units: Array<Record<string, unknown>>;
 }) {
-  const factors = new Map(input.compensationFactors.map((row) => [row.compensation_factor_id, row]));
   return input.records.map((record) => {
     const date = text(record.payroll_month);
     const employment = input.employments.find((row) => row.employment_id === record.employment_id);
     const payTerm = input.payTerms.find((row) => row.employee_pay_term_id === record.employee_pay_term_id);
     const seniorityMonths = seniorityAt(employment, date);
-    const components: Record<string, number> = {};
-    const eligibleKinds = new Set<string>();
-    for (const item of input.eligibility.filter((row) => row.employment_id === record.employment_id && activeOn(row, date) && row.eligibility_status === "ELIGIBLE")) {
-      const factor = factors.get(item.compensation_factor_id);
-      if (factor) eligibleKinds.add(factorKind(factor));
-    }
-    const knownEligibility: Record<string, boolean> = {
-      transportation: Boolean(payTerm?.travel_eligible),
-      excellence: Boolean(payTerm?.excellence_eligible),
-      class_manager: Boolean(payTerm?.is_class_manager),
-      degree: Boolean(payTerm?.has_degree),
-      certificate: Boolean(payTerm?.caregiver_certificate_status && payTerm.caregiver_certificate_status !== "NO"),
-    };
-    const overrideFields: Record<string, string> = {
-      no_absence: "no_absence_override",
-      transportation: "transportation_override", persistence: "persistence_override",
-      excellence: "excellence_override", class_manager: "class_manager_override",
-      degree: "degree_override", certificate: "certificate_override",
-    };
-    const noAbsence = record.no_absence_override === true || eligibleKinds.has("no_absence");
-    const isEligible = (kind: string) => {
-      const override = record[overrideFields[kind]];
-      if (override === true || override === "YES" || override === "COMMITMENT") return true;
-      if (override === false || override === "NO") return false;
-      return eligibleKinds.has(kind) || knownEligibility[kind] === true;
-    };
-    for (const rule of input.compensationRules.filter((row) => activeOn(row, date)
-      && (seniorityMonths == null || (Number(row.minimum_seniority_months || 0) <= seniorityMonths
-        && (row.maximum_seniority_months == null || seniorityMonths <= Number(row.maximum_seniority_months)))))) {
-      const factor = factors.get(rule.compensation_factor_id);
-      if (!factor) continue;
-      const kind = factorKind(factor);
-      if (kind === "transportation" || kind === "recovery_pay") continue;
-      if (kind === "persistence" && !noAbsence) continue;
-      if (kind !== "seniority" && !isEligible(kind)) continue;
-      const amount = Number(rule.amount || 0);
-      components[kind] = Number(factor.value_type === "HOURLY"
-        ? amount * Number(record.regular_hours || 0)
-        : amount);
-    }
-    if (isEligible("transportation")) {
-      const schoolYear = input.daycareSchoolYears.find((row) => row.daycare_id === record.daycare_id);
-      const rate = input.travelRates.find((row) => !schoolYear || row.school_year_id === schoolYear.school_year_id);
-      if (rate) components.transportation = Math.min(
-        Number(record.work_days || 0) * Number(rate.daily_travel_amount || 0),
-        Number(rate.maximum_monthly_travel_amount || 0),
-      );
-    }
-    const baseGross = Number(payTerm?.base_pay || 0) * (
-      Number(record.regular_hours || 0) + Number(record.hours_125 || 0) * 1.25 + Number(record.hours_150 || 0) * 1.5
-    ) + Number(record.vacation_pay || 0) + Number(record.sick_pay || 0)
-      - Number(record.vacation_deduct || 0) - Number(record.sick_deduct || 0);
-    const calculatedGross = baseGross + Object.values(components).reduce((sum, value) => sum + value, 0);
+    const explicitEligibility = new Map(input.eligibility
+      .filter((row) => row.employment_id === record.employment_id && activeOn(row, date)
+        && ["ELIGIBLE", "NOT_ELIGIBLE", "SUSPENDED"].includes(text(row.eligibility_status).toUpperCase()))
+      .map((row) => [row.compensation_factor_id, comparable(row.eligibility_status) === true]));
+    const monthlyOverrides = record.monthly_overrides && typeof record.monthly_overrides === "object"
+      ? record.monthly_overrides as Record<string, unknown> : {};
+    const eligibilityContext = { ...(payTerm || {}), ...record };
+    const baseHourlyRate = Number(payTerm?.base_pay || 0);
+    const schoolYear = input.daycareSchoolYears.find((row) => row.daycare_id === record.daycare_id);
+    const payrollComponents = input.compensationFactors.map((factor) => {
+      const factorId = text(factor.compensation_factor_id);
+      const rules = input.compensationRules.filter((row) => row.compensation_factor_id === factorId
+        && activeOn(row, date)
+        && (seniorityMonths == null || (Number(row.minimum_seniority_months || 0) <= seniorityMonths
+          && (row.maximum_seniority_months == null || seniorityMonths <= Number(row.maximum_seniority_months)))));
+      const rule = rules.find((row) => conditionMatches(row.eligibility_condition, eligibilityContext)) || rules[0];
+      const override = monthlyOverrides[factorId];
+      const eligible = override == null
+        ? (explicitEligibility.has(factorId)
+          ? explicitEligibility.get(factorId) === true
+          : Boolean(rule && conditionMatches(rule.eligibility_condition, eligibilityContext)))
+        : comparable(override) === true;
+      let configuredRate: unknown = rule ? Number(rule.amount || 0) : null;
+      let impact = 0;
+      if (eligible && factor.value_type === "DAILY_CAPPED_MONTHLY") {
+        const rate = input.travelRates.find((row) => !schoolYear || row.school_year_id === schoolYear.school_year_id);
+        if (rate) {
+          configuredRate = {
+            daily_amount: Number(rate.daily_travel_amount || 0),
+            monthly_cap: Number(rate.maximum_monthly_travel_amount || 0),
+          };
+          impact = Math.min(
+            Number(record.work_days || 0) * Number(rate.daily_travel_amount || 0),
+            Number(rate.maximum_monthly_travel_amount || 0),
+          );
+        }
+      } else if (eligible && rule && text(rule.proration_method).toUpperCase() !== "ELIGIBILITY_ONLY") {
+        const amount = Number(rule.amount || 0);
+        const proration = text(rule.proration_method).toUpperCase();
+        impact = proration.includes("WORKDAY") ? amount * Number(record.work_days || 0)
+          : proration.includes("HOUR") || factor.value_type === "HOURLY" ? amount * Number(record.regular_hours || 0)
+          : amount;
+      }
+      const configuredRateDisplay = configuredRate && typeof configuredRate === "object"
+        ? `${Number((configuredRate as Record<string, unknown>).daily_amount || 0)} / ${Number((configuredRate as Record<string, unknown>).monthly_cap || 0)}`
+        : configuredRate == null ? null : String(configuredRate);
+      return {
+        compensation_factor_id: factorId,
+        compensation_factor_code: factor.compensation_factor_code,
+        display_name: factor.display_name,
+        value_type: factor.value_type,
+        eligible,
+        eligibility_override: override ?? null,
+        configured_rate: configuredRate,
+        configured_rate_display: configuredRateDisplay,
+        monthly_impact: Number(impact),
+        has_active_rule: Boolean(rule),
+      };
+    });
+    const baseGross = input.calculationInputRules.reduce((sum, rule) => {
+      const value = Number(record[text(rule.source_field)] || 0);
+      const rate = rule.uses_base_hourly_rate ? baseHourlyRate : 1;
+      const sign = rule.operation === "SUBTRACT" ? -1 : 1;
+      return sum + value * Number(rule.multiplier || 0) * rate * sign;
+    }, 0);
+    const effectiveHours = input.calculationInputRules
+      .filter((rule) => rule.counts_for_effective_hours)
+      .reduce((sum, rule) => sum + Number(record[text(rule.source_field)] || 0), 0);
+    const calculatedGross = baseGross + payrollComponents.reduce((sum, component) => sum + component.monthly_impact, 0);
     const allocations = input.allocations.filter((row) => row.payroll_record_id === record.payroll_record_id);
     const allocatedCost = allocations.reduce((sum, row) => sum + Number(row.allocation_amount || 0), 0);
     const allocatedHours = allocations.reduce((sum, row) => sum + Number(row.allocated_hours || 0), 0);
@@ -134,10 +163,12 @@ function projectPayrollRecords(input: {
     return {
       ...record,
       seniority_months: seniorityMonths,
-      calculated_components: components,
+      base_hourly_rate: baseHourlyRate,
+      effective_hourly_rate: effectiveHours > 0 ? calculatedGross / effectiveHours : null,
+      base_gross: baseGross,
+      payroll_components: payrollComponents,
+      calculated_components: Object.fromEntries(payrollComponents.map((component) => [component.compensation_factor_id, component.monthly_impact])),
       calculated_gross: calculatedGross,
-      recovery_pay_eligible: isEligible("recovery_pay"),
-      effective_eligibility: Object.fromEntries(["no_absence", "transportation", "persistence", "excellence", "class_manager", "degree", "certificate"].map((kind) => [kind, isEligible(kind)])),
       row_status: rowStatus,
       row_health_reason: rowHealthReason,
       split_summary: { allocated_cost: allocatedCost, allocated_hours: allocatedHours, remaining_cost: remainingCost, remaining_hours: remainingHours, has_split: allocations.length > 0 },
@@ -264,7 +295,7 @@ Deno.serve(async (request) => {
           required_level: "EDIT",
         }),
       });
-      const [records, allocations, employees, employments, assignments, payTerms, eligibility, compensationRules, travelRates, months, lookupData] = await Promise.all([
+      const [records, allocations, employees, employments, assignments, payTerms, eligibility, compensationRules, travelRates, calculationInputRules, months, lookupData] = await Promise.all([
         read(`payroll_records?select=*&order=payroll_month.desc,created_at.desc${monthFilter}&limit=3000`),
         read("payroll_allocations?select=*&limit=6000"),
         read("employees?select=employee_id,employee_code,first_name,last_name,lifecycle_status"),
@@ -274,18 +305,24 @@ Deno.serve(async (request) => {
         read("employee_compensation_eligibility?select=*&order=effective_from.desc"),
         read("compensation_rules?select=*&lifecycle_status=eq.ACTIVE&order=effective_from.desc"),
         read("travel_rates?select=*&lifecycle_status=eq.ACTIVE"),
+        read("payroll_calculation_input_rules?select=*&lifecycle_status=eq.ACTIVE&order=display_order,input_code"),
         read("payroll_months?select=*&order=payroll_month.desc"),
         lookups(),
       ]);
       const projectedRecords = projectPayrollRecords({
         records, allocations, employments, payTerms, eligibility, compensationRules,
         compensationFactors: lookupData.compensationFactors,
-        travelRates, daycareSchoolYears: lookupData.daycareSchoolYears, units: lookupData.units,
+        travelRates, calculationInputRules, daycareSchoolYears: lookupData.daycareSchoolYears, units: lookupData.units,
       });
       return json({
         records: projectedRecords, allocations, employees, employments, assignments, payTerms, eligibility,
         reportSummary: payrollSummary(projectedRecords, lookupData.units, lookupData.daycares),
-        compensationRules, travelRates, months,
+        componentColumns: lookupData.compensationFactors.map((factor: Record<string, unknown>) => ({
+          compensation_factor_id: factor.compensation_factor_id,
+          display_name: factor.display_name,
+          value_type: factor.value_type,
+        })),
+        compensationRules, travelRates, calculationInputRules, months,
         canReopen: reopenPermission.ok && await reopenPermission.json() === true,
         ...lookupData,
       });
@@ -549,6 +586,7 @@ Deno.serve(async (request) => {
           class_manager_override: body.class_manager_override === "" ? null : body.class_manager_override === true || body.class_manager_override === "true",
           degree_override: body.degree_override === "" ? null : body.degree_override === true || body.degree_override === "true",
           certificate_override: text(body.certificate_override) || null,
+          monthly_overrides: body.monthly_overrides && typeof body.monthly_overrides === "object" ? body.monthly_overrides : {},
           actual_status: text(body.actual_status) || null,
           actual_notes: text(body.actual_notes) || null,
           notes: text(body.notes) || null, import_batch_id: importBatchId,

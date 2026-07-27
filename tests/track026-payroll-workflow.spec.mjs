@@ -39,8 +39,7 @@ test("TRACK026 workbench exposes scope, combined loading options, preparation an
     "actual_gross",
     "vacation_deduct",
     "sick_pay",
-    "transportation_override",
-    "certificate_override",
+    "monthly_overrides",
     "actual_notes",
     'data-month-view="REPORTS"',
     "חודשים בעבודה",
@@ -63,25 +62,39 @@ test("TRACK026 workbench exposes scope, combined loading options, preparation an
 test("TRACK026A keeps the complete monthly workflow inline and details advanced-only", () => {
   const ui = read("chamah-manager-portal/new/payroll-workbench.js");
   const edge = read("supabase/functions/portal-workforce-workbench/index.ts");
+  const calculationMigration = read("supabase/migrations/20260727120559_track026a_payroll_calculation_input_rules.sql");
 
   for (const contract of [
     "ימי עבודה", "שעות 100%", "שעות 125%", "שעות 150%",
     "ניכוי חופשה", "תשלום חופשה", "ימי מחלה לניכוי", "שעות מחלה לתשלום",
-    "ללא היעדרות", "התמדה", "מצוינות", "אחראית כיתה", "תואר", "תעודה",
     "ברוטו מחושב", "שעות תקן", "שעות בפועל", "ברוטו בפועל",
     "actual_allocation_unit_id", "actual_daycare_id",
     "פירוט חישוב מתקדם · לקריאה בלבד", "payroll-sticky-employee",
+    "componentColumns", "payroll_components", "data-payroll-component",
+    "configured_rate_display", "effective_hourly_rate",
   ]) expect(ui).toContain(contract);
 
   expect(ui).not.toContain('id="payroll-monthly-form"');
+  expect(ui).not.toContain("inlineEligibility");
   expect(ui).toContain("record.split_summary?.remaining_hours");
   expect(ui).toContain("record.seniority_months");
   expect(ui).not.toContain("minimum_seniority_months");
   expect(edge).toContain("projectPayrollRecords");
-  expect(edge).toContain("calculated_components: components");
+  expect(edge).not.toContain("factorKind");
+  expect(edge).not.toContain("* 1.25");
+  expect(edge).not.toContain("* 1.5");
+  expect(edge).toContain("payroll_calculation_input_rules");
+  expect(edge).toContain("payroll_components: payrollComponents");
+  expect(edge).toContain("configured_rate_display");
+  expect(edge).toContain("effective_hourly_rate");
+  expect(edge).toContain("monthly_overrides:");
   expect(edge).toContain("split_summary:");
   expect(edge).toContain("פיצול לא מאוזן");
   expect(edge).toContain("PAYROLL_SPLIT_UNBALANCED");
   expect(edge).toContain("actual_allocation_unit_id: uuid(body.actual_allocation_unit_id) || null");
   expect(edge).toContain("actual_daycare_id: uuid(body.actual_daycare_id) || null");
+  expect(calculationMigration).toContain("create table public.payroll_calculation_input_rules");
+  expect(calculationMigration).toContain("'HOURS_125', 'hours_125'");
+  expect(calculationMigration).toContain("'HOURS_150', 'hours_150'");
+  expect(calculationMigration).toContain("enable row level security");
 });

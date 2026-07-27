@@ -4369,3 +4369,42 @@ Validation and deployment:
 - PASS: Vercel Preview deployment `dpl_866GmCr2JR3qAzAN4WYo2MfY3feG` reached
   READY at `https://chamah-portal-g353iknfv-chamah.vercel.app`.
 - Production was not modified.
+
+Follow-up validation correction:
+
+- Authenticated Preview validation exposed that the first generic evaluator did
+  not understand canonical `AUTOMATIC_BY_SENIORITY`, `IN (...)` or
+  `ELIGIBILITY_ONLY` rule expressions. Added generic DSL support and recorded
+  the existing certificate, persistence and recovery-pay semantics in two
+  forward-only canonical rule migrations (`20260727122923` and
+  `20260727123051`).
+- Revalidated the existing sample employee: base rate ₪38, effective rate ₪44,
+  calculated gross ₪4,360, with canonical seniority ₪110, certificate ₪200,
+  excellence ₪250, no persistence where the monthly no-absence condition is
+  unset, and recovery pay eligibility-only (₪0 impact).
+
+## 2026-07-27 — TRACK026A Dynamic Supabase Payroll Components
+
+- Removed the Workbench's fixed compensation-component columns and replaced
+  them with columns returned by the Payroll Edge projection from active
+  `compensation_factors`. Each active component now displays its Supabase
+  eligibility result, configured rate and calculated monthly impact.
+- Added the forward-only `payroll_calculation_input_rules` configuration table
+  for existing monthly input coefficients and operations. Base gross and
+  effective hourly rate now come from this Supabase-owned configuration instead
+  of frontend or Edge constants.
+- Reworked the Edge projection to evaluate active compensation rules,
+  effective dates, seniority bands, eligibility conditions, employee
+  eligibility, monthly factor-ID overrides, proration methods and travel caps
+  generically. It returns base hourly rate, effective hourly rate, base gross,
+  calculated gross and a factor-ID-based breakdown.
+- The browser now only renders backend component metadata/results and persists
+  factor-ID eligibility overrides in `monthly_overrides`; the advanced panel is
+  read-only calculation context and split allocation.
+- Applied migration `20260727120559` to the linked shared Preview project and
+  deployed `portal-workforce-workbench` version 14 ACTIVE with JWT verification.
+  Migration history and function status were verified after deployment.
+- PASS: build, JavaScript syntax, `git diff --check`, 12 TRACK026/A contract
+  tests and 96 focused desktop/laptop/mobile TRACK026A, Payroll Engine and
+  Budget Engine regression tests.
+- Production was not modified.

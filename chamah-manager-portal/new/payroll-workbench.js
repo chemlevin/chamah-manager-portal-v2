@@ -349,14 +349,16 @@ export async function mountPayrollWorkbench(request) {
       <section class="payroll-persistent-card"><h3>נתוני עובד קבועים · לקריאה בלבד</h3>
         <dl><div><dt>מספר עובד</dt><dd>${esc(record.source_employee_identifier)}</dd></div>
         <div><dt>סוג שכר</dt><dd>${esc(payTerm?.pay_type || "—")}</dd></div>
-        <div><dt>שכר בסיס</dt><dd>${payTerm ? money.format(payTerm.base_pay) : "—"}</dd></div>
+        <div><dt>תעריף שעתי בסיסי</dt><dd>${record.base_hourly_rate == null ? "—" : money.format(record.base_hourly_rate)}</dd></div>
+        <div><dt>תעריף שעתי אפקטיבי</dt><dd>${record.effective_hourly_rate == null ? "—" : money.format(record.effective_hourly_rate)}</dd></div>
         <div><dt>אחוז משרה</dt><dd>${payTerm?.estimated_employment_percentage ?? "—"}</dd></div></dl>
       </section>
       <section class="payroll-persistent-card"><h3>פירוט חישוב מתקדם · לקריאה בלבד</h3>
-        <dl>${Object.entries(record.calculated_components || {}).map(([key, value]) =>
-          `<div><dt>${esc(key)}</dt><dd>${money.format(Number(value || 0))}</dd></div>`).join("") || "<div><dt>רכיבים</dt><dd>אין עדיין פירוט מחושב</dd></div>"}
+        <dl>${(record.payroll_components || []).map((component) =>
+          `<div><dt>${esc(component.display_name)}</dt><dd>${component.eligible ? "זכאי" : "לא זכאי"} · ${esc(component.configured_rate_display ?? "ללא תעריף")} · ${money.format(Number(component.monthly_impact || 0))}</dd></div>`).join("") || "<div><dt>רכיבים</dt><dd>אין רכיבים פעילים ב-Supabase</dd></div>"}
+        <div><dt>ברוטו בסיס</dt><dd>${record.base_gross == null ? "—" : money.format(record.base_gross)}</dd></div>
         <div><dt>ברוטו מחושב</dt><dd>${record.calculated_gross == null ? "—" : money.format(record.calculated_gross)}</dd></div>
-        <div><dt>דמי הבראה</dt><dd>${record.recovery_pay_eligible ? "זכאית · טרם הוגדר סכום" : "לא זכאית / לא ידוע"}</dd></div></dl>
+        </dl>
       </section>
       <div class="payroll-balance"><span>עלות מקור <strong>${money.format(record.employer_cost || 0)}</strong></span>
         <span>פוצל <strong>${money.format(allocatedCost)}</strong></span>
@@ -523,18 +525,20 @@ export async function mountPayrollWorkbench(request) {
     `<input class="workforce-inline payroll-cell-input" aria-label="${label}" data-payroll-inline="${record.payroll_record_id}" name="${field}" type="number" min="0" step=".01" value="${esc(record[field] ?? "")}" ${isClosed() ? "disabled" : ""}>`;
   const inlineText = (record, field, label) =>
     `<input class="workforce-inline payroll-cell-input" aria-label="${label}" data-payroll-inline="${record.payroll_record_id}" name="${field}" value="${esc(record[field] ?? "")}" ${isClosed() ? "disabled" : ""}>`;
-  const inlineEligibility = (record, field, label, certificate = false) =>
-    `<select class="workforce-inline payroll-cell-select" aria-label="${label}" data-payroll-inline="${record.payroll_record_id}" name="${field}" ${isClosed() ? "disabled" : ""}>
-      <option value="" ${record[field] == null ? "selected" : ""}>לפי זכאות: ${record.effective_eligibility?.[{
-        no_absence_override: "no_absence",
-        transportation_override: "transportation", persistence_override: "persistence",
-        excellence_override: "excellence", class_manager_override: "class_manager",
-        degree_override: "degree", certificate_override: "certificate",
-      }[field]] ? "כן" : "לא"}</option>
-      <option value="${certificate ? "YES" : "true"}" ${record[field] === true || record[field] === "YES" ? "selected" : ""}>כן</option>
-      ${certificate ? `<option value="COMMITMENT" ${record[field] === "COMMITMENT" ? "selected" : ""}>התחייבות</option>` : ""}
-      <option value="${certificate ? "NO" : "false"}" ${record[field] === false || record[field] === "NO" ? "selected" : ""}>לא</option>
-    </select>`;
+  const inlineComponent = (record, column) => {
+    const component = (record.payroll_components || []).find((item) =>
+      item.compensation_factor_id === column.compensation_factor_id);
+    const override = component?.eligibility_override;
+    return `<div class="payroll-component-cell">
+      <select class="workforce-inline payroll-cell-select" aria-label="${esc(column.display_name)}" data-payroll-component="${record.payroll_record_id}" data-component-id="${column.compensation_factor_id}" ${isClosed() ? "disabled" : ""}>
+        <option value="" ${override == null ? "selected" : ""}>לפי Supabase: ${component?.eligible ? "כן" : "לא"}</option>
+        <option value="true" ${override === true ? "selected" : ""}>כן</option>
+        <option value="false" ${override === false ? "selected" : ""}>לא</option>
+      </select>
+      <small>${esc(component?.configured_rate_display ?? "—")}</small>
+      <strong>${money.format(Number(component?.monthly_impact || 0))}</strong>
+    </div>`;
+  };
   const inlineLookup = (record, field, rows, idField, label) =>
     `<select class="workforce-inline payroll-cell-select" aria-label="${label}" data-payroll-inline="${record.payroll_record_id}" name="${field}" ${isClosed() ? "disabled" : ""}>${options(rows, idField, record[field])}</select>`;
 
@@ -557,10 +561,10 @@ export async function mountPayrollWorkbench(request) {
     $("#wf-head").innerHTML = `<tr>
       <th><input type="checkbox" data-payroll-select-all aria-label="בחירת כל השורות"></th>
       <th class="bank-sticky-number"><button data-sort="code">מס׳ עובד</button></th><th class="payroll-sticky-employee"><button data-sort="employee">שם</button></th>
-      <th>מחלקה</th><th>מעון</th><th>תפקיד</th><th>ותק</th><th>תעריף שעתי</th>
+      <th>מחלקה</th><th>מעון</th><th>תפקיד</th><th>ותק</th><th>תעריף בסיס</th>
       <th>ימי עבודה</th><th>100%</th><th>125%</th><th>150%</th><th>ניכוי חופשה</th><th>תשלום חופשה</th><th>ימי מחלה לניכוי</th><th>שעות מחלה לתשלום</th>
-      <th>נסיעות</th><th>ללא היעדרות</th><th>התמדה</th><th>מצוינות</th><th>אחראית כיתה</th><th>תואר</th><th>תעודה</th><th>הערות</th>
-      <th>ברוטו מחושב</th><th>פירוט</th>
+      ${(state.data.componentColumns || []).map((column) => `<th>${esc(column.display_name)}<small>זכאות · תעריף · השפעה</small></th>`).join("")}<th>הערות</th>
+      <th>תעריף אפקטיבי</th><th>ברוטו מחושב</th><th>פירוט</th>
       <th>שעות תקן</th><th>שעות בפועל</th><th>ברוטו בפועל</th><th><button data-sort="cost">עלות מעסיק</button></th>
       <th>מחלקה בפועל</th><th>מעון בפועל</th><th>סטטוס הנה״ח</th><th>הערות הנה״ח</th><th>בריאות שורה</th><th>פעולות</th></tr>`;
     $("#wf-count").textContent = `${rows.length} עובדים`;
@@ -583,15 +587,13 @@ export async function mountPayrollWorkbench(request) {
         <td>${inlineLookup(record, "allocation_unit_id", state.data.units, "allocation_unit_id", "מחלקה")}</td>
         <td>${inlineLookup(record, "daycare_id", state.data.daycares, "daycare_id", "מעון")}</td>
         <td>${inlineLookup(record, "role_id", state.data.roles, "role_id", "תפקיד")}</td>
-        <td>${months == null ? "—" : `${Math.floor(months / 12)} שנים ${months % 12} ח׳`}</td><td>${payTerm?.base_pay == null ? "—" : money.format(payTerm.base_pay)}</td>
+        <td>${months == null ? "—" : `${Math.floor(months / 12)} שנים ${months % 12} ח׳`}</td><td>${record.base_hourly_rate == null ? "—" : money.format(record.base_hourly_rate)}</td>
         <td>${inlineNumber(record, "work_days", "ימי עבודה")}</td><td>${inlineNumber(record, "regular_hours", "שעות 100%")}</td>
         <td>${inlineNumber(record, "hours_125", "שעות 125%")}</td><td>${inlineNumber(record, "hours_150", "שעות 150%")}</td>
         <td>${inlineNumber(record, "vacation_deduct", "ניכוי חופשה")}</td><td>${inlineNumber(record, "vacation_pay", "תשלום חופשה")}</td>
         <td>${inlineNumber(record, "sick_deduct", "ימי מחלה לניכוי")}</td><td>${inlineNumber(record, "sick_pay", "שעות מחלה לתשלום")}</td>
-        <td>${inlineEligibility(record, "transportation_override", "נסיעות")}</td><td>${inlineEligibility(record, "no_absence_override", "ללא היעדרות")}</td>
-        <td>${inlineEligibility(record, "persistence_override", "התמדה")}</td><td>${inlineEligibility(record, "excellence_override", "מצוינות")}</td>
-        <td>${inlineEligibility(record, "class_manager_override", "אחראית כיתה")}</td><td>${inlineEligibility(record, "degree_override", "תואר")}</td>
-        <td>${inlineEligibility(record, "certificate_override", "תעודה", true)}</td><td>${inlineText(record, "notes", "הערות חודשיות")}</td>
+        ${(state.data.componentColumns || []).map((column) => `<td>${inlineComponent(record, column)}</td>`).join("")}<td>${inlineText(record, "notes", "הערות חודשיות")}</td>
+        <td>${record.effective_hourly_rate == null ? "—" : money.format(record.effective_hourly_rate)}</td>
         <td>${record.calculated_gross == null ? "—" : money.format(record.calculated_gross)}</td><td><button class="button button-quiet" data-open="${record.payroll_record_id}">פירוט</button></td>
         <td>${inlineNumber(record, "standard_hours", "שעות תקן")}</td><td>${inlineNumber(record, "actual_hours", "שעות בפועל")}</td>
         <td>${inlineNumber(record, "actual_gross", "ברוטו בפועל")}</td><td>${inlineNumber(record, "employer_cost", "עלות מעסיק")}</td>
@@ -622,6 +624,15 @@ export async function mountPayrollWorkbench(request) {
         field.name,
         field.value
       );
+    });
+    document.querySelectorAll("[data-payroll-component]").forEach((field) => {
+      field.onchange = () => {
+        const record = state.data.records.find((row) => row.payroll_record_id === field.dataset.payrollComponent);
+        const overrides = { ...(record.monthly_overrides || {}) };
+        if (field.value === "") delete overrides[field.dataset.componentId];
+        else overrides[field.dataset.componentId] = field.value === "true";
+        return saveInline(record, "monthly_overrides", overrides);
+      };
     });
     document.querySelectorAll("[data-payroll-select]").forEach((field) => {
       field.onchange = () => {
