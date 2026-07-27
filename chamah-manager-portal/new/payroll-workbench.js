@@ -795,8 +795,9 @@ export async function mountPayrollWorkbench(request) {
         }
         try {
           Object.assign(record, changes);
-          await request("payroll", "POST", { action:"save_record", payroll_record_id:record.payroll_record_id, import_batch_id:record.import_batch_id, record_origin:"MANUAL", payroll_month:state.month, ...record });
-          await reload();
+          const saved = await request("payroll", "POST", { action:"save_record", payroll_record_id:record.payroll_record_id, import_batch_id:record.import_batch_id, record_origin:"MANUAL", payroll_month:state.month, ...record });
+          Object.assign(record, saved.record || {}, { manual_employee: manual, source_payload: changes.source_payload });
+          if (selectedEmployee) await reload();
           message(selectedEmployee ? "פרטי העובד נטענו." : "טיוטת השכר נשמרה.", "success");
         } catch (error) {
           message(error.message || "לא ניתן לשמור את הטיוטה.", "error");
