@@ -1495,7 +1495,7 @@ async function render() {
       } else if (type.id === 'staffing' && !route.dashboardChild) {
         title = 'צוות ורישוי';
         activeDashboardUnit = unit;
-        $('#page-content').innerHTML = workforceHubTemplate(canView('dashboards.staffing.employees'), canView('dashboards.staffing.actual-payroll'));
+        $('#page-content').innerHTML = workforceHubTemplate(canView('dashboards.staffing.employees'), false);
       } else if (type.id === 'staffing' && route.dashboardChild === 'employees') {
         title = 'עובדים';
         activeDashboardUnit = unit;

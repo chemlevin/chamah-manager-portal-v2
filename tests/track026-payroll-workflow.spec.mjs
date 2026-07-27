@@ -42,6 +42,13 @@ test("TRACK026 workbench exposes scope, combined loading options, preparation an
     "transportation_override",
     "certificate_override",
     "actual_notes",
+    'data-month-view="REPORTS"',
+    "חודשים בעבודה",
+    "חודשים סגורים",
+    'option value="FILTERED"',
+    'option value="XLSX"',
+    'option value="XLS"',
+    'option value="ACTUAL_COST"',
   ]) expect(ui).toContain(contract);
 
   expect(edge).toContain('rpc/portal_open_payroll_month_v2');
@@ -50,4 +57,5 @@ test("TRACK026 workbench exposes scope, combined loading options, preparation an
   expect(edge).toContain('rpc/portal_reopen_payroll_month_v2');
   expect(app).toContain("else if (route.section === 'payroll') {");
   expect(app).toContain("await mountPayrollWorkbench(portalWorkforceRequest)");
+  expect(app).toContain("workforceHubTemplate(canView('dashboards.staffing.employees'), false)");
 });

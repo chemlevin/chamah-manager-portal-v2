@@ -4274,3 +4274,18 @@ Validation:
 - Supabase migration application, Edge Function deployment, Preview deployment
   and live authenticated smoke verification are recorded in the deployment
   completion entry after remote validation.
+
+### Preview acceptance correction
+
+- Replaced the legacy Payroll month tabs with the required Reports, Open Month,
+  Working Months and Closed Months workflow.
+- Added preparation, hours, actual gross, employer cost, error, organizational
+  totals and calculated-versus-actual variance reports derived from the same
+  loaded Payroll dataset.
+- Expanded export to all, filtered, department and daycare scopes; accountant
+  and actual-cost report shapes; and CSV, XLS and XLSX formats.
+- Removed Payroll from the Employees & Licensing hub while preserving the
+  separate top-level Payroll module and Salary Calculator.
+- PASS: changed JavaScript syntax checks, `git diff --check`, build, and 92
+  focused desktop/laptop/mobile TRACK026, Payroll Engine and Budget Engine
+  tests. Live authenticated Preview validation follows the replacement deploy.

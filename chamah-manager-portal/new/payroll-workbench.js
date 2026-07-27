@@ -59,6 +59,26 @@ function downloadCsv(rows, columns, name) {
   URL.revokeObjectURL(link.href);
 }
 
+function exportPayrollFile(rows, columns, name, format) {
+  if (format === "CSV") {
+    downloadCsv(rows, columns, `${name}.csv`);
+    return;
+  }
+  const matrix = [
+    columns.map(([title]) => title),
+    ...rows.map((row) => columns.map(([, getter]) => (
+      typeof getter === "function" ? getter(row) : row[getter]
+    ))),
+  ];
+  const sheet = window.XLSX.utils.aoa_to_sheet(matrix);
+  sheet["!dir"] = "rtl";
+  const workbook = window.XLSX.utils.book_new();
+  window.XLSX.utils.book_append_sheet(workbook, sheet, "Payroll");
+  window.XLSX.writeFile(workbook, `${name}.${format.toLowerCase()}`, {
+    bookType: format === "XLS" ? "biff8" : "xlsx",
+  });
+}
+
 export async function mountPayrollWorkbench(request) {
   const $ = (selector) => document.querySelector(selector);
   const state = {
@@ -112,7 +132,42 @@ export async function mountPayrollWorkbench(request) {
           <strong>${monthKey(row)}</strong><span>${row.scope_type === "DAYCARE" ? lookup(state.data.daycares, row.daycare_id, "daycare_id") : row.scope_type === "ALLOCATION_UNIT" ? lookup(state.data.units, row.allocation_unit_id, "allocation_unit_id") : "כל הארגון"} · ${monthStatus(row)}</span>
         </button>`).join("")
       : `<p class="payroll-month-empty">${emptyText}</p>`;
-    const content = state.workflowView === "NEW"
+    const reportRows = state.data.records.filter((row) => !state.monthId || row.payroll_month_id === state.monthId);
+    const reportTotals = reportRows.reduce((totals, row) => ({
+      standard: totals.standard + Number(row.standard_hours || 0),
+      actualHours: totals.actualHours + Number(row.actual_hours || 0),
+      calculatedGross: totals.calculatedGross + Number(row.gross_pay || row.calculated_gross || 0),
+      actualGross: totals.actualGross + Number(row.actual_gross || 0),
+      employerCost: totals.employerCost + Number(row.employer_cost || 0),
+    }), { standard: 0, actualHours: 0, calculatedGross: 0, actualGross: 0, employerCost: 0 });
+    const reportGroups = [...reportRows.reduce((groups, row) => {
+      const key = `${row.allocation_unit_id || ""}|${row.daycare_id || ""}`;
+      const item = groups.get(key) || {
+        unit: lookup(state.data.units, row.allocation_unit_id, "allocation_unit_id"),
+        daycare: lookup(state.data.daycares, row.daycare_id, "daycare_id"),
+        employees: 0, actualGross: 0, employerCost: 0,
+      };
+      item.employees += 1;
+      item.actualGross += Number(row.actual_gross || 0);
+      item.employerCost += Number(row.employer_cost || 0);
+      groups.set(key, item);
+      return groups;
+    }, new Map()).values()];
+    const reports = `<div class="payroll-month-view payroll-reports">
+      <p class="payroll-month-view-title">דוחות חודש ${esc(state.month || "—")}</p>
+      <div class="import-summary">
+        <span>${reportRows.length} עובדים</span><span>${number.format(reportTotals.standard)} שעות תקן</span>
+        <span>${number.format(reportTotals.actualHours)} שעות בפועל</span><span>${money.format(reportTotals.actualGross)} ברוטו בפועל</span>
+        <span>${money.format(reportTotals.employerCost)} עלות מעסיק</span>
+        <span>${money.format(reportTotals.actualGross - reportTotals.calculatedGross)} שונות ברוטו מחושב/בפועל</span>
+        <span>${reportRows.filter(invalid).length} שגיאות</span>
+      </div>
+      <div class="import-preview-scroll"><table><thead><tr><th>מחלקה</th><th>מעון</th><th>עובדים</th><th>ברוטו בפועל</th><th>עלות מעסיק</th></tr></thead>
+      <tbody>${reportGroups.map((row) => `<tr><td>${esc(row.unit)}</td><td>${esc(row.daycare)}</td><td>${row.employees}</td><td>${money.format(row.actualGross)}</td><td>${money.format(row.employerCost)}</td></tr>`).join("") || '<tr><td colspan="5">אין נתונים לחודש זה.</td></tr>'}</tbody></table></div>
+    </div>`;
+    const content = state.workflowView === "REPORTS"
+      ? reports
+      : state.workflowView === "NEW"
       ? `<div class="payroll-month-view payroll-month-new"><div><strong>פתיחת חודש שכר</strong><p>בחירת עובדים בלבד; ערכי השכר החודשיים אינם מועתקים.</p></div><button class="button button-primary" data-open-month-primary>פתיחת חודש חדש</button></div>`
       : state.workflowView === "HISTORY"
         ? `<div class="payroll-month-view"><p class="payroll-month-view-title">חודשים סגורים</p><div class="payroll-month-list">${monthButtons(closed, "HISTORY", "אין עדיין חודשי עבר סגורים.")}</div></div>`
@@ -122,9 +177,10 @@ export async function mountPayrollWorkbench(request) {
         <span class="payroll-month-badge ${current?.month_status === "CLOSED" ? "closed" : current ? "open" : "empty"}">${current ? monthStatus(current) : state.month ? "טרם נפתח" : "ללא בחירה"}</span>
       </div>
       <nav class="payroll-month-tabs" aria-label="שלבי עבודה חודשיים">
-        <button data-month-view="NEW" class="${state.workflowView === "NEW" ? "active" : ""}">חדש</button>
-        <button data-month-view="CURRENT" class="${state.workflowView === "CURRENT" ? "active" : ""}">קיים <span>${opened.length}</span></button>
-        <button data-month-view="HISTORY" class="${state.workflowView === "HISTORY" ? "active" : ""}">טבלאות עבר <span>${closed.length}</span></button>
+        <button data-month-view="REPORTS" class="${state.workflowView === "REPORTS" ? "active" : ""}">דוחות</button>
+        <button data-month-view="NEW" class="${state.workflowView === "NEW" ? "active" : ""}">פתיחת חודש</button>
+        <button data-month-view="CURRENT" class="${state.workflowView === "CURRENT" ? "active" : ""}">חודשים בעבודה <span>${opened.length}</span></button>
+        <button data-month-view="HISTORY" class="${state.workflowView === "HISTORY" ? "active" : ""}">חודשים סגורים <span>${closed.length}</span></button>
       </nav>${content}`;
     document.querySelectorAll("[data-month-view]").forEach((button) => {
       button.onclick = () => {
@@ -480,19 +536,22 @@ export async function mountPayrollWorkbench(request) {
   };
 
   const exportDialog = () => {
-    $("#wf-dialog-content").innerHTML = `<h2>ייצוא לרואה החשבון</h2>
+    $("#wf-dialog-content").innerHTML = `<h2>ייצוא שכר</h2>
       <form id="wf-form" class="workforce-form">
-        <label>היקף<select name="scope"><option value="ALL">כל הארגון</option><option value="DAYCARE">מעון נבחר</option><option value="UNIT">מחלקה נבחרת</option></select></label>
+        <label>דוח<select name="report"><option value="ALL">כל נתוני השכר</option><option value="ACCOUNTANT">קובץ לרואה חשבון</option><option value="ACTUAL_COST">דוח עלות בפועל</option></select></label>
+        <label>היקף<select name="scope"><option value="ALL">כל הארגון</option><option value="FILTERED">התצוגה המסוננת</option><option value="DAYCARE">מעון נבחר</option><option value="UNIT">מחלקה נבחרת</option></select></label>
+        <label>פורמט<select name="format"><option value="XLSX">XLSX</option><option value="XLS">XLS</option><option value="CSV">CSV</option></select></label>
         <label>מחלקה<select name="unit">${options(state.data.units, "allocation_unit_id", state.unit)}</select></label>
         <label>מעון<select name="daycare">${options(state.data.daycares, "daycare_id", state.daycare)}</select></label>
         <p class="wide">הקובץ כולל שורה אחת לעובד ואינו כולל פיצולים פנימיים.</p>
-        <div class="dialog-actions wide"><button class="button button-primary">הורדת CSV</button></div>
+        <div class="dialog-actions wide"><button class="button button-primary">הורדת קובץ</button></div>
       </form>`;
     $("#wf-dialog").showModal();
     $("#wf-form").onsubmit = (event) => {
       event.preventDefault();
       const values = Object.fromEntries(new FormData(event.target));
-      const scopedRows = state.data.records.filter((row) => values.scope === "ALL"
+      const scopedRows = (values.scope === "FILTERED" ? filtered() : state.data.records).filter((row) => values.scope === "ALL"
+        || values.scope === "FILTERED"
         || (values.scope === "DAYCARE" && row.daycare_id === values.daycare)
         || (values.scope === "UNIT" && row.allocation_unit_id === values.unit));
       const rows = [...scopedRows.reduce((grouped, row) => {
@@ -506,7 +565,7 @@ export async function mountPayrollWorkbench(request) {
         }
         return grouped;
       }, new Map()).values()];
-      downloadCsv(rows, [
+      const allColumns = [
         ["חודש", (row) => row.payroll_month.slice(0, 7)],
         ["מספר עובד", "source_employee_identifier"],
         ["שם עובד", (row) => {
@@ -517,7 +576,17 @@ export async function mountPayrollWorkbench(request) {
         ["מעון", (row) => lookup(state.data.daycares, row.daycare_id, "daycare_id")],
         ["תפקיד", (row) => lookup(state.data.roles, row.role_id, "role_id")],
         ...monthlyFields.map(([field, title]) => [title, field]),
-      ], `שכר-לרואה-חשבון-${state.month}.csv`);
+      ];
+      const actualCostColumns = allColumns.filter(([, getter]) => ![
+        "vacation_deduct", "vacation_pay", "sick_deduct", "sick_pay",
+        "travel_reimbursement", "bonus_amount", "adjustment_amount",
+      ].includes(getter));
+      exportPayrollFile(
+        rows,
+        values.report === "ACTUAL_COST" ? actualCostColumns : allColumns,
+        values.report === "ACCOUNTANT" ? `שכר-לרואה-חשבון-${state.month}` : values.report === "ACTUAL_COST" ? `דוח-עלות-בפועל-${state.month}` : `שכר-${state.month}`,
+        values.format,
+      );
       $("#wf-dialog").close();
     };
   };
