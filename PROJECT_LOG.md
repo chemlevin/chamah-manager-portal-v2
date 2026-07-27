@@ -4617,3 +4617,16 @@ Final authenticated Preview validation:
   remaining and over statuses.
 - Implementation validation passed locally. Edge Function deployment and
   authenticated Preview validation are pending.
+
+Authenticated Preview validation status:
+
+- PASS: the table shows the requested row number first, compact ordered
+  component columns, vacation/sick after components, a table-header `+`, and a
+  persisted Missing draft row. The mobile RTL document width stays within the
+  viewport and no browser console errors were recorded.
+- BLOCKED: the temporary employee-number field displays immediately but clears
+  after a full reload, so temporary identity persistence is not yet proven.
+  The linked Preview dataset currently has no active Employees, so smart lookup
+  and existing-employee autofill cannot be authenticatedly exercised without
+  adding business data. TRACK026F remains incomplete; Production was not
+  modified.
