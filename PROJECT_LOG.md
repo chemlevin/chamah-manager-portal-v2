@@ -4581,3 +4581,18 @@ Final authenticated Preview validation:
 - Added focused TRACK026E source-contract coverage. Preview validation and
   screenshots are pending the deployment and authenticated review. Production
   was not modified.
+
+Final authenticated Preview validation:
+
+- PASS: verified the deployed worksheet has one continuous table with compact
+  component checkbox-and-amount cells, accounting columns at the end, and no
+  lower payroll details surface.
+- PASS: Add Row opens the editable inline draft row and cancelling it leaves no
+  saved record. Split opens one inline child row immediately below the parent;
+  its parent / allocated / remaining summary covers hours, net, gross and
+  employer cost, with an inline add-split control.
+- PASS: desktop worksheet, inline Add Row and expanded Split screenshots were
+  captured on Preview. Mobile 390px RTL reports a 390px page width for a 390px
+  viewport, and the browser console has no errors.
+- Preview deployed to `https://chamah-portal-kb0wf8ai4-chamah.vercel.app`.
+  Production was not modified.
