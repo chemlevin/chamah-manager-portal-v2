@@ -496,3 +496,45 @@ These are not confirmed as implemented unless future code proves otherwise:
 - More formal rules administration.
 
 Inference, confidence Low: Mobile optimization may continue as future work. Evidence: responsive tests exist, but no roadmap file was found.
+
+## Standard TRACK Rules
+
+Every TRACK must:
+
+- Read AGENTS.md and PROJECT_LOG.md before starting.
+- Update PROJECT_LOG.md before finishing.
+- Deploy to Preview first unless Production deployment is explicitly approved.
+- Never change business logic, calculations, APIs, schema or RLS unless the TRACK explicitly requires it.
+- Preserve backward compatibility unless explicitly approved.
+- End with the Standard Completion Report.
+
+## Standard Completion Report (Mandatory)
+
+Every completed TRACK must end with this exact report.
+
+TRACK:
+Status:
+Summary:
+Root cause:
+Files changed:
+Database changes:
+Migrations:
+Edge Functions:
+Tests:
+Production impact:
+Commit SHA:
+Branch:
+Preview URL:
+Production URL (if deployed):
+Blockers:
+Next recommended TRACK:
+
+Rules:
+
+- Always include every section.
+- If a section is not applicable, write "None".
+- Always include the TRACK number.
+- Always report the exact Commit SHA.
+- Always report whether Production was modified.
+- Always state whether Preview or Production was deployed.
+- Always update PROJECT_LOG.md before returning the report.
