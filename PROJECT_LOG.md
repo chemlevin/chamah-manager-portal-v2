@@ -4535,3 +4535,11 @@ Validation:
 - The supplied mixed-permission session did not expose a route which rendered
   the distinct access-denied screen during this Production pass; HIDDEN denial
   therefore remains a follow-up verification item rather than a claimed pass.
+
+## 2026-07-27 — TRACK027 Production HIDDEN verification completion
+
+- Reopened the authenticated mixed-permission Production session and verified
+  the known HIDDEN route `#training/settings`. It redirected to
+  `#access-denied` and displayed the dedicated Hebrew no-permission screen,
+  confirming HIDDEN users receive neither the protected screen nor its
+  configuration.
