@@ -4236,3 +4236,36 @@ Validation and deployment:
 - Preview deployed to
   `https://chamah-portal-q6k39ll59-chamah.vercel.app`.
 - Production portal aliases were not modified.
+
+## 2026-07-27 - INTERNAL permission catalog canonical Production promotion
+
+Promotion:
+
+- Merged the approved permission-catalog commit
+  `c1aba7aeef9176b74ffcd7275beb63fb809f7bd6` into `main` as
+  `f3569e92c993b667044240613d2270d12846b9b7` and pushed `main`.
+- Deployed the existing Vercel project `chamah-portal` as deployment
+  `dpl_CYLtnR64qC1s9xrzhDNY8ZERFfyd`.
+- Explicitly assigned the existing canonical alias
+  `https://chamah-portal.vercel.app` to that deployment. No project or domain
+  was created.
+- Vercel deployment metadata reports serving Git SHA
+  `f3569e92c993b667044240613d2270d12846b9b7`, whose merge history contains the
+  approved commit.
+
+Canonical Production validation:
+
+- PASS: authenticated permissions UI contains canonical rows for Employees
+  Import (`dashboards.staffing.employees.import`), Actual Payroll
+  (`dashboards.staffing.actual-payroll`), Bank Transfers
+  (`dashboards.accounting.bank-transfers`), and Accounting Summary
+  (`dashboards.accounting.summary`).
+- PASS: changed Accounting Summary for a portal user from its inherited
+  `HIDDEN` default to explicit `VIEW`, saved successfully through the canonical
+  URL, then restored the original inherited `HIDDEN` state and saved
+  successfully again.
+- Production permission state was restored exactly after the reversible smoke
+  test. No application data, permissions, constraints, migrations, or Edge
+  Functions were otherwise changed during promotion.
+- No browser console errors were recorded during the authenticated canonical
+  verification.
