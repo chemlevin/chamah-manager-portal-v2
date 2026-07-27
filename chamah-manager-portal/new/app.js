@@ -463,6 +463,7 @@ function enforceWorkbenchReadOnly(root = $('#page-content')) {
   apply();
   const observer = new MutationObserver(apply);
   observer.observe(root, { childList: true, subtree: true });
+  root.__workbenchReadOnlyObserver = observer;
 }
 function canViewRoute(route) {
   const section = portalAccess?.sections?.find((item) => item.route === route);
@@ -1439,6 +1440,9 @@ function breadcrumbsTemplate(route, unit, type) {
 }
 
 async function render() {
+  const pageContent = $('#page-content');
+  pageContent.__workbenchReadOnlyObserver?.disconnect();
+  delete pageContent.__workbenchReadOnlyObserver;
   const route = parseRoute();
   if (!portalAccess) return;
   const requestedScreen = routeScreenCode(route);
@@ -1461,7 +1465,7 @@ async function render() {
     title = 'שכר';
     $('#page-content').innerHTML = payrollWorkbenchTemplate();
     await mountPayrollWorkbench(portalWorkforceRequest);
-    if (permissionFor('payroll') !== 'EDIT') enforceWorkbenchReadOnly();
+    if (permissionFor('dashboards.staffing.actual-payroll') !== 'EDIT') enforceWorkbenchReadOnly();
     mountWorkbenchPolish({ title: 'שכר', module: 'שכר', organization: 'כל הארגון', month: document.querySelector('#wf-month')?.value || 'חודש פעיל', onRefresh: () => render() });
   }
   else if (route.section === 'training' && route.page === 'permissions' && route.child === 'users') { $('#page-content').innerHTML = usersPermissionsTemplate(); await loadPermissionsAdmin(); }
