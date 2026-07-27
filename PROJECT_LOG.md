@@ -4171,3 +4171,30 @@ Validation:
 - Authenticated Production smoke passed for Employees import controls and data,
   Actual Payroll data/context, Supabase save-state indicators and RTL layout.
   No new console errors appeared in the stable post-deployment checks.
+
+## 2026-07-27 - TRACK025D Canonical Production Promotion
+
+Scope:
+
+- Fast-forwarded `main` to the approved TRACK025D history ending at
+  `ca99883845c02d2666ec66eab2fad96f282fb9b5`.
+- Deployed the existing `chamah-portal` Vercel project without creating a new
+  project or domain.
+- Corrected the existing canonical alias `https://chamah-portal.vercel.app`,
+  which had remained on an outdated TRACK021C deployment after the normal
+  Production aliases moved.
+- Preserved Production data; no browser form was submitted and no application
+  record was created, updated, imported, or deleted.
+
+Validation:
+
+- PASS: `npm.cmd run build`.
+- PASS: 28 focused desktop Playwright tests covering Employees, Actual Payroll,
+  Bank Files, Bank Transfers, and Accounting navigation.
+- PASS: Employee Excel Import and Payroll engine tests in the pinned Playwright
+  run before browser-launch-restricted UI projects timed out.
+- PASS: Vercel deployment reached READY and the canonical alias resolved to the
+  new Production deployment.
+- BLOCKED: authenticated canonical feature smoke could not run because the
+  available browser session was signed out. The secure Production sign-in shell
+  loaded successfully; no credentials were requested or entered.
