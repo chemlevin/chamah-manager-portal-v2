@@ -1,4 +1,5 @@
 import { bindFormAutosave } from "./autosave.js";
+import { mountEmployeeImport } from "./employee-import.js";
 
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" })[char]);
 const money = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
@@ -196,6 +197,7 @@ export async function mountEmployeesWorkbench(request) {
   $("#wf-clear").onclick=()=>{state.query=state.status=state.unit=state.daycare="";state.attention=false;["#wf-search","#wf-status","#wf-unit","#wf-daycare"].forEach((selector)=>$(selector).value="");render();};
   $("#wf-add").onclick=()=>{state.newRow=true;render();$("[data-new-employee] input")?.focus();};
   $("#wf-export").onclick=()=>{const lines=[["מספר עובד","שם פרטי","שם משפחה","טלפון","סטטוס"],...filtered().map((row)=>[row.employee_code,row.first_name,row.last_name,row.phone||"",statusLabels[row.lifecycle_status]||row.lifecycle_status])];const blob=new Blob(["\ufeff"+lines.map((line)=>line.map((value)=>`"${String(value).replaceAll('"','""')}"`).join(",")).join("\n")],{type:"text/csv;charset=utf-8"});const link=document.createElement("a");link.href=URL.createObjectURL(blob);link.download="עובדים.csv";link.click();URL.revokeObjectURL(link.href);message("קובץ העובדים יוצא בהצלחה.","success");};
+  mountEmployeeImport({request,getData:()=>state.data,onImported:reload,message});
   render();
   message("הנתונים נטענו מ־Supabase בלבד.","success");
 }

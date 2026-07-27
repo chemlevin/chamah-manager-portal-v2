@@ -69,7 +69,7 @@ Deno.serve(async (request) => {
     };
 
     if (request.method === "GET" && page === "employees") {
-      const [employees, employments, assignments, payTerms, eligibility, employeeCertificates, leave, lookupData] = await Promise.all([
+      const [employees, employments, assignments, payTerms, eligibility, employeeCertificates, leave, mappings, lookupData] = await Promise.all([
         read("employees?select=*&order=last_name,first_name,employee_code"),
         read("employments?select=*&order=employment_start_date.desc"),
         read("employee_assignments?select=*&order=effective_from.desc"),
@@ -77,9 +77,10 @@ Deno.serve(async (request) => {
         read("employee_compensation_eligibility?select=*&order=effective_from.desc"),
         read("employee_certificates?select=*&order=expires_on.asc.nullslast"),
         read("employee_leave_periods?select=*&order=starts_on.desc"),
+        read(`portal_user_import_mappings?select=column_mapping&user_id=eq.${actor.id}&import_type=eq.EMPLOYEES&limit=1`),
         lookups(),
       ]);
-      return json({ employees, employments, assignments, payTerms, eligibility, employeeCertificates, leave, ...lookupData });
+      return json({ employees, employments, assignments, payTerms, eligibility, employeeCertificates, leave, importMapping:mappings[0]?.column_mapping || {}, ...lookupData });
     }
     if (request.method === "GET") {
       const requestedMonth = monthDate(new URL(request.url).searchParams.get("month"));
@@ -111,6 +112,17 @@ Deno.serve(async (request) => {
 
     const body = await request.json();
     if (page === "employees") {
+      if (body.action === "import_employees") {
+        const rows = Array.isArray(body.rows) ? body.rows : [];
+        if (!rows.length || rows.length > 5000) return json({ error: "נדרשות 1–5,000 שורות תקינות לייבוא." }, 422);
+        const result = await write("rpc/portal_import_employees", "POST", {
+          target_rows: rows,
+          actor_id: actor.id,
+          source_file_name: text(body.file_name),
+          column_mapping: body.column_mapping && typeof body.column_mapping === "object" ? body.column_mapping : {},
+        });
+        return json(result);
+      }
       if (body.action === "save_employee") {
         const payload = {
           employee_code: text(body.employee_code), national_id: text(body.national_id) || null,

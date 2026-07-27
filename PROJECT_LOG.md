@@ -4117,3 +4117,32 @@ Validation:
   data-only migration; no new advisor finding was introduced.
 - Preview deployed. Authenticated visual verification is pending because Preview
   has a separate sign-in domain from the authorized Production session.
+
+## 2026-07-27 — TRACK025D Employee Excel Import
+
+Implemented a Supabase-only Employee Excel Import Workbench on the existing
+Employees page.
+
+Implementation:
+
+- Added XLS/XLSX upload, drag-and-drop, downloadable XLSX template, saved
+  Hebrew/English column mapping, preview, row-level validation, cancel controls,
+  valid-row-only import, XLSX error export and new/updated/skipped/failed summary.
+- Added client-side duplicate and identity-conflict detection. Matching uses
+  employee number first and identity number only when employee number is empty.
+- Added a forward-only import-mapping table and a service-only employee import
+  RPC. The RPC updates only safe employee-master fields and never changes
+  employee IDs, lifecycle/archive state, employment/pay-term history or payroll.
+- Extended the existing permission-gated Workforce Edge Function with mapping
+  retrieval and a bounded (maximum 5,000 valid rows) import action.
+
+Validation:
+
+- PASS: JavaScript syntax checks for all changed browser modules.
+- PASS: `npm.cmd run build`.
+- PASS: 12 focused desktop Playwright tests covering employee import validation,
+  duplicate prevention, archived-state preservation, Employees and Actual
+  Payroll regressions.
+- PASS: `git diff --check`.
+- Preview and linked Supabase deployment details are recorded in the completion
+  report after deployment verification.
