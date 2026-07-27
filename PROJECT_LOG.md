@@ -4544,3 +4544,19 @@ Follow-up:
   input event. This makes a typed Hours 100% value autosave and recalculate
   without requiring a secondary click, while keeping the calculation entirely
   in the Edge projection.
+
+Final authenticated Preview validation:
+
+- PASS: using the EDIT-authorized account, set the same Payroll row's saved
+  Hours 100% to 0, 100 and 150. Each value autosaved, survived a full reload,
+  and projected Certificate / Degree respectively as ₪0 / ₪0, ₪200 / ₪100,
+  and ₪300 / ₪150. The row was restored to 150 hours.
+- PASS: seniority projected ₪0, ₪110 and ₪165 at the same matrix points,
+  proving it follows the active hourly seniority rate and saved Hours 100%.
+  Transportation remained ₪70 for 18 saved working days, so the configured
+  daily-rate/monthly-cap result remained independent of the hours change.
+  Fixed components (Excellence ₪250, Classroom Manager ₪250 and Persistence
+  ₪600) remained unchanged across the matrix.
+- PASS: desktop RTL worksheet and mobile 390px RTL check completed with no
+  page-level horizontal overflow and no browser console errors. Production was
+  not modified.
