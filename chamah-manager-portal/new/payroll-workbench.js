@@ -526,7 +526,7 @@ export async function mountPayrollWorkbench(request) {
   const inlineMonthlyInput = (record, column) => {
     const value = record.monthly_input_values?.[column.source_field] ?? "";
     const control = column.input_value_kind === "BOOLEAN"
-      ? `<select class="workforce-inline payroll-cell-select" data-payroll-monthly-input="${record.payroll_record_id}" data-input-field="${column.source_field}" ${isClosed() ? "disabled" : ""}><option value="">—</option><option value="true" ${value === true ? "selected" : ""}>כן</option><option value="false" ${value === false ? "selected" : ""}>לא</option></select>`
+      ? `<input class="payroll-check" type="checkbox" aria-label="${esc(column.display_name)}" data-payroll-monthly-input="${record.payroll_record_id}" data-input-field="${column.source_field}" ${value === true ? "checked" : ""} ${isClosed() ? "disabled" : ""}>`
       : `<input class="workforce-inline payroll-cell-input" data-payroll-monthly-input="${record.payroll_record_id}" data-input-field="${column.source_field}" type="${column.input_value_kind === "TEXT" ? "text" : "number"}" step=".01" value="${esc(value)}" ${isClosed() ? "disabled" : ""}>`;
     return control;
   };
@@ -537,13 +537,8 @@ export async function mountPayrollWorkbench(request) {
       item.compensation_factor_id === column.compensation_factor_id);
     const override = component?.eligibility_override;
     return `<div class="payroll-component-cell">
-      <select class="workforce-inline payroll-cell-select" aria-label="${esc(column.display_name)}" data-payroll-component="${record.payroll_record_id}" data-component-id="${column.compensation_factor_id}" ${isClosed() ? "disabled" : ""}>
-        <option value="" ${override == null ? "selected" : ""}>לפי Supabase: ${component?.eligible ? "כן" : "לא"}</option>
-        <option value="true" ${override === true ? "selected" : ""}>כן</option>
-        <option value="false" ${override === false ? "selected" : ""}>לא</option>
-      </select>
-      <small>${esc(component?.configured_rate_display ?? "—")}</small>
-      <strong>${money.format(Number(component?.monthly_impact || 0))}</strong>
+      <input class="payroll-check" type="checkbox" aria-label="${esc(column.display_name)}" data-payroll-component="${record.payroll_record_id}" data-component-id="${column.compensation_factor_id}" ${component?.eligible ? "checked" : ""} ${isClosed() ? "disabled" : ""}>
+      ${component?.eligible ? `<strong>${money.format(Number(component.monthly_impact || 0))}</strong>` : ""}
     </div>`;
   };
   const inlineLookup = (record, field, rows, idField, label) =>
@@ -570,8 +565,8 @@ export async function mountPayrollWorkbench(request) {
       <th class="bank-sticky-number"><button data-sort="code">מס׳ עובד</button></th><th class="payroll-sticky-employee"><button data-sort="employee">שם</button></th>
       <th>מחלקה</th><th>מעון</th><th>תפקיד</th><th>ותק</th><th>תעריף בסיס</th>
       ${(state.data.monthlyInputColumns || []).map((column) => `<th>${esc(column.display_name)}</th>`).join("")}
-      ${(state.data.componentColumns || []).map((column) => `<th>${esc(column.display_name)}<small>זכאות · תעריף · השפעה</small></th>`).join("")}<th>הערות</th>
-      <th>תעריף אפקטיבי</th><th>ברוטו מחושב</th><th>פירוט</th>
+      ${(state.data.componentColumns || []).map((column) => `<th>${esc(column.display_name)}</th>`).join("")}<th>הערות</th>
+      <th>ברוטו</th>
       <th>שעות תקן</th><th>שעות בפועל</th><th>ברוטו בפועל</th><th><button data-sort="cost">עלות מעסיק</button></th>
       <th>מחלקה בפועל</th><th>מעון בפועל</th><th>סטטוס הנה״ח</th><th>הערות הנה״ח</th><th>בריאות שורה</th><th>פעולות</th></tr>`;
     $("#wf-count").textContent = `${rows.length} עובדים`;
@@ -597,15 +592,14 @@ export async function mountPayrollWorkbench(request) {
         <td>${months == null ? "—" : `${Math.floor(months / 12)} שנים ${months % 12} ח׳`}</td><td>${record.base_hourly_rate == null ? "—" : money.format(record.base_hourly_rate)}</td>
         ${(state.data.monthlyInputColumns || []).map((column) => `<td>${inlineMonthlyInput(record, column)}</td>`).join("")}
         ${(state.data.componentColumns || []).map((column) => `<td>${inlineComponent(record, column)}</td>`).join("")}<td>${inlineText(record, "notes", "הערות חודשיות")}</td>
-        <td>${record.effective_hourly_rate == null ? "—" : money.format(record.effective_hourly_rate)}</td>
-        <td>${record.calculated_gross == null ? "—" : money.format(record.calculated_gross)}</td><td><button class="button button-quiet" data-open="${record.payroll_record_id}">פירוט</button></td>
+        <td>${record.calculated_gross == null ? "—" : money.format(record.calculated_gross)}</td>
         <td>${inlineNumber(record, "standard_hours", "שעות תקן")}</td><td>${inlineNumber(record, "actual_hours", "שעות בפועל")}</td>
         <td>${inlineNumber(record, "actual_gross", "ברוטו בפועל")}</td><td>${inlineNumber(record, "employer_cost", "עלות מעסיק")}</td>
         <td>${inlineLookup(record, "actual_allocation_unit_id", state.data.units, "allocation_unit_id", "מחלקה בפועל")}</td>
         <td>${inlineLookup(record, "actual_daycare_id", state.data.daycares, "daycare_id", "מעון בפועל")}</td>
         <td>${inlineText(record, "actual_status", "סטטוס הנהלת חשבונות")}</td><td>${inlineText(record, "actual_notes", "הערות הנהלת חשבונות")}</td>
         <td><span class="bank-row-status ${health.code}" title="${esc(health.reason)}">${health.label}</span><small>${esc(health.reason)}</small></td>
-        <td><button class="button button-quiet" data-open="${record.payroll_record_id}">פרטים</button><button class="button button-quiet" data-delete-payroll="${record.payroll_record_id}" ${isClosed() ? "disabled" : ""}>מחיקה</button></td></tr>`;
+        <td><button class="payroll-split-add" title="פיצול שעות, עלות והקצאה" aria-label="פיצול" data-open="${record.payroll_record_id}">+</button><button class="button button-quiet" data-delete-payroll="${record.payroll_record_id}" ${isClosed() ? "disabled" : ""}>מחיקה</button></td></tr>`;
     }).join("");
     let bulk = $("#wf-payroll-bulk");
     if (!bulk) {
@@ -633,8 +627,7 @@ export async function mountPayrollWorkbench(request) {
       field.onchange = () => {
         const record = state.data.records.find((row) => row.payroll_record_id === field.dataset.payrollComponent);
         const overrides = { ...(record.monthly_overrides || {}) };
-        if (field.value === "") delete overrides[field.dataset.componentId];
-        else overrides[field.dataset.componentId] = field.value === "true";
+        overrides[field.dataset.componentId] = field.checked;
         return saveInline(record, "monthly_overrides", overrides);
       };
     });
@@ -642,7 +635,7 @@ export async function mountPayrollWorkbench(request) {
       field.onchange = () => {
         const record = state.data.records.find((row) => row.payroll_record_id === field.dataset.payrollMonthlyInput);
         const inputs = { ...(record.monthly_inputs || {}) };
-        inputs[field.dataset.inputField] = field.value === "true" ? true : field.value === "false" ? false : field.value;
+        inputs[field.dataset.inputField] = field.type === "checkbox" ? field.checked : field.value;
         return saveInline(record, "monthly_inputs", inputs);
       };
     });

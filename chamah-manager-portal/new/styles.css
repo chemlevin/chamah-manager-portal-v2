@@ -519,6 +519,7 @@ p { line-height: 1.65; }
 .workforce-table thead .payroll-sticky-employee{z-index:7;background:#f4f7fb}
 .workforce-table .payroll-cell-input{min-width:82px;width:82px}
 .workforce-table .payroll-cell-select{min-width:112px;width:112px}
+.workforce-table .payroll-component-cell{display:flex;align-items:center;justify-content:center;min-width:62px;gap:5px}.workforce-table .payroll-component-cell strong{font-size:.78rem}.payroll-check{width:16px;height:16px;accent-color:var(--primary);cursor:pointer}.payroll-split-add{width:25px;height:25px;border:1px solid var(--border-color);border-radius:50%;background:#fff;color:var(--primary);font-weight:800;cursor:pointer}.payroll-split-add:hover{background:#eaf5f1}
 .workforce-workbench tbody tr.bank-row-split{--row-health:#e8f1ff}
 .workforce-workbench tbody tr.bank-row-split>td{background:var(--row-health)}
 .bank-row-status.split{color:#174f93;background:#cfe1fb}
