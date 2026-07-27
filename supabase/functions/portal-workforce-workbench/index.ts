@@ -145,6 +145,47 @@ function projectPayrollRecords(input: {
   });
 }
 
+function payrollSummary(records: Array<Record<string, unknown>>, units: Array<Record<string, unknown>>, daycares: Array<Record<string, unknown>>) {
+  type Totals = { employees: number; standard_hours: number; actual_hours: number; calculated_gross: number; actual_gross: number; employer_cost: number; errors: number };
+  type Group = { allocation_unit_id: unknown; daycare_id: unknown; unit_name: unknown; daycare_name: unknown; employees: number; actual_gross: number; employer_cost: number };
+  const totals = records.reduce<Totals>((result, row) => ({
+    employees: result.employees + 1,
+    standard_hours: result.standard_hours + Number(row.standard_hours || 0),
+    actual_hours: result.actual_hours + Number(row.actual_hours || 0),
+    calculated_gross: result.calculated_gross + Number(row.calculated_gross || 0),
+    actual_gross: result.actual_gross + Number(row.actual_gross || 0),
+    employer_cost: result.employer_cost + Number(row.employer_cost || 0),
+    errors: result.errors + (row.row_status === "ERROR" ? 1 : 0),
+  }), { employees: 0, standard_hours: 0, actual_hours: 0, calculated_gross: 0, actual_gross: 0, employer_cost: 0, errors: 0 });
+  const groups = [...records.reduce<Map<string, Group>>((result, row) => {
+    const key = `${row.allocation_unit_id || ""}|${row.daycare_id || ""}`;
+    const current = result.get(key) || {
+      allocation_unit_id: row.allocation_unit_id, daycare_id: row.daycare_id,
+      unit_name: units.find((item) => item.allocation_unit_id === row.allocation_unit_id)?.display_name || "—",
+      daycare_name: daycares.find((item) => item.daycare_id === row.daycare_id)?.display_name || "—",
+      employees: 0, actual_gross: 0, employer_cost: 0,
+    };
+    current.employees += 1;
+    current.actual_gross += Number(row.actual_gross || 0);
+    current.employer_cost += Number(row.employer_cost || 0);
+    result.set(key, current);
+    return result;
+  }, new Map<string, Group>()).values()];
+  return {
+    ...totals,
+    gross_variance: totals.actual_gross - totals.calculated_gross,
+    groups,
+    counts: {
+      all: records.length,
+      linked: records.filter((row) => row.employee_match_status === "LINKED").length,
+      missing: records.filter((row) => row.employee_match_status === "MISSING").length,
+      approved_temporary: records.filter((row) => row.employee_match_status === "APPROVED_TEMPORARY").length,
+      unresolved: records.filter((row) => row.employee_match_status === "UNRESOLVED").length,
+      invalid: records.filter((row) => row.row_status === "ERROR").length,
+    },
+  };
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   const url = Deno.env.get("SUPABASE_URL")!;
@@ -243,6 +284,7 @@ Deno.serve(async (request) => {
       });
       return json({
         records: projectedRecords, allocations, employees, employments, assignments, payTerms, eligibility,
+        reportSummary: payrollSummary(projectedRecords, lookupData.units, lookupData.daycares),
         compensationRules, travelRates, months,
         canReopen: reopenPermission.ok && await reopenPermission.json() === true,
         ...lookupData,

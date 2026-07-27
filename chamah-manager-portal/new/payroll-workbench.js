@@ -132,38 +132,19 @@ export async function mountPayrollWorkbench(request) {
           <strong>${monthKey(row)}</strong><span>${row.scope_type === "DAYCARE" ? lookup(state.data.daycares, row.daycare_id, "daycare_id") : row.scope_type === "ALLOCATION_UNIT" ? lookup(state.data.units, row.allocation_unit_id, "allocation_unit_id") : "כל הארגון"} · ${monthStatus(row)}</span>
         </button>`).join("")
       : `<p class="payroll-month-empty">${emptyText}</p>`;
-    const reportRows = state.data.records.filter((row) => !state.monthId || row.payroll_month_id === state.monthId);
-    const reportTotals = reportRows.reduce((totals, row) => ({
-      standard: totals.standard + Number(row.standard_hours || 0),
-      actualHours: totals.actualHours + Number(row.actual_hours || 0),
-      calculatedGross: totals.calculatedGross + Number(row.gross_pay || row.calculated_gross || 0),
-      actualGross: totals.actualGross + Number(row.actual_gross || 0),
-      employerCost: totals.employerCost + Number(row.employer_cost || 0),
-    }), { standard: 0, actualHours: 0, calculatedGross: 0, actualGross: 0, employerCost: 0 });
-    const reportGroups = [...reportRows.reduce((groups, row) => {
-      const key = `${row.allocation_unit_id || ""}|${row.daycare_id || ""}`;
-      const item = groups.get(key) || {
-        unit: lookup(state.data.units, row.allocation_unit_id, "allocation_unit_id"),
-        daycare: lookup(state.data.daycares, row.daycare_id, "daycare_id"),
-        employees: 0, actualGross: 0, employerCost: 0,
-      };
-      item.employees += 1;
-      item.actualGross += Number(row.actual_gross || 0);
-      item.employerCost += Number(row.employer_cost || 0);
-      groups.set(key, item);
-      return groups;
-    }, new Map()).values()];
+    const reportTotals = state.data.reportSummary;
+    const reportGroups = reportTotals.groups;
     const reports = `<div class="payroll-month-view payroll-reports">
       <p class="payroll-month-view-title">דוחות חודש ${esc(state.month || "—")}</p>
       <div class="import-summary">
-        <span>${reportRows.length} עובדים</span><span>${number.format(reportTotals.standard)} שעות תקן</span>
-        <span>${number.format(reportTotals.actualHours)} שעות בפועל</span><span>${money.format(reportTotals.actualGross)} ברוטו בפועל</span>
-        <span>${money.format(reportTotals.employerCost)} עלות מעסיק</span>
-        <span>${money.format(reportTotals.actualGross - reportTotals.calculatedGross)} שונות ברוטו מחושב/בפועל</span>
-        <span>${reportRows.filter(invalid).length} שגיאות</span>
+        <span>${reportTotals.employees} עובדים</span><span>${number.format(reportTotals.standard_hours)} שעות תקן</span>
+        <span>${number.format(reportTotals.actual_hours)} שעות בפועל</span><span>${money.format(reportTotals.actual_gross)} ברוטו בפועל</span>
+        <span>${money.format(reportTotals.employer_cost)} עלות מעסיק</span>
+        <span>${money.format(reportTotals.gross_variance)} שונות ברוטו מחושב/בפועל</span>
+        <span>${reportTotals.errors} שגיאות</span>
       </div>
       <div class="import-preview-scroll"><table><thead><tr><th>מחלקה</th><th>מעון</th><th>עובדים</th><th>ברוטו בפועל</th><th>עלות מעסיק</th></tr></thead>
-      <tbody>${reportGroups.map((row) => `<tr><td>${esc(row.unit)}</td><td>${esc(row.daycare)}</td><td>${row.employees}</td><td>${money.format(row.actualGross)}</td><td>${money.format(row.employerCost)}</td></tr>`).join("") || '<tr><td colspan="5">אין נתונים לחודש זה.</td></tr>'}</tbody></table></div>
+      <tbody>${reportGroups.map((row) => `<tr><td>${esc(row.unit_name)}</td><td>${esc(row.daycare_name)}</td><td>${row.employees}</td><td>${money.format(row.actual_gross)}</td><td>${money.format(row.employer_cost)}</td></tr>`).join("") || '<tr><td colspan="5">אין נתונים לחודש זה.</td></tr>'}</tbody></table></div>
     </div>`;
     const content = state.workflowView === "REPORTS"
       ? reports
@@ -511,17 +492,7 @@ export async function mountPayrollWorkbench(request) {
         || values.scope === "FILTERED"
         || (values.scope === "DAYCARE" && row.daycare_id === values.daycare)
         || (values.scope === "UNIT" && row.allocation_unit_id === values.unit));
-      const rows = [...scopedRows.reduce((grouped, row) => {
-        const existing = grouped.get(row.source_employee_identifier);
-        if (!existing) {
-          grouped.set(row.source_employee_identifier, { ...row });
-          return grouped;
-        }
-        for (const [field] of monthlyFields) {
-          existing[field] = Number(existing[field] || 0) + Number(row[field] || 0);
-        }
-        return grouped;
-      }, new Map()).values()];
+      const rows = scopedRows;
       const allColumns = [
         ["חודש", (row) => row.payroll_month.slice(0, 7)],
         ["מספר עובד", "source_employee_identifier"],
@@ -571,13 +542,14 @@ export async function mountPayrollWorkbench(request) {
     const rows = filtered();
     const records = state.data.records;
     const current = month();
+    const counts = state.data.reportSummary.counts;
     const kpis = [
-      ["", "כל העובדים", records.length],
-      ["LINKED", "מקושרים", records.filter((row) => row.employee_match_status === "LINKED").length],
-      ["MISSING", "חסרים", records.filter((row) => row.employee_match_status === "MISSING").length],
-      ["APPROVED_TEMPORARY", "זמניים מאושרים", records.filter((row) => row.employee_match_status === "APPROVED_TEMPORARY").length],
-      ["UNRESOLVED", "לא פתורים", records.filter((row) => row.employee_match_status === "UNRESOLVED").length],
-      ["INVALID", "שורות לא תקינות", records.filter(invalid).length],
+      ["", "כל העובדים", counts.all],
+      ["LINKED", "מקושרים", counts.linked],
+      ["MISSING", "חסרים", counts.missing],
+      ["APPROVED_TEMPORARY", "זמניים מאושרים", counts.approved_temporary],
+      ["UNRESOLVED", "לא פתורים", counts.unresolved],
+      ["INVALID", "שורות לא תקינות", counts.invalid],
     ];
     $("#wf-kpis").innerHTML = `<div class="payroll-month-state ${isClosed() ? "closed" : "current"}">
       <strong>${current ? (isClosed() ? "חודש סגור" : "חודש נוכחי") : "חודש טרם נפתח"}</strong><span>${state.month}</span></div>`

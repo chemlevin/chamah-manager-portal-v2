@@ -4333,3 +4333,7 @@ Architecture correction:
   statuses, reasons, components and balance values.
 - PASS after the correction: build, JavaScript checks, Edge Deno type-check,
   `git diff --check`, and 96 focused desktop/laptop/mobile regression tests.
+- Moved Payroll KPI counts, report totals, organizational totals and variance
+  into the same Supabase backend projection, and removed browser-side export
+  aggregation. The frontend now only filters, formats and serializes returned
+  values.
