@@ -4630,3 +4630,26 @@ Authenticated Preview validation status:
   and existing-employee autofill cannot be authenticatedly exercised without
   adding business data. TRACK026F remains incomplete; Production was not
   modified.
+
+## 2026-07-27 — TRACK026G Payroll clerk workbench validation handoff
+
+- Fixed temporary payroll identity persistence by saving the manual employee
+  identifier inside the canonical `source_payload.manual_employee` payload as
+  well as the record identifier. This preserves the exact temporary number and
+  name used by the worksheet after a save and reload.
+- Kept the frontend presentation-only: it sends the manual identity context to
+  the existing Supabase workbench endpoint; component calculation and payroll
+  validation remain backend-projected.
+- Styled worksheet numeric inputs as plain spreadsheet fields by removing the
+  browser number-spinner affordances. No payroll values, formulas or rules were
+  changed.
+- PASS: `node --check chamah-manager-portal/new/payroll-workbench.js` and
+  `npm.cmd run build` completed successfully. Preview was deployed to
+  `https://chamah-portal-f6bryhqy5-chamah.vercel.app`.
+- BLOCKED BY BROWSER CONTROLLER: the in-app controller returns a stale internal
+  tab ID (`24`) while the only visible signed-in Preview tab is a newer ID
+  (`28`), so it cannot read or interact with the authenticated page. The
+  remaining manual checks are: temporary number/name save and reload; create a
+  disposable active Preview employee, lookup by number and by name, verify
+  autofill, then delete it; and visually confirm the numeric fields have no
+  spinner arrows. Production was not modified.
