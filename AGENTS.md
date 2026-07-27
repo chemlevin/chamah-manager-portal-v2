@@ -502,7 +502,7 @@ Inference, confidence Low: Mobile optimization may continue as future work. Evid
 Every TRACK must:
 
 - Read AGENTS.md and PROJECT_LOG.md before starting.
-- Update PROJECT_LOG.md before finishing.
+- Update PROJECT_LOG.md before finishing when the change affects the application, database, infrastructure or business behavior.
 - Deploy to Preview first unless Production deployment is explicitly approved.
 - Never change business logic, calculations, APIs, schema or RLS unless the TRACK explicitly requires it.
 - Preserve backward compatibility unless explicitly approved.
@@ -533,8 +533,13 @@ Rules:
 
 - Always include every section.
 - If a section is not applicable, write "None".
-- Always include the TRACK number.
+- TRACK must never be empty.
+- Always include the TRACK number when the task is part of a numbered TRACK.
+- If the task is not part of a numbered TRACK, use `TRACK: INTERNAL` or another appropriate internal identifier.
 - Always report the exact Commit SHA.
 - Always report whether Production was modified.
 - Always state whether Preview or Production was deployed.
-- Always update PROJECT_LOG.md before returning the report.
+- PROJECT_LOG.md is mandatory only for changes that affect the application, database, infrastructure or business behavior.
+- Documentation-only tasks, such as changes limited to AGENTS.md, do not require a PROJECT_LOG.md update.
+- The Completion Report for a documentation-only task must explicitly state that the task was documentation-only.
+- When PROJECT_LOG.md is required, always update it before returning the report.
