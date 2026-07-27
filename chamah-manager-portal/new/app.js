@@ -1438,9 +1438,12 @@ async function render() {
   else if (route.section === 'calculators' && route.calculator === 'salary') { $('#page-content').innerHTML = salaryCalculatorTemplate(); await loadSalaryRules(); if (parseRoute().calculator === 'salary') { if (salaryModel.status === 'error') { $('#salary-state').className = 'state error panel'; $('#salary-state').textContent = 'לא ניתן לטעון את כללי השכר הפעילים. נסי שוב מאוחר יותר.'; } else { bindSalaryCalculator(); } } }
   else if (route.section === 'calculators' && route.calculator === 'occupancy') { $('#page-content').innerHTML = occupancyManagementCalculatorTemplate(); await loadOccupancyRules(); if (parseRoute().calculator === 'occupancy') { if (occupancyModel.status === 'error') { $('#occupancy-state').className = 'state error panel'; $('#occupancy-state').textContent = 'לא ניתן לטעון את כללי התפוסה הפעילים.'; } else { bindOccupancyManagementCalculator(); } } }
   else if (route.section === 'calculators') $('#page-content').innerHTML = calculatorsTemplate();
-  else if (route.section === 'payroll' && route.child) $('#page-content').innerHTML = placeholderTemplate(title, 'payroll/calculations', 'חישובי שכר');
-  else if (route.section === 'payroll' && route.page === 'calculations') $('#page-content').innerHTML = sectionCardsTemplate('payroll', payrollCalculationCards, 'חישובי שכר', 'בחירת מסלול לחישוב חדש, עבודה קיימת או טבלאות עבר.');
-  else if (route.section === 'payroll') $('#page-content').innerHTML = sectionCardsTemplate('payroll');
+  else if (route.section === 'payroll') {
+    title = 'שכר';
+    $('#page-content').innerHTML = payrollWorkbenchTemplate();
+    await mountPayrollWorkbench(portalWorkforceRequest);
+    mountWorkbenchPolish({ title: 'שכר', module: 'שכר', organization: 'כל הארגון', month: document.querySelector('#wf-month')?.value || 'חודש פעיל', onRefresh: () => render() });
+  }
   else if (route.section === 'training' && route.page === 'permissions' && route.child === 'users') { $('#page-content').innerHTML = usersPermissionsTemplate(); await loadPermissionsAdmin(); }
   else if (route.section === 'training' && route.page === 'rules' && route.child === 'system') { $('#page-content').innerHTML = systemRulesTemplate(); bindSystemRules(); }
   else if (route.section === 'training' && route.page === 'rules' && route.child === 'calculation') { $('#page-content').innerHTML = '<div id="prototype-admin-root"></div>'; mountAdministrationPrototype($('#prototype-admin-root'), 'rules'); }

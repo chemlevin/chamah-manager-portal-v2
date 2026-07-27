@@ -93,18 +93,22 @@ Deno.serve(async (request) => {
           required_level: "EDIT",
         }),
       });
-      const [records, allocations, employees, employments, assignments, payTerms, months, lookupData] = await Promise.all([
+      const [records, allocations, employees, employments, assignments, payTerms, eligibility, compensationRules, travelRates, months, lookupData] = await Promise.all([
         read(`payroll_records?select=*&order=payroll_month.desc,created_at.desc${monthFilter}&limit=3000`),
         read("payroll_allocations?select=*&limit=6000"),
         read("employees?select=employee_id,employee_code,first_name,last_name,lifecycle_status"),
-        read("employments?select=employment_id,employee_id,employment_status,employment_start_date,employment_end_date"),
+        read("employments?select=employment_id,employee_id,employment_status,employment_start_date,employment_end_date,recognized_prior_seniority_months"),
         read("employee_assignments?select=*&order=effective_from.desc"),
         read("employee_pay_terms?select=*&order=valid_from.desc"),
+        read("employee_compensation_eligibility?select=*&order=effective_from.desc"),
+        read("compensation_rules?select=*&lifecycle_status=eq.ACTIVE&order=effective_from.desc"),
+        read("travel_rates?select=*&lifecycle_status=eq.ACTIVE"),
         read("payroll_months?select=*&order=payroll_month.desc"),
         lookups(),
       ]);
       return json({
-        records, allocations, employees, employments, assignments, payTerms, months,
+        records, allocations, employees, employments, assignments, payTerms, eligibility,
+        compensationRules, travelRates, months,
         canReopen: reopenPermission.ok && await reopenPermission.json() === true,
         ...lookupData,
       });
@@ -222,16 +226,23 @@ Deno.serve(async (request) => {
         return employment ? { employee, employment } : null;
       };
       if (body.action === "open_month") {
-        const result = await write("rpc/portal_open_payroll_month", "POST", {
+        const result = await write("rpc/portal_open_payroll_month_v2", "POST", {
           target_month: monthDate(body.payroll_month),
-          opening_method: text(body.opening_method),
+          target_scope_type: text(body.scope_type) || "ORGANIZATION",
+          target_allocation_unit_id: uuid(body.allocation_unit_id) || null,
+          target_daycare_id: uuid(body.daycare_id) || null,
+          copy_previous_employees: Boolean(body.copy_previous_employees ?? body.opening_method === "PREVIOUS_MONTH"),
+          load_active_employees: Boolean(body.load_active_employees ?? body.opening_method === "ACTIVE_EMPLOYEES"),
           actor_id: actor.id,
         });
         return json(result);
       }
       if (body.action === "close_month") {
-        const result = await write("rpc/portal_close_payroll_month", "POST", {
-          target_month: monthDate(body.payroll_month),
+        const selected = body.payroll_month_id
+          ? { payroll_month_id: uuid(body.payroll_month_id) }
+          : await currentMonth(body.payroll_month);
+        const result = await write("rpc/portal_close_payroll_month_v2", "POST", {
+          target_month_id: selected?.payroll_month_id,
           actor_id: actor.id,
           closing_notes: text(body.notes) || null,
         });
@@ -249,10 +260,23 @@ Deno.serve(async (request) => {
         if (!allowed.ok || await allowed.json() !== true) {
           return json({ error: "אין הרשאה לפתוח מחדש חודש שכר סגור." }, 403);
         }
-        const result = await write("rpc/portal_reopen_payroll_month", "POST", {
-          target_month: monthDate(body.payroll_month),
+        const selected = body.payroll_month_id
+          ? { payroll_month_id: uuid(body.payroll_month_id) }
+          : await currentMonth(body.payroll_month);
+        const result = await write("rpc/portal_reopen_payroll_month_v2", "POST", {
+          target_month_id: selected?.payroll_month_id,
           actor_id: actor.id,
-          reopening_notes: text(body.notes),
+          reopening_reason: text(body.notes),
+        });
+        return json(result);
+      }
+      if (body.action === "save_rows" || body.action === "commit_import") {
+        const rows = Array.isArray(body.rows) ? body.rows : [];
+        if (!rows.length || rows.length > 5000) return json({ error: "נדרשות 1–5,000 שורות תקינות." }, 422);
+        const result = await write("rpc/portal_save_payroll_rows_v2", "POST", {
+          target_month_id: uuid(body.payroll_month_id),
+          target_rows: rows,
+          actor_id: actor.id,
         });
         return json(result);
       }
@@ -311,10 +335,26 @@ Deno.serve(async (request) => {
           sick_hours: body.sick_hours === "" ? null : Number(body.sick_hours),
           other_absence_hours: body.other_absence_hours === "" ? null : Number(body.other_absence_hours),
           unpaid_absence_hours: body.unpaid_absence_hours === "" ? null : Number(body.unpaid_absence_hours),
+          standard_hours: body.standard_hours === "" ? null : Number(body.standard_hours),
+          actual_hours: body.actual_hours === "" ? null : Number(body.actual_hours),
+          actual_gross: body.actual_gross === "" ? null : Number(body.actual_gross),
+          vacation_deduct: body.vacation_deduct === "" ? null : Number(body.vacation_deduct),
+          vacation_pay: body.vacation_pay === "" ? null : Number(body.vacation_pay),
+          sick_deduct: body.sick_deduct === "" ? null : Number(body.sick_deduct),
+          sick_pay: body.sick_pay === "" ? null : Number(body.sick_pay),
           work_days: body.work_days === "" ? null : Number(body.work_days),
           travel_reimbursement: body.travel_reimbursement === "" ? null : Number(body.travel_reimbursement),
           bonus_amount: body.bonus_amount === "" ? null : Number(body.bonus_amount),
           adjustment_amount: body.adjustment_amount === "" ? null : Number(body.adjustment_amount),
+          no_absence_override: body.no_absence_override === "" ? null : body.no_absence_override === true || body.no_absence_override === "true",
+          persistence_override: body.persistence_override === "" ? null : body.persistence_override === true || body.persistence_override === "true",
+          transportation_override: body.transportation_override === "" ? null : body.transportation_override === true || body.transportation_override === "true",
+          excellence_override: body.excellence_override === "" ? null : body.excellence_override === true || body.excellence_override === "true",
+          class_manager_override: body.class_manager_override === "" ? null : body.class_manager_override === true || body.class_manager_override === "true",
+          degree_override: body.degree_override === "" ? null : body.degree_override === true || body.degree_override === "true",
+          certificate_override: text(body.certificate_override) || null,
+          actual_status: text(body.actual_status) || null,
+          actual_notes: text(body.actual_notes) || null,
           notes: text(body.notes) || null, import_batch_id: importBatchId,
           employee_match_status: linked ? "LINKED" : (text(body.employee_match_status) || "MISSING"),
           record_origin: text(body.record_origin) || "MANUAL", source_payload: body.source_payload || {},

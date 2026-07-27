@@ -4171,7 +4171,6 @@ Validation:
 - Authenticated Production smoke passed for Employees import controls and data,
   Actual Payroll data/context, Supabase save-state indicators and RTL layout.
   No new console errors appeared in the stable post-deployment checks.
-
 ## 2026-07-27 - TRACK025D Canonical Production Promotion
 
 Scope:
@@ -4236,3 +4235,42 @@ Validation and deployment:
 - Preview deployed to
   `https://chamah-portal-q6k39ll59-chamah.vercel.app`.
 - Production portal aliases were not modified.
+
+## 2026-07-27 — TRACK026 Payroll Monthly Workflow
+
+Implemented the Payroll module as a Supabase-backed monthly Workbench while
+keeping the Salary Calculator separate and leaving Payroll Engine, Budget
+Engine, formulas and unrelated business rules unchanged.
+
+Implementation:
+
+- Added scoped Payroll month identity for organization, department and daycare,
+  with duplicate prevention per month/scope and combined options to copy the
+  previous employee list and load active employees. Monthly hours, absences,
+  gross and costs are never copied.
+- Extended canonical Payroll monthly records with preparation inputs,
+  monthly eligibility overrides, accounting-return actuals, row health,
+  calculated-component storage, and one-level parent/split identity.
+- Added atomic service-only RPCs for month opening, multi-row save/import,
+  validated close with database locking, and permission-controlled reopen with
+  a mandatory reason and preserved user/timestamp history.
+- Extended the existing Workforce Edge Function to load canonical Employees,
+  effective assignments, Pay Terms, eligibility, compensation rules and travel
+  rates, and to call the TRACK026 atomic RPCs.
+- Routed the top-level Payroll module directly to the Workbench. The separate
+  Salary Calculator route and both calculation engines remain unchanged.
+- Expanded the monthly detail editor with preparation, eligibility override and
+  accountant-return fields while retaining inline editing, autosave, filters,
+  import/export, allocation balance, temporary approval and read-only closed
+  months from the existing Workbench.
+
+Validation:
+
+- PASS: JavaScript syntax checks for changed browser modules and TRACK026 tests.
+- PASS: `npm.cmd run build`.
+- PASS: 34 focused desktop Playwright tests covering TRACK026 contracts,
+  Payroll Engine, Budget Engine and portal permissions.
+- PASS: `git diff --check`.
+- Supabase migration application, Edge Function deployment, Preview deployment
+  and live authenticated smoke verification are recorded in the deployment
+  completion entry after remote validation.
