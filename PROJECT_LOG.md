@@ -4316,3 +4316,20 @@ Validation:
   Budget Engine tests. The broader browser-runner suite was attempted twice but
   stalled without test output and was terminated; authenticated deployed
   desktop/mobile verification is the remaining Preview gate.
+
+Architecture correction:
+
+- Enforced the Workbench as a presentation layer only. Removed frontend
+  derivation of seniority, calculated gross/components, eligibility, row
+  health, split balance and close validation.
+- Added a Supabase Edge projection that evaluates effective canonical pay
+  terms, compensation factors/rules, employee eligibility, travel rates and
+  monthly caps, assignments and saved allocations on every Payroll load.
+- Inline saves now reload the backend projection immediately, so configuration
+  changes are reflected without duplicating rates, limits or formulas in the
+  browser.
+- Split-save and month-close validation now execute in the Supabase Edge
+  backend before canonical RPC persistence/locking. The UI only renders returned
+  statuses, reasons, components and balance values.
+- PASS after the correction: build, JavaScript checks, Edge Deno type-check,
+  `git diff --check`, and 96 focused desktop/laptop/mobile regression tests.

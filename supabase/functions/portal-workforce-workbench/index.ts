@@ -15,6 +15,136 @@ const monthDate = (value: unknown) => /^\d{4}-\d{2}$/.test(text(value))
   ? `${text(value)}-01`
   : /^\d{4}-\d{2}-01$/.test(text(value)) ? text(value) : "";
 
+const activeOn = (row: Record<string, unknown>, date: string) =>
+  text(row.effective_from) <= date && (!row.effective_to || text(row.effective_to) >= date);
+const seniorityAt = (employment: Record<string, unknown> | undefined, date: string) => {
+  if (!employment?.employment_start_date) return null;
+  const start = new Date(`${employment.employment_start_date}T00:00:00Z`);
+  const target = new Date(`${date}T00:00:00Z`);
+  return Math.max(0, (target.getUTCFullYear() - start.getUTCFullYear()) * 12
+    + target.getUTCMonth() - start.getUTCMonth()
+    + Number(employment.recognized_prior_seniority_months || 0));
+};
+const factorKind = (factor: Record<string, unknown>) => {
+  const key = `${text(factor.compensation_factor_code)} ${text(factor.display_name)}`.toUpperCase();
+  if (key.includes("TRAVEL") || key.includes("נסיע")) return "transportation";
+  if (key.includes("SENIOR") || key.includes("ותק")) return "seniority";
+  if (key.includes("PERSIST") || key.includes("התמד")) return "persistence";
+  if (key.includes("NO-ABSENCE") || key.includes("NO_ABSENCE") || key.includes("ללא היעדר")) return "no_absence";
+  if (key.includes("EXCELL") || key.includes("מצוינ")) return "excellence";
+  if (key.includes("CLASS") || key.includes("כיתה")) return "class_manager";
+  if (key.includes("DEGREE") || key.includes("תואר")) return "degree";
+  if (key.includes("CERT") || key.includes("תעוד") || key.includes("תעודה")) return "certificate";
+  if (key.includes("RECOVER") || key.includes("הבראה")) return "recovery_pay";
+  return text(factor.compensation_factor_code) || text(factor.compensation_factor_id);
+};
+
+function projectPayrollRecords(input: {
+  records: Array<Record<string, unknown>>;
+  allocations: Array<Record<string, unknown>>;
+  employments: Array<Record<string, unknown>>;
+  payTerms: Array<Record<string, unknown>>;
+  eligibility: Array<Record<string, unknown>>;
+  compensationRules: Array<Record<string, unknown>>;
+  compensationFactors: Array<Record<string, unknown>>;
+  travelRates: Array<Record<string, unknown>>;
+  daycareSchoolYears: Array<Record<string, unknown>>;
+  units: Array<Record<string, unknown>>;
+}) {
+  const factors = new Map(input.compensationFactors.map((row) => [row.compensation_factor_id, row]));
+  return input.records.map((record) => {
+    const date = text(record.payroll_month);
+    const employment = input.employments.find((row) => row.employment_id === record.employment_id);
+    const payTerm = input.payTerms.find((row) => row.employee_pay_term_id === record.employee_pay_term_id);
+    const seniorityMonths = seniorityAt(employment, date);
+    const components: Record<string, number> = {};
+    const eligibleKinds = new Set<string>();
+    for (const item of input.eligibility.filter((row) => row.employment_id === record.employment_id && activeOn(row, date) && row.eligibility_status === "ELIGIBLE")) {
+      const factor = factors.get(item.compensation_factor_id);
+      if (factor) eligibleKinds.add(factorKind(factor));
+    }
+    const knownEligibility: Record<string, boolean> = {
+      transportation: Boolean(payTerm?.travel_eligible),
+      excellence: Boolean(payTerm?.excellence_eligible),
+      class_manager: Boolean(payTerm?.is_class_manager),
+      degree: Boolean(payTerm?.has_degree),
+      certificate: Boolean(payTerm?.caregiver_certificate_status && payTerm.caregiver_certificate_status !== "NO"),
+    };
+    const overrideFields: Record<string, string> = {
+      no_absence: "no_absence_override",
+      transportation: "transportation_override", persistence: "persistence_override",
+      excellence: "excellence_override", class_manager: "class_manager_override",
+      degree: "degree_override", certificate: "certificate_override",
+    };
+    const noAbsence = record.no_absence_override === true || eligibleKinds.has("no_absence");
+    const isEligible = (kind: string) => {
+      const override = record[overrideFields[kind]];
+      if (override === true || override === "YES" || override === "COMMITMENT") return true;
+      if (override === false || override === "NO") return false;
+      return eligibleKinds.has(kind) || knownEligibility[kind] === true;
+    };
+    for (const rule of input.compensationRules.filter((row) => activeOn(row, date)
+      && (seniorityMonths == null || (Number(row.minimum_seniority_months || 0) <= seniorityMonths
+        && (row.maximum_seniority_months == null || seniorityMonths <= Number(row.maximum_seniority_months)))))) {
+      const factor = factors.get(rule.compensation_factor_id);
+      if (!factor) continue;
+      const kind = factorKind(factor);
+      if (kind === "transportation" || kind === "recovery_pay") continue;
+      if (kind === "persistence" && !noAbsence) continue;
+      if (kind !== "seniority" && !isEligible(kind)) continue;
+      const amount = Number(rule.amount || 0);
+      components[kind] = Number(factor.value_type === "HOURLY"
+        ? amount * Number(record.regular_hours || 0)
+        : amount);
+    }
+    if (isEligible("transportation")) {
+      const schoolYear = input.daycareSchoolYears.find((row) => row.daycare_id === record.daycare_id);
+      const rate = input.travelRates.find((row) => !schoolYear || row.school_year_id === schoolYear.school_year_id);
+      if (rate) components.transportation = Math.min(
+        Number(record.work_days || 0) * Number(rate.daily_travel_amount || 0),
+        Number(rate.maximum_monthly_travel_amount || 0),
+      );
+    }
+    const baseGross = Number(payTerm?.base_pay || 0) * (
+      Number(record.regular_hours || 0) + Number(record.hours_125 || 0) * 1.25 + Number(record.hours_150 || 0) * 1.5
+    ) + Number(record.vacation_pay || 0) + Number(record.sick_pay || 0)
+      - Number(record.vacation_deduct || 0) - Number(record.sick_deduct || 0);
+    const calculatedGross = baseGross + Object.values(components).reduce((sum, value) => sum + value, 0);
+    const allocations = input.allocations.filter((row) => row.payroll_record_id === record.payroll_record_id);
+    const allocatedCost = allocations.reduce((sum, row) => sum + Number(row.allocation_amount || 0), 0);
+    const allocatedHours = allocations.reduce((sum, row) => sum + Number(row.allocated_hours || 0), 0);
+    const remainingCost = Number(record.employer_cost || 0) - allocatedCost;
+    const remainingHours = Number(record.actual_hours || 0) - allocatedHours;
+    let rowStatus = "VALID";
+    let rowHealthReason = "כל שדות החובה תקינים";
+    const unit = input.units.find((row) => row.allocation_unit_id === record.allocation_unit_id);
+    const actualUnit = input.units.find((row) => row.allocation_unit_id === record.actual_allocation_unit_id);
+    const daycareMissing = (unit?.unit_type === "DAYCARE" || unit?.allocation_unit_type === "DAYCARE") && !record.daycare_id;
+    const actualDaycareMissing = (actualUnit?.unit_type === "DAYCARE" || actualUnit?.allocation_unit_type === "DAYCARE") && !record.actual_daycare_id;
+    if (!record.source_employee_identifier || record.employer_cost == null || !record.allocation_unit_id || !record.role_id
+      || !record.actual_allocation_unit_id || daycareMissing || actualDaycareMissing) {
+      rowStatus = "ERROR"; rowHealthReason = "חסרים שדות חובה";
+    } else if (allocations.length && (Math.abs(remainingCost) > .01 || Math.abs(remainingHours) > .01)) {
+      rowStatus = "ERROR"; rowHealthReason = "פיצול לא מאוזן";
+    } else if (allocations.length) {
+      rowStatus = "SPLIT"; rowHealthReason = "ההקצאה מאוזנת";
+    } else if (record.employee_match_status !== "LINKED") {
+      rowStatus = "MISSING"; rowHealthReason = "עובד לא מקושר או באישור זמני";
+    }
+    return {
+      ...record,
+      seniority_months: seniorityMonths,
+      calculated_components: components,
+      calculated_gross: calculatedGross,
+      recovery_pay_eligible: isEligible("recovery_pay"),
+      effective_eligibility: Object.fromEntries(["no_absence", "transportation", "persistence", "excellence", "class_manager", "degree", "certificate"].map((kind) => [kind, isEligible(kind)])),
+      row_status: rowStatus,
+      row_health_reason: rowHealthReason,
+      split_summary: { allocated_cost: allocatedCost, allocated_hours: allocatedHours, remaining_cost: remainingCost, remaining_hours: remainingHours, has_split: allocations.length > 0 },
+    };
+  });
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   const url = Deno.env.get("SUPABASE_URL")!;
@@ -106,8 +236,13 @@ Deno.serve(async (request) => {
         read("payroll_months?select=*&order=payroll_month.desc"),
         lookups(),
       ]);
+      const projectedRecords = projectPayrollRecords({
+        records, allocations, employments, payTerms, eligibility, compensationRules,
+        compensationFactors: lookupData.compensationFactors,
+        travelRates, daycareSchoolYears: lookupData.daycareSchoolYears, units: lookupData.units,
+      });
       return json({
-        records, allocations, employees, employments, assignments, payTerms, eligibility,
+        records: projectedRecords, allocations, employees, employments, assignments, payTerms, eligibility,
         compensationRules, travelRates, months,
         canReopen: reopenPermission.ok && await reopenPermission.json() === true,
         ...lookupData,
@@ -241,6 +376,23 @@ Deno.serve(async (request) => {
         const selected = body.payroll_month_id
           ? { payroll_month_id: uuid(body.payroll_month_id) }
           : await currentMonth(body.payroll_month);
+        const closingRows = await read(`payroll_records?select=*&payroll_month_id=eq.${selected?.payroll_month_id}&row_kind=eq.PARENT`);
+        const closingIds = new Set(closingRows.map((row: Record<string, unknown>) => row.payroll_record_id));
+        const closingAllocations = (await read("payroll_allocations?select=*&limit=6000"))
+          .filter((row: Record<string, unknown>) => closingIds.has(row.payroll_record_id));
+        const invalidRows = closingRows.filter((row: Record<string, unknown>) => {
+          const splits = closingAllocations.filter((item: Record<string, unknown>) => item.payroll_record_id === row.payroll_record_id);
+          const cost = splits.reduce((sum: number, item: Record<string, unknown>) => sum + Number(item.allocation_amount || 0), 0);
+          const hours = splits.reduce((sum: number, item: Record<string, unknown>) => sum + Number(item.allocated_hours || 0), 0);
+          return !row.source_employee_identifier || !row.allocation_unit_id || !row.role_id || !row.actual_allocation_unit_id
+            || ["MISSING", "UNRESOLVED"].includes(text(row.employee_match_status))
+            || row.actual_hours == null || row.actual_gross == null || row.employer_cost == null
+            || (splits.length > 0 && (Math.abs(cost - Number(row.employer_cost || 0)) > .01
+              || Math.abs(hours - Number(row.actual_hours || 0)) > .01));
+        });
+        if (invalidRows.length) {
+          return json({ error: "PAYROLL_MONTH_VALIDATION_FAILED", invalid_record_ids: invalidRows.map((row: Record<string, unknown>) => row.payroll_record_id) }, 422);
+        }
         const result = await write("rpc/portal_close_payroll_month_v2", "POST", {
           target_month_id: selected?.payroll_month_id,
           actor_id: actor.id,
@@ -368,6 +520,17 @@ Deno.serve(async (request) => {
             : null,
           updated_by_user_id: actor.id,
         };
+        const completeActuals = payload.actual_hours !== null && payload.actual_gross !== null && payload.employer_cost !== null;
+        const completeAssignment = Boolean(payload.allocation_unit_id && payload.role_id && payload.actual_allocation_unit_id);
+        const acceptedEmployee = ["LINKED", "APPROVED_TEMPORARY"].includes(payload.employee_match_status);
+        Object.assign(payload, {
+          row_status: completeActuals && completeAssignment && acceptedEmployee ? "VALID"
+            : acceptedEmployee ? "MISSING" : "ERROR",
+          row_health_reason: !acceptedEmployee ? "עובד לא מקושר או באישור זמני"
+            : !completeAssignment ? "חסרים שדות שיוך חובה"
+            : !completeActuals ? "חסרים נתוני הנהלת חשבונות"
+            : "כל שדות החובה תקינים",
+        });
         if (!payload.payroll_month || !code || (payload.employer_cost !== null && (!Number.isFinite(payload.employer_cost) || payload.employer_cost < 0))) {
           return json({ error: "חודש, מספר עובד וערכי שכר תקינים נדרשים." }, 422);
         }
@@ -394,9 +557,21 @@ Deno.serve(async (request) => {
       if (body.action === "save_allocations") {
         const existing = (await read(`payroll_records?payroll_record_id=eq.${uuid(body.payroll_record_id)}&limit=1`))[0];
         await requireCurrentMonth(existing?.payroll_month);
+        const allocationRows = Array.isArray(body.allocations) ? body.allocations : [];
+        const allocatedCost = allocationRows.reduce((sum: number, row: Record<string, unknown>) => sum + Number(row.allocation_amount || 0), 0);
+        const allocatedHours = allocationRows.reduce((sum: number, row: Record<string, unknown>) => sum + Number(row.allocated_hours || 0), 0);
+        if (!allocationRows.length
+          || allocationRows.some((row: Record<string, unknown>) => !uuid(row.allocation_unit_id) || !uuid(row.role_id))
+          || Math.abs(allocatedCost - Number(existing?.employer_cost || 0)) > .01
+          || Math.abs(allocatedHours - Number(existing?.actual_hours || 0)) > .01) {
+          return json({ error: "PAYROLL_SPLIT_UNBALANCED", details: {
+            original_cost: Number(existing?.employer_cost || 0), allocated_cost: allocatedCost,
+            original_hours: Number(existing?.actual_hours || 0), allocated_hours: allocatedHours,
+          } }, 422);
+        }
         const result = await write("rpc/portal_save_payroll_allocations", "POST", {
           target_payroll_record_id: uuid(body.payroll_record_id),
-          allocation_rows: Array.isArray(body.allocations) ? body.allocations : [],
+          allocation_rows: allocationRows,
           actor_id: actor.id,
         });
         return json(result);

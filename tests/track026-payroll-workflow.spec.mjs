@@ -69,12 +69,19 @@ test("TRACK026A keeps the complete monthly workflow inline and details advanced-
     "ניכוי חופשה", "תשלום חופשה", "ימי מחלה לניכוי", "שעות מחלה לתשלום",
     "ללא היעדרות", "התמדה", "מצוינות", "אחראית כיתה", "תואר", "תעודה",
     "ברוטו מחושב", "שעות תקן", "שעות בפועל", "ברוטו בפועל",
-    "actual_allocation_unit_id", "actual_daycare_id", "פיצול לא מאוזן",
+    "actual_allocation_unit_id", "actual_daycare_id",
     "פירוט חישוב מתקדם · לקריאה בלבד", "payroll-sticky-employee",
   ]) expect(ui).toContain(contract);
 
   expect(ui).not.toContain('id="payroll-monthly-form"');
-  expect(ui).toContain('Number(record.actual_hours || 0) - allocatedHours');
+  expect(ui).toContain("record.split_summary?.remaining_hours");
+  expect(ui).toContain("record.seniority_months");
+  expect(ui).not.toContain("minimum_seniority_months");
+  expect(edge).toContain("projectPayrollRecords");
+  expect(edge).toContain("calculated_components: components");
+  expect(edge).toContain("split_summary:");
+  expect(edge).toContain("פיצול לא מאוזן");
+  expect(edge).toContain("PAYROLL_SPLIT_UNBALANCED");
   expect(edge).toContain("actual_allocation_unit_id: uuid(body.actual_allocation_unit_id) || null");
   expect(edge).toContain("actual_daycare_id: uuid(body.actual_daycare_id) || null");
 });

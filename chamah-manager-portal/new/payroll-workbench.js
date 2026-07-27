@@ -199,47 +199,16 @@ export async function mountPayrollWorkbench(request) {
   };
   const payTermFor = (record) =>
     state.data.payTerms.find((row) => row.employee_pay_term_id === record.employee_pay_term_id);
-  const employmentFor = (record) =>
-    state.data.employments.find((row) => row.employment_id === record.employment_id);
-  const seniorityMonths = (record) => {
-    const employment = employmentFor(record);
-    if (!employment?.employment_start_date) return null;
-    const start = new Date(`${employment.employment_start_date}T00:00:00`);
-    const target = new Date(`${state.month || new Date().toISOString().slice(0, 7)}-01T00:00:00`);
-    return Math.max(0, (target.getFullYear() - start.getFullYear()) * 12
-      + target.getMonth() - start.getMonth()
-      + Number(employment.recognized_prior_seniority_months || 0));
-  };
   const allocationsFor = (record) => state.allocationDrafts.get(record.payroll_record_id)
     || state.data.allocations.filter((row) => row.payroll_record_id === record.payroll_record_id);
-  const invalid = (record) => !record.source_employee_identifier
-    || record.employer_cost == null
-    || !record.allocation_unit_id
-    || !record.role_id
-    || ((state.data.units.find((row) => row.allocation_unit_id === record.allocation_unit_id)?.unit_type
-      || state.data.units.find((row) => row.allocation_unit_id === record.allocation_unit_id)?.allocation_unit_type) === "DAYCARE"
-      && !record.daycare_id);
-  const splitBalance = (record) => {
-    const allocations = allocationsFor(record);
-    const allocatedCost = allocations.reduce((sum, row) => sum + Number(row.allocation_amount || 0), 0);
-    const allocatedHours = allocations.reduce((sum, row) => sum + Number(row.allocated_hours || 0), 0);
-    return {
-      hasSplit: allocations.length > 0,
-      remainingCost: Number(record.employer_cost || 0) - allocatedCost,
-      remainingHours: Number(record.actual_hours || 0) - allocatedHours,
-    };
-  };
+  const invalid = (record) => record.row_status === "ERROR";
   const healthFor = (record) => {
-    const balance = splitBalance(record);
-    if (invalid(record)) return { code: "error", label: "שגיאה", reason: "חסרים שדות חובה" };
-    if (balance.hasSplit && (Math.abs(balance.remainingCost) > 0.01 || Math.abs(balance.remainingHours) > 0.01)) {
-      return { code: "error", label: "שגיאה", reason: "פיצול לא מאוזן" };
-    }
-    if (balance.hasSplit) return { code: "split", label: "מפוצל", reason: "ההקצאה מאוזנת" };
-    if (record.employee_match_status !== "LINKED") {
-      return { code: "missing", label: "חסר", reason: "עובד לא מקושר או באישור זמני" };
-    }
-    return { code: "complete", label: "תקין", reason: "כל שדות החובה תקינים" };
+    const code = { VALID: "complete", MISSING: "missing", ERROR: "error", SPLIT: "split" }[record.row_status] || "missing";
+    return {
+      code,
+      label: { complete: "תקין", missing: "חסר", error: "שגיאה", split: "מפוצל" }[code],
+      reason: record.row_health_reason || "ממתין לאימות Supabase",
+    };
   };
   const filtered = () => state.data.records.filter((record) => {
     const employee = employeeFor(record);
@@ -284,6 +253,7 @@ export async function mountPayrollWorkbench(request) {
         payroll_month: state.month,
         ...record,
       });
+      await reload();
       message("השינויים נשמרו אוטומטית.", "success");
     } catch (error) {
       message(error.message, "error");
@@ -351,14 +321,12 @@ export async function mountPayrollWorkbench(request) {
       await reload();
       return message("החודש נפתח מחדש.", "success");
     }
-    const invalidRows = state.data.records.filter(invalid);
-    const unresolved = state.data.records.filter((row) => ["MISSING", "UNRESOLVED"].includes(row.employee_match_status));
-    const unbalanced = state.data.records.filter((row) => healthFor(row).reason === "פיצול לא מאוזן");
-    if (invalidRows.length || unresolved.length || unbalanced.length) {
-      return message(`לא ניתן לסגור: ${invalidRows.length} שורות לא תקינות, ${unresolved.length} עובדים לא פתורים, ${unbalanced.length} פיצולים לא מאוזנים.`, "error");
-    }
     if (!confirm(`לסגור את חודש ${state.month} ולנעול עריכה?`)) return;
-    await request("payroll", "POST", { action: "close_month", payroll_month_id: month()?.payroll_month_id, payroll_month: state.month });
+    try {
+      await request("payroll", "POST", { action: "close_month", payroll_month_id: month()?.payroll_month_id, payroll_month: state.month });
+    } catch (error) {
+      return message(error.message, "error");
+    }
     state.workflowView = "HISTORY";
     await reload();
     message("החודש נסגר וננעל.", "success");
@@ -390,8 +358,8 @@ export async function mountPayrollWorkbench(request) {
     const employee = employeeFor(record);
     const payTerm = payTermFor(record);
     const allocations = allocationsFor(record);
-    const allocatedCost = allocations.reduce((sum, row) => sum + Number(row.allocation_amount || 0), 0);
-    const allocatedHours = allocations.reduce((sum, row) => sum + Number(row.allocated_hours || 0), 0);
+    const allocatedCost = Number(record.split_summary?.allocated_cost || 0);
+    const allocatedHours = Number(record.split_summary?.allocated_hours || 0);
     $("#wf-details").hidden = false;
     $("#wf-details").innerHTML = `<header><div><p class="eyebrow">הכנת שכר חודשית</p>
       <h2>${esc(employee ? `${employee.first_name} ${employee.last_name}` : record.source_employee_identifier)}</h2>
@@ -411,9 +379,9 @@ export async function mountPayrollWorkbench(request) {
       </section>
       <div class="payroll-balance"><span>עלות מקור <strong>${money.format(record.employer_cost || 0)}</strong></span>
         <span>פוצל <strong>${money.format(allocatedCost)}</strong></span>
-        <span>פער <strong>${money.format(Number(record.employer_cost || 0) - allocatedCost)}</strong></span>
+        <span>פער <strong>${money.format(record.split_summary?.remaining_cost || 0)}</strong></span>
         <span>שעות בפועל מקור <strong>${number.format(record.actual_hours || 0)}</strong></span>
-        <span>פער שעות <strong>${number.format(Number(record.actual_hours || 0) - allocatedHours)}</strong></span></div>
+        <span>פער שעות <strong>${number.format(record.split_summary?.remaining_hours || 0)}</strong></span></div>
       <h3>פיצולים פנימיים לדיווח ולתקציב</h3>
       <div id="payroll-allocation-editor">${allocationEditor(record)}</div>
       <div class="dialog-actions">${isClosed() ? "" : '<button class="button button-secondary" data-add-allocation>+ פיצול</button><button class="button button-primary" data-save-allocations>שמירת פיצולים</button>'}
@@ -436,15 +404,11 @@ export async function mountPayrollWorkbench(request) {
         renderDetails();
         return;
       }
-      const validSplit = (rows) => rows.length > 0
-        && rows.every((row) => row.allocation_unit_id && row.allocation_amount !== "" && row.allocated_hours !== "")
-        && Math.abs(rows.reduce((sum, row) => sum + Number(row.allocation_amount), 0) - Number(record.employer_cost || 0)) <= .01
-        && Math.abs(rows.reduce((sum, row) => sum + Number(row.allocated_hours), 0) - Number(record.actual_hours || 0)) <= .01;
       $("#payroll-allocation-editor").insertAdjacentHTML("afterend", '<span class="autosave-status" data-allocation-autosave role="status">נשמר</span>');
       state.allocationAutosave = createAutosave({
         key: allocationKey,
         read: collectAllocations,
-        validate: validSplit,
+        validate: () => true,
         statusTargets: () => document.querySelectorAll("[data-allocation-autosave]"),
         save: (allocations) => request("payroll", "POST", { action: "save_allocations", payroll_record_id: record.payroll_record_id, allocations }),
         onSaved: async () => { state.allocationDrafts.delete(record.payroll_record_id); await reload(); state.selected = record.payroll_record_id; },
@@ -590,7 +554,12 @@ export async function mountPayrollWorkbench(request) {
     `<input class="workforce-inline payroll-cell-input" aria-label="${label}" data-payroll-inline="${record.payroll_record_id}" name="${field}" value="${esc(record[field] ?? "")}" ${isClosed() ? "disabled" : ""}>`;
   const inlineEligibility = (record, field, label, certificate = false) =>
     `<select class="workforce-inline payroll-cell-select" aria-label="${label}" data-payroll-inline="${record.payroll_record_id}" name="${field}" ${isClosed() ? "disabled" : ""}>
-      <option value="" ${record[field] == null ? "selected" : ""}>לפי זכאות</option>
+      <option value="" ${record[field] == null ? "selected" : ""}>לפי זכאות: ${record.effective_eligibility?.[{
+        no_absence_override: "no_absence",
+        transportation_override: "transportation", persistence_override: "persistence",
+        excellence_override: "excellence", class_manager_override: "class_manager",
+        degree_override: "degree", certificate_override: "certificate",
+      }[field]] ? "כן" : "לא"}</option>
       <option value="${certificate ? "YES" : "true"}" ${record[field] === true || record[field] === "YES" ? "selected" : ""}>כן</option>
       ${certificate ? `<option value="COMMITMENT" ${record[field] === "COMMITMENT" ? "selected" : ""}>התחייבות</option>` : ""}
       <option value="${certificate ? "NO" : "false"}" ${record[field] === false || record[field] === "NO" ? "selected" : ""}>לא</option>
@@ -634,7 +603,7 @@ export async function mountPayrollWorkbench(request) {
       const employee = employeeFor(record);
       const payTerm = payTermFor(record);
       const health = healthFor(record);
-      const months = seniorityMonths(record);
+      const months = record.seniority_months;
       return `<tr class="bank-row-${health.code}">
         <td><input type="checkbox" data-payroll-select="${record.payroll_record_id}" ${state.selectedRows.has(record.payroll_record_id) ? "checked" : ""}></td>
         <td class="bank-sticky-number">${esc(record.source_employee_identifier)}</td>
