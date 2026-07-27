@@ -587,7 +587,7 @@ Deno.serve(async (request) => {
             source_type: "PAYROLL_FILE", source_name: body.record_origin === "MANUAL" ? "MANUAL" : "PORTAL",
             source_file_name: text(body.source_file_name) || null, triggered_by_user_id: actor.id,
             status: "COMPLETED", total_rows: 1, accepted_rows: 1,
-            completed_at: new Date().toISOString(), metadata: { preview_token: body.preview_token || null },
+            metadata: { preview_token: body.preview_token || null },
           });
           importBatchId = batch[0].import_batch_id;
         }
