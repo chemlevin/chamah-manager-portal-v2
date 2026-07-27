@@ -4198,3 +4198,41 @@ Validation:
 - BLOCKED: authenticated canonical feature smoke could not run because the
   available browser session was signed out. The secure Production sign-in shell
   loaded successfully; no credentials were requested or entered.
+
+## 2026-07-27 - INTERNAL portal permission screen catalog repair
+
+Root cause:
+
+- The permissions client canonicalized missing Accounting children and added
+  `dashboards.accounting.summary` to the visible permission matrix.
+- The linked Supabase `portal_sections` catalog did not contain that code, so
+  saving it through `portal_admin_save_user` violated
+  `portal_user_permissions_screen_code_fkey`.
+
+Implementation:
+
+- Added forward-only migration `20260727100822` to upsert the missing Accounting
+  Summary screen and reassert canonical rows for Bank Transfers, Actual Payroll,
+  and the new Employees Import child permission.
+- Added `dashboards.staffing.employees.import` as the dedicated permission for
+  the visible Employees Excel-import workflow.
+- Hid Employees Import controls without explicit EDIT access and added a
+  matching server-side EDIT check before the import RPC.
+- Preserved the foreign key and all existing permission rows; no permission
+  deletion or constraint bypass was introduced.
+
+Validation and deployment:
+
+- PASS: changed JavaScript syntax checks and `npm.cmd run build`.
+- PASS: 20 focused desktop Playwright permission/workforce tests.
+- PASS: 5 focused permission migration/security tests and 3 employee-import
+  validation tests.
+- PASS: transactional live database create-then-update verification for all
+  four repaired screen codes; the transaction was rolled back and left zero
+  test permission rows.
+- PASS: live catalog contains all four codes with zero orphan permission rows.
+- Applied migration `20260727100822` to the linked Supabase project and deployed
+  `portal-workforce-workbench` version 9 with JWT verification enabled.
+- Preview deployed to
+  `https://chamah-portal-q6k39ll59-chamah.vercel.app`.
+- Production portal aliases were not modified.

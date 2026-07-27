@@ -34,6 +34,7 @@ const HEBREW_SCREEN_LABELS = {
   'dashboards.accounting': 'הנה״ח', 'dashboards.accounting.summary': 'דשבורד סיכום',
   'dashboards.accounting.banks': 'קובץ בנקים', 'dashboards.accounting.bank-transfers': 'העברות בנקאיות', 'dashboards.licensing': 'רישוי', 'dashboards.team': 'צוות',
   'dashboards.staffing': 'צוות ורישוי', 'dashboards.staffing.employees': 'עובדים',
+  'dashboards.staffing.employees.import': 'ייבוא עובדים',
   'dashboards.staffing.actual-payroll': 'ביצוע שכר',
   'dashboards.occupancy': 'תפוסה ותקינה', calculators: 'מחשבונים',
   'calculators.salary': 'מחשבון שכר', 'calculators.occupancy': 'מחשבון תפוסה, תקינה ורווחיות',
@@ -65,6 +66,8 @@ function canonicalizeSections(sections) {
   if (accounting && !canonical.some((section) => section.screen_code === 'dashboards.accounting.bank-transfers')) canonical.push({ screen_code: 'dashboards.accounting.bank-transfers', parent_screen_code: 'dashboards.accounting', route: 'dashboards/unit/organization/accounting/bank-transfers', display_name: 'העברות בנקאיות', icon: '↔', description: 'סביבת עבודה להכנה ומעקב אחר העברות בנקאיות.', display_order: 25, is_navigation_item: false, is_scope_required: true, permission_level: portalAccess?.profile?.is_super_admin ? 'EDIT' : 'HIDDEN' });
   const staffing = canonical.find((section) => section.screen_code === 'dashboards.staffing');
   if (staffing && !canonical.some((section) => section.screen_code === 'dashboards.staffing.employees')) canonical.push({ screen_code: 'dashboards.staffing.employees', parent_screen_code: 'dashboards.staffing', route: 'dashboards/unit/organization/staffing/employees', display_name: 'עובדים', icon: '👥', description: 'סביבת עבודה לניהול עובדים.', display_order: 25, is_navigation_item: false, is_scope_required: true, permission_level: staffing.permission_level });
+  const employees = canonical.find((section) => section.screen_code === 'dashboards.staffing.employees');
+  if (employees && !canonical.some((section) => section.screen_code === 'dashboards.staffing.employees.import')) canonical.push({ screen_code: 'dashboards.staffing.employees.import', parent_screen_code: 'dashboards.staffing.employees', route: 'dashboards/unit/organization/staffing/employees/import', display_name: 'ייבוא עובדים', icon: '⇧', description: 'ייבוא עובדים מקובץ Excel לאחר מיפוי ואימות.', display_order: 26, is_navigation_item: false, is_scope_required: true, permission_level: portalAccess?.profile?.is_super_admin ? 'EDIT' : 'HIDDEN' });
   if (staffing && !canonical.some((section) => section.screen_code === 'dashboards.staffing.actual-payroll')) canonical.push({ screen_code: 'dashboards.staffing.actual-payroll', parent_screen_code: 'dashboards.staffing', route: 'dashboards/unit/organization/staffing/actual-payroll', display_name: 'ביצוע שכר', icon: '₪', description: 'סביבת עבודה לביצוע שכר בפועל.', display_order: 26, is_navigation_item: false, is_scope_required: true, permission_level: staffing.permission_level });
   return canonical.sort((a, b) => Number(a.display_order || 0) - Number(b.display_order || 0));
 }
@@ -1493,7 +1496,7 @@ async function render() {
       } else if (type.id === 'staffing' && route.dashboardChild === 'employees') {
         title = 'עובדים';
         activeDashboardUnit = unit;
-        $('#page-content').innerHTML = employeesWorkbenchTemplate();
+        $('#page-content').innerHTML = employeesWorkbenchTemplate(permissionFor('dashboards.staffing.employees.import') === 'EDIT');
         await mountEmployeesWorkbench(portalWorkforceRequest);
         mountWorkbenchPolish({ title: 'עובדים', module: 'כוח אדם', organization: unit.display_name, onRefresh: () => render() });
       } else if (type.id === 'staffing' && route.dashboardChild === 'actual-payroll') {

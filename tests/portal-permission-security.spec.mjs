@@ -3,6 +3,8 @@ import { test, expect } from '@playwright/test';
 
 const migrationPath = new URL('../supabase/migrations/20260723060133_track_011a_fail_closed_permissions.sql', import.meta.url);
 const edgeFunctionPath = new URL('../supabase/functions/portal-users/index.ts', import.meta.url);
+const workforceFunctionPath = new URL('../supabase/functions/portal-workforce-workbench/index.ts', import.meta.url);
+const catalogRepairPath = new URL('../supabase/migrations/20260727100822_fix_portal_permission_screen_catalog.sql', import.meta.url);
 
 test.describe('portal permission server contract', () => {
   test('missing and unknown screen permissions resolve directly to HIDDEN without parent traversal', async () => {
@@ -27,6 +29,26 @@ test.describe('portal permission server contract', () => {
     const source = await readFile(edgeFunctionPath, 'utf8');
     expect(source).toContain('/rest/v1/rpc/portal_has_permission');
     expect(source).toContain('target_screen_code: "management.permissions.users"');
+    expect(source).toContain('required_level: "EDIT"');
+  });
+
+  test('all newly visible workflow permissions exist in the canonical catalog', async () => {
+    const sql = await readFile(catalogRepairPath, 'utf8');
+    for (const code of [
+      'dashboards.accounting.summary',
+      'dashboards.accounting.bank-transfers',
+      'dashboards.staffing.employees.import',
+      'dashboards.staffing.actual-payroll',
+    ]) expect(sql).toContain(`'${code}'`);
+    expect(sql).toContain('on conflict (screen_code) do update');
+    expect(sql).not.toContain('drop constraint');
+    expect(sql).not.toContain('delete from public.portal_user_permissions');
+  });
+
+  test('employee import requires its dedicated canonical EDIT permission', async () => {
+    const source = await readFile(workforceFunctionPath, 'utf8');
+    expect(source).toContain('body.action === "import_employees"');
+    expect(source).toContain('target_screen_code: "dashboards.staffing.employees.import"');
     expect(source).toContain('required_level: "EDIT"');
   });
 });
