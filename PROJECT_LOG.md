@@ -4653,3 +4653,13 @@ Authenticated Preview validation status:
   disposable active Preview employee, lookup by number and by name, verify
   autofill, then delete it; and visually confirm the numeric fields have no
   spinner arrows. Production was not modified.
+
+TRACK026G completion follow-up:
+
+- Extended the existing payroll number-input spinner reset to split-child
+  numeric inputs. This is a CSS-only scope correction; payroll calculations,
+  APIs, database rules and worksheet behavior are unchanged.
+- Added focused source-contract coverage for the split-child number-input
+  selectors. The focused four-project Playwright contract check, build and diff
+  check passed. Authenticated Preview validation and test-data cleanup follow
+  after the Preview deployment. Production was not modified.
