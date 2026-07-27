@@ -205,6 +205,21 @@ Frontend Production deployment must not occur without explicit approval.
 
 If an isolated Supabase environment is required, state the reason before blocking the task.
 
+## Canonical Production Rule
+
+The only canonical Production URL is:
+
+`https://chamah-portal.vercel.app`
+
+Every Production deployment must verify:
+
+- The serving deployment ID.
+- The serving Git SHA.
+- The canonical alias.
+- That the expected approved commit is included.
+
+Do not report success until the canonical Production URL serves the expected deployment.
+
 # Business Rules
 
 ## Shared Rules
