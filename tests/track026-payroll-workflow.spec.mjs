@@ -17,6 +17,9 @@ test("TRACK026 adds scoped atomic monthly payroll lifecycle without changing eng
   expect(migration).toContain("portal_reopen_payroll_month_v2");
   expect(migration).toContain("REOPEN_REASON_REQUIRED");
   expect(migration).toContain("row_kind in ('PARENT', 'SPLIT')");
+  const hardening = read("supabase/migrations/20260727103035_track026_revoke_payroll_rpc_browser_execute.sql");
+  expect(hardening).toContain("from public, anon, authenticated");
+  expect(hardening).toContain("to service_role");
 
   expect(fs.statSync(path.join(root, "api/payroll-engine.js")).isFile()).toBeTruthy();
   expect(fs.statSync(path.join(root, "api/budget-engine.js")).isFile()).toBeTruthy();
