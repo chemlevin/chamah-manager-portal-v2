@@ -508,6 +508,11 @@ Every TRACK must:
 - Preserve backward compatibility unless explicitly approved.
 - End with the Standard Completion Report.
 
+### Deployment Consistency Rule
+
+- Never leave the shared environment in a partial deployment state.
+- If a migration depends on an Edge Function, or an Edge Function depends on a migration, both must be deployed together before the TRACK is considered complete.
+
 ## Standard Completion Report (Mandatory)
 
 Every completed TRACK must end with this exact report.
