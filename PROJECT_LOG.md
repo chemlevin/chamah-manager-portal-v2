@@ -4524,3 +4524,16 @@ Validation:
 - PASS: JavaScript checks, Edge Deno type check, build, diff check, migration
   history verification and focused TRACK026D contract test. Production was not
   modified.
+
+## 2026-07-27 — TRACK026D Calculation Input Correction
+
+- Corrected the Payroll Edge projection to read the saved configured monthly
+  `regular_hours` input for all hourly components. The previous projection read
+  the legacy `payroll_records.regular_hours` value instead, so a worksheet row
+  could retain an old 100-hour component basis after its monthly Hours 100%
+  input was changed to 150.
+- Transportation now likewise reads the configured saved `work_days` input,
+  retaining the canonical backend daily-rate and monthly-cap calculation.
+- No frontend rates, formulas, amounts, Payroll Engine behavior or database
+  rules changed. Preview-only validation remains pending authenticated live
+  matrix verification and reload confirmation.

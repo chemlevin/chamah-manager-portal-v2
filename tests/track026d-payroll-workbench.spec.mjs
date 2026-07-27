@@ -28,3 +28,11 @@ test("TRACK026D keeps the payroll worksheet and split validation backend-driven"
   expect(migration).toContain("allocated_standard_hours numeric(10,2)");
   expect(migration).toContain("portal_save_payroll_allocations");
 });
+
+test("TRACK026D hourly components use the saved configured Hours 100% input", () => {
+  const edge = read("supabase/functions/portal-workforce-workbench/index.ts");
+  expect(edge).toContain('configuredInputValue("regular_hours")');
+  expect(edge).toContain('configuredInputValue("work_days")');
+  expect(edge).not.toContain("amount * Number(record.regular_hours || 0)");
+  expect(edge).not.toContain("Number(record.work_days || 0) * Number(rate.daily_travel_amount || 0)");
+});

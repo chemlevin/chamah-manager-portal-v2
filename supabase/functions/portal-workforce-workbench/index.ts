@@ -79,6 +79,10 @@ function projectPayrollRecords(input: {
     const monthlyInputs = record.monthly_inputs && typeof record.monthly_inputs === "object"
       ? record.monthly_inputs as Record<string, unknown> : {};
     const inputValue = (rule: Record<string, unknown>) => monthlyInputs[text(rule.source_field)] ?? record[text(rule.source_field)];
+    const configuredInputValue = (sourceField: string) => {
+      const rule = input.calculationInputRules.find((candidate) => text(candidate.source_field) === sourceField);
+      return rule ? inputValue(rule) : record[sourceField];
+    };
     const eligibilityContext = { ...(payTerm || {}), ...record, ...monthlyInputs };
     const baseHourlyRate = Number(payTerm?.base_pay || 0);
     const schoolYear = input.daycareSchoolYears.find((row) => row.daycare_id === record.daycare_id);
@@ -105,15 +109,15 @@ function projectPayrollRecords(input: {
             monthly_cap: Number(rate.maximum_monthly_travel_amount || 0),
           };
           impact = Math.min(
-            Number(record.work_days || 0) * Number(rate.daily_travel_amount || 0),
+            Number(configuredInputValue("work_days") || 0) * Number(rate.daily_travel_amount || 0),
             Number(rate.maximum_monthly_travel_amount || 0),
           );
         }
       } else if (eligible && rule && text(rule.proration_method).toUpperCase() !== "ELIGIBILITY_ONLY") {
         const amount = Number(rule.amount || 0);
         const proration = text(rule.proration_method).toUpperCase();
-        impact = proration.includes("WORKDAY") ? amount * Number(record.work_days || 0)
-          : proration.includes("HOUR") || factor.value_type === "HOURLY" ? amount * Number(record.regular_hours || 0)
+        impact = proration.includes("WORKDAY") ? amount * Number(configuredInputValue("work_days") || 0)
+          : proration.includes("HOUR") || factor.value_type === "HOURLY" ? amount * Number(configuredInputValue("regular_hours") || 0)
           : amount;
       }
       const configuredRateDisplay = configuredRate && typeof configuredRate === "object"
