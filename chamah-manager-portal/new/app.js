@@ -10,6 +10,7 @@ import { bankTransferWorkbenchTemplate, mountBankTransferWorkbench } from './ban
 import { workforceHubTemplate, employeesWorkbenchTemplate, payrollWorkbenchTemplate, parsePayrollWorkbook } from './workforce-workbench.js';
 import { mountEmployeesWorkbench } from './employees-workbench.js';
 import { mountPayrollWorkbench } from './payroll-workbench.js';
+import { payrollLandingTemplate, payrollOpenTemplate, mountPayrollOpen, payrollMonthsTemplate, mountPayrollMonths, payrollReportsTemplate, mountPayrollReports } from './payroll-module.js';
 import { mountWorkbenchPolish } from './workbench-polish.js';
 
 window.parsePayrollWorkbookForWorkbench = parsePayrollWorkbook;
@@ -38,7 +39,8 @@ const HEBREW_SCREEN_LABELS = {
   'dashboards.staffing.actual-payroll': 'ביצוע שכר',
   'dashboards.occupancy': 'תפוסה ותקינה', calculators: 'מחשבונים',
   'calculators.salary': 'מחשבון שכר', 'calculators.occupancy': 'מחשבון תפוסה, תקינה ורווחיות',
-  payroll: 'שכר', 'payroll.calculations': 'חישובי שכר', 'payroll.calculations.new': 'חדש',
+  payroll: 'שכר', 'payroll.open': 'פתיחת חודש חדש', 'payroll.working': 'חודשים בעבודה',
+  'payroll.closed': 'חודשים סגורים', 'payroll.reports': 'דוחות שכר', 'payroll.calculations': 'חישובי שכר', 'payroll.calculations.new': 'חדש',
   'payroll.calculations.existing': 'קיים', 'payroll.calculations.history': 'טבלאות עבר',
   management: 'ניהול והגדרות', 'management.permissions': 'הרשאות',
   'management.permissions.users': 'רשימת משתמשים והרשאות', 'management.rules': 'כללים',
@@ -69,6 +71,16 @@ function canonicalizeSections(sections) {
   const employees = canonical.find((section) => section.screen_code === 'dashboards.staffing.employees');
   if (employees && !canonical.some((section) => section.screen_code === 'dashboards.staffing.employees.import')) canonical.push({ screen_code: 'dashboards.staffing.employees.import', parent_screen_code: 'dashboards.staffing.employees', route: 'dashboards/unit/organization/staffing/employees/import', display_name: 'ייבוא עובדים', icon: '⇧', description: 'ייבוא עובדים מקובץ Excel לאחר מיפוי ואימות.', display_order: 26, is_navigation_item: false, is_scope_required: true, permission_level: portalAccess?.profile?.is_super_admin ? 'EDIT' : 'HIDDEN' });
   if (staffing && !canonical.some((section) => section.screen_code === 'dashboards.staffing.actual-payroll')) canonical.push({ screen_code: 'dashboards.staffing.actual-payroll', parent_screen_code: 'dashboards.staffing', route: 'dashboards/unit/organization/staffing/actual-payroll', display_name: 'ביצוע שכר', icon: '₪', description: 'סביבת עבודה לביצוע שכר בפועל.', display_order: 26, is_navigation_item: false, is_scope_required: true, permission_level: staffing.permission_level });
+  const payroll = canonical.find((section) => section.screen_code === 'payroll');
+  const payrollChildren = [
+    ['payroll.open', 'payroll/open', 'פתיחת חודש חדש', 51],
+    ['payroll.working', 'payroll/working', 'חודשים בעבודה', 52],
+    ['payroll.closed', 'payroll/closed', 'חודשים סגורים', 53],
+    ['payroll.reports', 'payroll/reports', 'דוחות שכר', 54],
+  ];
+  for (const [screen_code, route, display_name, display_order] of payrollChildren) {
+    if (payroll && !canonical.some((section) => section.screen_code === screen_code)) canonical.push({ screen_code, parent_screen_code: 'payroll', route, display_name, icon: '₪', description: '', display_order, is_navigation_item: false, is_scope_required: true, permission_level: portalAccess?.profile?.is_super_admin ? 'EDIT' : 'HIDDEN' });
+  }
   return canonical.sort((a, b) => Number(a.display_order || 0) - Number(b.display_order || 0));
 }
 
@@ -481,8 +493,7 @@ function routeScreenCode(route) {
   if (route.section === 'dashboards' && route.dashboardType === 'staffing' && route.dashboardChild) return `dashboards.staffing.${route.dashboardChild}`;
   if (route.section === 'dashboards' && route.dashboardType) return `dashboards.${route.dashboardType}`;
   if (route.section === 'calculators' && route.calculator) return `calculators.${route.calculator}`;
-  if (route.section === 'payroll' && route.child) return `payroll.calculations.${route.child}`;
-  if (route.section === 'payroll' && route.page) return 'payroll.calculations';
+  if (route.section === 'payroll' && route.page) return `payroll.${route.page}`;
   if (route.section === 'training' && route.page === 'rules' && route.child === 'calculation') return 'management.rules.system';
   if (route.section === 'training') return route.child ? `management.${route.page}.${route.child}` : route.page ? `management.${route.page}` : 'management';
   return route.section;
@@ -511,8 +522,8 @@ function parseRoute() {
   if (!parts.length || parts[0] === 'home') return { section: 'home' };
   if (parts[0] === 'dashboards') return { section: 'dashboards', unitId: parts[1] === 'unit' ? parts[2] : null, dashboardType: parts[1] === 'unit' ? parts[3] : null, dashboardChild: parts[1] === 'unit' ? parts[4] : null };
   if (parts[0] === 'calculators' && ['salary', 'occupancy'].includes(parts[1])) return { section: 'calculators', calculator: parts[1] };
-  if (parts[0] === 'payroll' && parts[1] === 'calculations' && ['new', 'existing', 'history'].includes(parts[2])) return { section: 'payroll', page: 'calculations', child: parts[2] };
-  if (parts[0] === 'payroll' && parts[1] === 'calculations') return { section: 'payroll', page: 'calculations' };
+  if (parts[0] === 'payroll' && ['open', 'working', 'closed', 'reports'].includes(parts[1])) return { section: 'payroll', page: parts[1], monthId: parts[2] || '' };
+  if (parts[0] === 'payroll' && parts[1] === 'calculations') return { section: 'payroll', page: 'reports' };
   if (parts[0] === 'training') return { section: 'training', page: parts[1] || '', child: parts[2] || '' };
   return simpleRoutes[parts[0]] ? { section: parts[0] } : { section: 'home' };
 }
@@ -632,10 +643,11 @@ async function portalBankTransferRequest(method = 'GET', body) {
   return value;
 }
 
-async function portalWorkforceRequest(page, method = 'GET', body, month = '') {
+async function portalWorkforceRequest(page, method = 'GET', body, month = '', view = '') {
   if (!await ensureAccessToken()) throw new Error('החיבור פג.');
   const query = new URLSearchParams({ page });
   if (month) query.set('month', month);
+  if (view) query.set('view', view);
   const response = await fetch(`${SUPABASE_URL}/functions/v1/portal-workforce-workbench?${query}`, { method, headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
   const value = await response.json().catch(() => ({}));
   if (!response.ok) { const error = new Error(value.error || 'הפעולה נכשלה.'); error.details = value.errors; throw error; }
@@ -1413,8 +1425,7 @@ function breadcrumbsTemplate(route, unit, type) {
   if (route.section === 'calculators' && route.calculator) return `${parts.join('')}<span aria-hidden="true">/</span><a href="#calculators">מחשבונים</a><span aria-hidden="true">/</span><span aria-current="page">${route.calculator === 'salary' ? 'מחשבון שכר' : 'תפוסה, תקינה ורווחיות'}</span>`;
   if (route.section === 'payroll') {
     parts.push('<span aria-hidden="true">/</span>', route.page ? '<a href="#payroll">שכר</a>' : '<span aria-current="page">שכר</span>');
-    if (route.page) parts.push('<span aria-hidden="true">/</span>', route.child ? '<a href="#payroll/calculations">חישובי שכר</a>' : '<span aria-current="page">חישובי שכר</span>');
-    if (route.child) parts.push('<span aria-hidden="true">/</span>', `<span aria-current="page">${payrollCalculationCards.find((item) => item.route.endsWith(route.child)).title}</span>`);
+    if (route.page) parts.push('<span aria-hidden="true">/</span>', `<span aria-current="page">${HEBREW_SCREEN_LABELS[`payroll.${route.page}`]}</span>`);
     return parts.join('');
   }
   if (route.section === 'training') {
@@ -1454,7 +1465,7 @@ async function render() {
     return;
   }
   const managementLabels = { permissions: 'הרשאות', rules: 'כללים', settings: 'הגדרות', tables: 'הגדרות', audit: 'יומן שינויים', users: 'רשימת משתמשים והרשאות', system: 'כללי מערכת', calculation: route.page === 'rules' ? 'כללי חישוב' : 'הגדרות', variables: 'הגדרות' };
-  let title = route.calculator === 'salary' ? 'מחשבון שכר' : route.calculator === 'occupancy' ? 'תפוסה, תקינה ורווחיות' : route.section === 'training' && (route.child || route.page) ? managementLabels[route.child || route.page] : route.child ? payrollCalculationCards.find((item) => item.route.endsWith(route.child)).title : route.section === 'payroll' && route.page ? 'חישובי שכר' : route.section === 'home' ? 'עמוד הבית' : route.section === 'dashboards' ? 'דשבורדים' : simpleRoutes[route.section].title;
+  let title = route.calculator === 'salary' ? 'מחשבון שכר' : route.calculator === 'occupancy' ? 'תפוסה, תקינה ורווחיות' : route.section === 'training' && (route.child || route.page) ? managementLabels[route.child || route.page] : route.section === 'payroll' && route.page ? HEBREW_SCREEN_LABELS[`payroll.${route.page}`] : route.section === 'home' ? 'עמוד הבית' : route.section === 'dashboards' ? 'דשבורדים' : simpleRoutes[route.section].title;
   let unit = null;
   let type = null;
   if (route.section === 'home') $('#page-content').innerHTML = homeTemplate();
@@ -1462,11 +1473,23 @@ async function render() {
   else if (route.section === 'calculators' && route.calculator === 'occupancy') { $('#page-content').innerHTML = occupancyManagementCalculatorTemplate(); await loadOccupancyRules(); if (parseRoute().calculator === 'occupancy') { if (occupancyModel.status === 'error') { $('#occupancy-state').className = 'state error panel'; $('#occupancy-state').textContent = occupancyModel.error || 'לא ניתן לטעון את כללי התפוסה הפעילים.'; } else { bindOccupancyManagementCalculator(); } } }
   else if (route.section === 'calculators') $('#page-content').innerHTML = calculatorsTemplate();
   else if (route.section === 'payroll') {
-    title = 'שכר';
-    $('#page-content').innerHTML = payrollWorkbenchTemplate();
-    await mountPayrollWorkbench(portalWorkforceRequest);
-    if (permissionFor('dashboards.staffing.actual-payroll') !== 'EDIT') enforceWorkbenchReadOnly();
-    mountWorkbenchPolish({ title: 'שכר', module: 'שכר', organization: 'כל הארגון', month: document.querySelector('#wf-month')?.value || 'חודש פעיל', onRefresh: () => render() });
+    const payrollRequest = (page, method, body, month) => portalWorkforceRequest(page, method, body, month, route.page || 'module');
+    if (!route.page) $('#page-content').innerHTML = payrollLandingTemplate({ open: canView('payroll.open'), working: canView('payroll.working'), closed: canView('payroll.closed'), reports: canView('payroll.reports') });
+    else if (route.page === 'open') { $('#page-content').innerHTML = payrollOpenTemplate(); await mountPayrollOpen(payrollRequest, { canEdit: permissionFor('payroll.open') === 'EDIT' }); }
+    else if (route.page === 'reports') { $('#page-content').innerHTML = payrollReportsTemplate(); await mountPayrollReports(payrollRequest); }
+    else if (!route.monthId) { $('#page-content').innerHTML = payrollMonthsTemplate(route.page); await mountPayrollMonths(payrollRequest, route.page); }
+    else {
+      const data = await payrollRequest('payroll', 'GET');
+      const selected = data.months.find((item) => item.payroll_month_id === route.monthId);
+      const expectedStatus = route.page === 'closed' ? 'CLOSED' : 'CURRENT';
+      if (!selected || selected.month_status !== expectedStatus) $('#page-content').innerHTML = accessDeniedTemplate();
+      else {
+        $('#page-content').innerHTML = payrollWorkbenchTemplate();
+        await mountPayrollWorkbench(payrollRequest, { selectedMonthId: selected.payroll_month_id, selectedMonth: selected.payroll_month.slice(0, 7), listRoute: `#payroll/${route.page}` });
+        if (permissionFor(`payroll.${route.page}`) !== 'EDIT') enforceWorkbenchReadOnly();
+        mountWorkbenchPolish({ title, module: 'שכר', organization: 'כל הארגון', month: selected.payroll_month.slice(0, 7), onRefresh: () => render() });
+      }
+    }
   }
   else if (route.section === 'training' && route.page === 'permissions' && route.child === 'users') { $('#page-content').innerHTML = usersPermissionsTemplate(); await loadPermissionsAdmin(); }
   else if (route.section === 'training' && route.page === 'rules' && route.child === 'system') { $('#page-content').innerHTML = systemRulesTemplate(); bindSystemRules(); }
@@ -1530,12 +1553,8 @@ async function render() {
         if (permissionFor('dashboards.staffing.employees') !== 'EDIT') enforceWorkbenchReadOnly();
         mountWorkbenchPolish({ title: 'עובדים', module: 'כוח אדם', organization: unit.display_name, onRefresh: () => render() });
       } else if (type.id === 'staffing' && route.dashboardChild === 'actual-payroll') {
-        title = 'ביצוע שכר';
-        activeDashboardUnit = unit;
-        $('#page-content').innerHTML = payrollWorkbenchTemplate();
-        await mountPayrollWorkbench(portalWorkforceRequest);
-        if (permissionFor('dashboards.staffing.actual-payroll') !== 'EDIT') enforceWorkbenchReadOnly();
-        mountWorkbenchPolish({ title: 'ביצוע שכר', module: 'שכר', organization: unit.display_name, month: document.querySelector('#wf-month')?.value || 'חודש פעיל', onRefresh: () => render() });
+        location.hash = '#payroll';
+        return;
       } else if (['licensing', 'team'].includes(type.id)) {
         title = type.title; dashboardMode = 'staffing'; activeDashboardUnit = unit; $('#page-content').innerHTML = staffDashboardShell(unit); await loadStaffDashboard(); if (parseRoute().unitId === unit.allocation_unit_id && parseRoute().dashboardType === type.id) renderStaffData();
       } else { title = type.title; $('#page-content').innerHTML = dashboardPlaceholderTemplate(unit, type); }

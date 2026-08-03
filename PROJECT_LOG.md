@@ -4680,3 +4680,34 @@ Final authenticated Preview validation:
   an existing `audit_events_operation_check` rejection for operation `DELETE`.
   No test data or partial feature deployment remains. Production was not
   modified.
+
+## 2026-08-03 — TRACK026H Payroll Module Navigation
+
+- Replaced the direct Payroll Workbench landing with a dedicated Payroll module
+  home and four canonical pages: Open New Month, Working Months, Closed Months,
+  and Payroll Reports.
+- Kept the TRACK026G Workbench calculations and row workflow intact. The
+  Workbench now requires an explicit month selection from Working or Closed
+  Months, locks its month selector, and returns to the appropriate month list
+  after close or authorized reopen.
+- Added a scoped month-opening form with duplicate prevention, organization,
+  department or daycare scope, previous-month employee copy, and active
+  Employees loading. Successful creation redirects to Working Months.
+- Added independent canonical permission routes for `payroll`, `payroll.open`,
+  `payroll.working`, `payroll.closed`, and `payroll.reports`. The Payroll Edge
+  Function now enforces the matching route permission per view or lifecycle
+  action.
+- Replaced close/reopen RPCs with atomic status-and-audit implementations.
+  Reopen requires a reason, clears prior close locks, records the audit event,
+  and returns the month to Working Months.
+- Applied migration `20260803100912_track026h_payroll_module_navigation.sql`
+  and deployed `portal-workforce-workbench` version 24 to the linked Preview
+  Supabase project. Production was not modified.
+- Local validation passed: JavaScript syntax checks, build, desktop Payroll
+  navigation checks (18 passed), mobile RTL/responsive plus Payroll engine
+  checks (25 passed). A broader legacy TRACK026 run reported 26 passes and 10
+  failures because those tests still target the intentionally retired direct
+  `actual-payroll` route and embedded month-navigation UI; no calculation-engine
+  regression was reported.
+- Authenticated Vercel Preview lifecycle validation and final disposable test
+  data cleanup are pending the frontend Preview deployment.

@@ -276,8 +276,19 @@ Deno.serve(async (request) => {
     const auth = await fetch(`${url}/auth/v1/user`, { headers: { apikey: key, Authorization: authorization } });
     if (!auth.ok) return json({ error: "נדרש חיבור תקף." }, 401);
     const actor = await auth.json();
-    const page = new URL(request.url).searchParams.get("page") === "payroll" ? "payroll" : "employees";
-    const screenCode = page === "payroll" ? "dashboards.staffing.actual-payroll" : "dashboards.staffing.employees";
+    const requestUrl = new URL(request.url);
+    const page = requestUrl.searchParams.get("page") === "payroll" ? "payroll" : "employees";
+    const body = request.method === "POST" ? await request.json() : {};
+    const payrollView = ["module", "open", "working", "closed", "reports"].includes(text(requestUrl.searchParams.get("view")))
+      ? text(requestUrl.searchParams.get("view")) : "working";
+    const payrollActionScreen: Record<string, string> = {
+      open_month: "payroll.open",
+      close_month: "payroll.working",
+      reopen_month: "payroll.closed",
+    };
+    const screenCode = page === "employees" ? "dashboards.staffing.employees"
+      : request.method === "POST" ? payrollActionScreen[text(body.action)] || "payroll.working"
+      : payrollView === "module" ? "payroll" : `payroll.${payrollView}`;
     const permission = await fetch(`${url}/rest/v1/rpc/portal_has_permission`, {
       method: "POST", headers: serviceHeaders,
       body: JSON.stringify({ target_user_id: actor.id, target_screen_code: screenCode, required_level: request.method === "GET" ? "VIEW" : "EDIT" }),
@@ -313,13 +324,13 @@ Deno.serve(async (request) => {
       return json({ employees, employments, assignments, payTerms, eligibility, employeeCertificates, leave, importMapping:mappings[0]?.column_mapping || {}, ...lookupData });
     }
     if (request.method === "GET") {
-      const requestedMonth = monthDate(new URL(request.url).searchParams.get("month"));
+      const requestedMonth = monthDate(requestUrl.searchParams.get("month"));
       const monthFilter = requestedMonth ? `&payroll_month=eq.${requestedMonth}` : "";
       const reopenPermission = await fetch(`${url}/rest/v1/rpc/portal_has_permission`, {
         method: "POST", headers: serviceHeaders,
         body: JSON.stringify({
           target_user_id: actor.id,
-          target_screen_code: "dashboards.staffing.actual-payroll.reopen",
+          target_screen_code: "payroll.closed",
           required_level: "EDIT",
         }),
       });
@@ -361,7 +372,6 @@ Deno.serve(async (request) => {
       });
     }
 
-    const body = await request.json();
     if (page === "employees") {
       if (body.action === "import_employees") {
         const importPermission = await fetch(`${url}/rest/v1/rpc/portal_has_permission`, {
@@ -523,7 +533,7 @@ Deno.serve(async (request) => {
           method: "POST", headers: serviceHeaders,
           body: JSON.stringify({
             target_user_id: actor.id,
-            target_screen_code: "dashboards.staffing.actual-payroll.reopen",
+            target_screen_code: "payroll.closed",
             required_level: "EDIT",
           }),
         });

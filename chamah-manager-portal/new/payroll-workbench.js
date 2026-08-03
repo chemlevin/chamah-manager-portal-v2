@@ -79,12 +79,12 @@ function exportPayrollFile(rows, columns, name, format) {
   });
 }
 
-export async function mountPayrollWorkbench(request) {
+export async function mountPayrollWorkbench(request, { selectedMonthId = "", selectedMonth = "", listRoute = "#payroll/working" } = {}) {
   const $ = (selector) => document.querySelector(selector);
   const state = {
     data: null,
-    month: new Date().toISOString().slice(0, 7),
-    monthId: "",
+    month: selectedMonth,
+    monthId: selectedMonthId,
     selected: "",
     query: "",
     status: "",
@@ -110,8 +110,9 @@ export async function mountPayrollWorkbench(request) {
 
   document.querySelector(".bank-import-actions").insertAdjacentHTML(
     "afterbegin",
-    '<button id="wf-open-month" class="button button-secondary">חדש</button><button id="wf-close-month" class="button button-primary">סגירת חודש</button>'
+    `<a class="button button-secondary" href="${esc(listRoute)}">חזרה לרשימת החודשים</a><button id="wf-close-month" class="button button-primary">סגירת חודש</button>`
   );
+  $("#payroll-month-workflow").hidden = true;
 
   const monthKey = (row) => row?.payroll_month?.slice(0, 7) || "";
   const sortedMonths = (rows) => [...rows].sort((a, b) => monthKey(b).localeCompare(monthKey(a)));
@@ -322,9 +323,8 @@ export async function mountPayrollWorkbench(request) {
       const notes = prompt("סיבת פתיחת החודש מחדש:");
       if (!notes) return;
       await request("payroll", "POST", { action: "reopen_month", payroll_month_id: month()?.payroll_month_id, payroll_month: state.month, notes });
-      state.workflowView = "CURRENT";
-      await reload();
-      return message("החודש נפתח מחדש.", "success");
+      location.hash = "#payroll/working";
+      return;
     }
     if (!confirm(`לסגור את חודש ${state.month} ולנעול עריכה?`)) return;
     try {
@@ -332,9 +332,7 @@ export async function mountPayrollWorkbench(request) {
     } catch (error) {
       return message(error.message, "error");
     }
-    state.workflowView = "HISTORY";
-    await reload();
-    message("החודש נסגר וננעל.", "success");
+    location.hash = "#payroll/closed";
   };
 
   const allocationEditor = (record) => {
@@ -840,23 +838,11 @@ export async function mountPayrollWorkbench(request) {
     $("#wf-clear").disabled = !current;
     $("#wf-close-month").disabled = !current || (isClosed() && !state.data.canReopen);
     $("#wf-close-month").textContent = isClosed() ? "פתיחה מחדש" : "סגירת חודש";
-    renderMonthWorkflow();
   }
 
   state.data = await request("payroll", "GET", null, state.month);
-  const initialOpenMonth = sortedMonths(state.data.months.filter((row) => row.month_status !== "CLOSED"))[0];
-  const initialExistingMonth = state.data.months.find((row) => monthKey(row) === state.month);
-  const initialClosedMonth = sortedMonths(state.data.months.filter((row) => row.month_status === "CLOSED"))[0];
-  const initialMonth = initialOpenMonth || initialExistingMonth || initialClosedMonth;
-  state.monthId = initialMonth?.payroll_month_id || "";
-  if (initialMonth && monthKey(initialMonth) !== state.month) {
-    state.month = monthKey(initialMonth);
-    state.workflowView = initialMonth.month_status === "CLOSED" ? "HISTORY" : "CURRENT";
-    state.data = await request("payroll", "GET", null, state.month);
-  } else if (!initialMonth) {
-    state.month = "";
-    state.workflowView = "NEW";
-  }
+  const initialMonth = state.data.months.find((row) => row.payroll_month_id === state.monthId && monthKey(row) === state.month);
+  if (!initialMonth) throw new Error("חודש השכר שנבחר לא נמצא.");
   $("#wf-status").innerHTML = '<option value="">כל הסטטוסים</option>'
     + Object.entries(statuses).map(([key, value]) => `<option value="${key}">${value}</option>`).join("");
   $("#wf-unit").innerHTML = '<option value="">כל המחלקות</option>'
@@ -864,10 +850,7 @@ export async function mountPayrollWorkbench(request) {
   $("#wf-daycare").innerHTML = '<option value="">כל המעונות</option>'
     + options(state.data.daycares, "daycare_id").replace('<option value="">בחירה…</option>', "");
   $("#wf-month").value = state.month;
-  $("#wf-month").onchange = async (event) => {
-    const target = state.data.months.find((row) => monthKey(row) === event.target.value);
-    await selectMonth(event.target.value, target?.month_status === "CLOSED" ? "HISTORY" : "CURRENT", target?.payroll_month_id || "");
-  };
+  $("#wf-month").disabled = true;
   $("#wf-search").oninput = (event) => {
     state.query = event.target.value;
     render();
@@ -891,7 +874,6 @@ export async function mountPayrollWorkbench(request) {
     });
     render();
   };
-  $("#wf-open-month").onclick = openMonthDialog;
   $("#wf-close-month").onclick = closeOrReopen;
   $("#wf-add").onclick = createPayrollDraft;
   $("#wf-export").onclick = exportDialog;
