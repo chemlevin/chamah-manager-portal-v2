@@ -4716,3 +4716,16 @@ Final authenticated Preview validation:
   used a native prompt that the Preview controller could not submit, so it was
   replaced with the Workbench's existing accessible dialog form. The reason is
   still required and sent to the same audited reopen action.
+- Final authenticated Preview validation passed on
+  `https://chamah-portal-pc7h1eo8n-chamah.vercel.app`: all four canonical pages
+  rendered under their own permissions, the module stayed RTL with no viewport
+  overflow, duplicate month creation was blocked, Working Months did not open a
+  Workbench until explicit selection, and the selected month was fixed in the
+  Workbench.
+- Created one empty disposable organization month (`12/2035`), confirmed close
+  and read-only behavior, reopened it with the required reason, and verified two
+  `STATUS_CHANGE` audit events with CURRENT→CLOSED and CLOSED→CURRENT plus the
+  saved reopen reason. The exact disposable month and its two validation audit
+  events were then deleted. Final database counts were zero for the test month,
+  payroll rows and audit rows; authenticated Working/Closed pages showed no test
+  month and no browser warnings or errors.
