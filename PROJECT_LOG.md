@@ -4788,3 +4788,33 @@ Final authenticated Preview validation:
   events were then deleted. Final database counts were zero for the test month,
   payroll rows and audit rows; authenticated Working/Closed pages showed no test
   month and no browser warnings or errors.
+
+## 2026-08-03 — TRACK026A–H canonical Production promotion
+
+- Merged `codex/track026-payroll-monthly-workflow` into `main` with merge commit
+  `0e5bf1c6b5d615e4d87487c0ff68ec2853f94041` and pushed `main`.
+- Deployed the existing Vercel project `chamah-portal` to Production as
+  deployment `dpl_Dwmud2W6z5Dg4modmas2duLN4iGb`. Assigned only the canonical
+  alias `https://chamah-portal.vercel.app` to that deployment and restored the
+  unrelated project aliases to their prior deployment.
+- Verified the canonical deployment metadata reports Git SHA
+  `0e5bf1c6b5d615e4d87487c0ff68ec2853f94041`, whose second parent is the final
+  TRACK026 commit `e7d2403240bef5caf54692fed2b9054a884e0907`.
+- Authenticated Production validation passed for Payroll home and canonical
+  navigation, open/working/closed month lists, duplicate prevention, explicit
+  Workbench selection, employee number/name lookup and autofill, manual draft
+  persistence, calculations, split rows/totals, read-only close, authorized
+  reopen with required reason, audit events, reports, and route permissions.
+- Computed Production browser styles confirmed `appearance: textfield` on every
+  sampled parent and split-child number input. Authenticated desktop Production
+  pages were RTL; the focused desktop and mobile RTL/overflow Playwright
+  regression sets passed locally before deployment.
+- Production regression smoke passed for Employees, Bank Files, and Bank
+  Transfers. A rapid route-away produced one transient Employees mount error;
+  an isolated Employees Production load passed with no console errors.
+- Created one disposable active employee and two disposable payroll months for
+  the authenticated workflow. After validation, deleted their payroll rows,
+  allocations, audit events, months, and employee dependencies. Final database
+  counts and authenticated UI checks confirmed zero remaining test records.
+- No Production migration, Edge Function, schema, RLS, calculation, or unrelated
+  module change was made during the promotion.
