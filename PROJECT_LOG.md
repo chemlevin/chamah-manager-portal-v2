@@ -4663,3 +4663,20 @@ TRACK026G completion follow-up:
   selectors. The focused four-project Playwright contract check, build and diff
   check passed. Authenticated Preview validation and test-data cleanup follow
   after the Preview deployment. Production was not modified.
+
+Final authenticated Preview validation:
+
+- PASS: created one disposable active employee (`026G-EMP-TEST`) and confirmed
+  Payroll smart lookup by the exact employee number and by the employee name.
+  Both paths loaded the canonical employee name into the payroll row.
+- PASS: every numeric input in both generated split-child rows computed to
+  `appearance: textfield`, matching the parent worksheet inputs and removing
+  the native number-spinner affordance.
+- PASS: removed the test payroll record formerly identified as
+  `TEST-TEMP-026G` and hard-deleted the disposable employee. Final linked
+  Preview queries returned zero matching employee rows and zero matching
+  payroll rows; an authenticated reload showed neither test identifier.
+- The payroll deletion itself succeeded, but its subsequent audit write logged
+  an existing `audit_events_operation_check` rejection for operation `DELETE`.
+  No test data or partial feature deployment remains. Production was not
+  modified.
