@@ -4711,3 +4711,8 @@ Final authenticated Preview validation:
   regression was reported.
 - Authenticated Vercel Preview lifecycle validation and final disposable test
   data cleanup are pending the frontend Preview deployment.
+- During authenticated validation, closing an empty disposable month passed and
+  the Closed Months view correctly enforced read-only controls. Reopen still
+  used a native prompt that the Preview controller could not submit, so it was
+  replaced with the Workbench's existing accessible dialog form. The reason is
+  still required and sent to the same audited reopen action.

@@ -320,10 +320,20 @@ export async function mountPayrollWorkbench(request, { selectedMonthId = "", sel
     if (!month()) return openMonthDialog();
     if (isClosed()) {
       if (!state.data.canReopen) return message("נדרשת הרשאה ייעודית לפתיחה מחדש.", "error");
-      const notes = prompt("סיבת פתיחת החודש מחדש:");
-      if (!notes) return;
-      await request("payroll", "POST", { action: "reopen_month", payroll_month_id: month()?.payroll_month_id, payroll_month: state.month, notes });
-      location.hash = "#payroll/working";
+      $("#wf-dialog-content").innerHTML = `<h2>פתיחת חודש מחדש</h2>
+        <form id="wf-reopen-form" class="workforce-form">
+          <label class="wide">סיבת פתיחה מחדש<textarea name="notes" required minlength="3"></textarea></label>
+          <div class="dialog-actions wide"><button class="button button-primary" type="submit">אישור פתיחה מחדש</button></div>
+        </form>`;
+      $("#wf-dialog").showModal();
+      $("#wf-reopen-form").onsubmit = async (event) => {
+        event.preventDefault();
+        const notes = new FormData(event.currentTarget).get("notes")?.toString().trim();
+        if (!notes) return;
+        await request("payroll", "POST", { action: "reopen_month", payroll_month_id: month()?.payroll_month_id, payroll_month: state.month, notes });
+        $("#wf-dialog").close();
+        location.hash = "#payroll/working";
+      };
       return;
     }
     if (!confirm(`לסגור את חודש ${state.month} ולנעול עריכה?`)) return;
