@@ -4459,6 +4459,22 @@ Follow-up validation correction:
 - Kept calculation, eligibility and persistence entirely backend-driven; no
   payroll formula, rate or rule was added to the browser.
 
+## 2026-07-27 — TRACK026B Payroll Workbench UX
+
+- Reorganized the clerk worksheet into Employee, Monthly Inputs, Payroll
+  Components and Accounting column groups, with short visible labels.
+- Simplified component cells to a small checkbox and a calculated amount only;
+  split allocation expands as compact inline child rows limited to Accounting
+  values.
+
+## 2026-07-27 — TRACK026C Payroll Workbench UX Alignment
+
+- Aligned Payroll with the portal Workbench pattern: the active worksheet is
+  the only operational surface, manual-add remains inline, and `+` expands
+  editable inline accounting split children directly below the employee row.
+- Removed visible calculation terminology from component headers and kept
+  component checkboxes/amounts as presentation of the backend result only.
+
 ## 2026-07-27 — TRACK027 Preview permission-validation correction
 
 Root cause:
@@ -4543,3 +4559,232 @@ Validation:
   `#access-denied` and displayed the dedicated Hebrew no-permission screen,
   confirming HIDDEN users receive neither the protected screen nor its
   configuration.
+## 2026-07-27 — TRACK026D Final Payroll Workbench Flow
+
+- Consolidated Payroll into one continuous RTL worksheet with the prescribed
+  employee identity, monthly-input, component, accounting, split, delete and
+  save-status columns. Payroll no longer renders a lower details or technical
+  calculation surface.
+- Kept payroll inputs and components backend-projected. The visible component
+  cells are compact; seniority is automatic, recovery pay is eligibility-only,
+  and the single persistence checkbox is the configured no-absence monthly
+  input rather than a duplicate field.
+- Added an inline split child-row workflow. It keeps accounting fields only,
+  previews parent/allocated/remaining totals through the Edge Function while
+  typing, and autosaves only when the backend confirms every allocation total
+  is balanced.
+- Applied forward-only migration `20260727141324_track026d_accounting_split_fields.sql`
+  to the linked Preview project. It adds the canonical actual net and split
+  standard-hours/net/gross persistence fields, and atomically validates all
+  accounting allocation totals in the existing payroll allocation RPC.
+- Deployed the matching `portal-workforce-workbench` Edge Function after the
+  migration. The function now projects and validates four split totals and
+  supplies a non-mutating allocation preview for immediate worksheet feedback.
+- PASS: JavaScript checks, Edge Deno type check, build, diff check, migration
+  history verification and focused TRACK026D contract test. Production was not
+  modified.
+
+## 2026-07-27 — TRACK026D Calculation Input Correction
+
+- Corrected the Payroll Edge projection to read the saved configured monthly
+  `regular_hours` input for all hourly components. The previous projection read
+  the legacy `payroll_records.regular_hours` value instead, so a worksheet row
+  could retain an old 100-hour component basis after its monthly Hours 100%
+  input was changed to 150.
+- Transportation now likewise reads the configured saved `work_days` input,
+  retaining the canonical backend daily-rate and monthly-cap calculation.
+- No frontend rates, formulas, amounts, Payroll Engine behavior or database
+  rules changed. Preview-only validation remains pending authenticated live
+  matrix verification and reload confirmation.
+
+Follow-up:
+
+- Changed configured monthly-input saves from blur-only to a 250ms debounced
+  input event. This makes a typed Hours 100% value autosave and recalculate
+  without requiring a secondary click, while keeping the calculation entirely
+  in the Edge projection.
+
+Final authenticated Preview validation:
+
+- PASS: using the EDIT-authorized account, set the same Payroll row's saved
+  Hours 100% to 0, 100 and 150. Each value autosaved, survived a full reload,
+  and projected Certificate / Degree respectively as ₪0 / ₪0, ₪200 / ₪100,
+  and ₪300 / ₪150. The row was restored to 150 hours.
+- PASS: seniority projected ₪0, ₪110 and ₪165 at the same matrix points,
+  proving it follows the active hourly seniority rate and saved Hours 100%.
+  Transportation remained ₪70 for 18 saved working days, so the configured
+  daily-rate/monthly-cap result remained independent of the hours change.
+  Fixed components (Excellence ₪250, Classroom Manager ₪250 and Persistence
+  ₪600) remained unchanged across the matrix.
+- PASS: desktop RTL worksheet and mobile 390px RTL check completed with no
+  page-level horizontal overflow and no browser console errors. Production was
+  not modified.
+
+## 2026-07-27 — TRACK026E Payroll Workbench UX alignment
+
+- Audited the Employees, Bank Files, Bank Transfers and Accounting table
+  implementations before changing Payroll. Payroll now follows the existing
+  Workbench conventions: an inline draft row for Add Row, the shared bulk
+  action bar, and directly nested child allocation rows.
+- Kept Payroll as a single worksheet by hiding the legacy month-flow and KPI
+  card surfaces. All employee, monthly input, payroll component and accounting
+  work remains in the table.
+- Reused the Bank/Transfer child-row visual contracts for split rows, summary
+  totals and the inline “add split” action. Split rows retain only the
+  accounting allocation fields and show parent, allocated and remaining hours,
+  net, gross and employer cost.
+- Component columns remain backend-projected. The worksheet renders one compact
+  checkbox and amount per configured component, including one recovery column
+  whether the backend calls it recovery or convalescence pay. No rates,
+  formulas, eligibility rules or validation logic were moved to the browser.
+- Added focused TRACK026E source-contract coverage. Preview validation and
+  screenshots are pending the deployment and authenticated review. Production
+  was not modified.
+
+Final authenticated Preview validation:
+
+- PASS: verified the deployed worksheet has one continuous table with compact
+  component checkbox-and-amount cells, accounting columns at the end, and no
+  lower payroll details surface.
+- PASS: Add Row opens the editable inline draft row and cancelling it leaves no
+  saved record. Split opens one inline child row immediately below the parent;
+  its parent / allocated / remaining summary covers hours, net, gross and
+  employer cost, with an inline add-split control.
+- PASS: desktop worksheet, inline Add Row and expanded Split screenshots were
+  captured on Preview. Mobile 390px RTL reports a 390px page width for a 390px
+  viewport, and the browser console has no errors.
+- Preview deployed to `https://chamah-portal-kb0wf8ai4-chamah.vercel.app`.
+  Production was not modified.
+
+## 2026-07-27 — TRACK026F Payroll clerk worksheet flow
+
+- Reordered the worksheet for payroll entry: row number, employee number/name,
+  employee details, working days and hours, component columns, then
+  vacation/sick/notes and accounting. The component order remains a backend
+  projection and its cells stay checkbox-plus-calculated-amount only.
+- Replaced the transient Add Row draft with an immediately persisted manual
+  payroll draft. A draft remains visible after reload as Missing; it accepts a
+  native smart employee search by number or name, or temporary/manual identity
+  details and an explicit base rate and seniority.
+- Extended the existing Edge Function projection so manual records use their
+  saved manual seniority/base-rate context while all gross and component values
+  continue to be calculated by Supabase. No frontend payroll formula or rate was
+  introduced.
+- Updated inline split initialization to follow the Bank parent/child workflow:
+  the first child copies the parent accounting allocation and a second child is
+  blank. Existing atomic save/preview validation remains the source of balanced,
+  remaining and over statuses.
+- Implementation validation passed locally. Edge Function deployment and
+  authenticated Preview validation are pending.
+
+Authenticated Preview validation status:
+
+- PASS: the table shows the requested row number first, compact ordered
+  component columns, vacation/sick after components, a table-header `+`, and a
+  persisted Missing draft row. The mobile RTL document width stays within the
+  viewport and no browser console errors were recorded.
+- BLOCKED: the temporary employee-number field displays immediately but clears
+  after a full reload, so temporary identity persistence is not yet proven.
+  The linked Preview dataset currently has no active Employees, so smart lookup
+  and existing-employee autofill cannot be authenticatedly exercised without
+  adding business data. TRACK026F remains incomplete; Production was not
+  modified.
+
+## 2026-07-27 — TRACK026G Payroll clerk workbench validation handoff
+
+- Fixed temporary payroll identity persistence by saving the manual employee
+  identifier inside the canonical `source_payload.manual_employee` payload as
+  well as the record identifier. This preserves the exact temporary number and
+  name used by the worksheet after a save and reload.
+- Kept the frontend presentation-only: it sends the manual identity context to
+  the existing Supabase workbench endpoint; component calculation and payroll
+  validation remain backend-projected.
+- Styled worksheet numeric inputs as plain spreadsheet fields by removing the
+  browser number-spinner affordances. No payroll values, formulas or rules were
+  changed.
+- PASS: `node --check chamah-manager-portal/new/payroll-workbench.js` and
+  `npm.cmd run build` completed successfully. Preview was deployed to
+  `https://chamah-portal-f6bryhqy5-chamah.vercel.app`.
+- BLOCKED BY BROWSER CONTROLLER: the in-app controller returns a stale internal
+  tab ID (`24`) while the only visible signed-in Preview tab is a newer ID
+  (`28`), so it cannot read or interact with the authenticated page. The
+  remaining manual checks are: temporary number/name save and reload; create a
+  disposable active Preview employee, lookup by number and by name, verify
+  autofill, then delete it; and visually confirm the numeric fields have no
+  spinner arrows. Production was not modified.
+
+TRACK026G completion follow-up:
+
+- Extended the existing payroll number-input spinner reset to split-child
+  numeric inputs. This is a CSS-only scope correction; payroll calculations,
+  APIs, database rules and worksheet behavior are unchanged.
+- Added focused source-contract coverage for the split-child number-input
+  selectors. The focused four-project Playwright contract check, build and diff
+  check passed. Authenticated Preview validation and test-data cleanup follow
+  after the Preview deployment. Production was not modified.
+
+Final authenticated Preview validation:
+
+- PASS: created one disposable active employee (`026G-EMP-TEST`) and confirmed
+  Payroll smart lookup by the exact employee number and by the employee name.
+  Both paths loaded the canonical employee name into the payroll row.
+- PASS: every numeric input in both generated split-child rows computed to
+  `appearance: textfield`, matching the parent worksheet inputs and removing
+  the native number-spinner affordance.
+- PASS: removed the test payroll record formerly identified as
+  `TEST-TEMP-026G` and hard-deleted the disposable employee. Final linked
+  Preview queries returned zero matching employee rows and zero matching
+  payroll rows; an authenticated reload showed neither test identifier.
+- The payroll deletion itself succeeded, but its subsequent audit write logged
+  an existing `audit_events_operation_check` rejection for operation `DELETE`.
+  No test data or partial feature deployment remains. Production was not
+  modified.
+
+## 2026-08-03 — TRACK026H Payroll Module Navigation
+
+- Replaced the direct Payroll Workbench landing with a dedicated Payroll module
+  home and four canonical pages: Open New Month, Working Months, Closed Months,
+  and Payroll Reports.
+- Kept the TRACK026G Workbench calculations and row workflow intact. The
+  Workbench now requires an explicit month selection from Working or Closed
+  Months, locks its month selector, and returns to the appropriate month list
+  after close or authorized reopen.
+- Added a scoped month-opening form with duplicate prevention, organization,
+  department or daycare scope, previous-month employee copy, and active
+  Employees loading. Successful creation redirects to Working Months.
+- Added independent canonical permission routes for `payroll`, `payroll.open`,
+  `payroll.working`, `payroll.closed`, and `payroll.reports`. The Payroll Edge
+  Function now enforces the matching route permission per view or lifecycle
+  action.
+- Replaced close/reopen RPCs with atomic status-and-audit implementations.
+  Reopen requires a reason, clears prior close locks, records the audit event,
+  and returns the month to Working Months.
+- Applied migration `20260803100912_track026h_payroll_module_navigation.sql`
+  and deployed `portal-workforce-workbench` version 24 to the linked Preview
+  Supabase project. Production was not modified.
+- Local validation passed: JavaScript syntax checks, build, desktop Payroll
+  navigation checks (18 passed), mobile RTL/responsive plus Payroll engine
+  checks (25 passed). A broader legacy TRACK026 run reported 26 passes and 10
+  failures because those tests still target the intentionally retired direct
+  `actual-payroll` route and embedded month-navigation UI; no calculation-engine
+  regression was reported.
+- Authenticated Vercel Preview lifecycle validation and final disposable test
+  data cleanup are pending the frontend Preview deployment.
+- During authenticated validation, closing an empty disposable month passed and
+  the Closed Months view correctly enforced read-only controls. Reopen still
+  used a native prompt that the Preview controller could not submit, so it was
+  replaced with the Workbench's existing accessible dialog form. The reason is
+  still required and sent to the same audited reopen action.
+- Final authenticated Preview validation passed on
+  `https://chamah-portal-pc7h1eo8n-chamah.vercel.app`: all four canonical pages
+  rendered under their own permissions, the module stayed RTL with no viewport
+  overflow, duplicate month creation was blocked, Working Months did not open a
+  Workbench until explicit selection, and the selected month was fixed in the
+  Workbench.
+- Created one empty disposable organization month (`12/2035`), confirmed close
+  and read-only behavior, reopened it with the required reason, and verified two
+  `STATUS_CHANGE` audit events with CURRENT→CLOSED and CLOSED→CURRENT plus the
+  saved reopen reason. The exact disposable month and its two validation audit
+  events were then deleted. Final database counts were zero for the test month,
+  payroll rows and audit rows; authenticated Working/Closed pages showed no test
+  month and no browser warnings or errors.

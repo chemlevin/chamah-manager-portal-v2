@@ -79,12 +79,12 @@ function exportPayrollFile(rows, columns, name, format) {
   });
 }
 
-export async function mountPayrollWorkbench(request) {
+export async function mountPayrollWorkbench(request, { selectedMonthId = "", selectedMonth = "", listRoute = "#payroll/working" } = {}) {
   const $ = (selector) => document.querySelector(selector);
   const state = {
     data: null,
-    month: new Date().toISOString().slice(0, 7),
-    monthId: "",
+    month: selectedMonth,
+    monthId: selectedMonthId,
     selected: "",
     query: "",
     status: "",
@@ -95,7 +95,11 @@ export async function mountPayrollWorkbench(request) {
     workflowView: "CURRENT",
     selectedRows: new Set(),
     newRow: false,
+    inlineSplit: null,
     allocationDrafts: new Map(),
+    splitPreviews: new Map(),
+    monthlyInputTimers: new Map(),
+    manualInputTimers: new Map(),
     monthlyAutosave: null,
     allocationAutosave: null,
   };
@@ -106,8 +110,9 @@ export async function mountPayrollWorkbench(request) {
 
   document.querySelector(".bank-import-actions").insertAdjacentHTML(
     "afterbegin",
-    '<button id="wf-open-month" class="button button-secondary">חדש</button><button id="wf-close-month" class="button button-primary">סגירת חודש</button>'
+    `<a class="button button-secondary" href="${esc(listRoute)}">חזרה לרשימת החודשים</a><button id="wf-close-month" class="button button-primary">סגירת חודש</button>`
   );
+  $("#payroll-month-workflow").hidden = true;
 
   const monthKey = (row) => row?.payroll_month?.slice(0, 7) || "";
   const sortedMonths = (rows) => [...rows].sort((a, b) => monthKey(b).localeCompare(monthKey(a)));
@@ -191,6 +196,14 @@ export async function mountPayrollWorkbench(request) {
       reason: record.row_health_reason || "ממתין לאימות Supabase",
     };
   };
+  const manualEmployeeFor = (record) => record.manual_employee || record.source_payload?.manual_employee || {};
+  const isManualRecord = (record) => record.record_origin === "MANUAL" && !employeeFor(record);
+  const employeeName = (record) => {
+    const employee = employeeFor(record);
+    if (employee) return `${employee.first_name} ${employee.last_name}`;
+    const manual = manualEmployeeFor(record);
+    return manual.name || manual.employee_name || "עובד זמני";
+  };
   const filtered = () => state.data.records.filter((record) => {
     const employee = employeeFor(record);
     const search = `${record.source_employee_identifier} ${employee?.first_name || ""} ${employee?.last_name || ""}`.toLowerCase();
@@ -221,7 +234,7 @@ export async function mountPayrollWorkbench(request) {
     const numericFields = new Set([
       "work_days", "standard_hours", "regular_hours", "hours_125", "hours_150",
       "vacation_deduct", "vacation_pay", "sick_deduct", "sick_pay",
-      "actual_hours", "actual_gross", "employer_cost",
+      "actual_hours", "actual_net", "actual_gross", "employer_cost",
     ]);
     record[field] = numericFields.has(field) ? (value === "" ? null : Number(value)) : value;
     message("שומר…");
@@ -250,6 +263,18 @@ export async function mountPayrollWorkbench(request) {
     state.selectedRows.clear();
     await reload();
     message("שורות השכר נמחקו.", "success");
+  };
+  const createPayrollDraft = async () => {
+    if (isClosed() || !month()) return;
+    const draftCode = `DRAFT-${crypto.randomUUID()}`;
+    try {
+      await request("payroll", "POST", {
+        action:"save_record", payroll_month:state.month, source_employee_identifier:draftCode,
+        employee_match_status:"MISSING", record_origin:"MANUAL", source_payload:{ manual_employee:{ draft:true, name:"" } },
+      });
+      await reload();
+      message("נוספה טיוטת שכר. הזינו מספר או שם עובד.", "success");
+    } catch (error) { message(error.message || "לא ניתן להוסיף טיוטת שכר.", "error"); }
   };
 
   const openMonthDialog = () => {
@@ -295,12 +320,21 @@ export async function mountPayrollWorkbench(request) {
     if (!month()) return openMonthDialog();
     if (isClosed()) {
       if (!state.data.canReopen) return message("נדרשת הרשאה ייעודית לפתיחה מחדש.", "error");
-      const notes = prompt("סיבת פתיחת החודש מחדש:");
-      if (!notes) return;
-      await request("payroll", "POST", { action: "reopen_month", payroll_month_id: month()?.payroll_month_id, payroll_month: state.month, notes });
-      state.workflowView = "CURRENT";
-      await reload();
-      return message("החודש נפתח מחדש.", "success");
+      $("#wf-dialog-content").innerHTML = `<h2>פתיחת חודש מחדש</h2>
+        <form id="wf-reopen-form" class="workforce-form">
+          <label class="wide">סיבת פתיחה מחדש<textarea name="notes" required minlength="3"></textarea></label>
+          <div class="dialog-actions wide"><button class="button button-primary" type="submit">אישור פתיחה מחדש</button></div>
+        </form>`;
+      $("#wf-dialog").showModal();
+      $("#wf-reopen-form").onsubmit = async (event) => {
+        event.preventDefault();
+        const notes = new FormData(event.currentTarget).get("notes")?.toString().trim();
+        if (!notes) return;
+        await request("payroll", "POST", { action: "reopen_month", payroll_month_id: month()?.payroll_month_id, payroll_month: state.month, notes });
+        $("#wf-dialog").close();
+        location.hash = "#payroll/working";
+      };
+      return;
     }
     if (!confirm(`לסגור את חודש ${state.month} ולנעול עריכה?`)) return;
     try {
@@ -308,9 +342,7 @@ export async function mountPayrollWorkbench(request) {
     } catch (error) {
       return message(error.message, "error");
     }
-    state.workflowView = "HISTORY";
-    await reload();
-    message("החודש נסגר וננעל.", "success");
+    location.hash = "#payroll/closed";
   };
 
   const allocationEditor = (record) => {
@@ -532,17 +564,54 @@ export async function mountPayrollWorkbench(request) {
   };
   const inlineText = (record, field, label) =>
     `<input class="workforce-inline payroll-cell-input" aria-label="${label}" data-payroll-inline="${record.payroll_record_id}" name="${field}" value="${esc(record[field] ?? "")}" ${isClosed() ? "disabled" : ""}>`;
-  const inlineComponent = (record, column) => {
+  const componentKey = (column) => String(column.compensation_factor_code || column.display_name || "").toUpperCase();
+  const configuredMonthlyInput = (columns, sourceField) => columns.find((column) => column.source_field === sourceField);
+  const entryInputFields = ["work_days", "regular_hours", "hours_125", "hours_150"];
+  const absenceInputFields = ["vacation_deduct", "vacation_pay", "sick_deduct", "sick_pay"];
+  const visibleComponentMatchers = [["SENIOR"], ["CERT"], ["DEGREE"], ["EXCELL"], ["CLASS"], ["PERSIST"], ["TRAVEL"], ["HAVRAA", "RECOVERY"]];
+  const componentHeader = (column) => ({
+    SENIOR: "וותק", CERT: "תעודה", DEGREE: "תואר", EXCELL: "מצוינות",
+    CLASS: "אחראית כיתה", PERSIST: "התמדה", TRAVEL: "נסיעות", HAVRAA: "הבראה", RECOVERY: "הבראה",
+  })[visibleComponentMatchers.flat().find((matcher) => componentKey(column).includes(matcher))] || column.display_name;
+  const visibleComponents = (columns) => visibleComponentMatchers.map((matchers) =>
+    columns.find((column) => matchers.some((matcher) => componentKey(column).includes(matcher)))).filter(Boolean);
+  const inlineComponent = (record, column, inputColumns) => {
     const component = (record.payroll_components || []).find((item) =>
       item.compensation_factor_id === column.compensation_factor_id);
-    const override = component?.eligibility_override;
+    const key = componentKey(column);
+    const persistenceInput = key.includes("PERSIST") ? configuredMonthlyInput(inputColumns, "no_absence") : null;
+    const automatic = !isManualRecord(record) && (key.includes("SENIOR") || key.includes("HAVRAA") || key.includes("RECOVERY"));
+    const checked = persistenceInput
+      ? record.monthly_input_values?.[persistenceInput.source_field] === true
+      : component?.eligible;
     return `<div class="payroll-component-cell">
-      <input class="payroll-check" type="checkbox" aria-label="${esc(column.display_name)}" data-payroll-component="${record.payroll_record_id}" data-component-id="${column.compensation_factor_id}" ${component?.eligible ? "checked" : ""} ${isClosed() ? "disabled" : ""}>
-      ${component?.eligible ? `<strong>${money.format(Number(component.monthly_impact || 0))}</strong>` : ""}
+      <input class="payroll-check" type="checkbox" aria-label="${esc(componentHeader(column))}" ${persistenceInput ? `data-payroll-monthly-input="${record.payroll_record_id}" data-input-field="${persistenceInput.source_field}"` : automatic ? "disabled" : `data-payroll-component="${record.payroll_record_id}" data-component-id="${column.compensation_factor_id}"`} ${checked ? "checked" : ""} ${isClosed() ? "disabled" : ""}>
+      <strong>${money.format(checked ? Number(component?.monthly_impact || 0) : 0)}</strong>
     </div>`;
   };
   const inlineLookup = (record, field, rows, idField, label) =>
     `<select class="workforce-inline payroll-cell-select" aria-label="${label}" data-payroll-inline="${record.payroll_record_id}" name="${field}" ${isClosed() ? "disabled" : ""}>${options(rows, idField, record[field])}</select>`;
+  const splitSummary = (record) => {
+    const preview = state.splitPreviews.get(record.payroll_record_id);
+    if (preview) return preview;
+    const values = record.split_summary || {};
+    return {
+      parent: { standard_hours: Number(record.standard_hours || 0), net: Number(record.actual_net || 0), gross: Number(record.actual_gross || 0), employer_cost: Number(record.employer_cost || 0) },
+      allocated: { standard_hours: Number(values.allocated_standard_hours || 0), net: Number(values.allocated_net || 0), gross: Number(values.allocated_gross || 0), employer_cost: Number(values.allocated_cost || 0) },
+      remaining: { standard_hours: Number(values.remaining_standard_hours || 0), net: Number(values.remaining_net || 0), gross: Number(values.remaining_gross || 0), employer_cost: Number(values.remaining_cost || 0) },
+      balanced: record.row_status === "SPLIT", state: record.row_status === "SPLIT" ? "BALANCED" : "MISSING",
+    };
+  };
+  const splitLine = (label, values) => `${label}: שעות ${number.format(values.standard_hours || 0)} · נטו ${money.format(values.net || 0)} · ברוטו ${money.format(values.gross || 0)} · עלות ${money.format(values.employer_cost || 0)}`;
+  const inlineSplitRows = (record, leadingColumns) => {
+    const rows = allocationsFor(record).length ? allocationsFor(record) : [{ allocation_unit_id: "", daycare_id: "", allocated_hours: "", allocated_standard_hours: "", allocated_net: "", allocated_gross: "", allocation_amount: "" }];
+    const summary = splitSummary(record);
+    const summaryLabel = summary.state === "BALANCED" ? "תקין" : summary.state === "OVER" ? "בעייתי" : "חסר";
+    const summaryClass = summary.state === "BALANCED" ? "complete" : summary.state === "OVER" ? "error" : "missing";
+    return rows.map((split, index) => `<tr class="bank-split-line payroll-inline-split" data-inline-allocation="${record.payroll_record_id}" data-inline-allocation-index="${index}"><td></td><td colspan="${leadingColumns - 1}"><span class="payroll-split-parent">↳ ${index + 1}</span></td><td><select name="allocation_unit_id">${options(state.data.units, "allocation_unit_id", split.allocation_unit_id)}</select></td><td><select name="daycare_id">${options(state.data.daycares, "daycare_id", split.daycare_id)}</select></td><td><input name="allocated_standard_hours" type="number" step=".01" value="${esc(split.allocated_standard_hours ?? split.allocated_hours ?? "")}"></td><td><input name="allocated_net" type="number" step=".01" value="${esc(split.allocated_net ?? "")}"></td><td><input name="allocated_gross" type="number" step=".01" value="${esc(split.allocated_gross ?? "")}"></td><td><input name="allocation_amount" type="number" step=".01" value="${esc(split.allocation_amount ?? "")}"><input name="allocated_hours" type="hidden" value="${esc(split.allocated_hours ?? split.allocated_standard_hours ?? "")}"></td><td colspan="3"><button class="button button-quiet" data-delete-inline-split="${record.payroll_record_id}" data-split-index="${index}">מחיקה</button></td></tr>`).join("")
+      + `<tr class="split-summary-row payroll-split-summary ${summaryClass}" data-split-summary="${record.payroll_record_id}"><td colspan="${leadingColumns + 9}"><span>${splitLine("אב", summary.parent)}</span><span>${splitLine("הוקצה", summary.allocated)}</span><span>${splitLine("נותר", summary.remaining)}</span><strong class="split-badge">${summaryLabel}</strong></td></tr>`
+      + `<tr class="transfer-add-child payroll-split-add-row"><td colspan="${leadingColumns + 9}"><button class="button button-secondary" data-add-inline-split="${record.payroll_record_id}" type="button">+ הוספת פיצול</button></td></tr>`;
+  };
 
   function render() {
     const rows = filtered();
@@ -557,50 +626,48 @@ export async function mountPayrollWorkbench(request) {
       ["UNRESOLVED", "לא פתורים", counts.unresolved],
       ["INVALID", "שורות לא תקינות", counts.invalid],
     ];
+    $("#wf-kpis").hidden = true;
+    $("#payroll-month-workflow").hidden = true;
     $("#wf-kpis").innerHTML = `<div class="payroll-month-state ${isClosed() ? "closed" : "current"}">
       <strong>${current ? (isClosed() ? "חודש סגור" : "חודש נוכחי") : "חודש טרם נפתח"}</strong><span>${state.month}</span></div>`
       + kpis.map(([id, title, value]) => `<button data-kpi="${id}"><strong>${value}</strong><span>${title}</span><small>פתיחת מסנן</small></button>`).join("");
-    $("#wf-head").innerHTML = `<tr>
-      <th><input type="checkbox" data-payroll-select-all aria-label="בחירת כל השורות"></th>
-      <th class="bank-sticky-number"><button data-sort="code">מס׳ עובד</button></th><th class="payroll-sticky-employee"><button data-sort="employee">שם</button></th>
-      <th>מחלקה</th><th>מעון</th><th>תפקיד</th><th>ותק</th><th>תעריף בסיס</th>
-      ${(state.data.monthlyInputColumns || []).map((column) => `<th>${esc(column.display_name)}</th>`).join("")}
-      ${(state.data.componentColumns || []).map((column) => `<th>${esc(column.display_name)}</th>`).join("")}<th>הערות</th>
-      <th>ברוטו</th>
-      <th>שעות תקן</th><th>שעות בפועל</th><th>ברוטו בפועל</th><th><button data-sort="cost">עלות מעסיק</button></th>
-      <th>מחלקה בפועל</th><th>מעון בפועל</th><th>סטטוס הנה״ח</th><th>הערות הנה״ח</th><th>בריאות שורה</th><th>פעולות</th></tr>`;
+    const allInputColumns = state.data.monthlyInputColumns || [];
+    const entryInputColumns = entryInputFields.map((field) => configuredMonthlyInput(allInputColumns, field)).filter(Boolean);
+    const absenceInputColumns = absenceInputFields.map((field) => configuredMonthlyInput(allInputColumns, field)).filter(Boolean);
+    const componentColumns = visibleComponents(state.data.componentColumns || []);
+    const employeeColumns = 8;
+    const leadingColumns = employeeColumns + entryInputColumns.length + componentColumns.length + absenceInputColumns.length + 1;
+    $("#wf-head").innerHTML = `<tr class="payroll-group-head"><th colspan="${employeeColumns}">עובד</th><th colspan="${entryInputColumns.length}">שעות</th><th colspan="${componentColumns.length}">רכיבי שכר</th><th colspan="${absenceInputColumns.length + 1}">היעדרויות והערות</th><th colspan="9">הנה״ח</th></tr><tr>
+      <th><button class="payroll-split-add" data-add-payroll-row aria-label="הוספת שורת שכר" title="הוספת שורת שכר">+</button></th><th class="bank-sticky-number"><button data-sort="code">מס׳ עובד</button></th><th class="payroll-sticky-employee"><button data-sort="employee">שם עובד</button></th><th>תפקיד</th><th>מחלקה</th><th>מעון</th><th>וותק</th><th>תעריף בסיס</th>
+      ${entryInputColumns.map((column) => `<th>${esc(column.display_name)}</th>`).join("")}
+      ${componentColumns.map((column) => `<th>${esc(componentHeader(column))}</th>`).join("")}
+      ${absenceInputColumns.map((column) => `<th>${esc(column.display_name)}</th>`).join("")}<th>הערות</th>
+      <th>מחלקה</th><th>מעון</th><th>שעות תקן</th><th>נטו</th><th>ברוטו</th><th><button data-sort="cost">עלות מעסיק</button></th><th>פיצול</th><th>מחיקה</th><th>שמירה</th></tr>`;
     $("#wf-count").textContent = `${rows.length} עובדים`;
     const activeEmployees = state.data.employees.filter((employee) => employee.lifecycle_status === "ACTIVE")
       .map((employee) => ({ ...employee, display_name: `${employee.first_name} ${employee.last_name} · ${employee.employee_code}` }));
-    const draftRow = state.newRow && !isClosed() ? `<tr class="bank-row-missing" data-new-payroll-row>
-      <td></td><td colspan="2"><select class="workforce-inline" name="employee_code"><option value="">בחירת עובד…</option>${activeEmployees.map((employee) => `<option value="${esc(employee.employee_code)}">${esc(employee.display_name)}</option>`).join("")}<option value="TEMPORARY">עובד זמני…</option></select><input class="workforce-inline" name="temporary_code" placeholder="מספר עובד זמני" hidden></td>
-      <td><select class="workforce-inline" name="allocation_unit_id">${options(state.data.units,"allocation_unit_id")}</select></td><td><select class="workforce-inline" name="daycare_id">${options(state.data.daycares,"daycare_id")}</select></td><td>—</td>
-      <td><input class="workforce-inline" name="employer_cost" type="number" min="0" step=".01" placeholder="עלות"></td><td><input class="workforce-inline" name="regular_hours" type="number" min="0" step=".01" placeholder="שעות"></td>
-      <td><span class="bank-row-status missing">חסר מידע</span></td><td>חסר מידע</td><td><button class="button button-primary" data-save-new-payroll>שמירה</button><button class="button button-quiet" data-cancel-new-payroll>ביטול</button></td></tr>` : "";
-    $("#wf-rows").innerHTML = draftRow + rows.map((record) => {
+    const employeeChoices = activeEmployees.map((employee) => `<option value="${esc(employee.display_name)}"></option>`).join("");
+    $("#wf-rows").innerHTML = rows.map((record, rowIndex) => {
       const employee = employeeFor(record);
       const payTerm = payTermFor(record);
       const health = healthFor(record);
+      const manual = manualEmployeeFor(record);
+      const manualRow = isManualRecord(record);
       const months = record.seniority_months;
       return `<tr class="bank-row-${health.code}">
-        <td><input type="checkbox" data-payroll-select="${record.payroll_record_id}" ${state.selectedRows.has(record.payroll_record_id) ? "checked" : ""}></td>
-        <td class="bank-sticky-number">${esc(record.source_employee_identifier)}</td>
-        <td class="payroll-sticky-employee">${esc(employee ? `${employee.first_name} ${employee.last_name}` : "עובד לא ידוע")}</td>
-        <td>${inlineLookup(record, "allocation_unit_id", state.data.units, "allocation_unit_id", "מחלקה")}</td>
-        <td>${inlineLookup(record, "daycare_id", state.data.daycares, "daycare_id", "מעון")}</td>
-        <td>${inlineLookup(record, "role_id", state.data.roles, "role_id", "תפקיד")}</td>
-        <td>${months == null ? "—" : `${Math.floor(months / 12)} שנים ${months % 12} ח׳`}</td><td>${record.base_hourly_rate == null ? "—" : money.format(record.base_hourly_rate)}</td>
-        ${(state.data.monthlyInputColumns || []).map((column) => `<td>${inlineMonthlyInput(record, column)}</td>`).join("")}
-        ${(state.data.componentColumns || []).map((column) => `<td>${inlineComponent(record, column)}</td>`).join("")}<td>${inlineText(record, "notes", "הערות חודשיות")}</td>
-        <td>${record.calculated_gross == null ? "—" : money.format(record.calculated_gross)}</td>
-        <td>${inlineNumber(record, "standard_hours", "שעות תקן")}</td><td>${inlineNumber(record, "actual_hours", "שעות בפועל")}</td>
-        <td>${inlineNumber(record, "actual_gross", "ברוטו בפועל")}</td><td>${inlineNumber(record, "employer_cost", "עלות מעסיק")}</td>
-        <td>${inlineLookup(record, "actual_allocation_unit_id", state.data.units, "allocation_unit_id", "מחלקה בפועל")}</td>
-        <td>${inlineLookup(record, "actual_daycare_id", state.data.daycares, "daycare_id", "מעון בפועל")}</td>
-        <td>${inlineText(record, "actual_status", "סטטוס הנהלת חשבונות")}</td><td>${inlineText(record, "actual_notes", "הערות הנהלת חשבונות")}</td>
-        <td><span class="bank-row-status ${health.code}" title="${esc(health.reason)}">${health.label}</span><small>${esc(health.reason)}</small></td>
-        <td><button class="payroll-split-add" title="פיצול שעות, עלות והקצאה" aria-label="פיצול" data-open="${record.payroll_record_id}">+</button><button class="button button-quiet" data-delete-payroll="${record.payroll_record_id}" ${isClosed() ? "disabled" : ""}>מחיקה</button></td></tr>`;
-    }).join("");
+        <td class="payroll-row-number"><span>${rowIndex + 1}</span><input type="checkbox" data-payroll-select="${record.payroll_record_id}" ${state.selectedRows.has(record.payroll_record_id) ? "checked" : ""} aria-label="בחירת שורה ${rowIndex + 1}"></td>
+        <td class="bank-sticky-number">${manualRow ? `<input class="workforce-inline payroll-cell-input" list="payroll-employee-search" data-payroll-manual="${record.payroll_record_id}" data-manual-field="employee_identifier" value="${esc(manual.employee_identifier || (String(record.source_employee_identifier || "").startsWith("DRAFT-") ? "" : record.source_employee_identifier))}" placeholder="מס׳ או שם">` : esc(record.source_employee_identifier)}</td>
+        <td class="payroll-sticky-employee">${manualRow ? `<input class="workforce-inline payroll-cell-input" data-payroll-manual="${record.payroll_record_id}" data-manual-field="name" value="${esc(manual.name || manual.employee_name || "")}" placeholder="שם עובד">` : esc(employeeName(record))}</td>
+        <td>${manualRow ? `<select class="workforce-inline payroll-cell-select" data-payroll-manual="${record.payroll_record_id}" data-manual-field="role_id">${options(state.data.roles, "role_id", record.role_id)}</select>` : esc(lookup(state.data.roles, record.role_id, "role_id"))}</td><td>${manualRow ? `<select class="workforce-inline payroll-cell-select" data-payroll-manual="${record.payroll_record_id}" data-manual-field="allocation_unit_id">${options(state.data.units, "allocation_unit_id", record.allocation_unit_id)}</select>` : esc(lookup(state.data.units, record.allocation_unit_id, "allocation_unit_id"))}</td><td>${manualRow ? `<select class="workforce-inline payroll-cell-select" data-payroll-manual="${record.payroll_record_id}" data-manual-field="daycare_id">${options(state.data.daycares, "daycare_id", record.daycare_id)}</select>` : esc(lookup(state.data.daycares, record.daycare_id, "daycare_id"))}</td><td>${manualRow ? `<input class="workforce-inline payroll-cell-input" type="number" min="0" data-payroll-manual="${record.payroll_record_id}" data-manual-field="seniority_months" value="${esc(months ?? "")}">` : (months == null ? "—" : number.format(months))}</td><td>${manualRow ? `<input class="workforce-inline payroll-cell-input" type="number" min="0" step=".01" data-payroll-manual="${record.payroll_record_id}" data-manual-field="base_hourly_rate" value="${esc(record.base_hourly_rate ?? "")}">` : (record.base_hourly_rate == null ? "—" : money.format(record.base_hourly_rate))}</td>
+        ${entryInputColumns.map((column) => `<td>${inlineMonthlyInput(record, column)}</td>`).join("")}
+        ${componentColumns.map((column) => `<td>${inlineComponent(record, column, allInputColumns)}</td>`).join("")}
+        ${absenceInputColumns.map((column) => `<td>${inlineMonthlyInput(record, column)}</td>`).join("")}<td>${inlineText(record, "notes", "הערות חודשיות")}</td>
+        <td>${inlineLookup(record, "actual_allocation_unit_id", state.data.units, "allocation_unit_id", "מחלקה")}</td>
+        <td>${inlineLookup(record, "actual_daycare_id", state.data.daycares, "daycare_id", "מעון")}</td>
+        <td>${inlineNumber(record, "standard_hours", "שעות תקן")}</td><td>${inlineNumber(record, "actual_net", "נטו")}</td><td>${inlineNumber(record, "actual_gross", "ברוטו")}</td><td>${inlineNumber(record, "employer_cost", "עלות מעסיק")}</td>
+        <td><button class="payroll-split-add" title="פיצול" aria-label="פיצול" data-inline-split="${record.payroll_record_id}">+</button></td><td><button class="button button-quiet" data-delete-payroll="${record.payroll_record_id}" ${isClosed() ? "disabled" : ""}>מחיקה</button></td><td><span class="bank-row-status ${health.code}">${esc(health.label || health.reason || "נשמר")}</span></td></tr>`
+        + (state.inlineSplit === record.payroll_record_id ? inlineSplitRows(record, leadingColumns) : "");
+    }).join("") + `<datalist id="payroll-employee-search">${employeeChoices}</datalist>`;
     let bulk = $("#wf-payroll-bulk");
     if (!bulk) {
       bulk = document.createElement("div");
@@ -623,6 +690,63 @@ export async function mountPayrollWorkbench(request) {
         field.value
       );
     });
+    document.querySelectorAll("[data-inline-split]").forEach((button) => {
+      button.onclick = () => {
+        const record = state.data.records.find((row) => row.payroll_record_id === button.dataset.inlineSplit);
+        if (state.inlineSplit !== button.dataset.inlineSplit && !allocationsFor(record).length) state.allocationDrafts.set(record.payroll_record_id, [
+          { allocation_unit_id:record.actual_allocation_unit_id || record.allocation_unit_id || "", daycare_id:record.actual_daycare_id || record.daycare_id || "", allocated_hours:record.actual_hours ?? record.standard_hours ?? "", allocated_standard_hours:record.standard_hours ?? "", allocated_net:record.actual_net ?? "", allocated_gross:record.actual_gross ?? "", allocation_amount:record.employer_cost ?? "" },
+          { allocation_unit_id:"", daycare_id:"", allocated_hours:"", allocated_standard_hours:"", allocated_net:"", allocated_gross:"", allocation_amount:"" },
+        ]);
+        state.inlineSplit = state.inlineSplit === button.dataset.inlineSplit ? null : button.dataset.inlineSplit; render();
+      };
+    });
+    const collectInlineAllocations = (recordId) => [...document.querySelectorAll(`[data-inline-allocation="${recordId}"]`)].map((row) => {
+      const values = Object.fromEntries([...row.querySelectorAll("input,select")].map((input) => [input.name, input.value]));
+      values.allocated_hours = values.allocated_standard_hours;
+      values.role_id = state.data.records.find((record) => record.payroll_record_id === recordId)?.role_id;
+      return values;
+    });
+    const updateSplitSummary = (recordId, preview) => {
+      const cell = document.querySelector(`[data-split-summary="${recordId}"] td:last-child`);
+      if (!cell) return;
+      const label = preview.state === "BALANCED" ? "תקין" : preview.state === "OVER" ? "בעייתי" : "חסר";
+      cell.parentElement.className = `payroll-split-summary ${preview.state === "BALANCED" ? "complete" : preview.state === "OVER" ? "error" : "missing"}`;
+      cell.innerHTML = `<span>${splitLine("אב", preview.parent)}</span><span>${splitLine("הוקצה", preview.allocated)}</span><span>${splitLine("נותר", preview.remaining)}</span><strong>${label}</strong>`;
+    };
+    const previewInlineAllocations = async (recordId) => {
+      const rows = collectInlineAllocations(recordId);
+      state.allocationDrafts.set(recordId, rows);
+      const preview = await request("payroll", "POST", { action: "preview_allocations", payroll_record_id: recordId, allocations: rows });
+      state.splitPreviews.set(recordId, preview);
+      updateSplitSummary(recordId, preview);
+      return preview;
+    };
+    const saveInlineAllocations = async (recordId) => {
+      const rows = collectInlineAllocations(recordId);
+      state.allocationDrafts.set(recordId, rows);
+      await request("payroll", "POST", { action:"save_allocations", payroll_record_id:recordId, allocations:rows });
+      state.splitPreviews.delete(recordId); await reload(); state.inlineSplit = recordId;
+    };
+    document.querySelectorAll("[data-inline-allocation] input,[data-inline-allocation] select").forEach((field) => {
+      field.oninput = async () => {
+        const recordId = field.closest("[data-inline-allocation]").dataset.inlineAllocation;
+        try { await previewInlineAllocations(recordId); } catch (error) { message(error.message || "לא ניתן לאמת את הפיצול.", "error"); }
+      };
+      field.onchange = async () => {
+        const recordId = field.closest("[data-inline-allocation]").dataset.inlineAllocation;
+        try { if ((await previewInlineAllocations(recordId)).balanced) await saveInlineAllocations(recordId); } catch (error) { message(error.message || "לא ניתן לשמור את הפיצול.", "error"); }
+      };
+    });
+    document.querySelectorAll("[data-add-inline-split]").forEach((button) => button.onclick = () => {
+      const record = state.data.records.find((item) => item.payroll_record_id === button.dataset.addInlineSplit);
+      state.allocationDrafts.set(record.payroll_record_id, [...allocationsFor(record), { allocation_unit_id:"", daycare_id:"", allocated_hours:"", allocated_standard_hours:"", allocated_net:"", allocated_gross:"", allocation_amount:"" }]);
+      state.splitPreviews.delete(record.payroll_record_id); state.inlineSplit = record.payroll_record_id; render();
+    });
+    document.querySelectorAll("[data-delete-inline-split]").forEach((button) => button.onclick = () => {
+      const rows = [...allocationsFor(state.data.records.find((row) => row.payroll_record_id === button.dataset.deleteInlineSplit))];
+      rows.splice(Number(button.dataset.splitIndex), 1); state.allocationDrafts.set(button.dataset.deleteInlineSplit, rows);
+      state.splitPreviews.delete(button.dataset.deleteInlineSplit); state.inlineSplit = button.dataset.deleteInlineSplit; render();
+    });
     document.querySelectorAll("[data-payroll-component]").forEach((field) => {
       field.onchange = () => {
         const record = state.data.records.find((row) => row.payroll_record_id === field.dataset.payrollComponent);
@@ -632,12 +756,15 @@ export async function mountPayrollWorkbench(request) {
       };
     });
     document.querySelectorAll("[data-payroll-monthly-input]").forEach((field) => {
-      field.onchange = () => {
+      field.oninput = () => {
         const record = state.data.records.find((row) => row.payroll_record_id === field.dataset.payrollMonthlyInput);
         const inputs = { ...(record.monthly_inputs || {}) };
         inputs[field.dataset.inputField] = field.type === "checkbox" ? field.checked : field.value;
-        return saveInline(record, "monthly_inputs", inputs);
+        const key = `${record.payroll_record_id}:${field.dataset.inputField}`;
+        clearTimeout(state.monthlyInputTimers.get(key));
+        state.monthlyInputTimers.set(key, setTimeout(() => saveInline(record, "monthly_inputs", inputs), 250));
       };
+      field.onchange = field.oninput;
     });
     document.querySelectorAll("[data-payroll-select]").forEach((field) => {
       field.onchange = () => {
@@ -655,32 +782,48 @@ export async function mountPayrollWorkbench(request) {
       button.onclick = () => deleteRecords([button.dataset.deletePayroll]);
     });
     $("[data-delete-selected-payroll]")?.addEventListener("click", () => deleteRecords([...state.selectedRows]));
-    $("[data-cancel-new-payroll]")?.addEventListener("click", () => { state.newRow = false; render(); });
-    const employeePicker = $("[data-new-payroll-row] [name=employee_code]");
-    employeePicker?.addEventListener("change", () => {
-      $("[data-new-payroll-row] [name=temporary_code]").hidden = employeePicker.value !== "TEMPORARY";
+    document.querySelectorAll("[data-payroll-manual]").forEach((field) => {
+      const saveManual = async () => {
+        const record = state.data.records.find((row) => row.payroll_record_id === field.dataset.payrollManual);
+        if (!record) return;
+        const manual = { ...manualEmployeeFor(record), draft: false };
+        const fieldName = field.dataset.manualField;
+        const selectedEmployee = fieldName === "employee_identifier"
+          ? state.data.employees.find((employee) => `${employee.first_name} ${employee.last_name} · ${employee.employee_code}` === field.value || employee.employee_code === field.value)
+          : null;
+        const changes = { source_payload: { ...(record.source_payload || {}), manual_employee: manual } };
+        if (fieldName === "employee_identifier") {
+          changes.source_employee_identifier = selectedEmployee?.employee_code || field.value || record.source_employee_identifier;
+          manual.employee_identifier = changes.source_employee_identifier;
+          manual.name = selectedEmployee ? `${selectedEmployee.first_name} ${selectedEmployee.last_name}` : manual.name || "";
+        } else if (["role_id", "allocation_unit_id", "daycare_id"].includes(fieldName)) {
+          changes[fieldName] = field.value || null;
+        } else if (fieldName === "name") {
+          manual.name = field.value;
+        } else {
+          manual[fieldName] = field.value === "" ? null : Number(field.value);
+        }
+        try {
+          Object.assign(record, changes);
+          const saved = await request("payroll", "POST", { action:"save_record", payroll_record_id:record.payroll_record_id, import_batch_id:record.import_batch_id, record_origin:"MANUAL", payroll_month:state.month, ...record });
+          Object.assign(record, saved.record || {}, { manual_employee: manual, source_payload: changes.source_payload });
+          if (selectedEmployee) await reload();
+          message(selectedEmployee ? "פרטי העובד נטענו." : "טיוטת השכר נשמרה.", "success");
+        } catch (error) {
+          message(error.message || "לא ניתן לשמור את הטיוטה.", "error");
+          await reload();
+        }
+      };
+      field.onchange = saveManual;
+      if (field.tagName === "INPUT") {
+        field.oninput = () => {
+          const key = `${field.dataset.payrollManual}:${field.dataset.manualField}`;
+          clearTimeout(state.manualInputTimers.get(key));
+          state.manualInputTimers.set(key, setTimeout(saveManual, 250));
+        };
+      }
     });
-    $("[data-save-new-payroll]")?.addEventListener("click", async () => {
-      const row = $("[data-new-payroll-row]");
-      const value = (name) => row.querySelector(`[name="${name}"]`)?.value || "";
-      const temporary = value("employee_code") === "TEMPORARY";
-      const code = temporary ? value("temporary_code") : value("employee_code");
-      if (!code) return message("יש לבחור עובד או להזין מספר עובד זמני.", "error");
-      await request("payroll", "POST", {
-        action: "save_record",
-        payroll_month: state.month,
-        source_employee_identifier: code,
-        employee_match_status: temporary ? "MISSING" : "LINKED",
-        record_origin: "MANUAL",
-        allocation_unit_id: value("allocation_unit_id") || null,
-        daycare_id: value("daycare_id") || null,
-        employer_cost: Number(value("employer_cost") || 0),
-        regular_hours: Number(value("regular_hours") || 0),
-      });
-      state.newRow = false;
-      await reload();
-      message("שורת השכר נוספה.", "success");
-    });
+    $("[data-add-payroll-row]")?.addEventListener("click", createPayrollDraft);
     document.querySelectorAll("[data-sort]").forEach((button) => {
       button.onclick = () => {
         state.direction = state.sort === button.dataset.sort ? -state.direction : 1;
@@ -705,24 +848,11 @@ export async function mountPayrollWorkbench(request) {
     $("#wf-clear").disabled = !current;
     $("#wf-close-month").disabled = !current || (isClosed() && !state.data.canReopen);
     $("#wf-close-month").textContent = isClosed() ? "פתיחה מחדש" : "סגירת חודש";
-    renderMonthWorkflow();
-    renderDetails();
   }
 
   state.data = await request("payroll", "GET", null, state.month);
-  const initialOpenMonth = sortedMonths(state.data.months.filter((row) => row.month_status !== "CLOSED"))[0];
-  const initialExistingMonth = state.data.months.find((row) => monthKey(row) === state.month);
-  const initialClosedMonth = sortedMonths(state.data.months.filter((row) => row.month_status === "CLOSED"))[0];
-  const initialMonth = initialOpenMonth || initialExistingMonth || initialClosedMonth;
-  state.monthId = initialMonth?.payroll_month_id || "";
-  if (initialMonth && monthKey(initialMonth) !== state.month) {
-    state.month = monthKey(initialMonth);
-    state.workflowView = initialMonth.month_status === "CLOSED" ? "HISTORY" : "CURRENT";
-    state.data = await request("payroll", "GET", null, state.month);
-  } else if (!initialMonth) {
-    state.month = "";
-    state.workflowView = "NEW";
-  }
+  const initialMonth = state.data.months.find((row) => row.payroll_month_id === state.monthId && monthKey(row) === state.month);
+  if (!initialMonth) throw new Error("חודש השכר שנבחר לא נמצא.");
   $("#wf-status").innerHTML = '<option value="">כל הסטטוסים</option>'
     + Object.entries(statuses).map(([key, value]) => `<option value="${key}">${value}</option>`).join("");
   $("#wf-unit").innerHTML = '<option value="">כל המחלקות</option>'
@@ -730,10 +860,7 @@ export async function mountPayrollWorkbench(request) {
   $("#wf-daycare").innerHTML = '<option value="">כל המעונות</option>'
     + options(state.data.daycares, "daycare_id").replace('<option value="">בחירה…</option>', "");
   $("#wf-month").value = state.month;
-  $("#wf-month").onchange = async (event) => {
-    const target = state.data.months.find((row) => monthKey(row) === event.target.value);
-    await selectMonth(event.target.value, target?.month_status === "CLOSED" ? "HISTORY" : "CURRENT", target?.payroll_month_id || "");
-  };
+  $("#wf-month").disabled = true;
   $("#wf-search").oninput = (event) => {
     state.query = event.target.value;
     render();
@@ -757,9 +884,8 @@ export async function mountPayrollWorkbench(request) {
     });
     render();
   };
-  $("#wf-open-month").onclick = openMonthDialog;
   $("#wf-close-month").onclick = closeOrReopen;
-  $("#wf-add").onclick = () => { state.newRow = true; render(); $("[data-new-payroll-row] select")?.focus(); };
+  $("#wf-add").onclick = createPayrollDraft;
   $("#wf-export").onclick = exportDialog;
   $("#wf-import").onclick = () => $("#wf-file").click();
   $("#wf-file").onchange = async (event) => {

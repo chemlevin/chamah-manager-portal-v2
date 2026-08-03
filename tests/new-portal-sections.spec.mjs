@@ -2,11 +2,11 @@ import { test, expect } from '@playwright/test';
 import { mockNewPortalSupabase, openNewPortal, portalAccessFixture } from './new-portal-test-data.mjs';
 
 const routes = [
-  ['payroll', 'שכר', ['payroll/calculations']],
-  ['payroll/calculations', 'חישובי שכר', ['payroll/calculations/new', 'payroll/calculations/existing', 'payroll/calculations/history']],
-  ['payroll/calculations/new', 'חדש', []],
-  ['payroll/calculations/existing', 'קיים', []],
-  ['payroll/calculations/history', 'טבלאות עבר', []],
+  ['payroll', 'שכר', ['payroll/open', 'payroll/working', 'payroll/closed', 'payroll/reports']],
+  ['payroll/open', 'פתיחת חודש חדש', []],
+  ['payroll/working', 'חודשים בעבודה', []],
+  ['payroll/closed', 'חודשים סגורים', []],
+  ['payroll/reports', 'דוחות שכר', []],
   ['training', 'ניהול והגדרות', ['training/permissions', 'training/rules', 'training/settings', 'training/audit']],
   ['training/permissions', 'הרשאות', ['training/permissions/users']],
   ['training/permissions/users', 'רשימת משתמשים והרשאות', []],
@@ -21,6 +21,7 @@ const openPortal = async (page, route) => {
   await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/auth/v1/user', (request) => request.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'sections-test-user' }) }));
   await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/functions/v1/portal-users', (request) => request.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ users: [], profiles: [], permissions: [], unit_scopes: [], daycare_scopes: [], sections: portalAccessFixture.sections, allocation_units: [], daycares: [], audit_events: [] }) }));
   await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/functions/v1/portal-settings', (request) => request.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: {} }) }));
+  await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/functions/v1/portal-workforce-workbench**', (request) => request.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ records: [], allocations: [], employees: [], employments: [], assignments: [], payTerms: [], months: [], units: [], daycares: [], compensationFactors: [], calculationInputRules: [], canReopen: true }) }));
   await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/rest/v1/**', (request) => request.fulfill({ status: 200, contentType: 'application/json', body: request.request().url().includes('/rpc/portal_my_access') ? JSON.stringify(portalAccessFixture) : '[]' }));
   await page.addInitScript(() => localStorage.setItem('chamah.portal.session', JSON.stringify({ access_token: 'sections-test-session', refresh_token: 'sections-test-refresh', expires_at: 4102444800 })));
   await page.goto(`/new/#${route}`);
@@ -37,7 +38,7 @@ test.describe('payroll and training portal sections', () => {
       await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
       await expect(page.locator('#breadcrumbs [aria-current="page"]')).toHaveText(heading);
       await expect(page.locator(`[data-route="${route.startsWith('payroll') ? 'payroll' : 'training'}"].active`)).toHaveCount(1);
-      for (const card of cards) await expect(page.locator(`.module-card[href="#${card}"]`)).toBeVisible();
+      for (const card of cards) await expect(page.locator(`a[href="#${card}"]`)).toBeVisible();
 
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       expect(overflow).toBeLessThanOrEqual(1);
@@ -60,6 +61,16 @@ test.describe('payroll and training portal sections', () => {
       await page.locator('#primary-nav [data-route="training"]').click();
     }
     await expect(page.getByRole('heading', { level: 1, name: 'ניהול והגדרות' })).toBeVisible();
+  });
+
+  test('working months requires explicit selection before opening the workbench', async ({ page }) => {
+    await mockNewPortalSupabase(page);
+    await openNewPortal(page, 'payroll/working');
+    await expect(page.locator('#wf-month')).toHaveCount(0);
+    await page.locator('a[href="#payroll/working/44444444-4444-4444-8444-444444444444"]').click();
+    await expect(page).toHaveURL(/#payroll\/working\/44444444-4444-4444-8444-444444444444$/);
+    await expect(page.locator('#wf-month')).toHaveValue('2026-07');
+    await expect(page.locator('#wf-month')).toBeDisabled();
   });
 
   test('system rules exposes the complete documented read-only catalog with filters', async ({ page }) => {
@@ -90,7 +101,7 @@ test.describe('payroll and training portal sections', () => {
     await page.locator('.module-card[href="#dashboards/unit/organization/staffing"]').click();
     await expect(page).toHaveURL(/#dashboards\/unit\/organization\/staffing$/);
     await expect(page.getByRole('heading', { level: 1, name: 'צוות ורישוי' })).toBeVisible();
-    await expect(page.locator('.accounting-choice-grid .accounting-choice')).toHaveCount(2);
+    await expect(page.locator('.accounting-choice-grid .accounting-choice')).toHaveCount(1);
     await expect(page.locator('[data-route="staffing"].active')).toHaveCount(2);
     await expect(page.locator('[data-route="dashboards"].active')).toHaveCount(0);
     await expect(page.locator('#breadcrumbs [aria-current="page"]')).toHaveText('צוות ורישוי');
@@ -98,7 +109,7 @@ test.describe('payroll and training portal sections', () => {
     await page.locator('[data-route="accounting"]:visible').click();
     await expect(page).toHaveURL(/#dashboards\/unit\/organization\/accounting$/);
     await expect(page.getByRole('heading', { level: 1, name: 'הנה״ח' })).toBeVisible();
-    await expect(page.locator('.accounting-choice-grid .dashboard-type-card')).toHaveCount(2);
+    await expect(page.locator('.accounting-choice-grid .dashboard-type-card')).toHaveCount(3);
     await expect(page.locator('[data-route="accounting"].active')).toHaveCount(2);
     await expect(page.locator('[data-route="dashboards"].active')).toHaveCount(0);
     await expect(page.locator('#breadcrumbs [aria-current="page"]')).toHaveText('הנה״ח');
