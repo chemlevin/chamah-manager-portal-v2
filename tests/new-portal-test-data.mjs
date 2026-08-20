@@ -132,7 +132,7 @@ export async function mockNewPortalSupabase(page, units = allocationUnits) {
     }
     return route.fulfill({ status: 405, body: '{}' });
   });
-  await page.route('**/functions/v1/portal-bank-workbench', (route) => route.fulfill({
+  await page.route('**/functions/v1/portal-bank-workbench**', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json; charset=utf-8',
     body: JSON.stringify({

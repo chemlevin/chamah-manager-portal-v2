@@ -4729,3 +4729,32 @@ Final authenticated Preview validation:
   events were then deleted. Final database counts were zero for the test month,
   payroll rows and audit rows; authenticated Working/Closed pages showed no test
   month and no browser warnings or errors.
+
+## 2026-08-20 — TRACK027B Bank Daily Search, Filters & Performance
+
+- Replaced the Bank Workbench's silent 2,000-transaction / 5,000-allocation
+  caps and browser-only filtering with complete-year server processing in the
+  existing `portal-bank-workbench` Edge Function. Reads are batched without a
+  silent ceiling; only the matching page and its allocation rows are returned,
+  together with exact total/page metadata and an explicit `complete` flag.
+- Added an always-visible active calendar year, AND-combined multi-select
+  transaction month, assignment month, daycare, department, account, budget
+  category and accounting-status filters; global cross-field search; blank and
+  non-blank description/reference filters; sortable daily-work columns; split
+  state filtering; removable chips; Clear All; and exact pagination controls.
+- Added live Unassigned and Requires Attention queues. Unassigned retains the
+  existing zero-allocation Untreated predicate; Requires Attention counts each
+  parent once when it is untreated, missing required information, missing
+  documents, or has an unbalanced split. The existing classification and save
+  validation predicates remain unchanged.
+- Inline saves now refresh the current server query while preserving the active
+  filters, sort and scroll state, so queue membership and exact counts update
+  immediately without resetting the operator's workspace.
+- Deployed `portal-bank-workbench` Edge Function version 11 to the linked
+  Preview Supabase project. No schema, RLS, workflow, accounting, calculation,
+  or Production change was made.
+- PASS: JavaScript syntax checks, application build, focused classification and
+  complete-pagination contracts, and Bank Workbench UI regression suites on
+  desktop 1440px and mobile 390px (17/17 in each project). A live read-only
+  Preview query confirmed the 2026 dataset contains 348 transactions and one
+  allocation, including 347 exact zero-allocation Unassigned transactions.
