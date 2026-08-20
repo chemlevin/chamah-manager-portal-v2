@@ -4776,3 +4776,13 @@ Final authenticated Preview validation:
   expand the document beyond the viewport. PASS: application build and 34/34
   focused Bank Workbench tests across desktop 1440px and mobile 390px. The
   authenticated browser console contained no warnings or errors.
+- Deployed commit `d640027` to Vercel Preview deployment
+  `dpl_8SYAGfA31wyZKXoNBPADLbL6innR` and repointed only the fixed Preview alias
+  `https://chamah-portal-chemlevin-chamah.vercel.app`; Production remained
+  unchanged. Live desktop and mobile revalidation confirmed zero page-level
+  horizontal overflow.
+- With explicit operator approval, re-saved only real Preview reference
+  `140813` without changing any value. Its amount, movement type, department,
+  daycare, category, assignment month, accounting status, and notes remained
+  identical after the save refresh. The active July filter and exact-amount
+  search remained intact, and Clear All again restored all 348 transactions.
