@@ -116,6 +116,35 @@ test('Bank File searches notes and row numbers and exposes removable filter chip
   await expect(page.locator('[data-bank-row]')).toHaveCount(2);
 });
 
+test('Bank File makes every active filter, queue and sort state visually explicit', async ({ page }) => {
+  await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, { accounts: [account], transactions, allocations: [allocation] });
+  await page.locator('#bank-month-filter').selectOption(['2026-06', '2026-07']);
+  await page.locator('#bank-account-filter').selectOption('account-1');
+  await page.locator('[data-workflow="unassigned"]').click();
+
+  await expect(page.locator('#bank-month-filter option:checked')).toHaveCount(2);
+  await expect(page.locator('#bank-month-filter').locator('..')).toHaveClass(/active/);
+  await expect(page.locator('#bank-month-filter').locator('..')).toHaveAttribute('data-selection-summary', 'נבחרו: 2');
+  await expect(page.locator('#bank-account-filter').locator('..')).toHaveAttribute('data-selection-summary', 'נבחרו: 1');
+  await expect(page.locator('#bank-filter-chips')).toContainText('שנה: 2026');
+  await expect(page.locator('#bank-filter-chips')).toContainText('חשבון: חשבון מרכזי');
+  await expect(page.locator('#bank-filter-chips')).not.toContainText('account-1');
+  await expect(page.locator('[data-workflow="unassigned"]')).toHaveClass(/active/);
+  await expect(page.locator('[data-workflow="unassigned"]')).toHaveAttribute('aria-pressed', 'true');
+
+  await page.locator('[data-sort="amount_desc"]').click();
+  await expect(page.locator('[data-sort="amount_desc"]')).toHaveClass(/active-sort/);
+  await expect(page.locator('[data-sort="amount_desc"]').locator('..')).toHaveAttribute('aria-sort', 'descending');
+
+  await page.locator('#bank-clear-all').click();
+  await expect(page.locator('#bank-month-filter option:checked')).toHaveCount(0);
+  await expect(page.locator('#bank-month-filter').locator('..')).not.toHaveClass(/active/);
+  await expect(page.locator('#bank-month-filter').locator('..')).toHaveAttribute('data-selection-summary', 'הכול');
+  await expect(page.locator('[data-workflow="all"]')).toHaveClass(/active/);
+  await expect(page.locator('[data-sort="date_desc"]')).toHaveClass(/active-sort/);
+  await expect(page.locator('#bank-filter-chips')).not.toContainText('חשבון:');
+});
+
 test('Bank File export offers current view and filter selection with live match count', async ({ page }) => {
   await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, { accounts: [account], transactions, allocations: [allocation] });
   await page.locator('#bank-export-open').click();

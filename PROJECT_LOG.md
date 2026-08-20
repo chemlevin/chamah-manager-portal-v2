@@ -4786,3 +4786,22 @@ Final authenticated Preview validation:
   daycare, category, assignment month, accounting status, and notes remained
   identical after the save refresh. The active July filter and exact-amount
   search remained intact, and Clear All again restored all 348 transactions.
+
+## 2026-08-20 — TRACK027D Active Filter Visual Check
+
+- Authenticated desktop review found that active daycare and department chips
+  exposed raw UUIDs, multi-select controls lacked an explicit selected count,
+  and active queue and column-sort states were too visually subtle for daily
+  operator use.
+- Added presentation-only active-state treatment: selected multi-select options
+  use a high-contrast highlight, every multi-select shows `הכול` or an explicit
+  selected count, chips use human-readable lookup labels and include the active
+  year, the active Quick Queue uses a filled selected state, and the active
+  table sort shows its direction with `aria-sort`.
+- Clear All now visibly restores empty multi-selects, `הכול` summaries, the All
+  Transactions queue, and default newest-first date sort. No filter predicate,
+  request parameter, business classification, API, database, RLS, calculation,
+  or Production behavior changed.
+- PASS: JavaScript syntax check, application build, isolated active-state UI
+  check, and 36/36 focused Bank Workbench tests across desktop 1440px and
+  mobile 390px.
