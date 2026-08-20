@@ -4902,3 +4902,28 @@ Final authenticated Preview validation:
   console warnings or errors. Clear All restored all seven multi-selects to
   zero selections and `הכול`, the All Transactions queue, newest-first date
   sort, the year-only context chip, and the exact 348-transaction total.
+
+## 2026-08-20 — TRACK027E Bank Workbench canonical Production promotion
+
+- Merged only the validated TRACK027B–D commit range into `main` with merge
+  commit `a3367eea776579cb47c6043b189e48841287c97f` and pushed `main`.
+  The PROJECT_LOG conflict was resolved by preserving the existing TRACK026
+  Production record and appending the TRACK027B–D history chronologically.
+- Vercel built READY Production deployment
+  `dpl_BiWnzvwW6Dj6b39UPazQUuE2fRKB` for that exact merge SHA. Assigned the
+  canonical alias `https://chamah-portal.vercel.app` to the READY deployment;
+  the prior canonical deployment was not modified or deleted.
+- Authenticated, read-only canonical Production smoke passed: active year 2026;
+  global search; June+July and account multi-select filters; 347 Unassigned and
+  347 Requires Attention queues; newest/oldest date and high/low amount sorts;
+  seven complete pages totaling 348 transactions; and Clear All restoring all
+  348 rows with zero selected multi-select values.
+- Representative real transaction reference `140813` retained its exact amount,
+  movement type, department, daycare, category, assignment month, accounting
+  status, and notes before and after the smoke. No Save or other mutation action
+  was used. Desktop 1440px and mobile 390px remained RTL without page overflow,
+  and the authenticated browser console contained no warnings or errors.
+- PASS before promotion: JavaScript syntax, application build, and 36/36 focused
+  Bank Workbench tests across desktop 1440px and mobile 390px. No database,
+  migration, RLS, Edge Function, calculation, business-rule, or Production data
+  change was made during promotion.
