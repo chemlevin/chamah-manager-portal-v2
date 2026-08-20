@@ -4758,3 +4758,21 @@ Final authenticated Preview validation:
   desktop 1440px and mobile 390px (17/17 in each project). A live read-only
   Preview query confirmed the 2026 dataset contains 348 transactions and one
   allocation, including 347 exact zero-allocation Unassigned transactions.
+
+## 2026-08-20 — TRACK027C Bank Operator Validation
+
+- Repointed the fixed authenticated Preview alias to the existing READY
+  TRACK027B deployment after operator validation initially exposed the prior
+  Bank Workbench build at that alias. Production was not modified.
+- Authenticated real-data validation confirmed the active 2026 year, exact 348
+  transaction total, 347 Unassigned and 347 Requires Attention queues, live
+  global search, multi-select facets, date and amount sorting, Clear All, and
+  complete seven-page traversal (six pages of 50 plus a final page of 48).
+- Found and fixed a desktop-only horizontal-overflow defect caused by the
+  expanded TRACK027B filter toolbar remaining a single unwrapped flex row. The
+  toolbar now wraps within its container; no business classification,
+  calculation, API, schema, RLS, or Edge Function behavior changed.
+- Added a responsive regression assertion that the Bank Workbench does not
+  expand the document beyond the viewport. PASS: application build and 34/34
+  focused Bank Workbench tests across desktop 1440px and mobile 390px. The
+  authenticated browser console contained no warnings or errors.

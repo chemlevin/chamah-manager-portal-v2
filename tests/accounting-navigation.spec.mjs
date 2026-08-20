@@ -77,6 +77,7 @@ test('Bank File exposes import, search, filters and export controls with an empt
   await expect(page.locator('#bank-clear-search')).toBeVisible();
   await expect(page.locator('#bank-clear-all')).toBeVisible();
   await expect(page.locator('#bank-export-open')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(page.getByRole('button', { name: 'ייבוא קובץ' })).toBeVisible();
   await page.locator('#bank-new-transaction').click();
   await expect(page.locator('[data-manual-bank-row]')).toBeVisible();
