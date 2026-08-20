@@ -4805,3 +4805,11 @@ Final authenticated Preview validation:
 - PASS: JavaScript syntax check, application build, isolated active-state UI
   check, and 36/36 focused Bank Workbench tests across desktop 1440px and
   mobile 390px.
+- Deployed commit `7cdfdf9` to Vercel Preview deployment
+  `dpl_5Trz3sLxRvobzr7wCkerQnh9FPEe` and repointed only the authenticated
+  Preview alias. Live 1440px and 390px checks confirmed readable labels, white
+  selected-option text on the active fill, explicit selection counts, filled
+  queue and sort states, correct sort direction, no viewport overflow, and no
+  console warnings or errors. Clear All restored all seven multi-selects to
+  zero selections and `הכול`, the All Transactions queue, newest-first date
+  sort, the year-only context chip, and the exact 348-transaction total.
