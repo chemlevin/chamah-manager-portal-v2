@@ -627,9 +627,9 @@ async function portalSettingsRequest(method = 'GET', body) {
   return value;
 }
 
-async function portalBankWorkbenchRequest(method = 'GET', body) {
+async function portalBankWorkbenchRequest(method = 'GET', body, query = '') {
   if (!await ensureAccessToken()) throw new Error('החיבור פג.');
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/portal-bank-workbench`, { method, headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/portal-bank-workbench${query ? `?${query}` : ''}`, { method, headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
   const value = await response.json().catch(() => ({}));
   if (!response.ok) { const error = new Error(value.error || 'הפעולה נכשלה.'); error.details = value.errors; throw error; }
   return value;

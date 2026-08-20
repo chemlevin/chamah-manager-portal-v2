@@ -4818,3 +4818,87 @@ Final authenticated Preview validation:
   counts and authenticated UI checks confirmed zero remaining test records.
 - No Production migration, Edge Function, schema, RLS, calculation, or unrelated
   module change was made during the promotion.
+
+## 2026-08-20 — TRACK027B Bank Daily Search, Filters & Performance
+
+- Replaced the Bank Workbench's silent 2,000-transaction / 5,000-allocation
+  caps and browser-only filtering with complete-year server processing in the
+  existing `portal-bank-workbench` Edge Function. Reads are batched without a
+  silent ceiling; only the matching page and its allocation rows are returned,
+  together with exact total/page metadata and an explicit `complete` flag.
+- Added an always-visible active calendar year, AND-combined multi-select
+  transaction month, assignment month, daycare, department, account, budget
+  category and accounting-status filters; global cross-field search; blank and
+  non-blank description/reference filters; sortable daily-work columns; split
+  state filtering; removable chips; Clear All; and exact pagination controls.
+- Added live Unassigned and Requires Attention queues. Unassigned retains the
+  existing zero-allocation Untreated predicate; Requires Attention counts each
+  parent once when it is untreated, missing required information, missing
+  documents, or has an unbalanced split. The existing classification and save
+  validation predicates remain unchanged.
+- Inline saves now refresh the current server query while preserving the active
+  filters, sort and scroll state, so queue membership and exact counts update
+  immediately without resetting the operator's workspace.
+- Deployed `portal-bank-workbench` Edge Function version 11 to the linked
+  Preview Supabase project. No schema, RLS, workflow, accounting, calculation,
+  or Production change was made.
+- PASS: JavaScript syntax checks, application build, focused classification and
+  complete-pagination contracts, and Bank Workbench UI regression suites on
+  desktop 1440px and mobile 390px (17/17 in each project). A live read-only
+  Preview query confirmed the 2026 dataset contains 348 transactions and one
+  allocation, including 347 exact zero-allocation Unassigned transactions.
+
+## 2026-08-20 — TRACK027C Bank Operator Validation
+
+- Repointed the fixed authenticated Preview alias to the existing READY
+  TRACK027B deployment after operator validation initially exposed the prior
+  Bank Workbench build at that alias. Production was not modified.
+- Authenticated real-data validation confirmed the active 2026 year, exact 348
+  transaction total, 347 Unassigned and 347 Requires Attention queues, live
+  global search, multi-select facets, date and amount sorting, Clear All, and
+  complete seven-page traversal (six pages of 50 plus a final page of 48).
+- Found and fixed a desktop-only horizontal-overflow defect caused by the
+  expanded TRACK027B filter toolbar remaining a single unwrapped flex row. The
+  toolbar now wraps within its container; no business classification,
+  calculation, API, schema, RLS, or Edge Function behavior changed.
+- Added a responsive regression assertion that the Bank Workbench does not
+  expand the document beyond the viewport. PASS: application build and 34/34
+  focused Bank Workbench tests across desktop 1440px and mobile 390px. The
+  authenticated browser console contained no warnings or errors.
+- Deployed commit `d640027` to Vercel Preview deployment
+  `dpl_8SYAGfA31wyZKXoNBPADLbL6innR` and repointed only the fixed Preview alias
+  `https://chamah-portal-chemlevin-chamah.vercel.app`; Production remained
+  unchanged. Live desktop and mobile revalidation confirmed zero page-level
+  horizontal overflow.
+- With explicit operator approval, re-saved only real Preview reference
+  `140813` without changing any value. Its amount, movement type, department,
+  daycare, category, assignment month, accounting status, and notes remained
+  identical after the save refresh. The active July filter and exact-amount
+  search remained intact, and Clear All again restored all 348 transactions.
+
+## 2026-08-20 — TRACK027D Active Filter Visual Check
+
+- Authenticated desktop review found that active daycare and department chips
+  exposed raw UUIDs, multi-select controls lacked an explicit selected count,
+  and active queue and column-sort states were too visually subtle for daily
+  operator use.
+- Added presentation-only active-state treatment: selected multi-select options
+  use a high-contrast highlight, every multi-select shows `הכול` or an explicit
+  selected count, chips use human-readable lookup labels and include the active
+  year, the active Quick Queue uses a filled selected state, and the active
+  table sort shows its direction with `aria-sort`.
+- Clear All now visibly restores empty multi-selects, `הכול` summaries, the All
+  Transactions queue, and default newest-first date sort. No filter predicate,
+  request parameter, business classification, API, database, RLS, calculation,
+  or Production behavior changed.
+- PASS: JavaScript syntax check, application build, isolated active-state UI
+  check, and 36/36 focused Bank Workbench tests across desktop 1440px and
+  mobile 390px.
+- Deployed commit `7cdfdf9` to Vercel Preview deployment
+  `dpl_5Trz3sLxRvobzr7wCkerQnh9FPEe` and repointed only the authenticated
+  Preview alias. Live 1440px and 390px checks confirmed readable labels, white
+  selected-option text on the active fill, explicit selection counts, filled
+  queue and sort states, correct sort direction, no viewport overflow, and no
+  console warnings or errors. Clear All restored all seven multi-selects to
+  zero selections and `הכול`, the All Transactions queue, newest-first date
+  sort, the year-only context chip, and the exact 348-transaction total.
