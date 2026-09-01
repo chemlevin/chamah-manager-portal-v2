@@ -19,6 +19,14 @@ test.describe('TRACK 013 Settings center', () => {
     await expect(page.getByLabel('ישות משפטית')).toBeVisible();
     await expect(page.getByLabel('יחידת דיווח')).toBeVisible();
   });
+  test('exposes tuition collection count per daycare and school year', async ({ page }) => {
+    await openNewPortal(page, 'training/settings');
+    const daycareYears = page.locator('.settings-card').filter({ has: page.getByText('הפעלת מעון בשנה', { exact: true }) });
+    await daycareYears.locator('summary').click();
+    await daycareYears.getByRole('button', { name: 'עריכה' }).click();
+    await expect(page.getByLabel('גביית שכר לימוד')).toHaveValue('11');
+    await expect(page.getByLabel('גביית שכר לימוד').locator('option')).toHaveText(['בחירה…', '11 תשלומים', '12 תשלומים']);
+  });
   test('remains horizontally contained on mobile', async ({ page }, testInfo) => {
     test.skip(!testInfo.project.name.startsWith('mobile'), 'Mobile-only');
     await openNewPortal(page, 'training/settings');

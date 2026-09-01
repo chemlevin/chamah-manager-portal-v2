@@ -32,3 +32,5 @@ UUID foreign keys are represented as linked selectors with business labels. Depe
 - daycare and school year are represented by the existing `daycare_school_years` relationship before selecting a classroom.
 
 Database constraints remain the final validation boundary and prevent deletion of referenced records or invalid business combinations.
+
+`daycare_school_years` also exposes `גביית שכר לימוד` as 11 or 12 payments per daycare and school year. This value describes collection timing only; monthly economic tuition and Budget calculations remain on a 12-month basis.

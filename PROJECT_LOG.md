@@ -4813,3 +4813,13 @@ Final authenticated Preview validation:
   console warnings or errors. Clear All restored all seven multi-selects to
   zero selections and `הכול`, the All Transactions queue, newest-first date
   sort, the year-only context chip, and the exact 348-transaction total.
+
+## 2026-09-01 — TRACK028B Tuition Rates & Collection Model
+
+- Updated linked Preview תשפ״ז (`SY-2026-2027`) CAT-TUITION monthly economic rates to INFANT ₪4,185, TODDLER ₪3,102, GRADUATE ₪2,751, and the GANON daycare-specific rate to ₪3,102.
+- Applied forward-only migration `20260901040851_track028b_tuition_rates_collection_model.sql`. It adds nullable `daycare_school_years.tuition_payment_count` with a database check allowing only 11 or 12.
+- Configured תשפ״ז collection counts by stable daycare code: Ashkelon, Mahane, MerKazi, Neot HaKfar and Snif = 11; GANON = 12. `DC-PRIVATE` was intentionally left null because its classification as a regular daycare is ambiguous.
+- Added Settings support for `גביית שכר לימוד` and exposed the metadata through the finance runtime configuration endpoint. Deployed `portal-runtime-config` version 2 to the linked Preview Supabase project.
+- Canonicalized collection semantics in shared rules and documentation: annual economic tuition remains exact monthly rate × 12; 11-payment collection runs September-July with zero August collection and whole-shekel installment rounding; 12-payment collection runs September-August at the monthly rate.
+- Preserved calculation boundaries: Budget remains children × monthly rate for all 12 months; collection metadata is not consumed by Budget/occupancy calculations or actual-income logic.
+- PASS: TRACK028B collection-rule tests, existing Budget calculation tests, runtime configuration contract tests, focused desktop Settings UI test, JavaScript syntax checks, application build, database data verification, migration history check and diff check. Existing Supabase advisor findings were unchanged and unrelated to TRACK028B. Production was not modified.

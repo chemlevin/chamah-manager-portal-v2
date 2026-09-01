@@ -1,5 +1,7 @@
 const DAYCARE_MONTH_KEY_SEPARATOR = '|';
 const DEFAULT_AVERAGE_EMPLOYEE_MONTHLY_HOURS = 160;
+const TUITION_ECONOMIC_MONTHS = 12;
+const TUITION_PAYMENT_COUNTS = Object.freeze([11, 12]);
 
 function cleanRuleValue(value) {
   return String(value ?? '').trim();
@@ -11,6 +13,21 @@ function daycareMonthKey(daycare, month) {
 
 function unitMonthKey(unit, month) {
   return [cleanRuleValue(unit), cleanRuleValue(month)].join(DAYCARE_MONTH_KEY_SEPARATOR);
+}
+
+function annualEconomicTuition(monthlyRate) {
+  return Number(monthlyRate) * TUITION_ECONOMIC_MONTHS;
+}
+
+function tuitionInstallment(monthlyRate, paymentCount) {
+  if (!TUITION_PAYMENT_COUNTS.includes(Number(paymentCount))) throw new RangeError('Tuition payment count must be 11 or 12.');
+  return Number(paymentCount) === 12 ? Number(monthlyRate) : Math.round(annualEconomicTuition(monthlyRate) / 11);
+}
+
+function isTuitionCollectionMonth(schoolYearSequence, paymentCount) {
+  if (!TUITION_PAYMENT_COUNTS.includes(Number(paymentCount))) throw new RangeError('Tuition payment count must be 11 or 12.');
+  const sequence = Number(schoolYearSequence);
+  return sequence >= 1 && sequence <= Number(paymentCount);
 }
 
 const BUSINESS_RULES = Object.freeze({
@@ -62,14 +79,27 @@ const BUSINESS_RULES = Object.freeze({
     editability: 'Fixed integration contract',
     riskLevel: 'Medium',
   }),
+  tuitionCollection: Object.freeze({
+    name: 'Tuition economic and collection model',
+    value: '12 economic months; 11 or 12 collection payments',
+    description: 'Annual economic tuition is monthly rate × 12. Eleven payments run Sep-Jul with zero August collection and use a whole-shekel rounded installment; twelve payments run Sep-Aug at the monthly rate.',
+    affectedModules: Object.freeze(['Budget', 'Settings', 'Future cash-flow and collection features']),
+    editability: 'Payment count is configured per daycare and school year; formulas are fixed business rules',
+    riskLevel: 'High',
+  }),
 });
 
 module.exports = {
   BUSINESS_RULES,
   DAYCARE_MONTH_KEY_SEPARATOR,
   DEFAULT_AVERAGE_EMPLOYEE_MONTHLY_HOURS,
+  TUITION_ECONOMIC_MONTHS,
+  TUITION_PAYMENT_COUNTS,
   averageEmployeeMonthlyHours: DEFAULT_AVERAGE_EMPLOYEE_MONTHLY_HOURS,
   cleanRuleValue,
   daycareMonthKey,
   unitMonthKey,
+  annualEconomicTuition,
+  tuitionInstallment,
+  isTuitionCollectionMonth,
 };

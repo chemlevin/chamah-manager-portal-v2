@@ -38,7 +38,7 @@ const screens: Record<string, Dataset[]> = {
     { key: "years", path: "school_years?select=school_year_id,display_name,start_date,end_date,is_default,is_selectable&is_selectable=eq.true&order=start_date.desc", required: true },
     { key: "months", path: "school_year_months?select=school_year_month_id,school_year_id,month_label,start_date,school_year_sequence&order=school_year_sequence", required: true },
     { key: "daycares", path: "daycares?select=daycare_id,daycare_code,allocation_unit_id,display_name,lifecycle_status,display_order&order=display_order", scoped: "daycare" },
-    { key: "dsy", path: "daycare_school_years?select=daycare_school_year_id,daycare_id,school_year_id,is_operating,tuition_calculation_mode,tuition_standard_type,staffing_calculation_mode,staffing_standard_type" },
+    { key: "dsy", path: "daycare_school_years?select=daycare_school_year_id,daycare_id,school_year_id,is_operating,tuition_payment_count,tuition_calculation_mode,tuition_standard_type,staffing_calculation_mode,staffing_standard_type" },
     { key: "classrooms", path: "classrooms?select=classroom_id,daycare_school_year_id,display_name,lifecycle_status,effective_from,effective_to" },
     { key: "units", path: "allocation_units?select=allocation_unit_id,display_name,allocation_unit_type,lifecycle_status,display_order&lifecycle_status=eq.ACTIVE&order=display_order.asc,display_name.asc", scoped: "unit" },
     { key: "budgetCategories", path: "budget_categories?select=budget_category_id,budget_category_code,display_name,category_type,lifecycle_status,requires_budget,budget_source&lifecycle_status=eq.ACTIVE", required: true },

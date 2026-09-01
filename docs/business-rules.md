@@ -13,6 +13,11 @@ Current exports:
 - `DAYCARE_MONTH_KEY_SEPARATOR`: `|`
 - `daycareMonthKey(daycare, month)`: trims daycare and month and returns `daycare|month`
 - `BUSINESS_RULES`: read-only metadata describing shared rules
+- `TUITION_ECONOMIC_MONTHS`: `12`
+- `TUITION_PAYMENT_COUNTS`: `[11, 12]`
+- `annualEconomicTuition(monthlyRate)`: exact `monthlyRate × 12`
+- `tuitionInstallment(monthlyRate, paymentCount)`: collection installment rounded to a whole shekel only for 11 payments
+- `isTuitionCollectionMonth(schoolYearSequence, paymentCount)`: September-first collection schedule predicate
 
 ## Runtime rules currently centralized
 
@@ -41,6 +46,19 @@ The default is:
 Budget uses this to calculate `requiredEmployeeHeadcount` from required classroom hours. This does not change `requiredStaff`, which remains regulatory staffing.
 
 ## Data-driven constraints
+
+### Tuition economic and collection model
+
+- The official tuition rate is a monthly economic/Budget rate on a 12-month basis.
+- Annual economic tuition is exactly `monthly_rate × 12`.
+- With 11 payments, collection runs September through July; August collection is zero. The displayed/collected installment is `ROUND((monthly_rate × 12) / 11)` to a whole shekel.
+- With 12 payments, collection runs September through August and the installment equals the monthly rate.
+- Installment rounding never changes annual economic tuition.
+- `daycare_school_years.tuition_payment_count` is collection-schedule metadata only. It must not change `calculateBudgetModel()`, `tuitionBudget`, occupancy calculations, or actual-income logic.
+- Budget remains `children_count × monthly_rate` in every one of the 12 school-year months, including August.
+- Actual income continues to come only from actual financial/accounting data.
+
+For תשפ״ז (`SY-2026-2027`), the official monthly rates are INFANT ₪4,185, TODDLER ₪3,102, GRADUATE ₪2,751, and the GANON daycare-specific rate ₪3,102. The corresponding 11-payment installments are ₪4,565, ₪3,384, and ₪3,001.
 
 Do not hardcode spreadsheet values in engine logic:
 
