@@ -4823,3 +4823,22 @@ Final authenticated Preview validation:
 - Canonicalized collection semantics in shared rules and documentation: annual economic tuition remains exact monthly rate × 12; 11-payment collection runs September-July with zero August collection and whole-shekel installment rounding; 12-payment collection runs September-August at the monthly rate.
 - Preserved calculation boundaries: Budget remains children × monthly rate for all 12 months; collection metadata is not consumed by Budget/occupancy calculations or actual-income logic.
 - PASS: TRACK028B collection-rule tests, existing Budget calculation tests, runtime configuration contract tests, focused desktop Settings UI test, JavaScript syntax checks, application build, database data verification, migration history check and diff check. Existing Supabase advisor findings were unchanged and unrelated to TRACK028B. Production was not modified.
+
+## 2026-09-01 — TRACK029 Supabase Keepalive
+
+- Enabled Supabase Cron (`pg_cron`) on the linked Preview project and created
+  the named `track029-supabase-keepalive` job on schedule `0 */12 * * *`
+  (00:00 and 12:00 UTC daily).
+- The job performs one lightweight read of
+  `public.school_years.school_year_id` with `LIMIT 1` inside a PostgreSQL `DO`
+  block. No selected value is returned or logged, and the job performs no
+  INSERT, UPDATE, DELETE, or other business-data write.
+- Documented the keepalive as intentional infrastructure maintenance so it is
+  not removed without an approved equivalent replacement.
+- PASS: focused TRACK029 migration contract test, application build, migration
+  application, registered-job inspection, and live scheduled execution. The
+  validation run completed with `status = succeeded` and
+  `return_message = DO`; the `school_years` row count and latest update
+  timestamp remained unchanged.
+- The job requires no portal user, session, Edge Function, external credential,
+  or UI change. Production was not modified.
