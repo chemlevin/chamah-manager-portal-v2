@@ -1,6 +1,6 @@
 # Project State
 
-Last reviewed: 2026-09-17 (TRACK030C-PROD-RERUN)
+Last reviewed: 2026-09-17 (TRACK034)
 
 This file contains current operational state only. Durable rules belong in
 `AGENTS.md` and `docs/business-rules.md`; detailed history belongs in
@@ -35,6 +35,8 @@ This file contains current operational state only. Durable rules belong in
 
 ## Latest completed TRACKs
 
+- TRACK034 implementation is pushed and deployed to Preview; final authenticated
+  live-browser validation is pending a Vercel-authenticated browser session.
 - TRACK032: read-only Vercel domain audit confirmed both named hostnames route
   to the same canonical Production deployment.
 - TRACK031: context sources consolidated; documentation/process only.
@@ -46,6 +48,10 @@ This file contains current operational state only. Durable rules belong in
 
 ## Open items and blockers
 
+- TRACK034 Preview `dpl_9gYq8EmEgFJVvAp4de9QLkcHacou` is READY, but the
+  available validation browser is stopped by Vercel Authentication and has no
+  signed-in Vercel session. Local authenticated-mock desktop/mobile validation
+  passed; live authenticated validation remains pending.
 - Pre-existing Supabase security/performance advisor findings remain outside
   TRACK030C scope.
 - The long-term relationship between Accounting grouping by `חשבון` and

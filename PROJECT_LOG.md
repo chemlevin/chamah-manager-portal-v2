@@ -5038,3 +5038,30 @@ Final authenticated Preview validation:
 - PASS: JavaScript syntax, application build, 20/20 TRACK030B/TRACK030C source
   contracts across four Playwright projects, 6/6 focused browser checks at
   desktop 1440px and mobile 390px, and `git diff --check`.
+
+## 2026-09-17 — TRACK034 Bank Continuous Scroll + Loading Feedback Standard
+
+- Replaced user-facing Bank pagination with continuous loading inside the
+  internal transactions scroll container while retaining the existing exact
+  server-side page contract and 50-row batches.
+- Filter, search, queue, year, and sort changes reset to the first matching
+  server page. Request-generation and in-flight guards prevent stale appends,
+  duplicate requests, duplicate rows, and race-condition overwrites.
+- Added exact loaded/total feedback and removed Previous/Next/page controls.
+- Added shared indeterminate loading helpers and a documented portal UX rule.
+  Applied them to initial Bank loading, additional batches, file parsing and
+  preview, and confirmed import. Import controls are disabled while active and
+  recover on both success and failure.
+- No business logic, classifications, import/duplicate rules, database schema,
+  Edge Function, full-dataset filter semantics, or Production behavior changed.
+- PASS: JavaScript syntax, build, `git diff --check`, and 6/6 focused Playwright
+  checks across desktop 1440px and mobile 390px, covering 125 rows over three
+  batches, exact order/no duplicates, filter reset with a stale response,
+  animated loading, single import submission, RTL-width containment, and empty
+  browser error capture.
+- Deployed Preview `dpl_9gYq8EmEgFJVvAp4de9QLkcHacou` in READY state at
+  `https://chamah-portal-jaxz3g6qc-chamah.vercel.app`. Production was not
+  modified.
+- Final live authenticated validation is pending because the available browser
+  reaches Vercel Authentication and has no signed-in Vercel session. Preview
+  protection was not weakened and credentials were not automated.
