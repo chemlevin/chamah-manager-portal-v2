@@ -4861,3 +4861,11 @@ Final authenticated Preview validation:
   desktop 1440px/mobile 390px interaction checks for filtering, combined
   filter/sort state, removable chips, and January/August/September 2026 month
   options.
+- Authenticated Preview validation passed on the fixed Preview alias. Partial
+  `עמל` matching returned only matching descriptions and remained active with
+  an account filter, Unassigned queue, amount sort and pagination. Reference
+  `140813` successfully saved January, August and September 2026 while staying
+  valid; its original July 2027 month was restored and all other allocation
+  fields remained unchanged. The document remained RTL with no horizontal
+  viewport overflow in the verified desktop build; mobile RTL passed the
+  corresponding 390px Playwright coverage. Production was not modified.
