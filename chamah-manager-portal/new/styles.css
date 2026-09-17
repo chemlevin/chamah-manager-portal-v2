@@ -661,3 +661,6 @@ dialog{border:0;border-radius:1rem;box-shadow:0 24px 70px #14372c40}dialog::back
   .payroll-module-grid, .payroll-module-form, .payroll-report-kpis, .payroll-month-card { grid-template-columns: 1fr; }
   .payroll-month-card dl { grid-column: auto; grid-row: auto; flex-wrap: wrap; }
 }
+
+/* Portal asynchronous feedback standard (TRACK034) */
+.portal-loading-indicator{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;color:var(--text-muted);font-weight:700}.portal-loading-spinner{width:1rem;height:1rem;border:2px solid currentColor;border-inline-start-color:transparent;border-radius:50%;animation:portal-loading-spin .75s linear infinite;flex:none}.bank-load-more-status{position:sticky;inset-block-end:0;z-index:7;padding:.65rem;text-align:center;background:rgba(255,255,255,.94);border-top:1px solid var(--border-color)}[aria-busy="true"]{cursor:progress}@keyframes portal-loading-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.portal-loading-spinner{animation-duration:1.5s}}
