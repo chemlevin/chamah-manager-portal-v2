@@ -4842,3 +4842,22 @@ Final authenticated Preview validation:
   timestamp remained unchanged.
 - The job requires no portal user, session, Edge Function, external credential,
   or UI change. Production was not modified.
+
+## 2026-09-17 — TRACK030C Bank Description Filter + Accounting Month Fix
+
+- Added a dedicated Bank Transactions description filter with partial,
+  case-insensitive matching. It is AND-combined server-side with existing
+  search, facets, queues and split filters; its removable chip and input state
+  persist through sort, pagination and inline-save reloads.
+- Corrected the existing `assignmentMonths` lookup to use canonical calendar
+  years instead of school-year months, while retaining any already-saved
+  assignment month present on the selected year's transactions. This makes
+  January-August 2026 selectable without changing September-August school-year
+  behavior elsewhere or weakening allocation validation.
+- No schema, migration, RLS, calculation or stored-assignment change was made.
+  The Bank Workbench Edge Function and frontend were deployed to Preview only;
+  Production was not modified.
+- PASS: JavaScript syntax, application build, focused source contracts, and
+  desktop 1440px/mobile 390px interaction checks for filtering, combined
+  filter/sort state, removable chips, and January/August/September 2026 month
+  options.
