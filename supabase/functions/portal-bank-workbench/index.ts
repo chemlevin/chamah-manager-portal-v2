@@ -68,6 +68,7 @@ Deno.serve(async (request) => {
       const pageSize = Math.min(200, Math.max(10, Number(requestUrl.searchParams.get("page_size")) || 50));
       const activeYear = Number(requestUrl.searchParams.get("year")) || new Date().getFullYear();
       const query = normalizeText(requestUrl.searchParams.get("query")).toLocaleLowerCase("he");
+      const description = normalizeText(requestUrl.searchParams.get("description")).toLocaleLowerCase("he");
       const queue = normalizeText(requestUrl.searchParams.get("queue")) || "all";
       const splitFilter = normalizeText(requestUrl.searchParams.get("split")) || "any";
       const sort = normalizeText(requestUrl.searchParams.get("sort")) || "date_desc";
@@ -80,7 +81,7 @@ Deno.serve(async (request) => {
       const statusIds = values("status");
       const descriptionPresence = normalizeText(requestUrl.searchParams.get("description_presence"));
       const referencePresence = normalizeText(requestUrl.searchParams.get("reference_presence"));
-      const [transactions, allocations, accounts, units, daycares, categories, accountingStatuses, assignmentMonths, calendarYears, batches, historyTransactions] = await Promise.all([
+      const [transactions, allocations, accounts, units, daycares, categories, accountingStatuses, calendarYearPeriods, batches, historyTransactions] = await Promise.all([
         readAll(`bank_transactions?select=*&transaction_date=gte.${activeYear}-01-01&transaction_date=lte.${activeYear}-12-31`),
         readAll(`bank_allocations?select=*,bank_transactions!inner(transaction_date)&bank_transactions.transaction_date=gte.${activeYear}-01-01&bank_transactions.transaction_date=lte.${activeYear}-12-31`),
         read("bank_accounts?select=*&order=display_order,display_name"),
@@ -88,11 +89,24 @@ Deno.serve(async (request) => {
         read("daycares?select=*&order=display_order,display_name"),
         read("budget_categories?select=*&order=display_order,display_name"),
         read("accounting_statuses?select=*&order=display_order,display_name"),
-        read("school_year_months?select=*&order=start_date"),
-        read("calendar_years?select=*&is_selectable=eq.true&order=start_date.desc"),
+        read("calendar_years?select=*&order=start_date"),
         read("import_batches?select=*&source_type=eq.BANK_FILE&order=started_at.desc&limit=50"),
         readAll("bank_transactions?select=import_batch_id,bank_account_id,transaction_date"),
       ]);
+      const assignmentMonthKeys = new Set(allocations.map((row: Record<string, unknown>) => normalizeText(row.budget_month).slice(0, 7)).filter(Boolean));
+      calendarYearPeriods.forEach((period: Record<string, unknown>) => {
+        const startYear = Number(normalizeText(period.start_date).slice(0, 4));
+        const endYear = Number(normalizeText(period.end_date).slice(0, 4));
+        if (!startYear || !endYear) return;
+        for (let year = startYear; year <= endYear; year += 1) {
+          for (let month = 1; month <= 12; month += 1) assignmentMonthKeys.add(`${year}-${String(month).padStart(2, "0")}`);
+        }
+      });
+      const assignmentMonths = [...assignmentMonthKeys].sort().map((month) => ({
+        start_date: `${month}-01`,
+        month_label: new Intl.DateTimeFormat("he-IL-u-ca-gregory", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${month}-01T00:00:00Z`)),
+      }));
+      const calendarYears = calendarYearPeriods.filter((row: Record<string, unknown>) => row.is_selectable);
       const allocationsByTransaction = new Map<string, Record<string, unknown>[]>();
       allocations.forEach((row: Record<string, unknown>) => {
         const id = String(row.bank_transaction_id);
@@ -127,6 +141,7 @@ Deno.serve(async (request) => {
         const haystack = [transaction.description, transaction.reference_number, transaction.amount, accountNames.get(String(transaction.bank_account_id)), transaction.transaction_date,
           ...rows.flatMap((row) => [row.budget_month, row.notes, unitNames.get(String(row.allocation_unit_id)), daycareNames.get(String(row.daycare_id)), categoryNames.get(String(row.budget_category_id)), statusNames.get(String(row.accounting_status_id))])].map(normalizeText).join(" ").toLocaleLowerCase("he");
         return (!query || haystack.includes(query))
+          && (!description || normalizeText(transaction.description).toLocaleLowerCase("he").includes(description))
           && (!transactionMonths.length || transactionMonths.includes(String(transaction.transaction_date).slice(0, 7)))
           && (!accountIds.length || accountIds.includes(String(transaction.bank_account_id)))
           && (!unitIds.length || rows.some((row) => unitIds.includes(String(row.allocation_unit_id))))

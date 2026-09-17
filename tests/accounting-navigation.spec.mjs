@@ -11,7 +11,11 @@ async function openAccounting(page, route, access = portalAccessFixture, workben
   await page.route(`${base}/functions/v1/portal-bank-workbench**`, async (request) => {
     const defaults = {
       transactions: [], allocations: [], accounts: [], units: [], daycares: [], categories: [], batches: [], uploadHistory: { accounts: [], batches: [] }, calendarYears: [{ year_number: 2026, display_name: '2026' }],
-      assignmentMonths: [{ school_year_month_id: 'month-2026-07', start_date: '2026-07-01', month_label: 'יולי 2026' }],
+      assignmentMonths: [
+        { start_date: '2026-01-01', month_label: 'ינואר 2026' },
+        { start_date: '2026-08-01', month_label: 'אוגוסט 2026' },
+        { start_date: '2026-09-01', month_label: 'ספטמבר 2026' },
+      ],
       accountingStatuses: [
         { accounting_status_id: 'status-missing', accounting_status_code: 'ACC-MISSING-DOCS', sheet_accounting_status_id: 'ACC-MISSING-DOCS', display_name: 'חסרים מסמכים', display_order: 10, is_final: false, lifecycle_status: 'ACTIVE' },
         { accounting_status_id: 'status-waiting', accounting_status_code: 'ACC-WAITING', sheet_accounting_status_id: 'ACC-WAITING', display_name: 'ממתין לשליחה', display_order: 20, is_final: false, lifecycle_status: 'ACTIVE' },
@@ -20,9 +24,10 @@ async function openAccounting(page, route, access = portalAccessFixture, workben
     };
     const params = new URL(request.request().url()).searchParams;
     const search = (params.get('query') || '').toLowerCase();
+    const description = (params.get('description') || '').toLowerCase();
     const sourceTransactions = workbench.transactions || defaults.transactions;
     const sourceAllocations = workbench.allocations || defaults.allocations;
-    const matching = sourceTransactions.filter((transaction, index) => !search || `${transaction.description} ${transaction.reference_number || ''} ${transaction.amount} ${index + 1} ${sourceAllocations.filter((row) => row.bank_transaction_id === transaction.bank_transaction_id).map((row) => row.notes || '').join(' ')}`.toLowerCase().includes(search));
+    const matching = sourceTransactions.filter((transaction, index) => (!description || transaction.description.toLowerCase().includes(description)) && (!search || `${transaction.description} ${transaction.reference_number || ''} ${transaction.amount} ${index + 1} ${sourceAllocations.filter((row) => row.bank_transaction_id === transaction.bank_transaction_id).map((row) => row.notes || '').join(' ')}`.toLowerCase().includes(search)));
     const response = { ...defaults, ...workbench, transactions: matching, allocations: sourceAllocations.filter((row) => matching.some((transaction) => transaction.bank_transaction_id === row.bank_transaction_id)), activeYear: Number(params.get('year') || 2026), complete: true, queueCounts: { all: sourceTransactions.length, unassigned: sourceTransactions.filter((transaction) => !sourceAllocations.some((row) => row.bank_transaction_id === transaction.bank_transaction_id)).length, attention: sourceTransactions.length }, pagination: { page: 1, pageSize: 50, total: matching.length, pageCount: 1, hasPrevious: false, hasNext: false } };
     response.accounts = response.accounts.map((row) => ({ lifecycle_status: 'ACTIVE', ...row }));
     response.units = response.units.map((row) => ({ lifecycle_status: 'ACTIVE', ...row }));
@@ -140,6 +145,30 @@ test('Bank File searches notes and row numbers and exposes removable filter chip
   await expect(page.locator('[data-bank-row="tx-1"]')).toHaveCount(0);
   await page.locator('#bank-clear-all').click();
   await expect(page.locator('[data-bank-row]')).toHaveCount(2);
+});
+
+test('TRACK030C filters descriptions partially with AND semantics and preserves the active filter', async ({ page }) => {
+  const urls = [];
+  page.on('request', (request) => { if (request.url().includes('/portal-bank-workbench')) urls.push(request.url()); });
+  await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, { accounts: [account], transactions, allocations: [allocation] });
+  await page.locator('#bank-description-filter').fill('עמל');
+  await expect(page.locator('[data-bank-row="tx-2"]')).toHaveCount(1);
+  await expect(page.locator('[data-bank-row="tx-1"]')).toHaveCount(0);
+  await expect(page.locator('#bank-filter-chips')).toContainText('תיאור: עמל');
+  await page.locator('#bank-account-filter').selectOption('account-1');
+  await page.locator('[data-sort="amount_desc"]').click();
+  await expect(page.locator('#bank-description-filter')).toHaveValue('עמל');
+  expect(urls.some((url) => { const params = new URL(url).searchParams; return params.get('description') === 'עמל' && params.get('account') === 'account-1' && params.get('sort') === 'amount_desc'; })).toBe(true);
+  await page.locator('[data-clear-filter="description"]').click();
+  await expect(page.locator('#bank-description-filter')).toHaveValue('');
+  await expect(page.locator('[data-bank-row]')).toHaveCount(2);
+});
+
+test('TRACK030C offers January, August and September 2026 as assignment months', async ({ page }) => {
+  await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, { accounts: [account], transactions, allocations: [allocation] });
+  await expect(page.locator('#bank-assignment-filter option')).toHaveCount(3);
+  const values = await page.locator('#bank-assignment-filter option').evaluateAll((options) => options.map((option) => option.value));
+  expect(values).toEqual(['2026-01', '2026-08', '2026-09']);
 });
 
 test('Bank File makes every active filter, queue and sort state visually explicit', async ({ page }) => {
