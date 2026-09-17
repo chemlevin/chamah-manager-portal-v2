@@ -4842,3 +4842,32 @@ Final authenticated Preview validation:
   timestamp remained unchanged.
 - The job requires no portal user, session, Edge Function, external credential,
   or UI change. Production was not modified.
+
+## 2026-09-17 — TRACK030B Bank Upload History
+
+- Added a read-only Hebrew RTL `היסטוריית העלאות` modal beside Bank File import.
+  It shows every configured account's latest retained transaction date and the
+  latest 50 bank-file batches with account, filename, transaction range,
+  upload timestamp, total/imported/duplicate/rejected counts, and status.
+- Added explicit empty and legacy states for accounts without transactions,
+  historical batches without recoverable ranges, and incomplete old imports.
+- Reused `import_batches`, `bank_accounts`, `bank_transactions`, and the
+  authenticated `portal-bank-workbench` Edge Function; no new table or browser
+  write action was added.
+- Applied forward migration
+  `20260917082920_track030b_bank_upload_history.sql`. New confirmed bank imports
+  now persist `source_transaction_min_date` and
+  `source_transaction_max_date` in `import_batches.metadata`, calculated only
+  from accepted import rows. Existing batches were intentionally not backfilled.
+- Deployed `portal-bank-workbench` version 13 with JWT verification. Its GET
+  response now includes `uploadHistory`; persisted metadata is preferred and
+  retained legacy transactions are used only as an honest read-time fallback.
+- A rollback-only live Preview import probe proved that a two-date import saves
+  the exact minimum and maximum metadata dates. The probe left zero batches or
+  transactions behind. Existing historical metadata remained unchanged.
+- PASS: JavaScript syntax checks, `git diff --check`, application build, 20/20
+  focused migration/API atomicity checks across four projects, and focused
+  Bank Upload History browser checks at desktop 1440px and mobile 390px.
+- Supabase advisors reported only pre-existing security/performance findings;
+  TRACK030B introduced no new table, RLS policy, or index finding. Production
+  was not modified.
