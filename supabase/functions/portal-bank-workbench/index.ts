@@ -80,7 +80,7 @@ Deno.serve(async (request) => {
       const statusIds = values("status");
       const descriptionPresence = normalizeText(requestUrl.searchParams.get("description_presence"));
       const referencePresence = normalizeText(requestUrl.searchParams.get("reference_presence"));
-      const [transactions, allocations, accounts, units, daycares, categories, accountingStatuses, assignmentMonths, calendarYears, batches] = await Promise.all([
+      const [transactions, allocations, accounts, units, daycares, categories, accountingStatuses, assignmentMonths, calendarYears, batches, historyTransactions] = await Promise.all([
         readAll(`bank_transactions?select=*&transaction_date=gte.${activeYear}-01-01&transaction_date=lte.${activeYear}-12-31`),
         readAll(`bank_allocations?select=*,bank_transactions!inner(transaction_date)&bank_transactions.transaction_date=gte.${activeYear}-01-01&bank_transactions.transaction_date=lte.${activeYear}-12-31`),
         read("bank_accounts?select=*&order=display_order,display_name"),
@@ -91,6 +91,7 @@ Deno.serve(async (request) => {
         read("school_year_months?select=*&order=start_date"),
         read("calendar_years?select=*&is_selectable=eq.true&order=start_date.desc"),
         read("import_batches?select=*&source_type=eq.BANK_FILE&order=started_at.desc&limit=50"),
+        readAll("bank_transactions?select=import_batch_id,bank_account_id,transaction_date"),
       ]);
       const allocationsByTransaction = new Map<string, Record<string, unknown>[]>();
       allocations.forEach((row: Record<string, unknown>) => {
@@ -159,7 +160,52 @@ Deno.serve(async (request) => {
       const pageTransactions = matching.slice((safePage - 1) * pageSize, safePage * pageSize);
       const pageIds = new Set(pageTransactions.map((row: Record<string, unknown>) => row.bank_transaction_id));
       const queueCounts = { all: base.length, unassigned: base.filter((row: Record<string, unknown>) => classify(row).untreated).length, attention: base.filter((row: Record<string, unknown>) => { const info=classify(row); return info.untreated || info.missing || info.missingDocuments || (info.split && !info.balanced); }).length };
+      const accountBySourceNumber = new Map(accounts.map((row: Record<string, unknown>) => [normalizeAccount(row.source_account_number), row]));
+      const transactionHistoryByBatch = new Map<string, { accountId: string; minDate: string; maxDate: string }>();
+      const latestCoveredByAccount = new Map<string, string>();
+      historyTransactions.forEach((row: Record<string, unknown>) => {
+        const batchId = String(row.import_batch_id || "");
+        const accountId = String(row.bank_account_id || "");
+        const transactionDate = normalizeText(row.transaction_date);
+        const existing = transactionHistoryByBatch.get(batchId);
+        if (!existing) transactionHistoryByBatch.set(batchId, { accountId, minDate: transactionDate, maxDate: transactionDate });
+        else {
+          if (transactionDate < existing.minDate) existing.minDate = transactionDate;
+          if (transactionDate > existing.maxDate) existing.maxDate = transactionDate;
+        }
+        if (transactionDate > (latestCoveredByAccount.get(accountId) || "")) latestCoveredByAccount.set(accountId, transactionDate);
+      });
+      const historyBatches = batches.map((batch: Record<string, unknown>) => {
+        const metadata = (batch.metadata || {}) as Record<string, unknown>;
+        const retained = transactionHistoryByBatch.get(String(batch.import_batch_id));
+        const account = accountBySourceNumber.get(normalizeAccount(metadata.source_account_number))
+          || accounts.find((row: Record<string, unknown>) => row.bank_account_id === retained?.accountId);
+        return {
+          import_batch_id: batch.import_batch_id,
+          bank_account_id: account?.bank_account_id || retained?.accountId || null,
+          account_name: account?.display_name || null,
+          source_file_name: batch.source_file_name,
+          transaction_date_min: normalizeText(metadata.source_transaction_min_date) || retained?.minDate || null,
+          transaction_date_max: normalizeText(metadata.source_transaction_max_date) || retained?.maxDate || null,
+          date_range_source: metadata.source_transaction_min_date && metadata.source_transaction_max_date ? "PERSISTED" : retained ? "DERIVED" : "UNAVAILABLE",
+          started_at: batch.started_at,
+          completed_at: batch.completed_at,
+          total_rows: batch.total_rows,
+          accepted_rows: batch.accepted_rows,
+          duplicate_rows: batch.warning_rows,
+          rejected_rows: batch.rejected_rows,
+          status: batch.status,
+          error_summary: batch.error_summary,
+        };
+      });
+      const historyAccounts = accounts.map((account: Record<string, unknown>) => ({
+        bank_account_id: account.bank_account_id,
+        display_name: account.display_name,
+        account_identifier_masked: account.account_identifier_masked,
+        latest_covered_transaction_date: latestCoveredByAccount.get(String(account.bank_account_id)) || null,
+      }));
       return json({ transactions: pageTransactions, allocations: allocations.filter((row: Record<string, unknown>) => pageIds.has(row.bank_transaction_id)), accounts, units, daycares, categories, accountingStatuses, assignmentMonths, calendarYears, batches,
+        uploadHistory: { accounts: historyAccounts, batches: historyBatches },
         pagination: { page: safePage, pageSize, total, pageCount, hasPrevious: safePage > 1, hasNext: safePage < pageCount }, queueCounts, activeYear, complete: true });
     }
 

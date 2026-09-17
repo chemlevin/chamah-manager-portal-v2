@@ -10,7 +10,7 @@ async function openAccounting(page, route, access = portalAccessFixture, workben
   await page.route(`${base}/rest/v1/allocation_units**`, (request) => request.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
   await page.route(`${base}/functions/v1/portal-bank-workbench**`, async (request) => {
     const defaults = {
-      transactions: [], allocations: [], accounts: [], units: [], daycares: [], categories: [], batches: [], calendarYears: [{ year_number: 2026, display_name: '2026' }],
+      transactions: [], allocations: [], accounts: [], units: [], daycares: [], categories: [], batches: [], uploadHistory: { accounts: [], batches: [] }, calendarYears: [{ year_number: 2026, display_name: '2026' }],
       assignmentMonths: [{ school_year_month_id: 'month-2026-07', start_date: '2026-07-01', month_label: 'יולי 2026' }],
       accountingStatuses: [
         { accounting_status_id: 'status-missing', accounting_status_code: 'ACC-MISSING-DOCS', sheet_accounting_status_id: 'ACC-MISSING-DOCS', display_name: 'חסרים מסמכים', display_order: 10, is_final: false, lifecycle_status: 'ACTIVE' },
@@ -77,11 +77,37 @@ test('Bank File exposes import, search, filters and export controls with an empt
   await expect(page.locator('#bank-clear-search')).toBeVisible();
   await expect(page.locator('#bank-clear-all')).toBeVisible();
   await expect(page.locator('#bank-export-open')).toBeVisible();
+  await expect(page.locator('#bank-upload-history-open')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(page.getByRole('button', { name: 'ייבוא קובץ' })).toBeVisible();
   await page.locator('#bank-new-transaction').click();
   await expect(page.locator('[data-manual-bank-row]')).toBeVisible();
   await expect(page.locator('[data-manual-bank-row]')).toContainText('יוקצו אוטומטית');
+});
+
+test('Bank File upload history shows account coverage, persisted summaries and clear legacy states', async ({ page }) => {
+  await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, {
+    accounts: [account, { bank_account_id: 'account-empty', display_name: 'חשבון ללא תנועות' }],
+    uploadHistory: {
+      accounts: [
+        { bank_account_id: account.bank_account_id, display_name: account.display_name, latest_covered_transaction_date: '2026-07-31' },
+        { bank_account_id: 'account-empty', display_name: 'חשבון ללא תנועות', latest_covered_transaction_date: null },
+      ],
+      batches: [
+        { import_batch_id: 'batch-current', account_name: account.display_name, source_file_name: 'july.xlsx', transaction_date_min: '2026-07-01', transaction_date_max: '2026-07-31', started_at: '2026-08-01T08:30:00Z', completed_at: '2026-08-01T08:30:01Z', total_rows: 12, accepted_rows: 8, duplicate_rows: 3, rejected_rows: 1, status: 'COMPLETED' },
+        { import_batch_id: 'batch-legacy', account_name: account.display_name, source_file_name: 'legacy.xls', transaction_date_min: null, transaction_date_max: null, started_at: '2026-07-01T08:30:00Z', completed_at: null, total_rows: 4, accepted_rows: 0, duplicate_rows: 0, rejected_rows: 1, status: 'RUNNING' },
+      ],
+    },
+  });
+  await page.locator('#bank-upload-history-open').click();
+  await expect(page.locator('#bank-upload-history-dialog')).toBeVisible();
+  await expect(page.locator('.bank-history-coverage')).toContainText('31/07/2026');
+  await expect(page.locator('.bank-history-coverage')).toContainText('אין תנועות שיובאו');
+  await expect(page.locator('.bank-history-table tbody tr')).toHaveCount(2);
+  await expect(page.locator('.bank-history-table tbody')).toContainText('01/07/2026–31/07/2026');
+  await expect(page.locator('.bank-history-table tbody')).toContainText('טווח לא נשמר בייבוא הישן');
+  await expect(page.locator('.bank-history-table tbody')).toContainText('ייבוא ישן ללא השלמה');
+  await expect(page.locator('.bank-history-table tbody tr').first().locator('td')).toHaveText([account.display_name, 'july.xlsx', '01/07/2026–31/07/2026', /.+/, '12', '8', '3', '1', 'הושלם']);
 });
 
 test('Bank File renders automatic health and tree-style split row numbers', async ({ page }, testInfo) => {
