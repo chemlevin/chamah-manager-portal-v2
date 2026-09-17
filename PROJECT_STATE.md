@@ -1,6 +1,6 @@
 # Project State
 
-Last reviewed: 2026-09-17 (TRACK031)
+Last reviewed: 2026-09-17 (TRACK035)
 
 This file contains current operational state only. Durable rules belong in
 `AGENTS.md` and `docs/business-rules.md`; detailed history belongs in
@@ -17,6 +17,7 @@ This file contains current operational state only. Durable rules belong in
   `origin/main`; verify the live deployment ID, full serving SHA, and alias
   before any future Production report or promotion.
 - TRACK031 is documentation/process only and does not change Production.
+- TRACK035 is deployed to Preview only; Production is unchanged.
 
 ## Backend deployment head
 
@@ -24,8 +25,8 @@ This file contains current operational state only. Durable rules belong in
 - Latest documented applied migration: remote migration
   `20260917084017 track030b_bank_upload_history`; repository source migration
   `supabase/migrations/20260917082920_track030b_bank_upload_history.sql`.
-- Relevant active Edge Function: `portal-bank-workbench` version 15, JWT
-  verification enabled (TRACK030B Production promotion).
+- Relevant active Edge Function: `portal-bank-workbench` version 17, JWT
+  verification enabled (TRACK035 Preview deployment).
 - Other last documented relevant versions: `portal-workforce-workbench` v24
   (TRACK026H) and `portal-runtime-config` v2 (TRACK028B).
 - TRACK029 keepalive job `track029-supabase-keepalive` runs at 00:00 and 12:00
@@ -33,6 +34,8 @@ This file contains current operational state only. Durable rules belong in
 
 ## Latest completed TRACKs
 
+- TRACK034: continuous Bank Transaction loading baseline is present in the
+  current feature branch and Preview deployment.
 - TRACK031: context sources consolidated; documentation/process only.
 - TRACK030C: bank description/month filter refinements validated on Preview;
   not promoted to Production in the current record.
@@ -45,6 +48,10 @@ This file contains current operational state only. Durable rules belong in
 
 ## Open items and blockers
 
+- TRACK035 implementation is deployed to Preview, but its requested
+  authenticated live UI validation is blocked because the available browser
+  has no signed-in Vercel session. Local desktop/mobile acceptance coverage is
+  otherwise complete.
 - TRACK030C has no recorded canonical Production promotion.
 - Before the next Production action, refresh remote refs and verify the live
   canonical deployment ID, full serving Git SHA, and alias; the local checkout

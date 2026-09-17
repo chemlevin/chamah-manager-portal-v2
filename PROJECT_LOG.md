@@ -4842,3 +4842,61 @@ Final authenticated Preview validation:
   timestamp remained unchanged.
 - The job requires no portal user, session, Edge Function, external credential,
   or UI change. Production was not modified.
+
+## 2026-09-17 — TRACK030B Bank Upload History
+
+- Added a read-only Hebrew RTL `היסטוריית העלאות` modal beside Bank File import.
+  It shows every configured account's latest retained transaction date and the
+  latest 50 bank-file batches with account, filename, transaction range,
+  upload timestamp, total/imported/duplicate/rejected counts, and status.
+- Added explicit empty and legacy states for accounts without transactions,
+  historical batches without recoverable ranges, and incomplete old imports.
+- Reused `import_batches`, `bank_accounts`, `bank_transactions`, and the
+  authenticated `portal-bank-workbench` Edge Function; no new table or browser
+  write action was added.
+- Applied forward migration
+  `20260917082920_track030b_bank_upload_history.sql`. New confirmed bank imports
+  now persist `source_transaction_min_date` and
+  `source_transaction_max_date` in `import_batches.metadata`, calculated only
+  from accepted import rows. Existing batches were intentionally not backfilled.
+- Deployed `portal-bank-workbench` version 13 with JWT verification. Its GET
+  response now includes `uploadHistory`; persisted metadata is preferred and
+  retained legacy transactions are used only as an honest read-time fallback.
+- A rollback-only live Preview import probe proved that a two-date import saves
+  the exact minimum and maximum metadata dates. The probe left zero batches or
+  transactions behind. Existing historical metadata remained unchanged.
+- PASS: JavaScript syntax checks, `git diff --check`, application build, 20/20
+  focused migration/API atomicity checks across four projects, and focused
+  Bank Upload History browser checks at desktop 1440px and mobile 390px.
+- Supabase advisors reported only pre-existing security/performance findings;
+  TRACK030B introduced no new table, RLS policy, or index finding. Production
+  was not modified.
+
+## 2026-09-17 — TRACK035 Bank Daily Work Search + Dynamic Result Summary
+
+- Replaced the user-facing Description presence dropdown with a visible
+  `חיפוש בתיאור` text search. The Edge Function normalizes case and requires
+  every whitespace-delimited search term to occur somewhere in the full
+  transaction description, allowing partial Hebrew terms in any order.
+- Removed the dedicated Reference presence control while retaining the
+  Reference column and global-search matching. Existing filters, Quick Queues,
+  sorting, active chips, Clear All, and TRACK034 continuous loading remain
+  server-composed.
+- Replaced the queue-total cards with four compact full-result cards computed
+  before page slicing: total matching parent transactions; split parents with
+  more than one allocation; assigned parents with at least one allocation; and
+  unassigned parents with exactly zero allocations. The existing queue choices
+  remain available through one `תור עבודה` filter.
+- Deployed the authenticated Edge Function and frontend to Preview only. No
+  schema, RLS, transaction data, accounting classification, import behavior,
+  split semantics, calendar-month behavior, Upload History, or Production
+  change was made.
+- PASS: JavaScript syntax, build, diff check, static backend contract checks,
+  and every TRACK035 browser assertion on desktop 1440px and mobile 390px,
+  including 125-record summaries remaining unchanged while three continuous
+  pages load, a 62-record Description result, reverse-order multi-word search,
+  Reference global search, loading feedback, Clear All, and no viewport
+  overflow. The combined TRACK034/035 run passed 13/14; only the pre-existing
+  TRACK034 mobile import-confirmation timing assertion failed outside TRACK035
+  scope. Authenticated live UI validation was blocked because the available
+  browser had no signed-in Vercel session and reached a credential form.
