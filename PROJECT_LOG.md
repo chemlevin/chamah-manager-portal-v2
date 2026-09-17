@@ -4979,5 +4979,9 @@ Final authenticated Preview validation:
 - Desktop and 390px mobile checks remained RTL without page-level horizontal
   overflow; the upload-history dialog opened correctly and browser console
   warnings/errors were empty. No import, save, edit, or delete action was used.
+- Final canonical reload exposed and fixed an early-click race: if the history
+  button is pressed before the initial payload finishes loading, the page now
+  shows a loading status instead of dereferencing empty state. The guarded flow
+  passed the full focused desktop/mobile suite without changing history data.
 - PASS before promotion: JavaScript syntax, `git diff --check`, application
   build, and 36/36 focused Bank Workbench tests across desktop and mobile.

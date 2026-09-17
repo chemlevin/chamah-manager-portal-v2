@@ -341,7 +341,7 @@ export async function mountBankWorkbenchV2(request) {
   $("#bank-new-transaction").addEventListener("click",()=>{state.manualDraft=true;render();$("[data-manual-bank-row] select")?.focus();});
   $("#bank-file").addEventListener("change",async(event)=>{const file=event.target.files[0];if(!file)return;try{message("קורא את הקובץ…");const data=await file.arrayBuffer(),parsed=await parseWorkbook(file,data,state.data.accounts);if(parsed.needsMapping){openMapping(file,data,parsed);message("");return;}const preview=await request("POST",{action:"preview",account_number:parsed.accountNumber,rows:parsed.rows});openPreview(parsed,preview);message("");}catch(error){message(error.message,"error");}finally{event.target.value="";}});
   $("#bank-export-open").addEventListener("click",()=>{renderExportDialog();$("#bank-export-dialog").showModal();});
-  $("#bank-upload-history-open").addEventListener("click",()=>{renderUploadHistory();$("#bank-upload-history-dialog").showModal();});
+  $("#bank-upload-history-open").addEventListener("click",()=>{if(!state.data){message("הנתונים עדיין נטענים…");return;}renderUploadHistory();$("#bank-upload-history-dialog").showModal();});
   $("#bank-workflow-cards").addEventListener("click",(event)=>{const card=event.target.closest("[data-workflow]");if(card){state.workflow=card.dataset.workflow;state.page=1;reload();}});
   $("#bank-new-search").addEventListener("input",(event)=>{state.query=event.target.value;state.page=1;clearTimeout(state.searchTimer);state.searchTimer=setTimeout(reload,250);});
   $("#bank-clear-search").addEventListener("click",()=>clearFilter("query"));
