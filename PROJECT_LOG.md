@@ -4870,4 +4870,13 @@ Final authenticated Preview validation:
   Bank Upload History browser checks at desktop 1440px and mobile 390px.
 - Supabase advisors reported only pre-existing security/performance findings;
   TRACK030B introduced no new table, RLS policy, or index finding. Production
-  was not modified.
+  on the canonical `chamah-portal.vercel.app` project was not modified.
+- Deployment note: the first isolated-worktree Vercel CLI invocation created a
+  separate `.track030b-release` project and assigned that standalone project's
+  production alias. It did not touch canonical Production. Removing that
+  accidental project is pending explicit destructive-action approval; the
+  intended `chamah-manager-portal-v2-preview` deployment is Preview-only.
+- Live in-app validation of the protected Preview URL stopped at Vercel login
+  because no authenticated browser session was available. The deployed UI was
+  instead validated by the focused desktop/mobile browser tests and the live
+  Preview database/Edge Function checks above.
