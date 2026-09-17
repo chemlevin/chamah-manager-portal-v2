@@ -5011,3 +5011,30 @@ Final authenticated Preview validation:
   fields remained unchanged. The document remained RTL with no horizontal
   viewport overflow in the verified desktop build; mobile RTL passed the
   corresponding 390px Playwright coverage. Production was not modified.
+
+## 2026-09-17 — TRACK030C canonical Production promotion rerun
+
+- Verified the canonical Production gate before mutation: Vercel project
+  `chamah-portal` (`prj_6IND7ee2E9s3KispBh6iBDWwQo6X`), canonical URL
+  `https://chamah-portal.vercel.app`, Supabase project
+  `vyyfuaqmbxvfqgbfqooc`, applied remote TRACK030B migration
+  `20260917084017`, and active `portal-bank-workbench` version 15 with JWT
+  verification. TRACK030B Upload History was live, so no migration or 030B
+  deployment was reapplied.
+- Promoted only the validated TRACK030C Description filter and calendar-based
+  accounting assignment months to canonical `main`. Deployed
+  `portal-bank-workbench` version 16 with JWT verification and no database,
+  schema, migration, RLS, import, edit, or record mutation.
+- Built READY Vercel Production deployment
+  `dpl_5pfiiDgd8Z7de7ZVb6jWBjELq4GM` from application commit
+  `ce07f9d61186db9a2e04642ffc2629a838a1aef6` and assigned the canonical alias.
+  The preview-named project domain continues to route to the same Production
+  artifact rather than a separate Preview environment.
+- Authenticated read-only Production smoke confirmed all five TRACK030B account
+  coverage cards through 31/08/2026, all eight retained/legacy upload-history
+  rows and truthful legacy states, live partial Description filtering, and
+  January-August 2026 assignment options. Clearing the filter restored the
+  unfiltered view; browser console warnings/errors were empty.
+- PASS: JavaScript syntax, application build, 20/20 TRACK030B/TRACK030C source
+  contracts across four Playwright projects, 6/6 focused browser checks at
+  desktop 1440px and mobile 390px, and `git diff --check`.
