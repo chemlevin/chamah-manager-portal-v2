@@ -4956,3 +4956,28 @@ Final authenticated Preview validation:
 - Supabase advisors reported only pre-existing security/performance findings;
   TRACK030B introduced no new table, RLS policy, or index finding. Production
   was not modified.
+
+## 2026-09-17 — TRACK030B canonical Production promotion
+
+- Promoted only TRACK030B onto canonical `main`; TRACK028B, TRACK029, TRACK030C,
+  and unrelated working-tree changes were excluded from the promotion commit.
+- Confirmed the single canonical Supabase backend already contained migration
+  `20260917084017 track030b_bank_upload_history`; no migration was reapplied and
+  no legacy batch metadata was backfilled or altered.
+- Deployed the exact TRACK030B `portal-bank-workbench` source as active Edge
+  Function version 15 with JWT verification enabled.
+- Captured pre/post content digests for `bank_accounts`, `bank_transactions`,
+  `import_batches`, and `bank_allocations`; all counts and digests were identical
+  after backend deployment and live smoke validation.
+- Built READY Vercel Production deployment
+  `dpl_BfoRdTF68uKwj1oAB7KjA7ERS1yG` and assigned the canonical
+  `https://chamah-portal.vercel.app` alias to it.
+- Authenticated read-only Production smoke confirmed all five account coverage
+  cards at 31/08/2026, all eight retained/legacy upload-history rows, correct
+  persisted and derived date ranges/counts, and truthful unavailable-range and
+  incomplete-import states.
+- Desktop and 390px mobile checks remained RTL without page-level horizontal
+  overflow; the upload-history dialog opened correctly and browser console
+  warnings/errors were empty. No import, save, edit, or delete action was used.
+- PASS before promotion: JavaScript syntax, `git diff --check`, application
+  build, and 36/36 focused Bank Workbench tests across desktop and mobile.
