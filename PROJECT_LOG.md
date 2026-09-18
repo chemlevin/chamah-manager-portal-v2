@@ -4900,3 +4900,32 @@ Final authenticated Preview validation:
   TRACK034 mobile import-confirmation timing assertion failed outside TRACK035
   scope. Authenticated live UI validation was blocked because the available
   browser had no signed-in Vercel session and reached a credential form.
+
+## 2026-09-18 — TRACK036 Restore Correct Preview + Validate TRACK034/035
+
+- Found the stable Preview alias still pinned to TRACK030C deployment
+  `dpl_AoYCJnEBZMc7bXaUiXSL7NbeXfhu`, Git SHA
+  `ebbf8081ba80a8d4b6245c0698cd67c2a6cd0cb9`, instead of the completed
+  combined TRACK034/035 artifact. Repointed only
+  `chamah-portal-chemlevin-chamah.vercel.app` to READY Git deployment
+  `dpl_cTGnWqwmgrShu3YKQXLLXMr5FGX8`, Git SHA
+  `51f76a79473b186a9a8882a6fea2ccec24fc4724`.
+- Proved the served authenticated frontend includes Upload History,
+  continuous internal-table loading, no Previous/Next controls, visible
+  `חיפוש בתיאור`, and dynamic full-result cards. Live data showed 2,453
+  records (0 split, 1 assigned, 2,452 unassigned); scrolling loaded 50, 100,
+  then 200 unique rows without changing those totals.
+- Authenticated search validation found 40 rows for reverse-order partial
+  Hebrew terms `פעול דנ`; global Reference `144247` found the single matching
+  `דנ" + "ח פעולות` row; combining that Reference with description `פעול`
+  retained the same row. Clear All restored 50 loaded of 2,453 and the full
+  card totals.
+- The focused combined Playwright run passed 13/14 across desktop 1440px and
+  mobile 390px. Desktop passed all seven checks. Mobile passed continuous
+  loading, reset/race handling, Reference/Clear All, overflow, and both
+  TRACK035 contract checks, but the TRACK034 import-feedback timing assertion
+  again failed to observe transient `aria-busy=true` after its forced second
+  click. No application code was changed after this result.
+- No bank/accounting records or Supabase data were modified. Canonical
+  Production remained deployment `dpl_DdocEox1zT6E2tJu41YNqb1ZydAR`, Git SHA
+  `c779166dbe2c273165f18eed1a1188d7b8a3d5e9`; no Production action occurred.

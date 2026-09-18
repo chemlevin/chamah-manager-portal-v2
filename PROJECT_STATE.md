@@ -1,6 +1,6 @@
 # Project State
 
-Last reviewed: 2026-09-17 (TRACK035)
+Last reviewed: 2026-09-18 (TRACK036)
 
 This file contains current operational state only. Durable rules belong in
 `AGENTS.md` and `docs/business-rules.md`; detailed history belongs in
@@ -10,14 +10,15 @@ This file contains current operational state only. Durable rules belong in
 
 - Canonical branch: `main` / `origin/main`.
 - Canonical Production URL: `https://chamah-portal.vercel.app`.
-- Latest documented canonical Production commit:
-  `eaa4be4ff086eeb2da09a5e13ef78f9ec6c7cc4a` (TRACK030B guard follow-up).
-- Serving Production deployment documented for TRACK030B:
-  `dpl_BfoRdTF68uKwj1oAB7KjA7ERS1yG`. The guard follow-up is recorded on
-  `origin/main`; verify the live deployment ID, full serving SHA, and alias
-  before any future Production report or promotion.
+- Serving canonical Production deployment verified during TRACK036:
+  `dpl_DdocEox1zT6E2tJu41YNqb1ZydAR`, Git SHA
+  `c779166dbe2c273165f18eed1a1188d7b8a3d5e9` (TRACK030C production
+  documentation commit on `main`).
 - TRACK031 is documentation/process only and does not change Production.
-- TRACK035 is deployed to Preview only; Production is unchanged.
+- The stable Preview alias serves combined TRACK034/035 deployment
+  `dpl_cTGnWqwmgrShu3YKQXLLXMr5FGX8`, Git SHA
+  `51f76a79473b186a9a8882a6fea2ccec24fc4724`. Production is unchanged by
+  TRACK036.
 
 ## Backend deployment head
 
@@ -48,11 +49,12 @@ This file contains current operational state only. Durable rules belong in
 
 ## Open items and blockers
 
-- TRACK035 implementation is deployed to Preview, but its requested
-  authenticated live UI validation is blocked because the available browser
-  has no signed-in Vercel session. Local desktop/mobile acceptance coverage is
-  otherwise complete.
-- TRACK030C has no recorded canonical Production promotion.
+- TRACK036 restored the stable Preview alias and completed authenticated live
+  desktop and 390px validation. The combined local TRACK034/035 suite remains
+  13/14: the TRACK034 390px import-confirmation timing assertion again failed
+  to observe transient `aria-busy=true`, while the desktop assertion and the
+  remaining desktop/mobile tests passed. Production promotion remains blocked
+  until that timing assertion is resolved and the full suite passes.
 - Before the next Production action, refresh remote refs and verify the live
   canonical deployment ID, full serving Git SHA, and alias; the local checkout
   may be on a feature branch or contain unrelated work.
