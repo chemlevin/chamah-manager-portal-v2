@@ -4929,3 +4929,16 @@ Final authenticated Preview validation:
 - No bank/accounting records or Supabase data were modified. Canonical
   Production remained deployment `dpl_DdocEox1zT6E2tJu41YNqb1ZydAR`, Git SHA
   `c779166dbe2c273165f18eed1a1188d7b8a3d5e9`; no Production action occurred.
+
+## 2026-09-18 — TRACK037 Stabilize TRACK034 Mobile Loading Test
+
+- Replaced fixed preview/confirmation response delays in the TRACK034
+  import-feedback test with deterministic request-start and request-release
+  gates. The test now proves busy/loading state while each mocked request is
+  pending, releases the request, and proves the state clears afterward.
+- PASS: focused combined TRACK034/035 Playwright suite on desktop 1440px and
+  mobile 390px, 14/14. No arbitrary sleeps were added to the stabilized path.
+- Test and project-state documentation only changed. Application source,
+  generated artifacts, database, Supabase, Preview, and Production were
+  unchanged. Combined TRACK034/035 is ready for separately approved Production
+  promotion.

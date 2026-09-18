@@ -16,7 +16,18 @@ const transactions = Array.from({ length: 125 }, (_, index) => ({
   reference_number: String(1000 + index), amount: -(index + 1), attachment_count: 0,
 }));
 
-async function openBank(page, { delayPage = 0, onConfirm = () => {} } = {}) {
+function createRequestGate() {
+  let markStarted;
+  let release;
+  return {
+    started: new Promise((resolve) => { markStarted = resolve; }),
+    pending: new Promise((resolve) => { release = resolve; }),
+    markStarted,
+    release,
+  };
+}
+
+async function openBank(page, { delayPage = 0, onConfirm = () => {}, previewGate, confirmGate } = {}) {
   const browserErrors = [];
   page.on('console', (message) => { if (message.type() === 'error') browserErrors.push(message.text()); });
   page.on('pageerror', (error) => browserErrors.push(error.message));
@@ -30,12 +41,22 @@ async function openBank(page, { delayPage = 0, onConfirm = () => {} } = {}) {
     if (request.method() === 'POST') {
       const body = request.postDataJSON();
       if (body.action === 'preview') {
-        await new Promise((resolve) => setTimeout(resolve, 800));
+        if (previewGate) {
+          previewGate.markStarted();
+          await previewGate.pending;
+        } else {
+          await new Promise((resolve) => setTimeout(resolve, 800));
+        }
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ preview_token: 'track034-preview', account, account_number: body.account_number, rows: body.rows.map((row) => ({ ...row, errors: [], duplicate: false, importable: true })), summary: { total: body.rows.length, importable: body.rows.length, duplicates: 0, invalid: 0 } }) });
       }
       if (body.action === 'confirm_import') {
         onConfirm();
-        await new Promise((resolve) => setTimeout(resolve, 250));
+        if (confirmGate) {
+          confirmGate.markStarted();
+          await confirmGate.pending;
+        } else {
+          await new Promise((resolve) => setTimeout(resolve, 250));
+        }
         return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ batch_id: 'batch-1', imported: 1, transactions: [{ bank_transaction_id: 'tx-imported' }] }) });
       }
     }
@@ -109,15 +130,22 @@ test('TRACK035 keeps reference in global search and Clear All restores the full 
 
 test('TRACK034 shows processing feedback and prevents duplicate import confirmation', async ({ page }) => {
   let confirmations = 0;
-  await openBank(page, { onConfirm: () => { confirmations += 1; } });
+  const previewGate = createRequestGate();
+  const confirmGate = createRequestGate();
+  await openBank(page, { onConfirm: () => { confirmations += 1; }, previewGate, confirmGate });
   await page.locator('#bank-file').setInputFiles({ name: 'bank.csv', mimeType: 'text/csv', buffer: Buffer.from('דוח תנועות חשבון 00123456\nתאריך,תיאור,אסמכתא,סכום\n24/07/2026,עמלה,77,-12.50', 'utf8') });
+  await previewGate.started;
   await expect(page.locator('#bank-import')).toHaveAttribute('aria-busy', 'true');
   await expect(page.locator('#bank-import .portal-loading-spinner')).toBeVisible();
+  previewGate.release();
   await expect(page.locator('#bank-import-dialog')).toBeVisible();
+  await expect(page.locator('#bank-import')).not.toHaveAttribute('aria-busy', 'true');
   const confirm = page.locator('#confirm-bank-import');
   await confirm.click();
+  await confirmGate.started;
   await confirm.click({ force: true });
   await expect(confirm).toHaveAttribute('aria-busy', 'true');
+  confirmGate.release();
   await expect(page.locator('#bank-import-dialog')).toBeHidden();
   expect(confirmations).toBe(1);
   await expect(page.locator('#bank-import')).toBeEnabled();

@@ -1,6 +1,6 @@
 # Project State
 
-Last reviewed: 2026-09-18 (TRACK036)
+Last reviewed: 2026-09-18 (TRACK037)
 
 This file contains current operational state only. Durable rules belong in
 `AGENTS.md` and `docs/business-rules.md`; detailed history belongs in
@@ -35,6 +35,9 @@ This file contains current operational state only. Durable rules belong in
 
 ## Latest completed TRACKs
 
+- TRACK037: stabilized the TRACK034 import-feedback test with deterministic
+  request lifecycle synchronization; the combined TRACK034/035 desktop and
+  390px mobile suite passes 14/14 with no application artifact change.
 - TRACK034: continuous Bank Transaction loading baseline is present in the
   current feature branch and Preview deployment.
 - TRACK031: context sources consolidated; documentation/process only.
@@ -49,12 +52,10 @@ This file contains current operational state only. Durable rules belong in
 
 ## Open items and blockers
 
-- TRACK036 restored the stable Preview alias and completed authenticated live
-  desktop and 390px validation. The combined local TRACK034/035 suite remains
-  13/14: the TRACK034 390px import-confirmation timing assertion again failed
-  to observe transient `aria-busy=true`, while the desktop assertion and the
-  remaining desktop/mobile tests passed. Production promotion remains blocked
-  until that timing assertion is resolved and the full suite passes.
+- TRACK037 resolved the remaining TRACK034 mobile test timing failure. The
+  combined TRACK034/035 suite passes 14/14 on desktop 1440px and mobile 390px;
+  no application or deployment change was required. Combined TRACK034/035 is
+  ready for a separately approved Production promotion.
 - Before the next Production action, refresh remote refs and verify the live
   canonical deployment ID, full serving Git SHA, and alias; the local checkout
   may be on a feature branch or contain unrelated work.
