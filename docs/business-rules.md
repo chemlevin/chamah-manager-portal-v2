@@ -32,6 +32,17 @@ The shared merge key is:
 
 This supports future joins between Budget, Payroll, Comparison, Dashboard, and Reports.
 
+### Budget Actual contract
+
+- A complete `INCOME` bank allocation assigned to an `INCOME` category contributes its signed amount to Actual income; a negative income reversal reduces income.
+- A complete `EXPENSE` bank allocation assigned to an `EXPENSE` category contributes the negated signed allocation amount to Actual expense; a positive refund or credit therefore reduces expense.
+- `INTERNAL` and `EXCLUDE` allocations always have zero Budget effect, including legacy rows that retain a category.
+- Missing or contradictory movement/category assignments have zero Budget effect. New contradictory `INCOME`/`EXPENSE` assignments are rejected by the Bank Workbench.
+- Split bank allocation rows are the sole Budget rows for their parent transaction and are counted exactly once. Accounting status does not gate Actual visibility.
+- Payroll Actual comes only from `payroll_records.employer_cost`. When a parent has split payroll children, the children replace the parent; otherwise the parent is used once only when its canonical actual unit/daycare attribution is sufficient.
+- Payroll rows with insufficient attribution are reported and not guessed. Bank allocations in payroll categories never contribute Budget Actual or duplicate Payroll in category matrices.
+- Finance KPIs, balances, school-year summaries, and category matrices use this same Actual contract. `budget_month` remains the controlling Bank Budget month and may intentionally differ from transaction date.
+
 ### Average employee monthly hours
 
 The default is:

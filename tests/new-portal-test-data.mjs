@@ -41,8 +41,8 @@ const generalResponses = {
     { monthly_enrollment_id: 'enroll-3', classroom_id: 'class-1', reporting_month: '2026-11-01', age_group_id: 'age-infant', children_count: 21 }
   ],
   payroll_records: [
-    { payroll_record_id: 'pay-1', employment_id: 'employment-1', source_employee_identifier: 'EMP-1', payroll_month: '2026-09-01', employer_cost: 80000, regular_hours: 900, overtime_hours: 50 },
-    { payroll_record_id: 'pay-2', employment_id: 'employment-1', source_employee_identifier: 'EMP-1', payroll_month: '2026-10-01', employer_cost: 85000, regular_hours: 920, overtime_hours: 60 }
+    { payroll_record_id: 'pay-1', parent_payroll_record_id: null, row_kind: 'PARENT', employment_id: 'employment-1', source_employee_identifier: 'EMP-1', payroll_month: '2026-09-01', employer_cost: 80000, actual_hours: 950, actual_allocation_unit_id: activeDaycareId, actual_daycare_id: 'daycare-1', role_id: 'role-caregiver' },
+    { payroll_record_id: 'pay-2', parent_payroll_record_id: null, row_kind: 'PARENT', employment_id: 'employment-1', source_employee_identifier: 'EMP-1', payroll_month: '2026-10-01', employer_cost: 85000, actual_hours: 980, actual_allocation_unit_id: activeDaycareId, actual_daycare_id: 'daycare-1', role_id: 'role-caregiver' }
   ],
   payroll_allocations: [
     { payroll_allocation_id: 'pa-1', payroll_record_id: 'pay-1', allocation_unit_id: activeDaycareId, role_id: 'role-caregiver', allocation_amount: 50000, allocated_hours: 600, budget_category_id: 'cat-payroll' },
@@ -54,9 +54,9 @@ const generalResponses = {
     { bank_transaction_id: 'bank-2', bank_account_id: 'account-1', transaction_date: '2026-09-05', description: 'הוצאה', reference_number: '200', amount: -30000, debit_amount: 30000, credit_amount: 0 }
   ],
   bank_allocations: [
-    { bank_allocation_id: 'ba-1', bank_transaction_id: 'bank-1', allocation_unit_id: activeDaycareId, budget_month: '2026-09-01', allocation_amount: 90000, budget_category_id: 'cat-income', accounting_status_id: 'status-no-send' },
-    { bank_allocation_id: 'ba-2', bank_transaction_id: 'bank-1', allocation_unit_id: activeOfficeId, budget_month: '2026-09-01', allocation_amount: 30000, budget_category_id: 'cat-income', accounting_status_id: 'status-waiting' },
-    { bank_allocation_id: 'ba-3', bank_transaction_id: 'bank-2', allocation_unit_id: activeDaycareId, budget_month: '2026-09-01', allocation_amount: -30000, budget_category_id: 'cat-expense', accounting_status_id: 'status-missing' }
+    { bank_allocation_id: 'ba-1', bank_transaction_id: 'bank-1', movement_type: 'INCOME', allocation_unit_id: activeDaycareId, daycare_id: 'daycare-1', budget_month: '2026-09-01', allocation_amount: 90000, budget_category_id: 'cat-income', accounting_status_id: 'status-no-send' },
+    { bank_allocation_id: 'ba-2', bank_transaction_id: 'bank-1', movement_type: 'INCOME', allocation_unit_id: activeOfficeId, daycare_id: null, budget_month: '2026-09-01', allocation_amount: 30000, budget_category_id: 'cat-income', accounting_status_id: 'status-waiting' },
+    { bank_allocation_id: 'ba-3', bank_transaction_id: 'bank-2', movement_type: 'EXPENSE', allocation_unit_id: activeDaycareId, daycare_id: 'daycare-1', budget_month: '2026-09-01', allocation_amount: -30000, budget_category_id: 'cat-expense', accounting_status_id: 'status-missing' }
   ],
   accounting_statuses: [
     { accounting_status_id: 'status-missing', accounting_status_code: 'ACC-MISSING-DOCS', sheet_accounting_status_id: 'ACC-MISSING-DOCS', display_name: 'חסרים מסמכים', display_order: 10, is_final: false, lifecycle_status: 'ACTIVE' },
@@ -131,6 +131,19 @@ export async function mockNewPortalSupabase(page, units = allocationUnits) {
       return route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8', body: JSON.stringify({ row: null }) });
     }
     return route.fulfill({ status: 405, body: '{}' });
+  });
+  await page.route('**/functions/v1/portal-runtime-config**', (route) => {
+    const screen = new URL(route.request().url()).searchParams.get('screen');
+    const configuration = screen === 'home' ? { units }
+      : screen === 'dashboards.staffing' ? { roles: generalResponses.roles, daycares: generalResponses.daycares, classrooms: generalResponses.classrooms, units }
+      : screen === 'dashboards.finance' ? {
+        years: generalResponses.school_years, months: generalResponses.school_year_months, daycares: generalResponses.daycares,
+        dsy: generalResponses.daycare_school_years, classrooms: generalResponses.classrooms, units,
+        budgetCategories: generalResponses.budget_categories, budgetRules: generalResponses.budget_rules,
+        workCalendars: generalResponses.monthly_work_calendars, staffingParameters: generalResponses.staffing_budget_parameters,
+        ageGroups: generalResponses.age_groups, roles: generalResponses.roles,
+      } : {};
+    return route.fulfill({ status: 200, contentType: 'application/json; charset=utf-8', body: JSON.stringify({ screen, permission: 'SUPER_ADMIN', status: 'READY', missing: [], configuration }) });
   });
   await page.route('**/functions/v1/portal-bank-workbench**', (route) => route.fulfill({
     status: 200,

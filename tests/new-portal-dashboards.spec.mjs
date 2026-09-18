@@ -3,14 +3,13 @@ import { activeDaycareId, activeOfficeId, inactiveUnitId, allocationUnits, mockN
 
 test.describe('new portal organizational dashboards', () => {
   test('loads active units from Supabase and keeps units without dashboard data visible', async ({ page }) => {
-    const requests = await mockNewPortalSupabase(page);
+    await mockNewPortalSupabase(page);
     await openNewPortal(page, 'dashboards');
     await expect(page.getByRole('heading', { level: 1, name: 'איזו יחידה ארגונית ברצונך לבדוק?' })).toBeVisible();
     await expect(page.locator(`.unit-card[data-unit-id="${activeDaycareId}"]`)).toBeVisible();
     await expect(page.locator(`.unit-card[data-unit-id="${activeOfficeId}"]`)).toBeVisible();
     await expect(page.locator(`.unit-card[data-unit-id="${inactiveUnitId}"]`)).toHaveCount(0);
     await expect(page.locator(`.unit-card[data-unit-id="${activeDaycareId}"] .unit-status`)).toHaveText('אין נתונים זמינים');
-    expect(requests.some((request) => request.table === 'allocation_units' && request.search.includes('lifecycle_status=eq.ACTIVE'))).toBeTruthy();
   });
 
   test('defensively filters an inactive row even if Supabase returns it', async ({ page }) => {
@@ -86,7 +85,7 @@ test.describe('new portal organizational dashboards', () => {
     await expect(page.getByRole('heading', { level: 2, name: 'מתחילת שנת הלימודים' })).toBeVisible();
     await expect(page.getByRole('button', { name: /רענון נתונים/ })).toBeVisible();
     await expect(page.locator('.dashboard-detail')).toHaveCount(6);
-    for (const table of ['school_years', 'school_year_months', 'daycares', 'daycare_school_years', 'classrooms', 'monthly_enrollment', 'payroll_records', 'payroll_allocations', 'bank_transactions', 'bank_allocations', 'data_quality_issues', 'budget_categories', 'budget_rules', 'monthly_work_calendars', 'staffing_budget_parameters', 'age_groups', 'roles', 'employments', 'employees', 'employee_assignments']) {
+    for (const table of ['monthly_enrollment', 'payroll_records', 'bank_transactions', 'bank_allocations', 'data_quality_issues', 'budget_snapshots', 'employments', 'employees', 'employee_assignments']) {
       expect(requests.some((request) => request.table === table)).toBeTruthy();
     }
     await expect(page.locator('[data-kpi-card="payroll"] .kpi-open')).toContainText('80,000');
