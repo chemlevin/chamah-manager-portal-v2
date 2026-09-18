@@ -4991,3 +4991,9 @@ Validation:
 - PASS: combined TRACK040 and Finance Dashboard desktop suite, 22/22.
 - PASS: TRACK040-relevant Finance Dashboard mobile 390px suite, 5/5.
 - PASS: `npm run build` and `git diff --check`.
+- PASS: Vercel Preview deployment `dpl_38SnDzWLySWii5hc77TjZkUj257g` reached
+  READY and protected CLI retrieval confirmed the deployed Actuals module.
+- BLOCKED: real-browser authenticated Preview validation reached the protected
+  Vercel/OpenAI login boundary, but the isolated browser had no saved Vercel or
+  portal account session and no validation credentials were available. No login
+  or data mutation was attempted.

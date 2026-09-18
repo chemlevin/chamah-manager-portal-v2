@@ -19,6 +19,8 @@ This file contains current operational state only. Durable rules belong in
   `dpl_cTGnWqwmgrShu3YKQXLLXMr5FGX8`, Git SHA
   `51f76a79473b186a9a8882a6fea2ccec24fc4724`. Production is unchanged by
   TRACK036.
+- TRACK040 Preview deployment `dpl_38SnDzWLySWii5hc77TjZkUj257g` is READY at
+  `https://chamah-portal-n9w9n6xi2-chamah.vercel.app`; Production is unchanged.
 
 ## Backend deployment head
 
@@ -68,6 +70,9 @@ This file contains current operational state only. Durable rules belong in
   allocation targeting by `עבור מחלקה` remains intentionally unresolved.
 - Authentication and permission requirements for future modules must be derived
   from current implementation/task scope rather than older portal summaries.
+- TRACK040 real-browser authenticated Preview validation remains blocked by the
+  isolated validation browser having no Vercel/OpenAI or portal account session;
+  protected artifact retrieval and authenticated mocked end-to-end coverage pass.
 
 ## Active technical constraints
 
