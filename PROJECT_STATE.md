@@ -1,6 +1,6 @@
 # Project State
 
-Last reviewed: 2026-09-17 (TRACK030C-PROD-RERUN)
+Last reviewed: 2026-09-18 (TRACK038A)
 
 This file contains current operational state only. Durable rules belong in
 `AGENTS.md` and `docs/business-rules.md`; detailed history belongs in
@@ -10,10 +10,9 @@ This file contains current operational state only. Durable rules belong in
 
 - Canonical branch: `main` / `origin/main`.
 - Canonical Production URL: `https://chamah-portal.vercel.app`.
-- Validated TRACK030C application commit:
-  `ce07f9d61186db9a2e04642ffc2629a838a1aef6`.
-- Validated TRACK030C Production deployment:
-  `dpl_5pfiiDgd8Z7de7ZVb6jWBjELq4GM`.
+- Canonical Production serves validated TRACK034/035 application SHA
+  `51f76a79473b186a9a8882a6fea2ccec24fc4724` through READY deployment
+  `dpl_CPpTqXrsr2UZGpYjU97LSt3TTW8H`.
 - The preview-named project domain
   `https://chamah-manager-portal-v2-preview.vercel.app` currently routes to the
   same Production artifact. It is not a separate Preview artifact despite its
@@ -26,7 +25,7 @@ This file contains current operational state only. Durable rules belong in
 - Latest verified applied migration: remote migration
   `20260917084017 track030b_bank_upload_history`; repository source migration
   `supabase/migrations/20260917082920_track030b_bank_upload_history.sql`.
-- Relevant active Edge Function: `portal-bank-workbench` version 16, JWT
+- Relevant active Edge Function: `portal-bank-workbench` version 17, JWT
   verification enabled.
 - Other last documented relevant versions: `portal-workforce-workbench` v24
   (TRACK026H) and `portal-runtime-config` v2 (TRACK028B).
@@ -35,6 +34,16 @@ This file contains current operational state only. Durable rules belong in
 
 ## Latest completed TRACKs
 
+- TRACK038A: explicitly assigned the separately maintained canonical alias to
+  the validated TRACK034/035 Production artifact; authenticated desktop and
+  390px smoke passed with 2,453 total records, continuous loading, search,
+  summaries, Upload History, calendar months, RTL, and no console errors.
+- TRACK037: stabilized the TRACK034 import-loading test; the combined focused
+  desktop/mobile suite passed 14/14 without application behavior changes.
+- TRACK035: added tokenized Description search and full-filtered-dataset
+  summary counts while retaining Reference in global search.
+- TRACK034: replaced user pagination with continuous internal-table loading and
+  reusable asynchronous/import feedback.
 - TRACK032: read-only Vercel domain audit confirmed both named hostnames route
   to the same canonical Production deployment.
 - TRACK031: context sources consolidated; documentation/process only.
@@ -46,6 +55,7 @@ This file contains current operational state only. Durable rules belong in
 
 ## Open items and blockers
 
+- No TRACK038A release blocker remains.
 - Pre-existing Supabase security/performance advisor findings remain outside
   TRACK030C scope.
 - The long-term relationship between Accounting grouping by `חשבון` and

@@ -68,7 +68,7 @@ Deno.serve(async (request) => {
       const pageSize = Math.min(200, Math.max(10, Number(requestUrl.searchParams.get("page_size")) || 50));
       const activeYear = Number(requestUrl.searchParams.get("year")) || new Date().getFullYear();
       const query = normalizeText(requestUrl.searchParams.get("query")).toLocaleLowerCase("he");
-      const description = normalizeText(requestUrl.searchParams.get("description")).toLocaleLowerCase("he");
+      const descriptionTerms = normalizeText(requestUrl.searchParams.get("description")).toLocaleLowerCase("he").split(/\s+/).filter(Boolean);
       const queue = normalizeText(requestUrl.searchParams.get("queue")) || "all";
       const splitFilter = normalizeText(requestUrl.searchParams.get("split")) || "any";
       const sort = normalizeText(requestUrl.searchParams.get("sort")) || "date_desc";
@@ -93,7 +93,8 @@ Deno.serve(async (request) => {
         read("import_batches?select=*&source_type=eq.BANK_FILE&order=started_at.desc&limit=50"),
         readAll("bank_transactions?select=import_batch_id,bank_account_id,transaction_date"),
       ]);
-      const assignmentMonthKeys = new Set(allocations.map((row: Record<string, unknown>) => normalizeText(row.budget_month).slice(0, 7)).filter(Boolean));
+      const savedAssignmentMonths = allocations.map((row: Record<string, unknown>) => normalizeText(row.budget_month).slice(0, 7)).filter(Boolean);
+      const assignmentMonthKeys = new Set(savedAssignmentMonths);
       calendarYearPeriods.forEach((period: Record<string, unknown>) => {
         const startYear = Number(normalizeText(period.start_date).slice(0, 4));
         const endYear = Number(normalizeText(period.end_date).slice(0, 4));
@@ -141,7 +142,7 @@ Deno.serve(async (request) => {
         const haystack = [transaction.description, transaction.reference_number, transaction.amount, accountNames.get(String(transaction.bank_account_id)), transaction.transaction_date,
           ...rows.flatMap((row) => [row.budget_month, row.notes, unitNames.get(String(row.allocation_unit_id)), daycareNames.get(String(row.daycare_id)), categoryNames.get(String(row.budget_category_id)), statusNames.get(String(row.accounting_status_id))])].map(normalizeText).join(" ").toLocaleLowerCase("he");
         return (!query || haystack.includes(query))
-          && (!description || normalizeText(transaction.description).toLocaleLowerCase("he").includes(description))
+          && (!descriptionTerms.length || descriptionTerms.every((term) => normalizeText(transaction.description).toLocaleLowerCase("he").includes(term)))
           && (!transactionMonths.length || transactionMonths.includes(String(transaction.transaction_date).slice(0, 7)))
           && (!accountIds.length || accountIds.includes(String(transaction.bank_account_id)))
           && (!unitIds.length || rows.some((row) => unitIds.includes(String(row.allocation_unit_id))))
@@ -156,6 +157,12 @@ Deno.serve(async (request) => {
       const queueMatch = (transaction: Record<string, unknown>) => { const info = classify(transaction); if (queue === "unassigned") return info.untreated; if (queue === "attention") return info.untreated || info.missing || info.missingDocuments || (info.split && !info.balanced); return true; };
       const splitMatch = (transaction: Record<string, unknown>) => { const info = classify(transaction); return splitFilter === "balanced" ? info.split && info.balanced : splitFilter === "unbalanced" ? info.split && !info.balanced : true; };
       const matching = base.filter(queueMatch).filter(splitMatch);
+      const resultSummary = {
+        total: matching.length,
+        split: matching.filter((row: Record<string, unknown>) => classify(row).split).length,
+        assigned: matching.filter((row: Record<string, unknown>) => !classify(row).untreated).length,
+        unassigned: matching.filter((row: Record<string, unknown>) => classify(row).untreated).length,
+      };
       const compareText = (a: unknown, b: unknown) => normalizeText(a).localeCompare(normalizeText(b), "he");
       const firstAllocationValue = (transaction: Record<string, unknown>, key: string, names: Map<string,string>) => names.get(String(classify(transaction).rows[0]?.[key])) || "";
       matching.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
@@ -221,7 +228,7 @@ Deno.serve(async (request) => {
       }));
       return json({ transactions: pageTransactions, allocations: allocations.filter((row: Record<string, unknown>) => pageIds.has(row.bank_transaction_id)), accounts, units, daycares, categories, accountingStatuses, assignmentMonths, calendarYears, batches,
         uploadHistory: { accounts: historyAccounts, batches: historyBatches },
-        pagination: { page: safePage, pageSize, total, pageCount, hasPrevious: safePage > 1, hasNext: safePage < pageCount }, queueCounts, activeYear, complete: true });
+        pagination: { page: safePage, pageSize, total, pageCount, hasPrevious: safePage > 1, hasNext: safePage < pageCount }, resultSummary, queueCounts, activeYear, complete: true });
     }
 
     const body = await request.json();

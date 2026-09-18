@@ -5038,3 +5038,32 @@ Final authenticated Preview validation:
 - PASS: JavaScript syntax, application build, 20/20 TRACK030B/TRACK030C source
   contracts across four Playwright projects, 6/6 focused browser checks at
   desktop 1440px and mobile 390px, and `git diff --check`.
+
+## 2026-09-18 — TRACK038A Complete TRACK034/035 Production Promotion
+
+- Reverified READY Production deployment
+  `dpl_CPpTqXrsr2UZGpYjU97LSt3TTW8H` belongs to project
+  `prj_6IND7ee2E9s3KispBh6iBDWwQo6X` and contains the exact validated
+  application SHA `51f76a79473b186a9a8882a6fea2ccec24fc4724` before changing any alias.
+- Explicitly moved only `https://chamah-portal.vercel.app` from deployment
+  `dpl_DdocEox1zT6E2tJu41YNqb1ZydAR` to `dpl_CPpTqXrsr2UZGpYjU97LSt3TTW8H`.
+  The preview-named project domain retained its existing mapping to the same
+  validated deployment.
+- Authenticated canonical Production smoke passed on desktop and at an explicit
+  390px viewport: 2,453 total, 0 split, 1 assigned, 2,452 unassigned; desktop
+  continuous loading reached 50, 100, and 150 unique ordered rows, and mobile
+  reached 50 then 100 unique rows without Previous/Next controls.
+- Description search `פעול דנ` returned 40 records; global Reference `144247`
+  returned its single row; combining Reference with Description `פעול`
+  returned one row and updated all four summary cards. Clear All restored the
+  2,453-record summary and first 50 rows.
+- Upload History remained available with eight retained history records;
+  transaction months remained January-December 2026 and assignment months
+  January 2026-December 2027. Loading states were observable, RTL was retained,
+  the 390px document had no horizontal overflow, and console errors were empty.
+- No import, edit, save, delete, schema, migration, Supabase, Edge deployment,
+  or bank/accounting data mutation occurred. Live totals remained unchanged
+  before and after smoke validation.
+- Reconciled only the approved TRACK034/035 application and Edge source plus
+  TRACK037-stabilized focused tests into canonical `main`; unrelated branch
+  commits and build-generated output were excluded.
