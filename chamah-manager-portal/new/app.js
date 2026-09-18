@@ -1,4 +1,5 @@
 import { calculateBudgetModel, summarizeBudget } from './budget-calculations.js';
+import { buildBankActuals, buildPayrollActuals, categoryActuals, summarizeActuals } from './actuals-calculations.js';
 import { calculateSalary, salaryRuleIssues } from './salary-calculations.js';
 import { buildLegalOccupancyAlternatives, calculateOccupancyModel } from './occupancy-calculations.js';
 import { RULE_CATEGORIES, SYSTEM_RULES } from './management-catalog.generated.js';
@@ -1139,13 +1140,12 @@ async function loadGeneralDashboard() {
   generalStatus = 'loading';
   generalError = '';
   try {
-    const [config, enrollment, payroll, pa, bank, ba, issues, budgetSnapshots, employments, employees, assignments] = await Promise.all([
+    const [config, enrollment, payroll, bank, ba, issues, budgetSnapshots, employments, employees, assignments] = await Promise.all([
       runtimeConfiguration('dashboards.finance'),
       rest('monthly_enrollment', 'select=monthly_enrollment_id,classroom_id,reporting_month,age_group_id,children_count'),
-      rest('payroll_records', 'select=payroll_record_id,employment_id,payroll_month,source_employee_identifier,source_record_identifier,employer_cost,regular_hours,overtime_hours'),
-      rest('payroll_allocations', 'select=payroll_allocation_id,payroll_record_id,allocation_unit_id,role_id,allocation_amount,allocated_hours,budget_category_id'),
+      rest('payroll_records', 'select=payroll_record_id,parent_payroll_record_id,row_kind,employment_id,payroll_month,source_employee_identifier,source_record_identifier,employer_cost,actual_hours,actual_allocation_unit_id,actual_daycare_id,role_id'),
       rest('bank_transactions', 'select=bank_transaction_id,transaction_date,description,amount'),
-      rest('bank_allocations', 'select=bank_allocation_id,bank_transaction_id,allocation_unit_id,budget_month,allocation_amount,budget_category_id'),
+      rest('bank_allocations', 'select=bank_allocation_id,bank_transaction_id,movement_type,allocation_unit_id,daycare_id,budget_month,allocation_amount,budget_category_id'),
       rest('data_quality_issues', 'select=data_quality_issue_id,severity,status,explanation,entity_type&status=eq.OPEN'),
       rest('budget_snapshots', 'select=budget_snapshot_id,allocation_unit_id,daycare_id,reporting_month,budget_category_id,planned_amount,actual_amount,snapshot_status&snapshot_status=eq.LOCKED'),
       rest('employments', 'select=employment_id,employee_id,employment_start_date,employment_end_date,employment_status'),
@@ -1153,7 +1153,7 @@ async function loadGeneralDashboard() {
       rest('employee_assignments', 'select=assignment_id,employment_id,allocation_unit_id,daycare_id,classroom_id,role_id,effective_from,effective_to,is_primary')
     ]);
     const { years = [], months = [], daycares = [], dsy = [], classrooms = [], units = [], budgetCategories = [], budgetRules = [], workCalendars = [], staffingParameters = [], ageGroups = [], roles = [] } = config;
-    generalModel = { years, months, daycares, dsy, classrooms, enrollment, payroll, pa, bank, ba, units: activeUnits(units), issues, budgetSnapshots, budgetCategories, budgetRules, workCalendars, staffingParameters, ageGroups, roles, employments, employees, assignments };
+    generalModel = { years, months, daycares, dsy, classrooms, enrollment, payroll, bank, ba, units: activeUnits(units), issues, budgetSnapshots, budgetCategories, budgetRules, workCalendars, staffingParameters, ageGroups, roles, employments, employees, assignments };
     generalStatus = 'ready';
     generalLastUpdated = new Date();
   } catch (error) {
@@ -1214,14 +1214,15 @@ function buildBudgetCategoryRows({ calculatedBudget, bankAllocations, payrollAll
   const categoryByCode = new Map(generalModel.budgetCategories.map((item) => [item.budget_category_code, item]));
   const daycareByUnit = new Map(relevantDaycares.map((item) => [item.allocation_unit_id, item]));
   const aggregates = new Map();
+  const actualsByCell = categoryActuals({ bankRows: bankAllocations, payrollRows: payrollAllocations });
   const ensure = (category, daycare) => {
     if (!category || !daycare) return null;
     const key = `${category.budget_category_id}|${daycare.daycare_id}`;
-    if (!aggregates.has(key)) aggregates.set(key, { key, category, daycare, actual: 0, budget: 0, hasActual: false, hasBudget: false, sources: [], details: [] });
+    if (!aggregates.has(key)) aggregates.set(key, { key, category, daycare, actual: actualsByCell.get(key) || 0, budget: 0, hasActual: actualsByCell.has(key), hasBudget: false, sources: [], details: [] });
     return aggregates.get(key);
   };
-  bankAllocations.forEach((row) => { const item = ensure(categoryMap.get(row.budget_category_id), daycareByUnit.get(row.allocation_unit_id)); if (!item) return; item.actual += Math.abs(Number(row.allocation_amount || 0)); item.hasActual = true; item.sources.push({ חודש: row.budget_month, מעון: item.daycare.display_name, קטגוריה: item.category.display_name, סכום: money.format(Math.abs(Number(row.allocation_amount || 0))) }); });
-  payrollAllocations.forEach((row) => { const item = ensure(categoryMap.get(row.budget_category_id), daycareByUnit.get(row.allocation_unit_id)); if (!item) return; item.actual += Number(row.allocation_amount || 0); item.hasActual = true; item.sources.push({ חודש: generalModel.payroll.find((record) => record.payroll_record_id === row.payroll_record_id)?.payroll_month || '', מעון: item.daycare.display_name, קטגוריה: item.category.display_name, סכום: money.format(row.allocation_amount) }); });
+  bankAllocations.filter((row) => row.kind !== 'none').forEach((row) => { const item = ensure(row.category, daycareByUnit.get(row.allocation_unit_id)); if (!item) return; item.sources.push({ חודש: row.budget_month, מעון: item.daycare.display_name, קטגוריה: item.category.display_name, סכום: money.format(row.effect) }); });
+  payrollAllocations.forEach((row) => { const item = ensure(categoryMap.get(row.budget_category_id), daycareByUnit.get(row.allocation_unit_id)); if (!item) return; item.sources.push({ חודש: row.payroll_month, מעון: item.daycare.display_name, קטגוריה: item.category.display_name, סכום: money.format(row.actual_amount) }); });
   calculatedBudget.rows.forEach((row) => {
     let category;
     let value;
@@ -1284,21 +1285,14 @@ function renderGeneralData() {
   const latestEnrollmentMonth = [...new Set(enrollment.map((item) => month(item.reporting_month)))].sort().at(-1);
   const latestEnrollment = latestEnrollmentMonth ? enrollment.filter((item) => month(item.reporting_month) === latestEnrollmentMonth) : [];
   const children = latestEnrollment.length ? sum(latestEnrollment, (item) => item.children_count) : null;
-  const payroll = generalModel.payroll.filter((item) => selectedMonthSet.has(month(item.payroll_month)));
-  const payrollById = new Map(payroll.map((item) => [item.payroll_record_id, item]));
-  const payrollAllocations = generalModel.pa.filter((item) => payrollById.has(item.payroll_record_id) && selectedUnitIds.has(item.allocation_unit_id));
-  const payrollCost = payrollAllocations.length ? sum(payrollAllocations, (item) => item.allocation_amount) : null;
-  const actualHours = payrollAllocations.some((item) => item.allocated_hours != null) ? sum(payrollAllocations, (item) => item.allocated_hours) : null;
   const roleById = new Map(generalModel.roles.map((item) => [item.role_id, item]));
-  const caregiverActual = sum(payrollAllocations.filter((item) => roleById.get(item.role_id)?.role_code === 'ROLE-CAREGIVER'), (item) => item.allocation_amount);
-  const fixedActual = sum(payrollAllocations.filter((item) => roleById.get(item.role_id)?.role_code !== 'ROLE-CAREGIVER'), (item) => item.allocation_amount);
-  const bankAllocations = generalModel.ba.filter((item) => selectedMonthSet.has(month(item.budget_month)) && selectedUnitIds.has(item.allocation_unit_id));
   const bankById = new Map(generalModel.bank.map((item) => [item.bank_transaction_id, item]));
   const categoryMap = new Map(generalModel.budgetCategories.map((item) => [item.budget_category_id, item]));
-  const incomeRows = bankAllocations.filter((item) => categoryMap.get(item.budget_category_id)?.category_type === 'INCOME' && Number(item.allocation_amount) > 0);
-  const expenseRows = bankAllocations.filter((item) => categoryMap.get(item.budget_category_id)?.category_type === 'EXPENSE' && !['CAT-PAYROLL-STAFF', 'CAT-PAYROLL-NONSTAFF'].includes(categoryMap.get(item.budget_category_id)?.budget_category_code));
-  const income = incomeRows.length ? sum(incomeRows, (item) => item.allocation_amount) : null;
-  const expenses = expenseRows.length ? sum(expenseRows, (item) => Math.abs(Number(item.allocation_amount))) : null;
+  const bankAllocations = buildBankActuals(generalModel.ba.filter((item) => selectedMonthSet.has(month(item.budget_month)) && selectedUnitIds.has(item.allocation_unit_id)), categoryMap, generalModel.daycares);
+  const payrollActuals = buildPayrollActuals({ records: generalModel.payroll, daycares: generalModel.daycares, roles: generalModel.roles, categories: generalModel.budgetCategories, selectedMonths: selectedMonthSet, selectedUnitIds });
+  const payrollAllocations = payrollActuals.rows;
+  const actualSummary = summarizeActuals({ bankRows: bankAllocations, payrollRows: payrollAllocations });
+  const { incomeRows, expenseRows, income, expenses, payroll: payrollCost, actualHours } = actualSummary;
   const budgetRows = generalModel.budgetSnapshots.filter((item) => selectedMonthSet.has(month(item.reporting_month)) && (unitId === 'organization' || item.allocation_unit_id === unitId || relevantDaycareIds.has(item.daycare_id)));
   const calculatedBudget = calculateBudgetModel({ ...generalModel, budgetCategories: generalModel.budgetCategories }, { schoolYearId: selectedSchoolYearId, months: selectedMonthSet, unitIds: [...selectedUnitIds] });
   const budgetSummary = summarizeBudget(calculatedBudget);
@@ -1309,15 +1303,13 @@ function renderGeneralData() {
   const requiredHours = budgetSummary.requiredHours;
   const balanceMonth = [...selectedMonthSet].sort().at(-1);
   const balanceBankAllocations = bankAllocations.filter((item) => month(item.budget_month) === balanceMonth);
-  const balanceIncomeRows = balanceBankAllocations.filter((item) => categoryMap.get(item.budget_category_id)?.category_type === 'INCOME' && Number(item.allocation_amount) > 0);
-  const balanceExpenseRows = balanceBankAllocations.filter((item) => categoryMap.get(item.budget_category_id)?.category_type === 'EXPENSE' && !['CAT-PAYROLL-STAFF', 'CAT-PAYROLL-NONSTAFF'].includes(categoryMap.get(item.budget_category_id)?.budget_category_code));
-  const balancePayrollIds = new Set(payroll.filter((item) => month(item.payroll_month) === balanceMonth).map((item) => item.payroll_record_id));
-  const balancePayrollAllocations = payrollAllocations.filter((item) => balancePayrollIds.has(item.payroll_record_id));
-  const balanceIncome = balanceIncomeRows.length ? sum(balanceIncomeRows, (item) => item.allocation_amount) : null;
-  const balanceExpenses = balanceExpenseRows.length ? sum(balanceExpenseRows, (item) => Math.abs(Number(item.allocation_amount))) : null;
-  const balancePayroll = balancePayrollAllocations.length ? sum(balancePayrollAllocations, (item) => item.allocation_amount) : null;
+  const balancePayrollAllocations = payrollAllocations.filter((item) => month(item.payroll_month) === balanceMonth);
+  const balanceSummary = summarizeActuals({ bankRows: balanceBankAllocations, payrollRows: balancePayrollAllocations });
+  const balanceIncome = balanceSummary.income;
+  const balanceExpenses = balanceSummary.expenses;
+  const balancePayroll = balanceSummary.payroll;
   const actualResult = balanceIncome == null || balanceExpenses == null || balancePayroll == null ? null : balanceIncome - balanceExpenses - balancePayroll;
-  const calculationIssues = calculatedBudget.issues;
+  const calculationIssues = [...calculatedBudget.issues, ...payrollActuals.issues.map((issue) => ({ ...issue, message: issue.code === 'PAYROLL_SPLIT_MISMATCH' ? 'פיצול השכר אינו תואם לעלות המעסיק של שורת האב.' : 'לשורת שכר אין שיוך קנוני מספיק ליחידה ולמעון.' }))];
   const cards = [
     { id: 'revenue', title: 'הכנסות', primary: income, formatter: money.format, utilization: utilization(income, revenueBudget), lines: [{ label: 'בפועל', value: income, formatter: money.format }, { label: 'תקציב', value: revenueBudget, formatter: money.format }, { label: 'ניצול', value: utilization(income, revenueBudget), formatter: (value) => `${number.format(value)}%` }] },
     { id: 'expenses', title: 'הוצאות', primary: expenses, formatter: money.format, utilization: utilization(expenses, expenseBudget), lines: [{ label: 'בפועל', value: expenses, formatter: money.format }, { label: 'תקציב', value: expenseBudget, formatter: money.format }, { label: 'ניצול', value: utilization(expenses, expenseBudget), formatter: (value) => `${number.format(value)}%` }] },
@@ -1336,15 +1328,15 @@ function renderGeneralData() {
   const employmentById = new Map(generalModel.employments.map((item) => [item.employment_id, item]));
   const employeeById = new Map(generalModel.employees.map((item) => [item.employee_id, item]));
   const payrollDetails = payrollAllocations.map((allocation) => {
-    const record = payrollById.get(allocation.payroll_record_id);
+    const record = generalModel.payroll.find((item) => item.payroll_record_id === allocation.parent_payroll_record_id) || allocation;
     const employment = employmentById.get(record?.employment_id);
     const employee = employeeById.get(employment?.employee_id);
     const assignment = generalModel.assignments.find((item) => item.employment_id === record?.employment_id && (!item.effective_from || item.effective_from <= record.payroll_month) && (!item.effective_to || item.effective_to >= record.payroll_month) && (item.role_id === allocation.role_id || item.is_primary));
-    return { חודש: record?.payroll_month || '', עובד: employee ? `${employee.first_name || ''} ${employee.last_name || ''}`.trim() : record?.source_employee_identifier || 'לא זמין', תפקיד: roleById.get(allocation.role_id)?.display_name || 'לא זמין', כיתה: classroomById.get(assignment?.classroom_id)?.display_name || 'ללא שיוך כיתה', שעות: number.format(allocation.allocated_hours || 0), 'עלות שכר': money.format(allocation.allocation_amount) };
+    return { חודש: record?.payroll_month || '', עובד: employee ? `${employee.first_name || ''} ${employee.last_name || ''}`.trim() : record?.source_employee_identifier || 'לא זמין', תפקיד: roleById.get(allocation.role_id)?.display_name || 'לא זמין', כיתה: classroomById.get(assignment?.classroom_id)?.display_name || 'ללא שיוך כיתה', שעות: number.format(allocation.actual_hours || 0), 'עלות שכר': money.format(allocation.actual_amount) };
   });
   const childrenDetails = latestEnrollment.map((row) => { const classroom = classroomById.get(row.classroom_id); const daycare = daycareById.get(dsyById.get(classroom?.daycare_school_year_id)?.daycare_id); return { חודש: row.reporting_month, מעון: daycare?.display_name || 'לא זמין', כיתה: classroom?.display_name || 'לא זמין', 'קבוצת גיל': ageById.get(row.age_group_id)?.display_name || 'לא זמין', ילדים: number.format(row.children_count) }; });
-  const sourceIncome = incomeRows.map((row) => ({ חודש: row.budget_month, יחידה: unitById.get(row.allocation_unit_id)?.display_name || 'לא שויך', קטגוריה: categoryMap.get(row.budget_category_id)?.display_name || 'לא שויך', סכום: money.format(row.allocation_amount), תיאור: bankById.get(row.bank_transaction_id)?.description || '' }));
-  const sourceExpenses = expenseRows.map((row) => ({ חודש: row.budget_month, יחידה: unitById.get(row.allocation_unit_id)?.display_name || 'לא שויך', קטגוריה: categoryMap.get(row.budget_category_id)?.display_name || 'לא שויך', סכום: money.format(Math.abs(Number(row.allocation_amount))), תיאור: bankById.get(row.bank_transaction_id)?.description || '' }));
+  const sourceIncome = incomeRows.map((row) => ({ חודש: row.budget_month, יחידה: unitById.get(row.allocation_unit_id)?.display_name || 'לא שויך', קטגוריה: row.category?.display_name || 'לא שויך', סכום: money.format(row.effect), תיאור: bankById.get(row.bank_transaction_id)?.description || '' }));
+  const sourceExpenses = expenseRows.map((row) => ({ חודש: row.budget_month, יחידה: unitById.get(row.allocation_unit_id)?.display_name || 'לא שויך', קטגוריה: row.category?.display_name || 'לא שויך', סכום: money.format(row.effect), תיאור: bankById.get(row.bank_transaction_id)?.description || '' }));
   const hoursDetails = budgetRecords.filter((row) => row.type === 'classroom').map((row) => ({ חודש: row.month, מעון: row.daycare, כיתה: row.classroom, 'קבוצת גיל': row.ageGroup, ילדים: number.format(row.children), 'שעות נדרשות': number.format(row.requiredHours || 0) }));
   const revenueBudgetSources = budgetRecords.filter((row) => row.type === 'classroom').map((row) => ({ חודש: row.month, מעון: row.daycare, כיתה: row.classroom, 'קבוצת גיל': row.ageGroup, ילדים: number.format(row.children), 'תקציב הכנסה': money.format(row.tuitionBudget) }));
   const expenseBudgetSources = budgetRecords.filter((row) => row.type === 'expense').map((row) => ({ חודש: row.month, מעון: row.daycare, קטגוריה: row.category, תקציב: money.format(row.budget), שיטה: row.method || '' }));
@@ -1360,28 +1352,26 @@ function renderGeneralData() {
   const yearMonths = generalModel.months.filter((item) => item.school_year_id === selectedSchoolYearId);
   const selectedLabels = yearMonths.filter((item) => selectedMonthSet.has(month(item.start_date))).map((item) => item.month_label);
   const yearMonthKeys = new Set(yearMonths.map((item) => month(item.start_date)));
-  const payrollRecordIdsForUnits = new Set(generalModel.pa.filter((item) => selectedUnitIds.has(item.allocation_unit_id)).map((item) => item.payroll_record_id));
+  const allPayrollActuals = buildPayrollActuals({ records: generalModel.payroll, daycares: generalModel.daycares, roles: generalModel.roles, categories: generalModel.budgetCategories, selectedUnitIds }).rows;
   const dataMonthKeys = new Set([
     ...generalModel.enrollment.filter((item) => classroomIds.has(item.classroom_id)).map((item) => month(item.reporting_month)),
     ...generalModel.ba.filter((item) => selectedUnitIds.has(item.allocation_unit_id)).map((item) => month(item.budget_month)),
-    ...generalModel.payroll.filter((item) => payrollRecordIdsForUnits.has(item.payroll_record_id)).map((item) => month(item.payroll_month))
+    ...allPayrollActuals.map((item) => month(item.payroll_month))
   ].filter((item) => yearMonthKeys.has(item)));
   const summaryMonth = yearMonths.filter((item) => dataMonthKeys.has(month(item.start_date))).at(-1);
   const summaryMonths = new Set(yearMonths.filter((item) => summaryMonth && item.school_year_sequence <= summaryMonth.school_year_sequence).map((item) => month(item.start_date)));
   const summaryBudget = summarizeBudget(calculateBudgetModel({ ...generalModel, budgetCategories: generalModel.budgetCategories }, { schoolYearId: selectedSchoolYearId, months: summaryMonths, unitIds: [...selectedUnitIds] }));
-  const summaryBank = generalModel.ba.filter((item) => summaryMonths.has(month(item.budget_month)) && selectedUnitIds.has(item.allocation_unit_id));
-  const summaryIncomeRows = summaryBank.filter((item) => categoryMap.get(item.budget_category_id)?.category_type === 'INCOME' && Number(item.allocation_amount) > 0);
-  const summaryExpenseRows = summaryBank.filter((item) => categoryMap.get(item.budget_category_id)?.category_type === 'EXPENSE' && !['CAT-PAYROLL-STAFF', 'CAT-PAYROLL-NONSTAFF'].includes(categoryMap.get(item.budget_category_id)?.budget_category_code));
-  const summaryPayrollIds = new Set(generalModel.payroll.filter((item) => summaryMonths.has(month(item.payroll_month))).map((item) => item.payroll_record_id));
-  const summaryPayrollRows = generalModel.pa.filter((item) => summaryPayrollIds.has(item.payroll_record_id) && selectedUnitIds.has(item.allocation_unit_id));
+  const summaryBank = buildBankActuals(generalModel.ba.filter((item) => summaryMonths.has(month(item.budget_month)) && selectedUnitIds.has(item.allocation_unit_id)), categoryMap, generalModel.daycares);
+  const summaryPayrollRows = buildPayrollActuals({ records: generalModel.payroll, daycares: generalModel.daycares, roles: generalModel.roles, categories: generalModel.budgetCategories, selectedMonths: summaryMonths, selectedUnitIds }).rows;
+  const summaryActuals = summarizeActuals({ bankRows: summaryBank, payrollRows: summaryPayrollRows });
   $('#context-year').textContent = selectedYear?.display_name || 'אין נתונים זמינים';
   $('#context-period').textContent = selectedLabels.length ? selectedLabels.join(', ') : 'אין נתונים זמינים';
   $('#summary-range').textContent = selectedYear && summaryMonth ? `${yearMonths[0]?.month_label || ''} → ${summaryMonth.month_label}` : 'No Data';
   $('#summary-month').textContent = summaryMonth?.month_label || 'No Data';
   const summaryMetrics = summaryMonth ? [
-    ['הכנסות', summaryIncomeRows.length ? money.format(sum(summaryIncomeRows, (row) => row.allocation_amount)) : null],
-    ['הוצאות', summaryExpenseRows.length ? money.format(sum(summaryExpenseRows, (row) => Math.abs(Number(row.allocation_amount)))) : null],
-    ['שכר', summaryPayrollRows.length ? money.format(sum(summaryPayrollRows, (row) => row.allocation_amount)) : null],
+    ['הכנסות', summaryActuals.income == null ? null : money.format(summaryActuals.income)],
+    ['הוצאות', summaryActuals.expenses == null ? null : money.format(summaryActuals.expenses)],
+    ['שכר', summaryActuals.payroll == null ? null : money.format(summaryActuals.payroll)],
     ['שעות נדרשות', summaryBudget.requiredHours == null ? null : number.format(summaryBudget.requiredHours)]
   ] : [];
   $('#school-year-metrics').innerHTML = summaryMetrics.length ? summaryMetrics.map(([label, value]) => `<span><small>${label}</small><strong>${value ?? 'No Data'}</strong></span>`).join('') : '<strong>No Data</strong>';

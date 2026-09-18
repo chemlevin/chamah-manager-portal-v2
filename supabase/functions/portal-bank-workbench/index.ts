@@ -331,7 +331,10 @@ Deno.serve(async (request) => {
       const transaction = (await read(`bank_transactions?select=bank_transaction_id,amount&bank_transaction_id=eq.${transactionId}&limit=1`))[0];
       if (!transaction) return json({ error: "תנועת הבנק לא נמצאה." }, 404);
       const allocations = Array.isArray(body.allocations) ? body.allocations : [];
-      const unitsForValidation = await read("allocation_units?select=allocation_unit_id,allocation_unit_type&lifecycle_status=eq.ACTIVE");
+      const [unitsForValidation, categoriesForValidation] = await Promise.all([
+        read("allocation_units?select=allocation_unit_id,allocation_unit_type&lifecycle_status=eq.ACTIVE"),
+        read("budget_categories?select=budget_category_id,category_type&lifecycle_status=eq.ACTIVE"),
+      ]);
       const normalized = allocations.map((row) => ({
         bank_transaction_id: transactionId,
         movement_type: row.movement_type || null,
@@ -356,6 +359,9 @@ Deno.serve(async (request) => {
         if (!row.budget_month) errors.push(`שורה ${index + 1}: חודש תקציב נדרש`);
         if (!row.accounting_status_id) errors.push(`שורה ${index + 1}: סטטוס הנה"ח נדרש`);
         if (!["EXCLUDE"].includes(row.movement_type || "") && !row.budget_category_id) errors.push(`שורה ${index + 1}: סעיף תקציבי נדרש`);
+        const selectedCategory = row.budget_category_id ? categoriesForValidation.find((category: Record<string, unknown>) => category.budget_category_id === row.budget_category_id) : null;
+        if (row.movement_type === "INCOME" && selectedCategory?.category_type !== "INCOME") errors.push(`שורה ${index + 1}: תנועת הכנסה דורשת סעיף הכנסה`);
+        if (row.movement_type === "EXPENSE" && selectedCategory?.category_type !== "EXPENSE") errors.push(`שורה ${index + 1}: תנועת הוצאה דורשת סעיף הוצאה`);
       });
       const total = normalized.reduce((sum, row) => sum + Number(row.allocation_amount || 0), 0);
       if (Math.abs(total - Number(transaction.amount)) > 0.01) errors.push("סכום ההקצאות חייב להיות שווה לסכום תנועת האב");

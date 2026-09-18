@@ -1,6 +1,6 @@
 # Project State
 
-Last reviewed: 2026-09-18 (TRACK037)
+Last reviewed: 2026-09-18 (TRACK040)
 
 This file contains current operational state only. Durable rules belong in
 `AGENTS.md` and `docs/business-rules.md`; detailed history belongs in
@@ -26,8 +26,8 @@ This file contains current operational state only. Durable rules belong in
 - Latest documented applied migration: remote migration
   `20260917084017 track030b_bank_upload_history`; repository source migration
   `supabase/migrations/20260917082920_track030b_bank_upload_history.sql`.
-- Relevant active Edge Function: `portal-bank-workbench` version 17, JWT
-  verification enabled (TRACK035 Preview deployment).
+- Relevant active Edge Function: `portal-bank-workbench` version 18, JWT
+  verification enabled (TRACK040 Preview backend deployment).
 - Other last documented relevant versions: `portal-workforce-workbench` v24
   (TRACK026H) and `portal-runtime-config` v2 (TRACK028B).
 - TRACK029 keepalive job `track029-supabase-keepalive` runs at 00:00 and 12:00
@@ -35,6 +35,9 @@ This file contains current operational state only. Durable rules belong in
 
 ## Latest completed TRACKs
 
+- TRACK040: unified Bank and Payroll Actual contracts across Finance Dashboard
+  KPIs, balances, summaries, and category matrices; Bank Workbench rejects new
+  contradictory income/expense assignments. Preview only.
 - TRACK037: stabilized the TRACK034 import-feedback test with deterministic
   request lifecycle synchronization; the combined TRACK034/035 desktop and
   390px mobile suite passes 14/14 with no application artifact change.

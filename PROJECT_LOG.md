@@ -4942,3 +4942,52 @@ Final authenticated Preview validation:
   generated artifacts, database, Supabase, Preview, and Production were
   unchanged. Combined TRACK034/035 is ready for separately approved Production
   promotion.
+
+## 2026-09-18 - TRACK040 Budget Actuals Reliability
+
+Objective: Apply the minimal TRACK039 reliability fixes to Bank and Payroll
+Actuals, investigate the suspicious July 2027 Budget assignment without changing
+Production data, and deploy Preview only.
+
+Implementation:
+
+- Added one deterministic Finance Dashboard Actuals contract shared by KPIs,
+  monthly balances, school-year summaries, and category matrices.
+- Bank Actuals now preserve signed accounting semantics: matching income uses the
+  signed allocation amount, matching expense uses its negation, reversals/refunds
+  reduce Actual, and INTERNAL, EXCLUDE, incomplete, contradictory, and bank
+  payroll-category rows have zero Budget effect.
+- Payroll Actual now comes only from payroll record `employer_cost`. Canonical
+  split children replace the parent; an unsplit parent is used once only with
+  sufficient canonical unit/daycare attribution. Mismatches and insufficient
+  attribution are reported without guessing. Month status does not gate Actual.
+- Bank Workbench Edge Function validation rejects new INCOME-to-non-INCOME and
+  EXPENSE-to-non-EXPENSE assignments. Deployed `portal-bank-workbench` v18 with
+  JWT verification enabled to the linked Preview backend.
+- Confirmed the seven daycare allocation units each map to exactly one daycare,
+  so no daycare schema change was required.
+- Updated canonical business rules and deterministic regression fixtures/tests.
+
+Read-only Production investigation:
+
+- Transaction `ccd205e6-93ff-49a2-9c88-937232efcd97`, description `דנ"ח פעולות`,
+  transaction date 2026-07-31 and signed amount -37.96, currently has one
+  EXPENSE / CAT-FEES allocation for -37.96 assigned to Budget month 2027-07.
+- The allocation was created at 2026-09-17 09:02:07 UTC (12:02 Israel) by the
+  active organization super-admin identity, with no later update. This coincides
+  exactly with TRACK030C authenticated Preview validation and is the only
+  2026-to-2027 assignment in the linked data. The allocation save function does
+  not emit an audit event, so TRACK030C/test activity is the high-confidence
+  cause from timing and actor evidence, not a complete audit-chain proof.
+- No automatic/default code assigns a future Budget month; the Bank Workbench
+  persists the explicit selected month. No historical data was changed.
+- The canonical school-year rows confirm 2026-09, 2027-01, and 2027-08 all map
+  to SY-2026-2027 / תשפ״ז.
+
+Validation:
+
+- PASS: `node --check` for `app.js` and `actuals-calculations.js`.
+- PASS: TRACK040 deterministic contract suite, 9/9 desktop.
+- PASS: combined TRACK040 and Finance Dashboard desktop suite, 22/22.
+- PASS: TRACK040-relevant Finance Dashboard mobile 390px suite, 5/5.
+- PASS: `npm run build` and `git diff --check`.
