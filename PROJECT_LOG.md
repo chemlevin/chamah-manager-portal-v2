@@ -5122,3 +5122,33 @@ Validation:
   Vercel/OpenAI login boundary, but the isolated browser had no saved Vercel or
   portal account session and no validation credentials were available. No login
   or data mutation was attempted.
+
+## 2026-09-19 - TRACK041 Promote TRACK040 to Production
+
+Scope:
+
+- Integrated only the two validated TRACK040 commits onto canonical `main`.
+- Redeployed only `portal-bank-workbench` to Supabase project
+  `vyyfuaqmbxvfqgbfqooc`; version 19 is ACTIVE with JWT verification enabled.
+- Promoted validated Preview deployment `dpl_38SnDzWLySWii5hc77TjZkUj257g`
+  into READY Production deployment `dpl_TVznemwbLEyHrC6ffjLdxxkyYzC4`.
+- Assigned only `https://chamah-portal.vercel.app` to the new Production
+  deployment. No project, domain, database, migration, or historical data was
+  created, deleted, or modified.
+
+Validation:
+
+- PASS: Vercel project ID `prj_6IND7ee2E9s3KispBh6iBDWwQo6X`, project name
+  `chamah-portal`, validated source artifact, and canonical alias identity.
+- PASS: JavaScript syntax checks and `npm run build`.
+- PASS: TRACK040 plus Finance Dashboard desktop suite, 22/22.
+- PASS: Finance Dashboard 390px suite, 12/12 applicable with one intentionally
+  desktop-only test skipped.
+- PASS: protected Production retrieval returned HTTP 200 for `/new/` and
+  `/new/actuals-calculations.js`.
+- PASS: authenticated canonical Production Finance Dashboard loaded with
+  09/2026 mapped to תשפ״ז; Bank loaded 2,453 transactions; Payroll loaded its
+  module destinations; browser console errors were empty.
+- PASS: deterministic contracts cover INTERNAL/EXCLUDE zero Budget effect,
+  signed refund/reversal semantics, Payroll `employer_cost`, prevention of Bank
+  payroll duplication, and the תשפ״ז month mapping.
