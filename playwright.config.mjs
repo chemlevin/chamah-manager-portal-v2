@@ -15,6 +15,9 @@ export default defineConfig({
   ],
   use: {
     baseURL: 'http://127.0.0.1:4176',
+    // Feature suites mock Supabase with page.route; service-worker requests
+    // bypass page-level routing. The dedicated PWA config exercises workers.
+    serviceWorkers: 'block',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure'
   },

@@ -9,7 +9,20 @@ const server = http.createServer(async (req, res) => {
   if (pathname.endsWith('/')) pathname += 'index.html';
   const file = normalize(join(root, pathname));
   if (!file.startsWith(normalize(root))) { res.writeHead(403); res.end('Forbidden'); return; }
-  try { const data = await readFile(file); res.writeHead(200, { 'Content-Type': types[extname(file)] || 'application/octet-stream' }); res.end(data); }
+  try {
+    const data = await readFile(file);
+    const headers = { 'Content-Type': types[extname(file)] || 'application/octet-stream' };
+    if (pathname === '/service-worker.js') {
+      headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+      headers['Service-Worker-Allowed'] = '/';
+    } else if (extname(file) === '.html') {
+      headers['Cache-Control'] = 'no-cache, must-revalidate';
+    } else if (['.js', '.css'].includes(extname(file))) {
+      headers['Cache-Control'] = 'no-cache, must-revalidate';
+    }
+    res.writeHead(200, headers);
+    res.end(data);
+  }
   catch { res.writeHead(404); res.end('Not found'); }
 });
 server.listen(4176, '127.0.0.1', () => console.log('http://127.0.0.1:4176/'));
