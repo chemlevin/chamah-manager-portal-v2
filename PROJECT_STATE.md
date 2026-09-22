@@ -1,6 +1,6 @@
 # Project State
 
-Last reviewed: 2026-09-19 (TRACK041)
+Last reviewed: 2026-09-22 (TRACK043)
 
 This file contains current operational state only. Durable rules belong in
 `AGENTS.md` and `docs/business-rules.md`; detailed history belongs in
@@ -10,9 +10,9 @@ This file contains current operational state only. Durable rules belong in
 
 - Canonical branch: `main` / `origin/main`.
 - Canonical Production URL: `https://chamah-portal.vercel.app`.
-- Canonical Production serves the validated TRACK040 artifact from implementation
-  SHA `1b60441f7d5c7004a96611fdd05d4898e73a5146` through READY deployment
-  `dpl_TVznemwbLEyHrC6ffjLdxxkyYzC4`.
+- Canonical Production serves TRACK043 deployment `dpl_9eLZhS8jxCZKyym6m7fbEt9bTBqA`
+  at Git SHA `fa89a8f5381e1ff78f155208fb4e25f087d0a154`, which includes approved
+  TRACK042 commit `04c18fe5b43c202d332068b6b11e16c6f268f440`.
 - The preview-named project domain
   `https://chamah-manager-portal-v2-preview.vercel.app` currently routes to the
   same Production artifact. It is not a separate Preview artifact despite its
@@ -29,6 +29,8 @@ This file contains current operational state only. Durable rules belong in
   `supabase/migrations/20260917082920_track030b_bank_upload_history.sql`.
 - Relevant active Edge Function: `portal-bank-workbench` version 19, JWT
   verification enabled (TRACK041 Production promotion).
+- `portal-bank-transfer-workbench` version 3 is ACTIVE with JWT verification
+  enabled; deployed source matches the approved TRACK042 file.
 - Other last documented relevant versions: `portal-workforce-workbench` v24
   (TRACK026H) and `portal-runtime-config` v2 (TRACK028B).
 - TRACK029 keepalive job `track029-supabase-keepalive` runs at 00:00 and 12:00
@@ -36,6 +38,10 @@ This file contains current operational state only. Durable rules belong in
 
 ## Latest completed TRACKs
 
+- TRACK043: promoted only the validated TRACK042 Bank Transfers changes to
+  canonical Production. Authenticated autosave and split checks passed with
+  disposable zero-amount rows, which were archived after testing; the
+  pre-existing delete audit mismatch prevents a full regression pass.
 - TRACK041: promoted only the validated TRACK040 artifact to canonical
   Production, assigned the canonical alias, redeployed Bank Workbench v19 with
   JWT verification, and authenticated-smoked Finance, Bank, and Payroll.
@@ -63,6 +69,8 @@ This file contains current operational state only. Durable rules belong in
 
 ## Open items and blockers
 
+- The pre-existing Bank Transfers delete handler audits with `ARCHIVE`, while
+  `audit_events_operation_check` disallows `ARCHIVE`; a separate fix is needed.
 - No TRACK038A release blocker remains.
 - Pre-existing Supabase security/performance advisor findings remain outside
   TRACK030C scope.

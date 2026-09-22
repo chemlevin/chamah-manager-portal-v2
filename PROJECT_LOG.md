@@ -5152,3 +5152,12 @@ Validation:
 - PASS: deterministic contracts cover INTERNAL/EXCLUDE zero Budget effect,
   signed refund/reversal semantics, Payroll `employer_cost`, prevention of Bank
   payroll duplication, and the תשפ״ז month mapping.
+
+## TRACK043 — Promote TRACK042 Bank Transfers to Production (2026-09-22)
+
+- Verified Vercel project `prj_6IND7ee2E9s3KispBh6iBDWwQo6X` is `chamah-portal`; approved TRACK042 Preview artifact `04c18fe5b43c202d332068b6b11e16c6f268f440` was READY. The four implementation/test files in the Production candidate matched that artifact byte for byte.
+- Current `main` had diverged from the TRACK042 branch. Applied only the four approved Bank Transfers files to `main`, recorded the approved commit in merge ancestry without importing unrelated branch changes, and validated the resulting Preview build and 14/14 desktop/390px Bank Transfers tests.
+- Pushed the candidate to `main`. Production deployment `dpl_9eLZhS8jxCZKyym6m7fbEt9bTBqA` reached READY at SHA `fa89a8f5381e1ff78f155208fb4e25f087d0a154`. The canonical alias was still pinned to an older deployment, so reassigned the existing alias to this deployment and verified the alias resolves to its ID/SHA and serves the new Bank Transfers script.
+- Confirmed linked Supabase `portal-bank-transfer-workbench` v3 is ACTIVE with JWT verification, and its deployed source matches the approved TRACK042 Edge Function. No migration or existing business record was changed for the release.
+- Authenticated canonical Production loaded Bank Transfers. Read-only checks confirmed the entry date, pending execution-date indication, full-dataset attachment count/filter, and split collapse/reopen. A disposable zero-amount transfer autosaved without an execution date, survived refresh, retained its entry date after editing, and two split children copied and saved without execution dates. Both children survived refresh. The QA family was archived; active transfer count returned to its original three rows. Browser console and Vercel runtime error checks were clear.
+- IMPORTANT: `portal-bank-transfer-workbench` uses audit operation `ARCHIVE` for the delete action, but `audit_events_operation_check` allows no `ARCHIVE`. This pre-existing delete-path mismatch is outside the promotion-only scope. The QA cleanup was performed by guarded archive updates on the exact disposable IDs, followed by an `UPDATE` audit entry. No existing transfer was changed.
