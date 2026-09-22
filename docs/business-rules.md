@@ -133,6 +133,23 @@ parsing and calculations but must not define rules.
 
 ## Presentation and ownership boundaries
 
+### Bank Transfers permission boundary (TRACK045)
+
+- The Bank Transfers screen retains direct HIDDEN / VIEW / EDIT permissions. Its
+  data scope is independently ALL or ASSIGNED_DAYCARES; scope never grants a
+  hidden screen or write access to a VIEW user.
+- ASSIGNED_DAYCARES uses the user's current explicit daycare assignments.
+  Unassigned transfers are invisible. A split child assigned to an allowed
+  daycare may be viewed and edited without disclosing its parent or sibling
+  allocation when they are outside scope; cross-daycare parent mutation is
+  denied.
+- The `approve_for_execution` and `set_execution_date` actions are independent
+  of EDIT and of each other. Completing an open transfer requires the approval
+  action; changing its execution date requires the date action. Both are
+  enforced by the API. Super-admin retains full access.
+- A single permitted daycare is assigned automatically on creation; with
+  multiple permitted daycares, the user selects only among those assignments.
+
 - Google Sheets/database own operational source data; API handlers own secure
   access and response shaping; engines own deterministic parsing/calculation;
   browser modules own presentation, filtering, refresh, and export.

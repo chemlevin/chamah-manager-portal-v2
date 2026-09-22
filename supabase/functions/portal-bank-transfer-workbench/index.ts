@@ -59,7 +59,8 @@ Deno.serve(async (request) => {
     const auth = await fetch(`${url}/auth/v1/user`, { headers: { apikey: key, Authorization: authorization } });
     if (!auth.ok) return json({ error: "נדרש חיבור תקף." }, 401);
     const actor = await auth.json();
-    const required = request.method === "GET" ? "VIEW" : "EDIT";
+    const body = request.method === "POST" ? await request.json() : null;
+    const required = request.method === "GET" || body?.action === "attachment_url" ? "VIEW" : "EDIT";
     const permission = await fetch(`${url}/rest/v1/rpc/portal_has_permission`, {
       method: "POST",
       headers: serviceHeaders,
@@ -68,6 +69,29 @@ Deno.serve(async (request) => {
     if (!permission.ok || await permission.json() !== true) {
       return json({ error: "אין הרשאה מתאימה להעברות בנקאיות." }, 403);
     }
+    const profile = (await read(`portal_user_profiles?select=is_active,is_super_admin,bank_transfer_scope,bank_transfer_approve_for_execution,bank_transfer_set_execution_date,permission_configuration_id&user_id=eq.${actor.id}&limit=1`))[0];
+    if (!profile?.is_active) return json({ error: "אין הרשאה מתאימה להעברות בנקאיות." }, 403);
+    const scoped = !profile.is_super_admin && profile.bank_transfer_scope === "ASSIGNED_DAYCARES";
+    const allowedDaycares = new Set<string>(scoped
+      ? (await read(`portal_user_daycares?select=daycare_id&user_id=eq.${actor.id}&permission_configuration_id=eq.${profile.permission_configuration_id}`)).map((row: { daycare_id: string }) => row.daycare_id)
+      : []);
+    const canApprove = profile.is_super_admin || profile.bank_transfer_approve_for_execution;
+    const canSetDate = profile.is_super_admin || profile.bank_transfer_set_execution_date;
+    const own = (row: Record<string, unknown> | null | undefined) => Boolean(row && (!scoped || allowedDaycares.has(String(row.daycare_id))));
+    const findOwn = async (id: string) => {
+      const row = (await read(`bank_transfers?bank_transfer_id=eq.${id}&lifecycle_status=eq.ACTIVE&limit=1`))[0];
+      return own(row) ? row : null;
+    };
+    const permittedFamily = async (row: Record<string, unknown>) => {
+      if (!scoped || row.parent_transfer_id) return true;
+      const children = await read(`bank_transfers?select=daycare_id&parent_transfer_id=eq.${row.bank_transfer_id}&lifecycle_status=eq.ACTIVE`);
+      return children.every(own);
+    };
+    const safeTransfer = async (row: Record<string, unknown>) => {
+      if (!scoped || !row.parent_transfer_id) return row;
+      const parent = await findOwn(String(row.parent_transfer_id));
+      return parent && await permittedFamily(parent) ? row : { ...row, parent_transfer_id: null };
+    };
 
     if (request.method === "GET") {
       const readAllTransfers = async () => {
@@ -86,15 +110,30 @@ Deno.serve(async (request) => {
         read("allocation_units?select=allocation_unit_id,allocation_unit_code,display_name,allocation_unit_type,lifecycle_status,display_order&lifecycle_status=eq.ACTIVE&order=display_order,display_name"),
         read("daycares?select=daycare_id,daycare_code,display_name,allocation_unit_id,lifecycle_status,display_order&lifecycle_status=eq.ACTIVE&order=display_order,display_name"),
       ]);
-      return json({ transfers, categories, units, daycares });
+      if (!scoped) return json({ transfers, categories, units, daycares, capabilities: { approve_for_execution: canApprove, set_execution_date: canSetDate, scope: "ALL" } });
+      const permitted = transfers.filter(own);
+      const byId = new Map(transfers.map((row) => [row.bank_transfer_id, row]));
+      const safe = permitted.map((row) => {
+        if (!row.parent_transfer_id) {
+          const children = transfers.filter((child) => child.parent_transfer_id === row.bank_transfer_id);
+          if (children.some((child) => !own(child))) return null;
+          return row;
+        }
+        const parent = byId.get(row.parent_transfer_id);
+        const siblings = transfers.filter((child) => child.parent_transfer_id === row.parent_transfer_id);
+        return parent && own(parent) && siblings.every(own) ? row : { ...row, parent_transfer_id: null };
+      }).filter(Boolean);
+      const visibleParentIds = new Set(safe.filter((row) => !row.parent_transfer_id).map((row) => row.bank_transfer_id));
+      return json({ transfers: safe.filter((row) => !row.parent_transfer_id || visibleParentIds.has(row.parent_transfer_id)),
+        categories, units: units.filter((unit) => daycares.some((daycare) => allowedDaycares.has(daycare.daycare_id) && daycare.allocation_unit_id === unit.allocation_unit_id)),
+        daycares: daycares.filter((daycare) => allowedDaycares.has(daycare.daycare_id)),
+        capabilities: { approve_for_execution: canApprove, set_execution_date: canSetDate, scope: "ASSIGNED_DAYCARES" } });
     }
 
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
-    const body = await request.json();
-
     if (body.action === "save") {
       const id = uuid(body.bank_transfer_id);
-      const parentId = uuid(body.parent_transfer_id) || null;
+      let parentId = uuid(body.parent_transfer_id) || null;
       const executionDate = nullable(body.execution_date);
       const nextStatus = status(body.status);
       const amount = Number(body.amount);
@@ -103,8 +142,29 @@ Deno.serve(async (request) => {
         return json({ error: "השלמת העברה מחייבת תאריך ביצוע שהוזן ידנית." }, 422);
       }
       const categoryId = uuid(body.budget_category_id) || null;
-      const unitId = uuid(body.allocation_unit_id) || null;
-      const daycareId = uuid(body.daycare_id) || null;
+      let unitId = uuid(body.allocation_unit_id) || null;
+      let daycareId = uuid(body.daycare_id) || null;
+      const previous = id ? await findOwn(id) : null;
+      if (id && !previous) return json({ error: "ההעברה לא נמצאה." }, 404);
+      if (nextStatus === "COMPLETED" && previous?.status !== "COMPLETED" && !canApprove) return json({ error: "אין הרשאה לאשר העברה לביצוע." }, 403);
+      if (scoped) {
+        if (!id && !daycareId && allowedDaycares.size === 1) {
+          daycareId = [...allowedDaycares][0];
+          const assigned = (await read(`daycares?select=allocation_unit_id&daycare_id=eq.${daycareId}&lifecycle_status=eq.ACTIVE&limit=1`))[0];
+          unitId = assigned?.allocation_unit_id || null;
+        }
+        if (!daycareId || !allowedDaycares.has(daycareId)) return json({ error: "המעון אינו בטווח ההרשאה." }, 403);
+        if (previous && !(await permittedFamily(previous))) return json({ error: "לא ניתן לערוך שורת אב עם פיצולים מחוץ לטווח." }, 403);
+        if (previous?.parent_transfer_id) {
+          if (parentId && parentId !== previous.parent_transfer_id) return json({ error: "לא ניתן לשנות שורת אב." }, 403);
+          parentId = previous.parent_transfer_id;
+        }
+        if (parentId && !previous?.parent_transfer_id) {
+          const parent = await findOwn(parentId);
+          if (!parent || parent.parent_transfer_id || !(await permittedFamily(parent))) return json({ error: "שורת האב אינה בטווח ההרשאה." }, 403);
+        }
+      }
+      if (previous && !canSetDate && nullable(previous.execution_date) !== executionDate || !previous && !canSetDate && executionDate) return json({ error: "אין הרשאה לקבוע תאריך ביצוע." }, 403);
       const [categories, units, daycares] = await Promise.all([
         categoryId ? read(`budget_categories?select=budget_category_id&budget_category_id=eq.${categoryId}&lifecycle_status=eq.ACTIVE`) : [],
         unitId ? read(`allocation_units?select=allocation_unit_id&allocation_unit_id=eq.${unitId}&lifecycle_status=eq.ACTIVE`) : [],
@@ -131,19 +191,19 @@ Deno.serve(async (request) => {
         execution_date: executionDate,
         updated_by_user_id: actor.id,
       };
-      const previous = id ? (await read(`bank_transfers?bank_transfer_id=eq.${id}&lifecycle_status=eq.ACTIVE&limit=1`))[0] : null;
-      if (id && !previous) return json({ error: "ההעברה לא נמצאה." }, 404);
       const saved = id
         ? (await write(`bank_transfers?bank_transfer_id=eq.${id}`, "PATCH", payload))[0]
         : (await write("bank_transfers", "POST", { ...payload, created_by_user_id: actor.id }))[0];
       await audit(saved.bank_transfer_id, id ? "UPDATE" : "INSERT", previous, saved, actor.id);
-      return json({ transfer: saved }, id ? 200 : 201);
+      return json({ transfer: await safeTransfer(saved) }, id ? 200 : 201);
     }
 
     if (body.action === "mark_completed") {
+      if (!canApprove) return json({ error: "אין הרשאה לאשר העברה לביצוע." }, 403);
       const id = uuid(body.bank_transfer_id);
-      const previous = (await read(`bank_transfers?bank_transfer_id=eq.${id}&lifecycle_status=eq.ACTIVE&limit=1`))[0];
+      const previous = await findOwn(id);
       if (!previous) return json({ error: "ההעברה לא נמצאה." }, 404);
+      if (!(await permittedFamily(previous))) return json({ error: "פיצול מחוץ לטווח ההרשאה." }, 403);
       if (!previous.execution_date) {
         return json({ error: "יש להזין תאריך ביצוע ידנית לפני סימון בוצע." }, 422);
       }
@@ -152,13 +212,28 @@ Deno.serve(async (request) => {
         updated_by_user_id: actor.id,
       }))[0];
       await audit(id, "STATUS_CHANGE", previous, saved, actor.id);
-      return json({ transfer: saved });
+      return json({ transfer: await safeTransfer(saved) });
+    }
+
+    if (body.action === "approve_for_execution") {
+      if (!canApprove) return json({ error: "אין הרשאה לאשר העברה לביצוע." }, 403);
+      const id = uuid(body.bank_transfer_id);
+      const previous = await findOwn(id);
+      if (!previous) return json({ error: "ההעברה לא נמצאה." }, 404);
+      if (!(await permittedFamily(previous))) return json({ error: "פיצול מחוץ לטווח ההרשאה." }, 403);
+      const saved = (await write(`bank_transfers?bank_transfer_id=eq.${id}`, "PATCH", {
+        approved_for_execution: true, approved_by_user_id: actor.id,
+        approved_at: new Date().toISOString(), updated_by_user_id: actor.id,
+      }))[0];
+      await audit(id, "UPDATE", previous, saved, actor.id);
+      return json({ transfer: await safeTransfer(saved) });
     }
 
     if (body.action === "delete") {
       const id = uuid(body.bank_transfer_id);
-      const previous = (await read(`bank_transfers?bank_transfer_id=eq.${id}&lifecycle_status=eq.ACTIVE&limit=1`))[0];
+      const previous = await findOwn(id);
       if (!previous) return json({ error: "ההעברה לא נמצאה." }, 404);
+      if (!(await permittedFamily(previous))) return json({ error: "פיצול מחוץ לטווח ההרשאה." }, 403);
       const children = await read(`bank_transfers?parent_transfer_id=eq.${id}&lifecycle_status=eq.ACTIVE`);
       const ids = [id, ...children.map((row: Record<string, unknown>) => row.bank_transfer_id)];
       await write(`bank_transfers?bank_transfer_id=in.(${ids.join(",")})`, "PATCH", {
@@ -185,9 +260,15 @@ Deno.serve(async (request) => {
         const nextStatus = status(row.status);
         const executionDate = nullable(row.execution_date);
         const categoryId = uuid(row.budget_category_id) || null;
-        const unitId = uuid(row.allocation_unit_id) || null;
-        const daycareId = uuid(row.daycare_id) || null;
+        let unitId = uuid(row.allocation_unit_id) || null;
+        let daycareId = uuid(row.daycare_id) || null;
+        if (scoped && !daycareId && allowedDaycares.size === 1) {
+          daycareId = [...allowedDaycares][0]; unitId = daycareUnits.get(daycareId) || null;
+        }
         const errors = [];
+        if (scoped && !allowedDaycares.has(daycareId || "")) errors.push("מעון מחוץ לטווח");
+        if (nextStatus === "COMPLETED" && !canApprove) errors.push("אישור ביצוע");
+        if (executionDate && !canSetDate) errors.push("תאריך ביצוע");
         if (!Number.isFinite(amount) || amount < 0) errors.push("סכום");
         if (nextStatus === "COMPLETED" && !/^\d{4}-\d{2}-\d{2}$/.test(executionDate || "")) errors.push("תאריך ביצוע");
         if (categoryId && !categoryIds.has(categoryId)) errors.push("סעיף תקציבי");
@@ -220,8 +301,9 @@ Deno.serve(async (request) => {
 
     if (body.action === "upload_attachment") {
       const id = uuid(body.bank_transfer_id);
-      const transfer = (await read(`bank_transfers?bank_transfer_id=eq.${id}&lifecycle_status=eq.ACTIVE&limit=1`))[0];
+      const transfer = await findOwn(id);
       if (!transfer) return json({ error: "ההעברה לא נמצאה." }, 404);
+      if (!(await permittedFamily(transfer))) return json({ error: "פיצול מחוץ לטווח ההרשאה." }, 403);
       const fileName = text(body.file_name).replace(/[^\p{L}\p{N}._ -]/gu, "_").slice(0, 160) || "attachment";
       const contentType = text(body.content_type) || "application/octet-stream";
       const encoded = text(body.base64);
@@ -244,13 +326,14 @@ Deno.serve(async (request) => {
         updated_by_user_id: actor.id,
       }))[0];
       await audit(id, "ATTACHMENT_UPLOAD", transfer, saved, actor.id);
-      return json({ transfer: saved });
+      return json({ transfer: await safeTransfer(saved) });
     }
 
     if (body.action === "attachment_url") {
       const id = uuid(body.bank_transfer_id);
-      const transfer = (await read(`bank_transfers?bank_transfer_id=eq.${id}&lifecycle_status=eq.ACTIVE&limit=1`))[0];
+      const transfer = await findOwn(id);
       if (!transfer?.attachment_path) return json({ error: "לא נמצא קובץ מצורף." }, 404);
+      if (!(await permittedFamily(transfer))) return json({ error: "לא נמצא קובץ מצורף." }, 404);
       const signed = await fetch(`${url}/storage/v1/object/sign/${BUCKET}/${storagePath(transfer.attachment_path)}`, {
         method: "POST",
         headers: serviceHeaders,

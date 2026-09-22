@@ -1,6 +1,6 @@
 # Project State
 
-Last reviewed: 2026-09-22 (TRACK044)
+Last reviewed: 2026-09-22 (TRACK045)
 
 This file contains current operational state only. Durable rules belong in
 `AGENTS.md` and `docs/business-rules.md`; detailed history belongs in
@@ -32,13 +32,12 @@ This file contains current operational state only. Durable rules belong in
 ## Backend deployment head
 
 - Linked Supabase is the canonical shared backend and Preview backend.
-- Latest documented applied migration: remote migration
-  `20260917084017 track030b_bank_upload_history`; repository source migration
-  `supabase/migrations/20260917082920_track030b_bank_upload_history.sql`.
+- Latest applied migration: `20260922142635_track045_bank_transfer_permissions`.
 - Relevant active Edge Function: `portal-bank-workbench` version 19, JWT
   verification enabled (observed during TRACK042 backend check).
-- `portal-bank-transfer-workbench` version 4 is ACTIVE with JWT verification
-  enabled (TRACK044 archive audit operation fix on the shared Preview/Production backend).
+- `portal-bank-transfer-workbench` version 5 and `portal-users` version 7 are
+  ACTIVE with JWT verification enabled (TRACK045 permission foundation on the
+  linked shared backend).
 - Other last documented relevant versions: `portal-workforce-workbench` v24
   (TRACK026H) and `portal-runtime-config` v2 (TRACK028B).
 - TRACK029 keepalive job `track029-supabase-keepalive` runs at 00:00 and 12:00
@@ -46,6 +45,10 @@ This file contains current operational state only. Durable rules belong in
 
 ## Latest completed TRACKs
 
+- TRACK045: Bank Transfers daycare-scoped permission foundation, separate
+  approval and execution-date actions, and permission-editor controls deployed
+  to linked Preview backend. No existing user assignment or Production frontend
+  change.
 - TRACK044: Bank Transfer archive audit now uses the existing `UPDATE` operation;
   parent/child archive behavior and the DB audit constraint are unchanged. The
   shared Edge Function v4 is live, with no frontend deployment or existing data edit.
@@ -70,7 +73,9 @@ This file contains current operational state only. Durable rules belong in
 
 ## Open items and blockers
 
-- Bank Transfer parent and split rows independently store canonical unit/daycare IDs, but both associations are nullable. Future daycare-scoped permissions must define how unassigned rows and splits with differing assignments are handled.
+- TRACK045 resolves Bank Transfer unassigned/cross-daycare split visibility for
+  scoped users: unassigned rows are invisible and only own split allocations
+  are returned, without foreign parent or sibling detail.
 - TRACK037 resolved the remaining TRACK034 mobile test timing failure. The
   combined TRACK034/035 suite passes 14/14 on desktop 1440px and mobile 390px;
   no application or deployment change was required. Combined TRACK034/035 is

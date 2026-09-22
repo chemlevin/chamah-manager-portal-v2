@@ -37,7 +37,7 @@ Deno.serve(async (request) => {
       await fetch(`${url}/rest/v1/audit_events`, { method: "POST", headers: serviceHeaders, body: JSON.stringify({ entity_type: "PORTAL_USER", entity_id: invited.id, operation: "INSERT", new_values: { invited: true }, source_type: "PORTAL_ADMIN", actor_user_id: actor.id }) });
     } else if (request.method === "PATCH") {
       const body = await request.json();
-      const saved = await fetch(`${url}/rest/v1/rpc/portal_admin_save_user`, { method: "POST", headers: serviceHeaders, body: JSON.stringify({ actor_id: actor.id, target_user_id: body.user_id, profile_values: body.profile, permission_values: body.permissions || [], allocation_unit_ids: body.allocation_unit_ids || [], daycare_ids: body.daycare_ids || [] }) });
+      const saved = await fetch(`${url}/rest/v1/rpc/portal_admin_save_bank_transfer_user`, { method: "POST", headers: serviceHeaders, body: JSON.stringify({ actor_id: actor.id, target_user_id: body.user_id, profile_values: body.profile, permission_values: body.permissions || [], allocation_unit_ids: body.allocation_unit_ids || [], daycare_ids: body.daycare_ids || [], bank_transfer_values: body.bank_transfer || {} }) });
       if (!saved.ok) { const detail = await saved.json(); return json({ error: String(detail.message || "שמירת המשתמש נכשלה.").replace("FINAL_SUPER_ADMIN_PROTECTED", "לא ניתן לנטרל או להסיר את מנהל־העל האחרון.") }, saved.status); }
     } else if (request.method !== "GET") return json({ error: "Method not allowed" }, 405);
 

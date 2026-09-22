@@ -5015,3 +5015,11 @@ Validation:
 - Added a handler regression test that executes the actual Edge Function with an in-memory REST contract enforcing the migration's allowed audit operations. It verifies the parent and child archive, accepted audit event, and empty active list after a fresh GET.
 - Validation: 16/16 focused Playwright tests passed across desktop 1440px and mobile 390px (two new handler cases plus the existing 14 TRACK042 cases). Read-back confirms `portal-bank-transfer-workbench` v4 ACTIVE, JWT verification enabled, with the corrected source and unchanged live audit constraint.
 - Deployed only the Edge Function to the linked shared backend. Preview and Production use that same backend, so this deployment becomes live for both at once; there is no independently promotable backend artifact. No Vercel frontend deployment was made. Canonical URL inspection resolved READY Production deployment `dpl_9eLZhS8jxCZKyym6m7fbEt9bTBqA`, serving Git SHA `fa89a8f5381e1ff78f155208fb4e25f087d0a154` independently of TRACK044. An authenticated real-data archive was not attempted because it would modify existing business data.
+
+## TRACK045 — Bank Transfers daycare permission foundation (2026-09-22)
+
+- Added per-user Bank Transfers scope (ALL / ASSIGNED_DAYCARES) and independent approval/execution-date action flags without changing existing users' assignments or screen-level HIDDEN / VIEW / EDIT model.
+- Edge Function filters scoped transfers and reference-daycare options, denies out-of-scope direct IDs and mutations, and projects cross-daycare split children without parent or sibling details. Parent mutations with foreign split allocations are denied. A single assigned daycare is automatically selected on creation.
+- Added explicit approval-for-execution state/action, permission-editor controls and Daycare Manager preset. Existing super-admin access remains unrestricted.
+- Migration `20260922142635_track045_bank_transfer_permissions` applied to the linked shared backend. `portal-bank-transfer-workbench` v5 and `portal-users` v7 are ACTIVE with JWT verification enabled. The service-only administration RPC was verified inaccessible to anon/authenticated.
+- Browser regression: 36/36 existing desktop and 390px tests passed; new preset test 2/2 passed; focused backend security tests 5/5 passed. No real user permissions or business records were changed.

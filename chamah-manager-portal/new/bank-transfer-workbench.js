@@ -52,7 +52,7 @@ export function bankTransferWorkbenchTemplate() {
 
 export async function mountBankTransferWorkbench(request) {
   const state = {
-    data: { transfers: [], categories: [], units: [], daycares: [] },
+    data: { transfers: [], categories: [], units: [], daycares: [], capabilities: {} },
     query: "", view: "open", unit: "", sort: "row_number:asc",
     drafts: new Map(), controllers: new Map(), expanded: new Set(), selectedRows: new Set(),
   };
@@ -142,9 +142,9 @@ export async function mountBankTransferWorkbench(request) {
       <td><select name="daycare_id" aria-label="מעון">${daycareOptions(row.daycare_id, row.allocation_unit_id)}</select></td>
       <td><select name="status" aria-label="סטטוס">${Object.entries(statusLabels).map(([value, title]) => `<option value="${value}" ${row.status === value ? "selected" : ""}>${title}</option>`).join("")}</select></td>
       <td class="system-cell">${row.created_at ? esc(new Intl.DateTimeFormat("he-IL", { timeZone: "Asia/Jerusalem", dateStyle: "short" }).format(new Date(row.created_at))) : "יוקצה בשמירה"}</td>
-      <td><input name="execution_date" type="date" value="${esc(row.execution_date)}" aria-label="תאריך ביצוע"></td>
+      <td><input name="execution_date" type="date" value="${esc(row.execution_date)}" aria-label="תאריך ביצוע" ${state.data.capabilities.set_execution_date === false ? "readonly" : ""}></td>
       <td class="attachment-cell">${row.attachment_path ? `<button class="icon-button" data-open-attachment type="button" title="${esc(row.attachment_name)}">📎</button>` : ""}<button class="icon-button" data-upload-attachment type="button" ${temp ? "disabled" : ""} aria-label="העלאת קובץ">＋</button><input data-attachment-file type="file" hidden></td>
-      <td class="row-actions"><span class="bank-row-status ${health}">${healthLabel}</span><span class="autosave-status" data-save-status></span><button class="button button-quiet transfer-done" data-mark-completed type="button" ${row.status === "COMPLETED" || temp ? "disabled" : ""}>בוצע</button>${child && index > 0 ? '<button class="button button-quiet" data-copy-split type="button">העתקה מהחלק הקודם</button>' : ""}${!child ? `<button class="button button-quiet" data-toggle-split type="button" ${temp ? "disabled" : ""}>${isSplit && state.expanded.has(source.bank_transfer_id) ? "סגירה" : "פיצול"}</button>` : ""}<button class="icon-button danger" data-delete-transfer type="button" aria-label="מחיקה">×</button></td>
+      <td class="row-actions"><span class="bank-row-status ${health}">${healthLabel}</span><span class="autosave-status" data-save-status></span>${state.data.capabilities.approve_for_execution !== false ? `<button class="button button-quiet" data-approve-transfer type="button" ${row.approved_for_execution || temp ? "disabled" : ""}>אישור לביצוע</button>` : ""}<button class="button button-quiet transfer-done" data-mark-completed type="button" ${row.status === "COMPLETED" || temp || state.data.capabilities.approve_for_execution === false ? "disabled" : ""}>בוצע</button>${child && index > 0 ? '<button class="button button-quiet" data-copy-split type="button">העתקה מהחלק הקודם</button>' : ""}${!child ? `<button class="button button-quiet" data-toggle-split type="button" ${temp ? "disabled" : ""}>${isSplit && state.expanded.has(source.bank_transfer_id) ? "סגירה" : "פיצול"}</button>` : ""}<button class="icon-button danger" data-delete-transfer type="button" aria-label="מחיקה">×</button></td>
     </tr>${!child && isSplit ? `<tr class="split-summary-row"><td colspan="18"><button type="button" data-toggle-split="${source.bank_transfer_id}"><strong>פיצול:</strong> סכום מקורי ${money.format(Number(row.amount || 0))} · חלקים ${money.format(summary.parts)} · חלקים שבוצעו ${money.format(summary.paid)} · יתרה ${money.format(summary.remaining)} · <span class="split-badge">${Math.abs(summary.remaining) < .005 ? "מאוזן" : summary.remaining > 0 ? "נותרה יתרה" : "חריגה מהסכום"}</span></button></td></tr>${state.expanded.has(source.bank_transfer_id) ? summary.children.map((item, childIndex) => rowTemplate(item, { child: true, index: childIndex })).join("") + `<tr class="transfer-add-child"><td colspan="18"><button class="button button-secondary" data-add-split="${source.bank_transfer_id}" type="button">+ הוספת חלק</button></td></tr>` : ""}` : ""}`;
   };
   const readRow = (id) => {
@@ -221,7 +221,7 @@ export async function mountBankTransferWorkbench(request) {
   };
   const reload = async () => {
     const data = await request("GET");
-    state.data = data;
+    state.data = { ...data, capabilities: data.capabilities || {} };
     $("#transfer-unit-filter").innerHTML = `<option value="">כל המחלקות</option>${data.units.map((row) => `<option value="${row.allocation_unit_id}">${esc(row.display_name)}</option>`).join("")}`;
   };
   const add = (parentId = null) => {
@@ -231,7 +231,7 @@ export async function mountBankTransferWorkbench(request) {
       bank_transfer_id: id, row_number: null, transfer_number: null, parent_transfer_id: parentId,
       name: parent?.name || "", amount: 0, bank: parent?.bank || "", branch: parent?.branch || "",
       account_number: parent?.account_number || "", account_holder: parent?.account_holder || "",
-      budget_category_id: null, notes: "", allocation_unit_id: null, daycare_id: null,
+      budget_category_id: null, notes: "", allocation_unit_id: parent?.allocation_unit_id || (state.data.daycares.length === 1 ? state.data.daycares[0].allocation_unit_id : null), daycare_id: parent?.daycare_id || (state.data.daycares.length === 1 ? state.data.daycares[0].daycare_id : null),
       status: "PENDING", execution_date: null, attachment_path: null,
     });
     if (parentId) state.expanded.add(parentId);
@@ -393,6 +393,12 @@ export async function mountBankTransferWorkbench(request) {
       } else if (event.target.closest("[data-add-split]")) {
         add(event.target.closest("[data-add-split]").dataset.addSplit);
       } else if (event.target.closest("[data-delete-transfer]")) await deleteRow(id);
+      else if (event.target.closest("[data-approve-transfer]")) {
+        await state.controllers.get(id)?.saveNow({ manual: true });
+        const result = await request("POST", { action: "approve_for_execution", bank_transfer_id: id });
+        state.data.transfers[state.data.transfers.findIndex((item) => item.bank_transfer_id === id)] = result.transfer;
+        render(); message("ההעברה אושרה לביצוע.", "success");
+      }
       else if (event.target.closest("[data-mark-completed]")) {
         const current = readRow(id);
         state.drafts.set(id, current);

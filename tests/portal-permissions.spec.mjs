@@ -47,6 +47,26 @@ test('permission management renders real controls and saves through the secured 
   await expect(page.locator('#permissions-feedback')).toContainText('נשמרו בהצלחה');
 });
 
+test('Bank Transfers daycare preset keeps HIDDEN/VIEW/EDIT model and saves scoped action flags', async ({ page }) => {
+  let saved;
+  await page.route(`${base}/functions/v1/portal-users`, async (route) => {
+    if (route.request().method() === 'PATCH') saved = route.request().postDataJSON();
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(snapshot) });
+  });
+  await openWithAccess(page, portalAccessFixture, 'training/permissions/users');
+  await page.locator('#daycare-transfer-preset').click();
+  await expect(page.locator('[data-screen="dashboards.accounting.bank-transfers"] [data-permission]:checked')).toHaveValue('EDIT');
+  await expect(page.locator('[name="bank_transfer_scope"]:checked')).toHaveValue('ASSIGNED_DAYCARES');
+  await expect(page.locator('[name="approve_for_execution"]')).not.toBeChecked();
+  await expect(page.locator('[name="set_execution_date"]')).not.toBeChecked();
+  await page.locator('#permissions-form button[type="submit"]').click();
+  await expect(page.locator('#permissions-feedback')).toContainText('יש לבחור');
+  await page.locator('[name="daycare_scope"][value="daycare-1"]').check();
+  await page.locator('#permissions-form button[type="submit"]').click();
+  await expect.poll(() => saved?.bank_transfer).toEqual({ scope: 'ASSIGNED_DAYCARES', approve_for_execution: false, set_execution_date: false });
+  expect(saved.permissions.find((item) => item.screen_code === 'dashboards.accounting.bank-transfers')?.permission_level).toBe('EDIT');
+});
+
 test('scope choices de-duplicate by stable IDs and preserve the saved IDs', async ({ page }) => {
   let saved;
   const duplicated = {
