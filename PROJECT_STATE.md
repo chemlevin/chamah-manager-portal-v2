@@ -21,6 +21,9 @@ This file contains current operational state only. Durable rules belong in
   TRACK036.
 - TRACK040 Preview deployment `dpl_38SnDzWLySWii5hc77TjZkUj257g` is READY at
   `https://chamah-portal-n9w9n6xi2-chamah.vercel.app`; Production is unchanged.
+- TRACK042 Preview deployment `dpl_FqTucMJWjHRedYGnhJ8FDibbjMkr` is READY at
+  `https://chamah-portal-4qgb1mi0g-chamah.vercel.app`, serving Git SHA
+  `5d0b6e01830c645c5c918c3e69b03a7e592c04a1`; TRACK042 made no Production deployment.
 
 ## Backend deployment head
 
