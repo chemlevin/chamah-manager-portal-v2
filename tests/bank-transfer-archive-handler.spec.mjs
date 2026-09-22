@@ -20,6 +20,11 @@ test('archive uses an allowed audit operation and remains archived on reload', a
     const url = new URL(input);
     if (url.pathname === '/auth/v1/user') return Response.json({ id: parentId });
     if (url.pathname.endsWith('/rpc/portal_has_permission')) return Response.json(true);
+    if (url.pathname.endsWith('/portal_user_profiles')) return Response.json([{
+      is_active: true, is_super_admin: false, bank_transfer_scope: 'ALL',
+      bank_transfer_approve_for_execution: false, bank_transfer_set_execution_date: false,
+      permission_configuration_id: parentId,
+    }]);
     if (url.pathname.endsWith('/audit_events')) {
       const event = JSON.parse(options.body);
       if (!allowed.has(event.operation)) return Response.json({ message: 'audit_events_operation_check' }, { status: 400 });

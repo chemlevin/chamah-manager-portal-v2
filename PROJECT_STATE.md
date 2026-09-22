@@ -1,6 +1,6 @@
 # Project State
 
-Last reviewed: 2026-09-22 (TRACK046)
+Last reviewed: 2026-09-22 (TRACK047)
 
 This file contains current operational state only. Durable rules belong in
 `AGENTS.md` and `docs/business-rules.md`; detailed history belongs in
@@ -80,9 +80,10 @@ This file contains current operational state only. Durable rules belong in
 
 ## Open items and blockers
 
-- TRACK046 promotion is live and authenticated read-only smoke checks pass, but
-  final regression acceptance is blocked: the older archive test fixture omits
-  the TRACK045 profile response and receives 403 (48/50 focused tests pass).
+- TRACK046 regression gate is closed by TRACK047: the archive test fixture now
+  supplies the TRACK045 active, full-scope profile response. The focused desktop
+  and 390px Bank Transfers/permissions suite passes 50/50; Production was not
+  redeployed for this test-only correction.
 - TRACK045 resolves Bank Transfer unassigned/cross-daycare split visibility for
   scoped users: unassigned rows are invisible and only own split allocations
   are returned, without foreign parent or sibling detail.
