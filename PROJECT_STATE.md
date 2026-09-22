@@ -1,6 +1,6 @@
 # Project State
 
-Last reviewed: 2026-09-22 (TRACK042)
+Last reviewed: 2026-09-22 (TRACK044)
 
 This file contains current operational state only. Durable rules belong in
 `AGENTS.md` and `docs/business-rules.md`; detailed history belongs in
@@ -24,6 +24,10 @@ This file contains current operational state only. Durable rules belong in
 - TRACK042 Preview deployment `dpl_FqTucMJWjHRedYGnhJ8FDibbjMkr` is READY at
   `https://chamah-portal-4qgb1mi0g-chamah.vercel.app`, serving Git SHA
   `5d0b6e01830c645c5c918c3e69b03a7e592c04a1`; TRACK042 made no Production deployment.
+- TRACK044 is backend-only. The canonical URL resolved on 2026-09-22 to READY
+  Production deployment `dpl_9eLZhS8jxCZKyym6m7fbEt9bTBqA`, Git SHA
+  `fa89a8f5381e1ff78f155208fb4e25f087d0a154`; TRACK044 did not deploy or
+  promote a Vercel frontend artifact.
 
 ## Backend deployment head
 
@@ -33,8 +37,8 @@ This file contains current operational state only. Durable rules belong in
   `supabase/migrations/20260917082920_track030b_bank_upload_history.sql`.
 - Relevant active Edge Function: `portal-bank-workbench` version 19, JWT
   verification enabled (observed during TRACK042 backend check).
-- `portal-bank-transfer-workbench` version 3 is ACTIVE with JWT verification
-  enabled (TRACK042 paged full-dataset read on the linked Preview backend).
+- `portal-bank-transfer-workbench` version 4 is ACTIVE with JWT verification
+  enabled (TRACK044 archive audit operation fix on the shared Preview/Production backend).
 - Other last documented relevant versions: `portal-workforce-workbench` v24
   (TRACK026H) and `portal-runtime-config` v2 (TRACK028B).
 - TRACK029 keepalive job `track029-supabase-keepalive` runs at 00:00 and 12:00
@@ -42,6 +46,9 @@ This file contains current operational state only. Durable rules belong in
 
 ## Latest completed TRACKs
 
+- TRACK044: Bank Transfer archive audit now uses the existing `UPDATE` operation;
+  parent/child archive behavior and the DB audit constraint are unchanged. The
+  shared Edge Function v4 is live, with no frontend deployment or existing data edit.
 - TRACK042: Bank Transfers autosave, entry date display, split copying/collapse, and full-dataset missing-attachment filter validated on desktop and 390px Preview workflow. No database or Production change.
 - TRACK040: unified Bank and Payroll Actual contracts across Finance Dashboard
   KPIs, balances, summaries, and category matrices; Bank Workbench rejects new

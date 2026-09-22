@@ -165,7 +165,7 @@ Deno.serve(async (request) => {
         lifecycle_status: "ARCHIVED",
         updated_by_user_id: actor.id,
       });
-      await audit(id, "ARCHIVE", { parent: previous, children }, { lifecycle_status: "ARCHIVED" }, actor.id);
+      await audit(id, "UPDATE", { parent: previous, children }, { lifecycle_status: "ARCHIVED" }, actor.id);
       return json({ archived: ids });
     }
 
