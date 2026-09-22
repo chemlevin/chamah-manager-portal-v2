@@ -5004,5 +5004,6 @@ Validation:
 - Preserved autosave controllers across table rerenders so filtering, sorting, and split collapse do not cancel a pending save. Kept newer edits made during an in-flight insert and saved them against the assigned transfer ID.
 - Displayed the canonical `created_at` as the entry date. No entry-date column or migration was added.
 - Added copying of applicable details from the previous split row, plus a full-dataset missing-attachment count and filter.
+- Changed the Bank Transfer Edge Function list read to page through active rows by `row_number`, removing its fixed 5,000-row response cap. The linked Preview backend was read-only checked before deployment; its active set is currently smaller than one page, so multi-page behavior was validated by code review rather than live volume.
 - Verified the current model: each parent and split child independently stores `allocation_unit_id` and `daycare_id`, and the existing API/database validate daycare-to-unit consistency. Both fields are nullable, so future daycare-scoped permissions must define handling for unassigned rows and split children with different assignments.
 - Validation: Bank Transfers Playwright suite passed 14/14 across desktop 1440px and mobile 390px; build, syntax, and diff checks passed. Preview deployment details are recorded in `PROJECT_STATE.md`.
