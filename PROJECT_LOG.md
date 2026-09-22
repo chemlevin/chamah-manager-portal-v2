@@ -5023,3 +5023,4 @@ Validation:
 - Added explicit approval-for-execution state/action, permission-editor controls and Daycare Manager preset. Existing super-admin access remains unrestricted.
 - Migration `20260922142635_track045_bank_transfer_permissions` applied to the linked shared backend. `portal-bank-transfer-workbench` v5 and `portal-users` v7 are ACTIVE with JWT verification enabled. The service-only administration RPC was verified inaccessible to anon/authenticated.
 - Browser regression: 36/36 existing desktop and 390px tests passed; new preset test 2/2 passed; focused backend security tests 5/5 passed. No real user permissions or business records were changed.
+- Vercel Preview `dpl_2XK6BCjWNkyo5aNCw28CA61RiKjW` is READY at `https://chamah-portal-akly2b111-chamah.vercel.app`, serving implementation SHA `3635da5f514334597318489ed77dfc515c03f9ca`. No Production frontend deployment or promotion.

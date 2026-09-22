@@ -28,6 +28,10 @@ This file contains current operational state only. Durable rules belong in
   Production deployment `dpl_9eLZhS8jxCZKyym6m7fbEt9bTBqA`, Git SHA
   `fa89a8f5381e1ff78f155208fb4e25f087d0a154`; TRACK044 did not deploy or
   promote a Vercel frontend artifact.
+- TRACK045 Preview deployment `dpl_2XK6BCjWNkyo5aNCw28CA61RiKjW` is READY at
+  `https://chamah-portal-akly2b111-chamah.vercel.app`, serving implementation
+  Git SHA `3635da5f514334597318489ed77dfc515c03f9ca`. No Production
+  frontend deployment or promotion.
 
 ## Backend deployment head
 
