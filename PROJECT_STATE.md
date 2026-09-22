@@ -1,6 +1,6 @@
 # Project State
 
-Last reviewed: 2026-09-22 (TRACK047)
+Last reviewed: 2026-09-22 (TRACK048)
 
 This file contains current operational state only. Durable rules belong in
 `AGENTS.md` and `docs/business-rules.md`; detailed history belongs in
@@ -37,6 +37,11 @@ This file contains current operational state only. Durable rules belong in
 
 ## Latest completed TRACKs
 
+- TRACK048: fixed Bank Transfers pending amount for split families. The
+  Git-linked Preview `dpl_CLi7dzcJFtVaA4yuEz7EJHkKp6so` is READY at
+  `https://chamah-portal-16di7psvq-chamah.vercel.app`, serving commit
+  `f718f8fdffa4fe231c24b00ab8c60ae45dc82fc0`. No Production
+  deployment or backend mutation was made.
 - TRACK047: corrected only the outdated archive handler profile fixture; the
   focused desktop and 390px Bank Transfers/permissions suite passes 50/50.
 - TRACK046: promoted the approved TRACK045 artifact to canonical Production;
