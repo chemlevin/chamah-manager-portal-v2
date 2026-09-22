@@ -70,8 +70,18 @@ Deno.serve(async (request) => {
     }
 
     if (request.method === "GET") {
+      const readAllTransfers = async () => {
+        const transfers: Record<string, unknown>[] = [];
+        let after = 0;
+        while (true) {
+          const page = await read(`bank_transfers?select=*&lifecycle_status=eq.ACTIVE&row_number=gt.${after}&order=row_number.asc&limit=1000`) as Array<{ row_number: number } & Record<string, unknown>>;
+          transfers.push(...page);
+          if (page.length < 1000) return transfers;
+          after = page[page.length - 1].row_number;
+        }
+      };
       const [transfers, categories, units, daycares] = await Promise.all([
-        read("bank_transfers?select=*&lifecycle_status=eq.ACTIVE&order=row_number.asc&limit=5000"),
+        readAllTransfers(),
         read("budget_categories?select=budget_category_id,budget_category_code,display_name,category_type,lifecycle_status,display_order&lifecycle_status=eq.ACTIVE&order=display_order,display_name"),
         read("allocation_units?select=allocation_unit_id,allocation_unit_code,display_name,allocation_unit_type,lifecycle_status,display_order&lifecycle_status=eq.ACTIVE&order=display_order,display_name"),
         read("daycares?select=daycare_id,daycare_code,display_name,allocation_unit_id,lifecycle_status,display_order&lifecycle_status=eq.ACTIVE&order=display_order,display_name"),
