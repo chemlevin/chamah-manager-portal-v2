@@ -1,6 +1,6 @@
 # Project State
 
-Last reviewed: 2026-09-22 (TRACK045)
+Last reviewed: 2026-09-22 (TRACK046)
 
 This file contains current operational state only. Durable rules belong in
 `AGENTS.md` and `docs/business-rules.md`; detailed history belongs in
@@ -30,8 +30,11 @@ This file contains current operational state only. Durable rules belong in
   promote a Vercel frontend artifact.
 - TRACK045 Preview deployment `dpl_2XK6BCjWNkyo5aNCw28CA61RiKjW` is READY at
   `https://chamah-portal-akly2b111-chamah.vercel.app`, serving implementation
-  Git SHA `3635da5f514334597318489ed77dfc515c03f9ca`. No Production
-  frontend deployment or promotion.
+  Git SHA `3635da5f514334597318489ed77dfc515c03f9ca`.
+- TRACK046 canonical Production URL serves READY deployment
+  `dpl_3sGp9CahiMzQkab3VDCjfVxiVxpY`, Git SHA
+  `958b8f0770a194894fe6c11a889cb87050acaacd`, which contains TRACK045
+  implementation SHA `3635da5f514334597318489ed77dfc515c03f9ca`.
 
 ## Backend deployment head
 
@@ -77,6 +80,9 @@ This file contains current operational state only. Durable rules belong in
 
 ## Open items and blockers
 
+- TRACK046 promotion is live and authenticated read-only smoke checks pass, but
+  final regression acceptance is blocked: the older archive test fixture omits
+  the TRACK045 profile response and receives 403 (48/50 focused tests pass).
 - TRACK045 resolves Bank Transfer unassigned/cross-daycare split visibility for
   scoped users: unassigned rows are invisible and only own split allocations
   are returned, without foreign parent or sibling detail.
