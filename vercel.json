@@ -21,27 +21,6 @@
       }
     }
   ],
-  "headers": [
-    {
-      "source": "/service-worker.js",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-        { "key": "Service-Worker-Allowed", "value": "/" }
-      ]
-    },
-    {
-      "source": "/(.*\\.html)?",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
-      ]
-    },
-    {
-      "source": "/(.*\\.(?:js|css))(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
-      ]
-    }
-  ],
   "routes": [
     {
       "src": "/api/budget",
@@ -54,6 +33,14 @@
     {
       "src": "/api/allocations",
       "dest": "/api/allocations.js"
+    },
+    {
+      "src": "/service-worker.js",
+      "headers": {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Service-Worker-Allowed": "/"
+      },
+      "dest": "/service-worker.js"
     },
     {
       "handle": "filesystem"
