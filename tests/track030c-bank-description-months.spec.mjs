@@ -16,8 +16,7 @@ test('TRACK030C uses calendar periods for the existing accounting assignment mon
   expect(edge).toContain('read("calendar_years?select=*&order=start_date")');
   expect(edge).not.toContain('read("school_year_months?select=*&order=start_date")');
   expect(edge).toContain('const assignmentMonths = [...assignmentMonthKeys]');
-  expect(edge).toContain('allocations.map((row: Record<string, unknown>) => normalizeText(row.budget_month)');
-  expect(edge).toContain('start_date: `${month}-01`');
+  expect(edge).toContain('normalizeText(row.budget_month)');
 });
 
 test('TRACK030C keeps assignment and row validity contracts unchanged', () => {

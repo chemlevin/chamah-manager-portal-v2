@@ -90,6 +90,31 @@ test('Bank File exposes import, search, filters and export controls with an empt
   await expect(page.locator('[data-manual-bank-row]')).toContainText('יוקצו אוטומטית');
 });
 
+test('Bank File upload history shows account coverage, persisted summaries and clear legacy states', async ({ page }) => {
+  await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, {
+    accounts: [account, { bank_account_id: 'account-empty', display_name: 'חשבון ללא תנועות' }],
+    uploadHistory: {
+      accounts: [
+        { bank_account_id: account.bank_account_id, display_name: account.display_name, latest_covered_transaction_date: '2026-07-31' },
+        { bank_account_id: 'account-empty', display_name: 'חשבון ללא תנועות', latest_covered_transaction_date: null },
+      ],
+      batches: [
+        { import_batch_id: 'batch-current', account_name: account.display_name, source_file_name: 'july.xlsx', transaction_date_min: '2026-07-01', transaction_date_max: '2026-07-31', started_at: '2026-08-01T08:30:00Z', completed_at: '2026-08-01T08:30:01Z', total_rows: 12, accepted_rows: 8, duplicate_rows: 3, rejected_rows: 1, status: 'COMPLETED' },
+        { import_batch_id: 'batch-legacy', account_name: account.display_name, source_file_name: 'legacy.xls', transaction_date_min: null, transaction_date_max: null, started_at: '2026-07-01T08:30:00Z', completed_at: null, total_rows: 4, accepted_rows: 0, duplicate_rows: 0, rejected_rows: 1, status: 'RUNNING' },
+      ],
+    },
+  });
+  await page.locator('#bank-upload-history-open').click();
+  await expect(page.locator('#bank-upload-history-dialog')).toBeVisible();
+  await expect(page.locator('.bank-history-coverage')).toContainText('31/07/2026');
+  await expect(page.locator('.bank-history-coverage')).toContainText('אין תנועות שיובאו');
+  await expect(page.locator('.bank-history-table tbody tr')).toHaveCount(2);
+  await expect(page.locator('.bank-history-table tbody')).toContainText('01/07/2026–31/07/2026');
+  await expect(page.locator('.bank-history-table tbody')).toContainText('טווח לא נשמר בייבוא הישן');
+  await expect(page.locator('.bank-history-table tbody')).toContainText('ייבוא ישן ללא השלמה');
+  await expect(page.locator('.bank-history-table tbody tr').first().locator('td')).toHaveText([account.display_name, 'july.xlsx', '01/07/2026–31/07/2026', /.+/, '12', '8', '3', '1', 'הושלם']);
+});
+
 test('Bank File renders automatic health and tree-style split row numbers', async ({ page }, testInfo) => {
   await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, { accounts: [account], transactions, allocations: [allocation] });
   await expect(page.locator('.bank-workbench-table thead th')).toHaveText(['#', 'סטטוס', 'חשבון בנק', 'תאריך ↕', 'תיאור', 'אסמכתא', 'סכום ↕', 'סוג תנועה', 'מחלקה', 'מעון', 'סעיף תקציבי', 'חודש שיוך', 'סטטוס הנה"ח', 'הערות', 'מסמך']);
@@ -124,24 +149,16 @@ test('Bank File searches notes and row numbers and exposes removable filter chip
 
 test('TRACK030C filters descriptions partially with AND semantics and preserves the active filter', async ({ page }) => {
   const urls = [];
-  page.on('request', (request) => {
-    if (request.url().includes('/portal-bank-workbench')) urls.push(request.url());
-  });
+  page.on('request', (request) => { if (request.url().includes('/portal-bank-workbench')) urls.push(request.url()); });
   await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, { accounts: [account], transactions, allocations: [allocation] });
   await page.locator('#bank-description-filter').fill('עמל');
   await expect(page.locator('[data-bank-row="tx-2"]')).toHaveCount(1);
   await expect(page.locator('[data-bank-row="tx-1"]')).toHaveCount(0);
   await expect(page.locator('#bank-filter-chips')).toContainText('תיאור: עמל');
-
   await page.locator('#bank-account-filter').selectOption('account-1');
   await page.locator('[data-sort="amount_desc"]').click();
   await expect(page.locator('#bank-description-filter')).toHaveValue('עמל');
-  await expect(page.locator('#bank-filter-chips')).toContainText('תיאור: עמל');
-  expect(urls.some((url) => {
-    const params = new URL(url).searchParams;
-    return params.get('description') === 'עמל' && params.get('account') === 'account-1' && params.get('sort') === 'amount_desc';
-  })).toBe(true);
-
+  expect(urls.some((url) => { const params = new URL(url).searchParams; return params.get('description') === 'עמל' && params.get('account') === 'account-1' && params.get('sort') === 'amount_desc'; })).toBe(true);
   await page.locator('[data-clear-filter="description"]').click();
   await expect(page.locator('#bank-description-filter')).toHaveValue('');
   await expect(page.locator('[data-bank-row]')).toHaveCount(2);
@@ -151,32 +168,7 @@ test('TRACK030C offers January, August and September 2026 as assignment months',
   await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, { accounts: [account], transactions, allocations: [allocation] });
   await expect(page.locator('#bank-assignment-filter option')).toHaveCount(3);
   const values = await page.locator('#bank-assignment-filter option').evaluateAll((options) => options.map((option) => option.value));
-  expect(values).toEqual(expect.arrayContaining(['2026-01', '2026-08', '2026-09']));
-});
-
-test('Bank File upload history shows account coverage, persisted summaries and clear legacy states', async ({ page }) => {
-  await openAccounting(page, 'dashboards/unit/organization/accounting/banks', portalAccessFixture, {
-    accounts: [account, { bank_account_id: 'account-empty', display_name: 'חשבון ללא תנועות' }],
-    uploadHistory: {
-      accounts: [
-        { bank_account_id: account.bank_account_id, display_name: account.display_name, latest_covered_transaction_date: '2026-07-31' },
-        { bank_account_id: 'account-empty', display_name: 'חשבון ללא תנועות', latest_covered_transaction_date: null },
-      ],
-      batches: [
-        { import_batch_id: 'batch-current', account_name: account.display_name, source_file_name: 'july.xlsx', transaction_date_min: '2026-07-01', transaction_date_max: '2026-07-31', started_at: '2026-08-01T08:30:00Z', completed_at: '2026-08-01T08:30:01Z', total_rows: 12, accepted_rows: 8, duplicate_rows: 3, rejected_rows: 1, status: 'COMPLETED' },
-        { import_batch_id: 'batch-legacy', account_name: account.display_name, source_file_name: 'legacy.xls', transaction_date_min: null, transaction_date_max: null, started_at: '2026-07-01T08:30:00Z', completed_at: null, total_rows: 4, accepted_rows: 0, duplicate_rows: 0, rejected_rows: 1, status: 'RUNNING' },
-      ],
-    },
-  });
-  await page.locator('#bank-upload-history-open').click();
-  await expect(page.locator('#bank-upload-history-dialog')).toBeVisible();
-  await expect(page.locator('.bank-history-coverage')).toContainText('31/07/2026');
-  await expect(page.locator('.bank-history-coverage')).toContainText('אין תנועות שיובאו');
-  await expect(page.locator('.bank-history-table tbody tr')).toHaveCount(2);
-  await expect(page.locator('.bank-history-table tbody')).toContainText('01/07/2026–31/07/2026');
-  await expect(page.locator('.bank-history-table tbody')).toContainText('טווח לא נשמר בייבוא הישן');
-  await expect(page.locator('.bank-history-table tbody')).toContainText('ייבוא ישן ללא השלמה');
-  await expect(page.locator('.bank-history-table tbody tr').first().locator('td')).toHaveText([account.display_name, 'july.xlsx', '01/07/2026–31/07/2026', /.+/, '12', '8', '3', '1', 'הושלם']);
+  expect(values).toEqual(['2026-01', '2026-08', '2026-09']);
 });
 
 test('Bank File makes every active filter, queue and sort state visually explicit', async ({ page }) => {

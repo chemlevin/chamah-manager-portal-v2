@@ -109,9 +109,9 @@ begin
   );
 end;
 $$;
-
 revoke all on function public.portal_confirm_bank_import(uuid, jsonb, uuid, text, uuid, text, integer, integer, integer) from public, anon, authenticated;
 grant execute on function public.portal_confirm_bank_import(uuid, jsonb, uuid, text, uuid, text, integer, integer, integer) to service_role;
 
 comment on function public.portal_confirm_bank_import(uuid, jsonb, uuid, text, uuid, text, integer, integer, integer) is
   'Atomically validates and confirms a bank-file import while retaining the accepted source transaction date range in batch metadata.';
+

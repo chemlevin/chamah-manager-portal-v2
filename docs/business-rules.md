@@ -1,88 +1,36 @@
-# Canonical Business Rules
+# Business Rules Foundation
 
-This file is the authoritative business-rule catalog for the portal. Existing
-rules here remain binding unless a TRACK explicitly changes a rule and updates
-the implementation and tests with it. Spreadsheet and database values are data,
-not implicit business rules.
+This project treats spreadsheet values as dynamic data and business rules as explicit code contracts.
 
-## Shared runtime rules
+## Central module
 
-`config/business-rules.js` owns shared executable contracts:
+Shared rules that engines need at runtime live in `config/business-rules.js`.
 
-- `DEFAULT_AVERAGE_EMPLOYEE_MONTHLY_HOURS = 160` and its
-  `averageEmployeeMonthlyHours` alias.
-- `DAYCARE_MONTH_KEY_SEPARATOR = "|"`.
-- `daycareMonthKey(daycare, month)` and `unitMonthKey(unit, month)` trim values
-  and return `scope|month`.
-- `TUITION_ECONOMIC_MONTHS = 12`.
-- `TUITION_PAYMENT_COUNTS = [11, 12]`.
-- `annualEconomicTuition(monthlyRate)` is exactly `monthlyRate × 12`.
-- `tuitionInstallment(monthlyRate, paymentCount)` rounds to a whole shekel only
-  for 11 payments.
-- `isTuitionCollectionMonth(schoolYearSequence, paymentCount)` uses a
-  September-first collection schedule.
+Current exports:
 
-Do not hardcode live daycare, month, employee, class, category, cost, hour, row,
-or current sheet values in engine logic. Production-like sheet data may verify
-parsing and calculations but must not define rules.
+- `DEFAULT_AVERAGE_EMPLOYEE_MONTHLY_HOURS`: `160`
+- `averageEmployeeMonthlyHours`: alias for the same default value
+- `DAYCARE_MONTH_KEY_SEPARATOR`: `|`
+- `daycareMonthKey(daycare, month)`: trims daycare and month and returns `daycare|month`
+- `BUSINESS_RULES`: read-only metadata describing shared rules
 
-## Tuition
+## Runtime rules currently centralized
 
-- The official monthly tuition rate is a 12-month economic/Budget rate.
-- Annual economic tuition is exactly `monthly_rate × 12`.
-- Eleven-payment collection runs September through July; August collection is
-  zero. The installment is `ROUND((monthly_rate × 12) / 11)`.
-- Twelve-payment collection runs September through August at the monthly rate.
-- Installment rounding never changes annual economic tuition.
-- `daycare_school_years.tuition_payment_count` controls collection scheduling
-  only. It must not change Budget, occupancy, or actual-income calculations.
-- Budget remains `children_count × monthly_rate` in all 12 school-year months.
-- Actual income comes only from actual financial/accounting data.
-- For תשפ״ז (`SY-2026-2027`), monthly rates are INFANT ₪4,185, TODDLER
-  ₪3,102, GRADUATE ₪2,751, and GANON ₪3,102. The corresponding 11-payment
-  installments are ₪4,565, ₪3,384, and ₪3,001.
+### Budget grain
 
-## Budget
+Budget data is calculated by daycare + month.
 
-- Budget grain is daycare + month.
-- `api/budget-engine.js` requires `OCCUPANCY`, `STAFFING`, `MONTH_HOURS`,
-  `FIXED_STAFF`, and `COST_RULES` tables parsed from dynamic `TABLE: NAME`
-  sections.
-- Calculate classroom staffing before daycare/month aggregation.
-- Mixed classrooms are supported only when explicitly marked mixed.
-- Expected revenue is occupancy children × staffing tuition.
-- Cost rules may use Hebrew classroom/staff quantity bases.
-- Daycare-specific exception rules must not double count with general rules.
-- Fixed staff remains separate from classroom staffing but contributes hours and
-  costs.
-- Required employee headcount is separate from regulatory required staff and
-  uses the 160-hour default.
-- Partial `COST_RULES` is valid; calculate only categories that exist.
-- Track unmapped actual-expense categories as Budget coverage gaps.
+### Payroll grain
 
-## Payroll
+Payroll data is aggregated by daycare + month and can expose class-level breakdowns inside each group.
 
-- Payroll grain is daycare + month, using `daycareMonthKey`.
-- Preserve dynamic cost fields and aggregate payroll hours and costs.
-- Expose class-level aggregates within daycare/month groups.
-- Separate total payroll cost from staffing-compliance caregiver rows.
-- Skip empty rows and rows missing daycare or month.
+### Daycare-month key
 
-## Allocations and banking
+The shared merge key is:
 
-- BANKS is an allocation ledger. Every source row is an allocation row; repeated
-  references must not be deduplicated.
-- Allocation reporting grain is organizational unit + business month, using
-  `unitMonthKey`.
-- `תאריך` is cash date; `עבור חודש` is business month; `פירוט` is accounting
-  category; `הערות` remains free text and is never category logic.
-- Rows missing organizational unit or business month are `unmappedRows`.
-- Normalize debit/credit values containing shekel signs, commas, blanks,
-  decimals, or parentheses.
-- Do not calculate final profit/loss in the allocations layer.
-- Management totals keep payroll operational cost separate from actual
-  allocation expenses and exclude explicitly configured special categories.
-- Do not infer or invent capacity when Budget does not expose it.
+`daycare|month`
+
+This supports future joins between Budget, Payroll, Comparison, Dashboard, and Reports.
 
 ### Budget Actual contract
 
@@ -95,43 +43,15 @@ parsing and calculations but must not define rules.
 - Payroll rows with insufficient attribution are reported and not guessed. Bank allocations in payroll categories never contribute Budget Actual or duplicate Payroll in category matrices.
 - Finance KPIs, balances, school-year summaries, and category matrices use this same Actual contract. `budget_month` remains the controlling Bank Budget month and may intentionally differ from transaction date.
 
-## Accounting UI
+### Average employee monthly hours
 
-- The dedicated Accounting page fetches `/api/allocations` and is separate from
-  Budget Engine behavior.
-- Its grouping and filtering source is the raw BANKS `חשבון` value. Empty
-  accounts display as `לא שויך`; do not infer names from numeric mappings or use
-  `מעון` as the page grouping source.
-- Calendar-month filters cover 01/2026 through 12/2027; YTD is calendar YTD.
-- Parse Israeli bank dates as `DD/MM/YYYY`, `D/M/YYYY`, `DD.MM.YYYY`, or
-  `D.M.YYYY`; sort newest first and place invalid/empty dates last.
-- Refresh in place manually, every five minutes, and on persisted `pageshow`;
-  preserve active filters and explanation-modal state.
-- Source-table and CSV output follow visible source-row logic and retain original
-  accounting context fields.
-- `docs/organizational-units.md` describes `עבור מחלקה` as the allocation target;
-  this differs from Accounting UI grouping by `חשבון`. Treat them as separate
-  workflows until an explicit rule change resolves the relationship.
+The default is:
 
-## Employees, occupancy, and salary
+`160`
 
-- Employee status categories include active, left, maternity leave,
-  sick/accident, unpaid leave, and temporary/other. KPI cards act as filters.
-- Employee dates use explicit Israeli parsing, not browser date parsing.
-- Training/compliance covers caregiver certificate, graduation, first aid, and
-  safe conduct.
-- Occupancy uses one unified flow for area-to-children, children-to-area, or
-  validation when both exist.
-- Default age groups are infants, toddlers, and older children. Mixed classrooms
-  allow adjacent groups only.
-- Occupancy alternatives use active database licensing, staffing, tuition, and
-  operating-hour rules; recommendations rank valid compositions and monthly
-  balance.
-- Salary gross uses hourly wage, seniority, monthly hours, class-management
-  eligibility, certificate, and degree inputs. The UI estimates net as 84%–89%
-  of gross.
+Budget uses this to calculate `requiredEmployeeHeadcount` from required classroom hours. This does not change `requiredStaff`, which remains regulatory staffing.
 
-## Presentation and ownership boundaries
+## Data-driven constraints
 
 ### Bank Transfers permission boundary (TRACK045)
 
@@ -159,3 +79,38 @@ parsing and calculations but must not define rules.
 - The `/rules` page is read-only administrator documentation from `rules.json`.
   Shared executable rules remain in `config/business-rules.js` until an approved
   architecture change replaces that boundary.
+
+Do not hardcode spreadsheet values in engine logic:
+
+- daycare names
+- month names
+- employee names
+- class names
+- categories
+- costs
+- hours
+- row counts
+- current sheet values
+
+Current Google Sheets data is test data only. It may validate parsing, grouping, calculations, and API shape, but it must not define business logic.
+
+## Relationship to /rules
+
+The `/rules` page is read-only and administrator-facing. It documents current rules from `rules.json`.
+
+The runtime source of shared engine rules is `config/business-rules.js`. Future work may generate the UI data from the central module or move both behind a controlled rules service.
+
+
+## Allocations ledger
+
+BANKS is treated as an allocation ledger. Each row is an allocation row, not necessarily a unique bank transaction.
+
+The same ?????? may appear multiple times and must not be deduplicated.
+
+Allocation reporting grain is:
+
+`organizational unit + business month`
+
+The shared helper is `unitMonthKey(unit, month)`, which returns `unit|month`.
+
+Do not calculate final profit/loss in the allocations layer. It prepares allocated cash movement totals for later comparison and reporting.

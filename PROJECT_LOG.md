@@ -4236,6 +4236,39 @@ Validation and deployment:
   `https://chamah-portal-q6k39ll59-chamah.vercel.app`.
 - Production portal aliases were not modified.
 
+## 2026-07-27 - INTERNAL permission catalog canonical Production promotion
+
+Promotion:
+
+- Merged the approved permission-catalog commit
+  `c1aba7aeef9176b74ffcd7275beb63fb809f7bd6` into `main` as
+  `f3569e92c993b667044240613d2270d12846b9b7` and pushed `main`.
+- Deployed the existing Vercel project `chamah-portal` as deployment
+  `dpl_CYLtnR64qC1s9xrzhDNY8ZERFfyd`.
+- Explicitly assigned the existing canonical alias
+  `https://chamah-portal.vercel.app` to that deployment. No project or domain
+  was created.
+- Vercel deployment metadata reports serving Git SHA
+  `f3569e92c993b667044240613d2270d12846b9b7`, whose merge history contains the
+  approved commit.
+
+Canonical Production validation:
+
+- PASS: authenticated permissions UI contains canonical rows for Employees
+  Import (`dashboards.staffing.employees.import`), Actual Payroll
+  (`dashboards.staffing.actual-payroll`), Bank Transfers
+  (`dashboards.accounting.bank-transfers`), and Accounting Summary
+  (`dashboards.accounting.summary`).
+- PASS: changed Accounting Summary for a portal user from its inherited
+  `HIDDEN` default to explicit `VIEW`, saved successfully through the canonical
+  URL, then restored the original inherited `HIDDEN` state and saved
+  successfully again.
+- Production permission state was restored exactly after the reversible smoke
+  test. No application data, permissions, constraints, migrations, or Edge
+  Functions were otherwise changed during promotion.
+- No browser console errors were recorded during the authenticated canonical
+  verification.
+
 ## 2026-07-27 — TRACK026 Payroll Monthly Workflow
 
 Implemented the Payroll module as a Supabase-backed monthly Workbench while
@@ -4500,6 +4533,32 @@ Validation:
   to `https://chamah-portal-qydidyhi0-chamah.vercel.app`. Production was not
   modified.
 
+## 2026-07-27 — TRACK027 canonical Production promotion
+
+- Merged the approved TRACK027 branch into `main` as
+  `34a58c0b150e2ea2a0e3617af593069c7e86510d` and pushed `main`.
+- Deployed the existing Vercel `chamah-portal` Production project as
+  `dpl_6ka2S6r5Ly4VhzABjmk67EEYkxLi`. Vercel deployment metadata confirms
+  target `production`, READY state, and serving Git SHA
+  `34a58c0b150e2ea2a0e3617af593069c7e86510d`.
+- Updated only the canonical alias `https://chamah-portal.vercel.app` to that
+  deployment and verified alias resolution through Vercel inspect.
+- Authenticated Production smoke test: Actual Payroll resolved EDIT with
+  enabled controls; an `actual_status` temporary value saved, was restored to
+  blank, and remained blank after reopening the screen from Supabase.
+- Authenticated Production smoke test: Employees, Bank Files and Bank
+  Transfers loaded without enabled mutation controls for the supplied account.
+- The supplied mixed-permission session did not expose a route which rendered
+  the distinct access-denied screen during this Production pass; HIDDEN denial
+  therefore remains a follow-up verification item rather than a claimed pass.
+
+## 2026-07-27 — TRACK027 Production HIDDEN verification completion
+
+- Reopened the authenticated mixed-permission Production session and verified
+  the known HIDDEN route `#training/settings`. It redirected to
+  `#access-denied` and displayed the dedicated Hebrew no-permission screen,
+  confirming HIDDEN users receive neither the protected screen nor its
+  configuration.
 ## 2026-07-27 — TRACK026D Final Payroll Workbench Flow
 
 - Consolidated Payroll into one continuous RTL worksheet with the prescribed
@@ -4730,6 +4789,36 @@ Final authenticated Preview validation:
   payroll rows and audit rows; authenticated Working/Closed pages showed no test
   month and no browser warnings or errors.
 
+## 2026-08-03 — TRACK026A–H canonical Production promotion
+
+- Merged `codex/track026-payroll-monthly-workflow` into `main` with merge commit
+  `0e5bf1c6b5d615e4d87487c0ff68ec2853f94041` and pushed `main`.
+- Deployed the existing Vercel project `chamah-portal` to Production as
+  deployment `dpl_Dwmud2W6z5Dg4modmas2duLN4iGb`. Assigned only the canonical
+  alias `https://chamah-portal.vercel.app` to that deployment and restored the
+  unrelated project aliases to their prior deployment.
+- Verified the canonical deployment metadata reports Git SHA
+  `0e5bf1c6b5d615e4d87487c0ff68ec2853f94041`, whose second parent is the final
+  TRACK026 commit `e7d2403240bef5caf54692fed2b9054a884e0907`.
+- Authenticated Production validation passed for Payroll home and canonical
+  navigation, open/working/closed month lists, duplicate prevention, explicit
+  Workbench selection, employee number/name lookup and autofill, manual draft
+  persistence, calculations, split rows/totals, read-only close, authorized
+  reopen with required reason, audit events, reports, and route permissions.
+- Computed Production browser styles confirmed `appearance: textfield` on every
+  sampled parent and split-child number input. Authenticated desktop Production
+  pages were RTL; the focused desktop and mobile RTL/overflow Playwright
+  regression sets passed locally before deployment.
+- Production regression smoke passed for Employees, Bank Files, and Bank
+  Transfers. A rapid route-away produced one transient Employees mount error;
+  an isolated Employees Production load passed with no console errors.
+- Created one disposable active employee and two disposable payroll months for
+  the authenticated workflow. After validation, deleted their payroll rows,
+  allocations, audit events, months, and employee dependencies. Final database
+  counts and authenticated UI checks confirmed zero remaining test records.
+- No Production migration, Edge Function, schema, RLS, calculation, or unrelated
+  module change was made during the promotion.
+
 ## 2026-08-20 — TRACK027B Bank Daily Search, Filters & Performance
 
 - Replaced the Bank Workbench's silent 2,000-transaction / 5,000-allocation
@@ -4814,34 +4903,30 @@ Final authenticated Preview validation:
   zero selections and `הכול`, the All Transactions queue, newest-first date
   sort, the year-only context chip, and the exact 348-transaction total.
 
-## 2026-09-01 — TRACK028B Tuition Rates & Collection Model
+## 2026-08-20 — TRACK027E Bank Workbench canonical Production promotion
 
-- Updated linked Preview תשפ״ז (`SY-2026-2027`) CAT-TUITION monthly economic rates to INFANT ₪4,185, TODDLER ₪3,102, GRADUATE ₪2,751, and the GANON daycare-specific rate to ₪3,102.
-- Applied forward-only migration `20260901040851_track028b_tuition_rates_collection_model.sql`. It adds nullable `daycare_school_years.tuition_payment_count` with a database check allowing only 11 or 12.
-- Configured תשפ״ז collection counts by stable daycare code: Ashkelon, Mahane, MerKazi, Neot HaKfar and Snif = 11; GANON = 12. `DC-PRIVATE` was intentionally left null because its classification as a regular daycare is ambiguous.
-- Added Settings support for `גביית שכר לימוד` and exposed the metadata through the finance runtime configuration endpoint. Deployed `portal-runtime-config` version 2 to the linked Preview Supabase project.
-- Canonicalized collection semantics in shared rules and documentation: annual economic tuition remains exact monthly rate × 12; 11-payment collection runs September-July with zero August collection and whole-shekel installment rounding; 12-payment collection runs September-August at the monthly rate.
-- Preserved calculation boundaries: Budget remains children × monthly rate for all 12 months; collection metadata is not consumed by Budget/occupancy calculations or actual-income logic.
-- PASS: TRACK028B collection-rule tests, existing Budget calculation tests, runtime configuration contract tests, focused desktop Settings UI test, JavaScript syntax checks, application build, database data verification, migration history check and diff check. Existing Supabase advisor findings were unchanged and unrelated to TRACK028B. Production was not modified.
-
-## 2026-09-01 — TRACK029 Supabase Keepalive
-
-- Enabled Supabase Cron (`pg_cron`) on the linked Preview project and created
-  the named `track029-supabase-keepalive` job on schedule `0 */12 * * *`
-  (00:00 and 12:00 UTC daily).
-- The job performs one lightweight read of
-  `public.school_years.school_year_id` with `LIMIT 1` inside a PostgreSQL `DO`
-  block. No selected value is returned or logged, and the job performs no
-  INSERT, UPDATE, DELETE, or other business-data write.
-- Documented the keepalive as intentional infrastructure maintenance so it is
-  not removed without an approved equivalent replacement.
-- PASS: focused TRACK029 migration contract test, application build, migration
-  application, registered-job inspection, and live scheduled execution. The
-  validation run completed with `status = succeeded` and
-  `return_message = DO`; the `school_years` row count and latest update
-  timestamp remained unchanged.
-- The job requires no portal user, session, Edge Function, external credential,
-  or UI change. Production was not modified.
+- Merged only the validated TRACK027B–D commit range into `main` with merge
+  commit `a3367eea776579cb47c6043b189e48841287c97f` and pushed `main`.
+  The PROJECT_LOG conflict was resolved by preserving the existing TRACK026
+  Production record and appending the TRACK027B–D history chronologically.
+- Vercel built READY Production deployment
+  `dpl_BiWnzvwW6Dj6b39UPazQUuE2fRKB` for that exact merge SHA. Assigned the
+  canonical alias `https://chamah-portal.vercel.app` to the READY deployment;
+  the prior canonical deployment was not modified or deleted.
+- Authenticated, read-only canonical Production smoke passed: active year 2026;
+  global search; June+July and account multi-select filters; 347 Unassigned and
+  347 Requires Attention queues; newest/oldest date and high/low amount sorts;
+  seven complete pages totaling 348 transactions; and Clear All restoring all
+  348 rows with zero selected multi-select values.
+- Representative real transaction reference `140813` retained its exact amount,
+  movement type, department, daycare, category, assignment month, accounting
+  status, and notes before and after the smoke. No Save or other mutation action
+  was used. Desktop 1440px and mobile 390px remained RTL without page overflow,
+  and the authenticated browser console contained no warnings or errors.
+- PASS before promotion: JavaScript syntax, application build, and 36/36 focused
+  Bank Workbench tests across desktop 1440px and mobile 390px. No database,
+  migration, RLS, Edge Function, calculation, business-rule, or Production data
+  change was made during promotion.
 
 ## 2026-09-17 — TRACK030B Bank Upload History
 
@@ -4872,76 +4957,116 @@ Final authenticated Preview validation:
   TRACK030B introduced no new table, RLS policy, or index finding. Production
   was not modified.
 
-## 2026-09-17 — TRACK035 Bank Daily Work Search + Dynamic Result Summary
+## 2026-09-17 — TRACK030B canonical Production promotion
 
-- Replaced the user-facing Description presence dropdown with a visible
-  `חיפוש בתיאור` text search. The Edge Function normalizes case and requires
-  every whitespace-delimited search term to occur somewhere in the full
-  transaction description, allowing partial Hebrew terms in any order.
-- Removed the dedicated Reference presence control while retaining the
-  Reference column and global-search matching. Existing filters, Quick Queues,
-  sorting, active chips, Clear All, and TRACK034 continuous loading remain
-  server-composed.
-- Replaced the queue-total cards with four compact full-result cards computed
-  before page slicing: total matching parent transactions; split parents with
-  more than one allocation; assigned parents with at least one allocation; and
-  unassigned parents with exactly zero allocations. The existing queue choices
-  remain available through one `תור עבודה` filter.
-- Deployed the authenticated Edge Function and frontend to Preview only. No
-  schema, RLS, transaction data, accounting classification, import behavior,
-  split semantics, calendar-month behavior, Upload History, or Production
-  change was made.
-- PASS: JavaScript syntax, build, diff check, static backend contract checks,
-  and every TRACK035 browser assertion on desktop 1440px and mobile 390px,
-  including 125-record summaries remaining unchanged while three continuous
-  pages load, a 62-record Description result, reverse-order multi-word search,
-  Reference global search, loading feedback, Clear All, and no viewport
-  overflow. The combined TRACK034/035 run passed 13/14; only the pre-existing
-  TRACK034 mobile import-confirmation timing assertion failed outside TRACK035
-  scope. Authenticated live UI validation was blocked because the available
-  browser had no signed-in Vercel session and reached a credential form.
+- Promoted only TRACK030B onto canonical `main`; TRACK028B, TRACK029, TRACK030C,
+  and unrelated working-tree changes were excluded from the promotion commit.
+- Confirmed the single canonical Supabase backend already contained migration
+  `20260917084017 track030b_bank_upload_history`; no migration was reapplied and
+  no legacy batch metadata was backfilled or altered.
+- Deployed the exact TRACK030B `portal-bank-workbench` source as active Edge
+  Function version 15 with JWT verification enabled.
+- Captured pre/post content digests for `bank_accounts`, `bank_transactions`,
+  `import_batches`, and `bank_allocations`; all counts and digests were identical
+  after backend deployment and live smoke validation.
+- Built READY Vercel Production deployment
+  `dpl_BfoRdTF68uKwj1oAB7KjA7ERS1yG` and assigned the canonical
+  `https://chamah-portal.vercel.app` alias to it.
+- Authenticated read-only Production smoke confirmed all five account coverage
+  cards at 31/08/2026, all eight retained/legacy upload-history rows, correct
+  persisted and derived date ranges/counts, and truthful unavailable-range and
+  incomplete-import states.
+- Desktop and 390px mobile checks remained RTL without page-level horizontal
+  overflow; the upload-history dialog opened correctly and browser console
+  warnings/errors were empty. No import, save, edit, or delete action was used.
+- Final canonical reload exposed and fixed an early-click race: if the history
+  button is pressed before the initial payload finishes loading, the page now
+  shows a loading status instead of dereferencing empty state. The guarded flow
+  passed the full focused desktop/mobile suite without changing history data.
+- PASS before promotion: JavaScript syntax, `git diff --check`, application
+  build, and 36/36 focused Bank Workbench tests across desktop and mobile.
+## 2026-09-17 — TRACK030C Bank Description Filter + Accounting Month Fix
 
-## 2026-09-18 — TRACK036 Restore Correct Preview + Validate TRACK034/035
+- Added a dedicated Bank Transactions description filter with partial,
+  case-insensitive matching. It is AND-combined server-side with existing
+  search, facets, queues and split filters; its removable chip and input state
+  persist through sort, pagination and inline-save reloads.
+- Corrected the existing `assignmentMonths` lookup to use canonical calendar
+  years instead of school-year months, while retaining any already-saved
+  assignment month present on the selected year's transactions. This makes
+  January-August 2026 selectable without changing September-August school-year
+  behavior elsewhere or weakening allocation validation.
+- No schema, migration, RLS, calculation or stored-assignment change was made.
+  The Bank Workbench Edge Function and frontend were deployed to Preview only;
+  Production was not modified.
+- PASS: JavaScript syntax, application build, focused source contracts, and
+  desktop 1440px/mobile 390px interaction checks for filtering, combined
+  filter/sort state, removable chips, and January/August/September 2026 month
+  options.
+- Authenticated Preview validation passed on the fixed Preview alias. Partial
+  `עמל` matching returned only matching descriptions and remained active with
+  an account filter, Unassigned queue, amount sort and pagination. Reference
+  `140813` successfully saved January, August and September 2026 while staying
+  valid; its original July 2027 month was restored and all other allocation
+  fields remained unchanged. The document remained RTL with no horizontal
+  viewport overflow in the verified desktop build; mobile RTL passed the
+  corresponding 390px Playwright coverage. Production was not modified.
 
-- Found the stable Preview alias still pinned to TRACK030C deployment
-  `dpl_AoYCJnEBZMc7bXaUiXSL7NbeXfhu`, Git SHA
-  `ebbf8081ba80a8d4b6245c0698cd67c2a6cd0cb9`, instead of the completed
-  combined TRACK034/035 artifact. Repointed only
-  `chamah-portal-chemlevin-chamah.vercel.app` to READY Git deployment
-  `dpl_cTGnWqwmgrShu3YKQXLLXMr5FGX8`, Git SHA
-  `51f76a79473b186a9a8882a6fea2ccec24fc4724`.
-- Proved the served authenticated frontend includes Upload History,
-  continuous internal-table loading, no Previous/Next controls, visible
-  `חיפוש בתיאור`, and dynamic full-result cards. Live data showed 2,453
-  records (0 split, 1 assigned, 2,452 unassigned); scrolling loaded 50, 100,
-  then 200 unique rows without changing those totals.
-- Authenticated search validation found 40 rows for reverse-order partial
-  Hebrew terms `פעול דנ`; global Reference `144247` found the single matching
-  `דנ" + "ח פעולות` row; combining that Reference with description `פעול`
-  retained the same row. Clear All restored 50 loaded of 2,453 and the full
-  card totals.
-- The focused combined Playwright run passed 13/14 across desktop 1440px and
-  mobile 390px. Desktop passed all seven checks. Mobile passed continuous
-  loading, reset/race handling, Reference/Clear All, overflow, and both
-  TRACK035 contract checks, but the TRACK034 import-feedback timing assertion
-  again failed to observe transient `aria-busy=true` after its forced second
-  click. No application code was changed after this result.
-- No bank/accounting records or Supabase data were modified. Canonical
-  Production remained deployment `dpl_DdocEox1zT6E2tJu41YNqb1ZydAR`, Git SHA
-  `c779166dbe2c273165f18eed1a1188d7b8a3d5e9`; no Production action occurred.
+## 2026-09-17 — TRACK030C canonical Production promotion rerun
 
-## 2026-09-18 — TRACK037 Stabilize TRACK034 Mobile Loading Test
+- Verified the canonical Production gate before mutation: Vercel project
+  `chamah-portal` (`prj_6IND7ee2E9s3KispBh6iBDWwQo6X`), canonical URL
+  `https://chamah-portal.vercel.app`, Supabase project
+  `vyyfuaqmbxvfqgbfqooc`, applied remote TRACK030B migration
+  `20260917084017`, and active `portal-bank-workbench` version 15 with JWT
+  verification. TRACK030B Upload History was live, so no migration or 030B
+  deployment was reapplied.
+- Promoted only the validated TRACK030C Description filter and calendar-based
+  accounting assignment months to canonical `main`. Deployed
+  `portal-bank-workbench` version 16 with JWT verification and no database,
+  schema, migration, RLS, import, edit, or record mutation.
+- Built READY Vercel Production deployment
+  `dpl_5pfiiDgd8Z7de7ZVb6jWBjELq4GM` from application commit
+  `ce07f9d61186db9a2e04642ffc2629a838a1aef6` and assigned the canonical alias.
+  The preview-named project domain continues to route to the same Production
+  artifact rather than a separate Preview environment.
+- Authenticated read-only Production smoke confirmed all five TRACK030B account
+  coverage cards through 31/08/2026, all eight retained/legacy upload-history
+  rows and truthful legacy states, live partial Description filtering, and
+  January-August 2026 assignment options. Clearing the filter restored the
+  unfiltered view; browser console warnings/errors were empty.
+- PASS: JavaScript syntax, application build, 20/20 TRACK030B/TRACK030C source
+  contracts across four Playwright projects, 6/6 focused browser checks at
+  desktop 1440px and mobile 390px, and `git diff --check`.
 
-- Replaced fixed preview/confirmation response delays in the TRACK034
-  import-feedback test with deterministic request-start and request-release
-  gates. The test now proves busy/loading state while each mocked request is
-  pending, releases the request, and proves the state clears afterward.
-- PASS: focused combined TRACK034/035 Playwright suite on desktop 1440px and
-  mobile 390px, 14/14. No arbitrary sleeps were added to the stabilized path.
-- Test and project-state documentation only changed. Application source,
-  generated artifacts, database, Supabase, Preview, and Production were
-  unchanged. Combined TRACK034/035 is ready for separately approved Production
-  promotion.
+## 2026-09-18 — TRACK038A Complete TRACK034/035 Production Promotion
+
+- Reverified READY Production deployment
+  `dpl_CPpTqXrsr2UZGpYjU97LSt3TTW8H` belongs to project
+  `prj_6IND7ee2E9s3KispBh6iBDWwQo6X` and contains the exact validated
+  application SHA `51f76a79473b186a9a8882a6fea2ccec24fc4724` before changing any alias.
+- Explicitly moved only `https://chamah-portal.vercel.app` from deployment
+  `dpl_DdocEox1zT6E2tJu41YNqb1ZydAR` to `dpl_CPpTqXrsr2UZGpYjU97LSt3TTW8H`.
+  The preview-named project domain retained its existing mapping to the same
+  validated deployment.
+- Authenticated canonical Production smoke passed on desktop and at an explicit
+  390px viewport: 2,453 total, 0 split, 1 assigned, 2,452 unassigned; desktop
+  continuous loading reached 50, 100, and 150 unique ordered rows, and mobile
+  reached 50 then 100 unique rows without Previous/Next controls.
+- Description search `פעול דנ` returned 40 records; global Reference `144247`
+  returned its single row; combining Reference with Description `פעול`
+  returned one row and updated all four summary cards. Clear All restored the
+  2,453-record summary and first 50 rows.
+- Upload History remained available with eight retained history records;
+  transaction months remained January-December 2026 and assignment months
+  January 2026-December 2027. Loading states were observable, RTL was retained,
+  the 390px document had no horizontal overflow, and console errors were empty.
+- No import, edit, save, delete, schema, migration, Supabase, Edge deployment,
+  or bank/accounting data mutation occurred. Live totals remained unchanged
+  before and after smoke validation.
+- Reconciled only the approved TRACK034/035 application and Edge source plus
+  TRACK037-stabilized focused tests into canonical `main`; unrelated branch
+  commits and build-generated output were excluded.
 
 ## 2026-09-18 - TRACK040 Budget Actuals Reliability
 
@@ -4997,6 +5122,45 @@ Validation:
   Vercel/OpenAI login boundary, but the isolated browser had no saved Vercel or
   portal account session and no validation credentials were available. No login
   or data mutation was attempted.
+
+## 2026-09-19 - TRACK041 Promote TRACK040 to Production
+
+Scope:
+
+- Integrated only the two validated TRACK040 commits onto canonical `main`.
+- Redeployed only `portal-bank-workbench` to Supabase project
+  `vyyfuaqmbxvfqgbfqooc`; version 19 is ACTIVE with JWT verification enabled.
+- Promoted validated Preview deployment `dpl_38SnDzWLySWii5hc77TjZkUj257g`
+  into READY Production deployment `dpl_TVznemwbLEyHrC6ffjLdxxkyYzC4`.
+- Assigned only `https://chamah-portal.vercel.app` to the new Production
+  deployment. No project, domain, database, migration, or historical data was
+  created, deleted, or modified.
+
+Validation:
+
+- PASS: Vercel project ID `prj_6IND7ee2E9s3KispBh6iBDWwQo6X`, project name
+  `chamah-portal`, validated source artifact, and canonical alias identity.
+- PASS: JavaScript syntax checks and `npm run build`.
+- PASS: TRACK040 plus Finance Dashboard desktop suite, 22/22.
+- PASS: Finance Dashboard 390px suite, 12/12 applicable with one intentionally
+  desktop-only test skipped.
+- PASS: protected Production retrieval returned HTTP 200 for `/new/` and
+  `/new/actuals-calculations.js`.
+- PASS: authenticated canonical Production Finance Dashboard loaded with
+  09/2026 mapped to תשפ״ז; Bank loaded 2,453 transactions; Payroll loaded its
+  module destinations; browser console errors were empty.
+- PASS: deterministic contracts cover INTERNAL/EXCLUDE zero Budget effect,
+  signed refund/reversal semantics, Payroll `employer_cost`, prevention of Bank
+  payroll duplication, and the תשפ״ז month mapping.
+
+## TRACK043 — Promote TRACK042 Bank Transfers to Production (2026-09-22)
+
+- Verified Vercel project `prj_6IND7ee2E9s3KispBh6iBDWwQo6X` is `chamah-portal`; approved TRACK042 Preview artifact `04c18fe5b43c202d332068b6b11e16c6f268f440` was READY. The four implementation/test files in the Production candidate matched that artifact byte for byte.
+- Current `main` had diverged from the TRACK042 branch. Applied only the four approved Bank Transfers files to `main`, recorded the approved commit in merge ancestry without importing unrelated branch changes, and validated the resulting Preview build and 14/14 desktop/390px Bank Transfers tests.
+- Pushed the candidate to `main`. Production deployment `dpl_9eLZhS8jxCZKyym6m7fbEt9bTBqA` reached READY at SHA `fa89a8f5381e1ff78f155208fb4e25f087d0a154`. The canonical alias was still pinned to an older deployment, so reassigned the existing alias to this deployment and verified the alias resolves to its ID/SHA and serves the new Bank Transfers script.
+- Confirmed linked Supabase `portal-bank-transfer-workbench` v3 is ACTIVE with JWT verification, and its deployed source matches the approved TRACK042 Edge Function. No migration or existing business record was changed for the release.
+- Authenticated canonical Production loaded Bank Transfers. Read-only checks confirmed the entry date, pending execution-date indication, full-dataset attachment count/filter, and split collapse/reopen. A disposable zero-amount transfer autosaved without an execution date, survived refresh, retained its entry date after editing, and two split children copied and saved without execution dates. Both children survived refresh. The QA family was archived; active transfer count returned to its original three rows. Browser console and Vercel runtime error checks were clear.
+- IMPORTANT: `portal-bank-transfer-workbench` uses audit operation `ARCHIVE` for the delete action, but `audit_events_operation_check` allows no `ARCHIVE`. This pre-existing delete-path mismatch is outside the promotion-only scope. The QA cleanup was performed by guarded archive updates on the exact disposable IDs, followed by an `UPDATE` audit entry. No existing transfer was changed.
 
 ## TRACK042 — Bank Transfers workflow improvements (2026-09-22)
 

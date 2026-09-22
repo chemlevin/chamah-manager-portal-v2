@@ -27,7 +27,7 @@ const generalResponses = {
     { school_year_month_id: 'month-11', school_year_id: 'year-1', month_label: 'נובמבר 2026', start_date: '2026-11-01', school_year_sequence: 3 }
   ],
   daycares: [{ daycare_id: 'daycare-1', daycare_code: 'DC-ONE', allocation_unit_id: activeDaycareId, display_name: 'מעון א', lifecycle_status: 'ACTIVE', display_order: 1 }],
-  daycare_school_years: [{ daycare_school_year_id: 'dsy-1', daycare_id: 'daycare-1', school_year_id: 'year-1', is_operating: true, tuition_payment_count: 11, tuition_standard_type: 'EXTENDED', staffing_standard_type: 'EXTENDED' }],
+  daycare_school_years: [{ daycare_school_year_id: 'dsy-1', daycare_id: 'daycare-1', school_year_id: 'year-1', is_operating: true, tuition_standard_type: 'EXTENDED', staffing_standard_type: 'EXTENDED' }],
   classrooms: [{ classroom_id: 'class-1', daycare_school_year_id: 'dsy-1', display_name: 'כיתה א', licensed_capacity: 22, lifecycle_status: 'ACTIVE', display_order: 1, effective_from: '2026-09-01', effective_to: null }],
   classroom_capacity_breakdowns: [{ classroom_id: 'class-1', age_group_id: 'age-infant', licensed_capacity: 22, lifecycle_status: 'ACTIVE' }],
   classroom_licensing_rules: [
