@@ -1,6 +1,6 @@
 # Project State
 
-Last reviewed: 2026-09-22 (TRACK048)
+Last reviewed: 2026-09-22 (TRACK049)
 
 This file contains current operational state only. Durable rules belong in
 `AGENTS.md` and `docs/business-rules.md`; detailed history belongs in
@@ -10,10 +10,10 @@ This file contains current operational state only. Durable rules belong in
 
 - Canonical branch: `main` / `origin/main`.
 - Canonical Production URL: `https://chamah-portal.vercel.app`.
-- Canonical Production serves READY TRACK046 deployment
-  `dpl_3sGp9CahiMzQkab3VDCjfVxiVxpY` at Git SHA
-  `958b8f0770a194894fe6c11a889cb87050acaacd`, containing approved TRACK045
-  implementation `3635da5f514334597318489ed77dfc515c03f9ca`.
+- Canonical Production serves READY TRACK049 deployment
+  `dpl_2Y416AaJAiRKiUQ2jdALgX54LofW` at approved Git SHA
+  `08221283052b74591604dbf88500e31cb75e28c1`, containing the TRACK048
+  pending transfer amount correction.
 - The preview-named project domain
   `https://chamah-manager-portal-v2-preview.vercel.app` currently routes to the
   same Production artifact. It is not a separate Preview artifact despite its
@@ -37,6 +37,9 @@ This file contains current operational state only. Durable rules belong in
 
 ## Latest completed TRACKs
 
+- TRACK049: promoted only the approved TRACK048 artifact and assigned the
+  canonical alias to its READY Production deployment. Live split amount and
+  read-only browser/error checks passed; focused desktop and 390px tests 6/6.
 - TRACK048: fixed Bank Transfers pending amount for split families. The
   Git-linked Preview `dpl_CLi7dzcJFtVaA4yuEz7EJHkKp6so` is READY at
   `https://chamah-portal-16di7psvq-chamah.vercel.app`, serving commit
