@@ -1,6 +1,6 @@
 # Project State
 
-Last reviewed: 2026-09-22 (TRACK049)
+Last reviewed: 2026-09-23 (TRACK050)
 
 This file contains current operational state only. Durable rules belong in
 `AGENTS.md` and `docs/business-rules.md`; detailed history belongs in
@@ -37,6 +37,10 @@ This file contains current operational state only. Durable rules belong in
 
 ## Latest completed TRACKs
 
+- TRACK050: added build-versioned frontend assets and an update-aware offline
+  app shell for iPhone Home Screen installations. READY Preview
+  `dpl_3895d96tZ3yhYs59EnQwdvXQewRZ` is available at
+  `https://chamah-portal-hdn019hk2-chamah.vercel.app`; Production is unchanged.
 - TRACK049: promoted only the approved TRACK048 artifact and assigned the
   canonical alias to its READY Production deployment. Live split amount and
   read-only browser/error checks passed; focused desktop and 390px tests 6/6.
