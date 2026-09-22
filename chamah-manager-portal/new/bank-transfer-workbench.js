@@ -36,7 +36,7 @@ export function bankTransferWorkbenchTemplate() {
   <section id="transfer-kpis" class="transfer-kpis" aria-label="מדדי העברות"></section>
   <section class="transfer-toolbar panel">
     <label class="transfer-search">⌕ <input id="transfer-search" type="search" placeholder="חיפוש בכל השדות…"></label>
-    <label>תצוגה<select id="transfer-view"><option value="open">ממתין + בעיה</option><option value="all">כל ההעברות</option><option value="COMPLETED">בוצע / היסטוריה</option><option value="PENDING">ממתין</option><option value="PROBLEM">בעיה</option><option value="split">פיצולים</option></select></label>
+    <label>תצוגה<select id="transfer-view"><option value="open">ממתין + בעיה</option><option value="all">כל ההעברות</option><option value="COMPLETED">בוצע / היסטוריה</option><option value="PENDING">ממתין</option><option value="PROBLEM">בעיה</option><option value="split">פיצולים</option><option value="missing-attachment">ללא קובץ מצורף</option></select></label>
     <label>מחלקה<select id="transfer-unit-filter"><option value="">כל המחלקות</option></select></label>
     <label>מיון<select id="transfer-sort"><option value="row_number:asc">מספר שורה</option><option value="amount:desc">סכום — גבוה לנמוך</option><option value="amount:asc">סכום — נמוך לגבוה</option><option value="name:asc">שם</option><option value="status:asc">סטטוס</option><option value="execution_date:desc">תאריך ביצוע</option></select></label>
     <div class="transfer-actions"><button id="transfer-add" class="button button-primary" type="button">+ הוספת שורה</button><button id="transfer-import" class="button button-secondary" type="button">ייבוא Excel</button><button id="transfer-export" class="button button-secondary" type="button">ייצוא Excel</button><input id="transfer-file" type="file" accept=".xlsx,.xls,.csv" hidden></div>
@@ -44,7 +44,7 @@ export function bankTransferWorkbenchTemplate() {
   </section>
   <section class="transfer-sheet panel">
     <div class="transfer-scroll"><table class="transfer-table"><thead><tr>
-      <th><input id="transfer-select-all" type="checkbox" aria-label="בחירת כל ההעברות"></th><th>מס׳ שורה</th><th>מס׳ העברה</th><th>שם</th><th>סכום</th><th>בנק</th><th>סניף</th><th>חשבון</th><th>בעל החשבון</th><th>סעיף תקציבי</th><th>הערות</th><th>מחלקה</th><th>מעון</th><th>סטטוס</th><th>תאריך ביצוע</th><th>קובץ</th><th>פעולות</th>
+      <th><input id="transfer-select-all" type="checkbox" aria-label="בחירת כל ההעברות"></th><th>מס׳ שורה</th><th>מס׳ העברה</th><th>שם</th><th>סכום</th><th>בנק</th><th>סניף</th><th>חשבון</th><th>בעל החשבון</th><th>סעיף תקציבי</th><th>הערות</th><th>מחלקה</th><th>מעון</th><th>סטטוס</th><th>תאריך כניסה</th><th>תאריך ביצוע</th><th>קובץ</th><th>פעולות</th>
     </tr></thead><tbody id="transfer-rows"></tbody></table></div>
     <footer><span id="transfer-selection">לא נבחרו שורות</span><button id="transfer-delete-selected" class="button button-danger" type="button" hidden>מחיקת נבחרות</button><span>השמירה מתבצעת אוטומטית · תאריך ביצוע מוזן ידנית בלבד · העברות שבוצעו נשמרות בהיסטוריה</span></footer>
   </section>`;
@@ -99,6 +99,7 @@ export async function mountBankTransferWorkbench(request) {
       const matchesView = state.view === "all"
         || (state.view === "open" && rootOpen(source))
         || (state.view === "split" && summary.children.length)
+        || (state.view === "missing-attachment" && family.some((item) => !item.attachment_path))
         || (state.view === "COMPLETED" && !rootOpen(source))
         || (["PENDING", "PROBLEM"].includes(state.view) && family.some((item) => item.status === state.view));
       return matchesSearch && matchesUnit && matchesView;
@@ -122,8 +123,8 @@ export async function mountBankTransferWorkbench(request) {
     const summary = child ? null : splitSummary(source);
     const isSplit = Boolean(summary?.children.length);
     const temp = source.bank_transfer_id.startsWith("temp-");
-    const health = !row.name || !Number(row.amount) ? "error" : row.status === "PROBLEM" ? "error" : row.status === "PENDING" ? "missing" : "complete";
-    const healthLabel = health === "error" ? "בעייתי" : health === "missing" ? "חסר מידע" : "תקין";
+    const health = row.status === "PENDING" && !row.execution_date ? "missing" : !row.name || !Number(row.amount) || row.status === "PROBLEM" ? "error" : row.status === "PENDING" ? "missing" : "complete";
+    const healthLabel = health === "error" ? "בעייתי" : health === "missing" ? (row.execution_date ? "ממתין לביצוע" : "ממתין לתאריך ביצוע") : "תקין";
     const classes = [child || isSplit ? "split" : statusClasses[row.status], child ? "transfer-child-row" : "", `bank-row-${health}`].join(" ");
     return `<tr class="${classes}" data-transfer-row="${source.bank_transfer_id}" data-parent-id="${row.parent_transfer_id || ""}">
       <td><input type="checkbox" data-select-transfer="${source.bank_transfer_id}" ${state.selectedRows.has(source.bank_transfer_id) ? "checked" : ""}></td>
@@ -140,10 +141,11 @@ export async function mountBankTransferWorkbench(request) {
       <td><select name="allocation_unit_id" aria-label="מחלקה">${options(state.data.units, row.allocation_unit_id, "allocation_unit_id")}</select></td>
       <td><select name="daycare_id" aria-label="מעון">${daycareOptions(row.daycare_id, row.allocation_unit_id)}</select></td>
       <td><select name="status" aria-label="סטטוס">${Object.entries(statusLabels).map(([value, title]) => `<option value="${value}" ${row.status === value ? "selected" : ""}>${title}</option>`).join("")}</select></td>
+      <td class="system-cell">${row.created_at ? esc(new Intl.DateTimeFormat("he-IL", { timeZone: "Asia/Jerusalem", dateStyle: "short" }).format(new Date(row.created_at))) : "יוקצה בשמירה"}</td>
       <td><input name="execution_date" type="date" value="${esc(row.execution_date)}" aria-label="תאריך ביצוע"></td>
       <td class="attachment-cell">${row.attachment_path ? `<button class="icon-button" data-open-attachment type="button" title="${esc(row.attachment_name)}">📎</button>` : ""}<button class="icon-button" data-upload-attachment type="button" ${temp ? "disabled" : ""} aria-label="העלאת קובץ">＋</button><input data-attachment-file type="file" hidden></td>
-      <td class="row-actions"><span class="bank-row-status ${health}">${healthLabel}</span><span class="autosave-status" data-save-status></span><button class="button button-quiet transfer-done" data-mark-completed type="button" ${row.status === "COMPLETED" || temp ? "disabled" : ""}>בוצע</button>${!child ? `<button class="button button-quiet" data-toggle-split type="button" ${temp ? "disabled" : ""}>${isSplit && state.expanded.has(source.bank_transfer_id) ? "סגירה" : "פיצול"}</button>` : ""}<button class="icon-button danger" data-delete-transfer type="button" aria-label="מחיקה">×</button></td>
-    </tr>${!child && isSplit ? `<tr class="split-summary-row"><td colspan="17"><button type="button" data-toggle-split="${source.bank_transfer_id}"><strong>פיצול:</strong> סכום מקורי ${money.format(Number(row.amount || 0))} · חלקים ${money.format(summary.parts)} · חלקים שבוצעו ${money.format(summary.paid)} · יתרה ${money.format(summary.remaining)} · <span class="split-badge">${Math.abs(summary.remaining) < .005 ? "מאוזן" : summary.remaining > 0 ? "נותרה יתרה" : "חריגה מהסכום"}</span></button></td></tr>${state.expanded.has(source.bank_transfer_id) ? summary.children.map((item, childIndex) => rowTemplate(item, { child: true, index: childIndex })).join("") + `<tr class="transfer-add-child"><td colspan="17"><button class="button button-secondary" data-add-split="${source.bank_transfer_id}" type="button">+ הוספת חלק</button></td></tr>` : ""}` : ""}`;
+      <td class="row-actions"><span class="bank-row-status ${health}">${healthLabel}</span><span class="autosave-status" data-save-status></span><button class="button button-quiet transfer-done" data-mark-completed type="button" ${row.status === "COMPLETED" || temp ? "disabled" : ""}>בוצע</button>${child && index > 0 ? '<button class="button button-quiet" data-copy-split type="button">העתקה מהחלק הקודם</button>' : ""}${!child ? `<button class="button button-quiet" data-toggle-split type="button" ${temp ? "disabled" : ""}>${isSplit && state.expanded.has(source.bank_transfer_id) ? "סגירה" : "פיצול"}</button>` : ""}<button class="icon-button danger" data-delete-transfer type="button" aria-label="מחיקה">×</button></td>
+    </tr>${!child && isSplit ? `<tr class="split-summary-row"><td colspan="18"><button type="button" data-toggle-split="${source.bank_transfer_id}"><strong>פיצול:</strong> סכום מקורי ${money.format(Number(row.amount || 0))} · חלקים ${money.format(summary.parts)} · חלקים שבוצעו ${money.format(summary.paid)} · יתרה ${money.format(summary.remaining)} · <span class="split-badge">${Math.abs(summary.remaining) < .005 ? "מאוזן" : summary.remaining > 0 ? "נותרה יתרה" : "חריגה מהסכום"}</span></button></td></tr>${state.expanded.has(source.bank_transfer_id) ? summary.children.map((item, childIndex) => rowTemplate(item, { child: true, index: childIndex })).join("") + `<tr class="transfer-add-child"><td colspan="18"><button class="button button-secondary" data-add-split="${source.bank_transfer_id}" type="button">+ הוספת חלק</button></td></tr>` : ""}` : ""}`;
   };
   const readRow = (id) => {
     const source = state.data.transfers.find((row) => row.bank_transfer_id === id);
@@ -157,28 +159,29 @@ export async function mountBankTransferWorkbench(request) {
   };
   const valid = (row) => Number.isFinite(Number(row.amount)) && Number(row.amount) >= 0
     && (row.status !== "COMPLETED" || /^\d{4}-\d{2}-\d{2}$/.test(row.execution_date || ""));
-  const destroyControllers = () => {
-    state.controllers.forEach((controller) => controller.destroy());
-    state.controllers.clear();
-  };
   const bindAutosave = () => {
     document.querySelectorAll("[data-transfer-row]").forEach((node) => {
       const id = node.dataset.transferRow;
+      if (state.controllers.has(id)) return;
       const controller = createAutosave({
         key: `bank-transfer.${id}`,
         read: () => readRow(id),
         validate: valid,
-        statusTargets: () => node.querySelectorAll("[data-save-status]"),
+        statusTargets: () => document.querySelector(`[data-transfer-row="${id}"]`)?.querySelectorAll("[data-save-status]") || [],
         save: (row) => request("POST", { action: "save", ...row, bank_transfer_id: id.startsWith("temp-") ? null : id }),
-        onSaved: (result) => {
+        onSaved: (result, savedValue) => {
           const index = state.data.transfers.findIndex((row) => row.bank_transfer_id === id);
           state.data.transfers[index] = result.transfer;
-          state.drafts.delete(id);
-          if (id.startsWith("temp-")) render();
-          else {
-            state.drafts.set(id, result.transfer);
-            updateKpis();
-          }
+          const current = state.drafts.get(id);
+          const newerEdit = current && Object.keys(savedValue).some((key) => current[key] !== savedValue[key]);
+          if (!newerEdit) state.drafts.delete(id);
+          if (id.startsWith("temp-")) {
+            state.controllers.get(id)?.destroy(); state.controllers.delete(id);
+            state.drafts.delete(id);
+            if (newerEdit) state.drafts.set(result.transfer.bank_transfer_id, { ...current, bank_transfer_id: result.transfer.bank_transfer_id });
+            render();
+            if (newerEdit) state.controllers.get(result.transfer.bank_transfer_id)?.markDirty({ immediate: true });
+          } else updateKpis();
         },
       });
       state.controllers.set(id, controller);
@@ -195,17 +198,26 @@ export async function mountBankTransferWorkbench(request) {
       ["סכום ממתין", money.format(pendingAmount), "pending"],
       ["מפוצלות", splitParents.length, "split"],
       ["יתרה בפיצולים", money.format(remaining), "split"],
-    ].map(([title, value, tone]) => `<article class="panel ${tone}"><span>${title}</span><strong>${value}</strong></article>`).join("");
+      ["ללא קובץ מצורף", state.data.transfers.filter((row) => !draft(row).attachment_path).length, "attachment"],
+    ].map(([title, value, tone]) => `<article class="panel ${tone}" ${tone === "attachment" ? 'data-filter-missing role="button" tabindex="0" aria-label="סינון ללא קובץ מצורף"' : ""}><span>${title}</span><strong>${value}</strong></article>`).join("");
   };
   const render = () => {
-    destroyControllers();
+    document.querySelectorAll("[data-transfer-row]").forEach((node) => {
+      const id = node.dataset.transferRow;
+      if (state.controllers.get(id)?.hasUnsavedChanges()) state.drafts.set(id, readRow(id));
+    });
     const rows = visibleRoots();
-    $("#transfer-rows").innerHTML = rows.map((row) => rowTemplate(row)).join("") || `<tr><td colspan="17"><div class="admin-state admin-empty"><strong>אין העברות בתצוגה</strong><p>אפשר להוסיף שורה חדשה או לשנות את המסננים.</p></div></td></tr>`;
+    $("#transfer-rows").innerHTML = rows.map((row) => rowTemplate(row)).join("") || `<tr><td colspan="18"><div class="admin-state admin-empty"><strong>אין העברות בתצוגה</strong><p>אפשר להוסיף שורה חדשה או לשנות את המסננים.</p></div></td></tr>`;
     $("#transfer-count").textContent = `${rows.length} העברות`;
     $("#transfer-selection").textContent = state.selectedRows.size ? `${state.selectedRows.size} שורות נבחרו` : "לא נבחרו שורות";
     $("#transfer-delete-selected").hidden = !state.selectedRows.size;
     updateKpis();
     bindAutosave();
+    state.controllers.forEach((controller, id) => {
+      if (!state.data.transfers.some((row) => row.bank_transfer_id === id)) {
+        controller.destroy(); state.controllers.delete(id);
+      }
+    });
   };
   const reload = async () => {
     const data = await request("GET");
@@ -315,6 +327,9 @@ export async function mountBankTransferWorkbench(request) {
   };
 
   $("#transfer-search").addEventListener("input", (event) => { state.query = event.target.value; render(); });
+  const showMissingAttachments = () => { state.view = "missing-attachment"; $("#transfer-view").value = state.view; render(); };
+  $("#transfer-kpis").addEventListener("click", (event) => { if (event.target.closest("[data-filter-missing]")) showMissingAttachments(); });
+  $("#transfer-kpis").addEventListener("keydown", (event) => { if (event.target.matches("[data-filter-missing]") && ["Enter", " "].includes(event.key)) { event.preventDefault(); showMissingAttachments(); } });
   $("#transfer-view").addEventListener("change", (event) => { state.view = event.target.value; render(); });
   $("#transfer-unit-filter").addEventListener("change", (event) => { state.unit = event.target.value; render(); });
   $("#transfer-sort").addEventListener("change", (event) => { state.sort = event.target.value; render(); });
@@ -361,7 +376,17 @@ export async function mountBankTransferWorkbench(request) {
     const row = event.target.closest("[data-transfer-row]");
     const id = row?.dataset.transferRow;
     try {
-      if (event.target.closest("[data-toggle-split]")) {
+      if (event.target.closest("[data-copy-split]")) {
+        const siblings = childrenFor(row.dataset.parentId);
+        const previous = siblings[siblings.findIndex((item) => item.bank_transfer_id === id) - 1];
+        if (previous) {
+          const copied = { ...readRow(id) };
+          for (const field of ["name", "bank", "branch", "account_number", "account_holder", "budget_category_id", "notes", "allocation_unit_id", "daycare_id"]) copied[field] = draft(previous)[field];
+          state.drafts.set(id, copied);
+          render();
+          state.controllers.get(id)?.markDirty({ immediate: true });
+        }
+      } else if (event.target.closest("[data-toggle-split]")) {
         const target = id || event.target.closest("[data-toggle-split]").dataset.toggleSplit;
         if (!childrenFor(target).length) add(target);
         else { state.expanded.has(target) ? state.expanded.delete(target) : state.expanded.add(target); render(); }

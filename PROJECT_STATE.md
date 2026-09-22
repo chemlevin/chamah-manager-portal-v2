@@ -1,6 +1,6 @@
 # Project State
 
-Last reviewed: 2026-09-18 (TRACK040)
+Last reviewed: 2026-09-22 (TRACK042)
 
 This file contains current operational state only. Durable rules belong in
 `AGENTS.md` and `docs/business-rules.md`; detailed history belongs in
@@ -37,6 +37,7 @@ This file contains current operational state only. Durable rules belong in
 
 ## Latest completed TRACKs
 
+- TRACK042: Bank Transfers autosave, entry date display, split copying/collapse, and full-dataset missing-attachment filter validated on desktop and 390px Preview workflow. No database or Production change.
 - TRACK040: unified Bank and Payroll Actual contracts across Finance Dashboard
   KPIs, balances, summaries, and category matrices; Bank Workbench rejects new
   contradictory income/expense assignments. Preview only.
@@ -57,6 +58,7 @@ This file contains current operational state only. Durable rules belong in
 
 ## Open items and blockers
 
+- Bank Transfer parent and split rows independently store canonical unit/daycare IDs, but both associations are nullable. Future daycare-scoped permissions must define how unassigned rows and splits with differing assignments are handled.
 - TRACK037 resolved the remaining TRACK034 mobile test timing failure. The
   combined TRACK034/035 suite passes 14/14 on desktop 1440px and mobile 390px;
   no application or deployment change was required. Combined TRACK034/035 is

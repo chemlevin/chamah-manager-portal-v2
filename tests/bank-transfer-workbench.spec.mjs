@@ -40,6 +40,7 @@ async function openWorkbench(page, actions = []) {
         bank_transfer_id: body.bank_transfer_id || crypto.randomUUID(),
         row_number: body.row_number || data.transfers.length + 1,
         transfer_number: body.transfer_number || 1100 + data.transfers.length,
+        created_at: data.transfers.find((row) => row.bank_transfer_id === body.bank_transfer_id)?.created_at || '2026-07-26T08:00:00Z',
       };
       const index = data.transfers.findIndex((row) => row.bank_transfer_id === body.bank_transfer_id);
       if (index >= 0) data.transfers[index] = transfer; else data.transfers.push(transfer);
@@ -104,6 +105,50 @@ test('inline autosave and direct completed action require a manual execution dat
   await expect.poll(() => actions.some((body) => body.action === 'save' && body.execution_date === '2026-07-26')).toBeTruthy();
   await row.locator('[data-mark-completed]').click();
   await expect.poll(() => actions.some((body) => body.action === 'mark_completed' && body.bank_transfer_id === pendingId)).toBeTruthy();
+});
+
+test('partial edits persist after refresh without execution date and retain entry date', async ({ page }) => {
+  const actions = [];
+  await openWorkbench(page, actions);
+  await page.locator('#transfer-add').click();
+  const row = page.locator('[data-transfer-row^="temp-"]');
+  await row.locator('[name="name"]').fill('טיוטה חלקית');
+  await expect.poll(() => actions.find((body) => body.action === 'save' && body.name === 'טיוטה חלקית')).toBeTruthy();
+  await expect(page.locator('[data-transfer-row^="temp-"]')).toHaveCount(0);
+  await page.reload();
+  const saved = page.locator('#transfer-rows tr[data-transfer-row]').filter({ has: page.locator('[name="name"][value="טיוטה חלקית"]') });
+  await expect(saved.locator('[name="name"]')).toHaveValue('טיוטה חלקית');
+  await expect(saved).toContainText('26.7.2026');
+  await expect(saved).toContainText('ממתין לתאריך ביצוע');
+  await saved.locator('[name="bank"]').fill('לאומי');
+  await expect.poll(() => actions.filter((body) => body.action === 'save' && body.name === 'טיוטה חלקית').length).toBeGreaterThan(1);
+  await page.reload();
+  await expect(page.locator('#transfer-rows')).toContainText('26.7.2026');
+});
+
+test('split rows save without dates, copy applicable fields, and reopen after collapse', async ({ page }) => {
+  const actions = [];
+  const data = await openWorkbench(page, actions);
+  await page.locator(`[data-toggle-split="${parentId}"]`).click();
+  await page.locator(`[data-add-split="${parentId}"]`).click();
+  const child = page.locator('[data-transfer-row^="temp-"]');
+  await child.locator('[data-copy-split]').click();
+  await expect.poll(() => actions.some((body) => body.action === 'save' && body.parent_transfer_id === parentId && !body.execution_date && body.bank === 'לאומי' && body.allocation_unit_id === activeOfficeId)).toBeTruthy();
+  await page.locator(`[data-toggle-split="${parentId}"]`).click();
+  await expect(page.locator('[data-transfer-row^="temp-"]')).toHaveCount(0);
+  await page.locator(`[data-toggle-split="${parentId}"]`).click();
+  await expect(page.locator(`[data-transfer-row="${childId}"]`)).toBeVisible();
+  const copied = data.transfers.find((row) => row.parent_transfer_id === parentId && row.bank_transfer_id !== childId);
+  await expect(page.locator(`[data-transfer-row="${copied.bank_transfer_id}"] [name="bank"]`)).toHaveValue('לאומי');
+});
+
+test('missing attachment count and filter include hidden completed and split rows', async ({ page }) => {
+  await openWorkbench(page);
+  await expect(page.locator('[data-filter-missing]')).toContainText('4');
+  await page.locator('[data-filter-missing]').click();
+  await expect(page.locator('#transfer-view')).toHaveValue('missing-attachment');
+  await expect(page.locator(`[data-transfer-row="${completedId}"]`)).toBeVisible();
+  await expect(page.locator('#transfer-count')).toContainText('3');
 });
 
 test('Excel import resolves Supabase lookups and attachment upload uses the row action', async ({ page }) => {

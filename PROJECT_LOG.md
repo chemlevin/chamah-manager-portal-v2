@@ -4997,3 +4997,12 @@ Validation:
   Vercel/OpenAI login boundary, but the isolated browser had no saved Vercel or
   portal account session and no validation credentials were available. No login
   or data mutation was attempted.
+
+## TRACK042 — Bank Transfers workflow improvements (2026-09-22)
+
+- Kept partial Bank Transfer rows eligible for autosave without an execution date. Pending rows without that date display an orange state; completion still requires a manually entered execution date.
+- Preserved autosave controllers across table rerenders so filtering, sorting, and split collapse do not cancel a pending save. Kept newer edits made during an in-flight insert and saved them against the assigned transfer ID.
+- Displayed the canonical `created_at` as the entry date. No entry-date column or migration was added.
+- Added copying of applicable details from the previous split row, plus a full-dataset missing-attachment count and filter.
+- Verified the current model: each parent and split child independently stores `allocation_unit_id` and `daycare_id`, and the existing API/database validate daycare-to-unit consistency. Both fields are nullable, so future daycare-scoped permissions must define handling for unassigned rows and split children with different assignments.
+- Validation: Bank Transfers Playwright suite passed 14/14 across desktop 1440px and mobile 390px; build, syntax, and diff checks passed. Preview deployment details are recorded in `PROJECT_STATE.md`.

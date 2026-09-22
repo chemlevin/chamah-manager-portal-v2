@@ -573,9 +573,10 @@ p { line-height: 1.65; }
 .transfer-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1rem}
 .transfer-heading h1{margin:.2rem 0}.workbench-message{min-height:2rem;max-width:32rem;padding:.45rem .75rem;border-radius:.6rem}
 .workbench-message[data-tone="error"]{background:#fde8e7;color:#87251d}.workbench-message[data-tone="success"]{background:#e1f4e7;color:#1f6237}
-.transfer-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;margin-bottom:.75rem}
+.transfer-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.75rem;margin-bottom:.75rem}
 .transfer-kpis article{display:grid;gap:.25rem;padding:.9rem 1rem;border-inline-start:4px solid #cbd5d1}
 .transfer-kpis article.pending{border-color:#d8aa2c;background:#fff9df}.transfer-kpis article.split{border-color:#4c91c7;background:#eaf5ff}
+.transfer-kpis article.attachment{border-color:#dc8c37;background:#fff3e5;cursor:pointer}
 .transfer-kpis span{font-size:.82rem;color:var(--muted-color,#596b65)}.transfer-kpis strong{font-size:1.35rem}
 .transfer-toolbar{display:flex;align-items:end;flex-wrap:wrap;gap:.6rem;padding:.7rem;margin-bottom:.75rem}
 .transfer-toolbar label{display:grid;gap:.2rem;font-size:.75rem;font-weight:700}.transfer-toolbar select,.transfer-toolbar input{min-height:2.2rem}
