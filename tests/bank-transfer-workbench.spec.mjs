@@ -14,7 +14,7 @@ function fixture() {
     transfers: [
       { bank_transfer_id: parentId, row_number: 1, transfer_number: 1001, parent_transfer_id: null, name: 'ספק מפוצל', amount: 1000, bank: 'לאומי', branch: '10', account_number: '123', account_holder: 'ספק', budget_category_id: categoryId, notes: '', allocation_unit_id: activeOfficeId, daycare_id: null, status: 'PENDING', execution_date: null, attachment_path: null },
       { bank_transfer_id: childId, row_number: 2, transfer_number: 1002, parent_transfer_id: parentId, name: 'חלק ראשון', amount: 400, bank: 'לאומי', branch: '10', account_number: '123', account_holder: 'ספק', budget_category_id: categoryId, notes: '', allocation_unit_id: activeOfficeId, daycare_id: null, status: 'COMPLETED', execution_date: '2026-07-25', attachment_path: null },
-      { bank_transfer_id: pendingId, row_number: 3, transfer_number: 1003, parent_transfer_id: null, name: 'תשלום ממתין', amount: 250, bank: 'הפועלים', branch: '20', account_number: '456', account_holder: 'מוטב', budget_category_id: categoryId, notes: 'דחוף', allocation_unit_id: activeDaycareId, daycare_id: daycareId, status: 'PENDING', execution_date: null, attachment_path: null },
+      { bank_transfer_id: pendingId, row_number: 3, transfer_number: 1003, parent_transfer_id: null, name: 'תשלום ממתין', amount: 250, bank: 'הפועלים', branch: '20', account_number: '456', account_holder: 'מוטב', budget_category_id: categoryId, notes: 'דחוף', allocation_unit_id: activeDaycareId, daycare_id: daycareId, status: 'PENDING', approved_for_execution: true, execution_date: null, attachment_path: null },
       { bank_transfer_id: completedId, row_number: 4, transfer_number: 1004, parent_transfer_id: null, name: 'תשלום היסטורי', amount: 800, bank: 'מזרחי', branch: '30', account_number: '789', account_holder: 'עבר', budget_category_id: categoryId, notes: '', allocation_unit_id: activeOfficeId, daycare_id: null, status: 'COMPLETED', execution_date: '2026-07-20', attachment_path: null },
     ],
     categories: [{ budget_category_id: categoryId, budget_category_code: 'SUPPLIERS', display_name: 'ספקים', lifecycle_status: 'ACTIVE', display_order: 1 }],
@@ -81,10 +81,30 @@ test('default view, KPIs and split summary follow TRACK023 rules', async ({ page
   await expect(page.locator(`[data-transfer-row="${pendingId}"] [name="name"]`)).toHaveValue('תשלום ממתין');
   await expect(page.locator('#transfer-rows')).toContainText('סכום מקורי');
   await expect(page.locator('#transfer-rows')).toContainText('600.00');
-  await expect(page.locator(`[data-transfer-row="${completedId}"]`)).toHaveCount(0);
+  await expect(page.locator(`[data-transfer-row="${completedId}"]`)).toBeVisible();
   await page.locator('#transfer-view').selectOption('COMPLETED');
   await expect(page.locator(`[data-transfer-row="${completedId}"] [name="name"]`)).toHaveValue('תשלום היסטורי');
   if (testInfo.project.name === 'desktop-1440') await page.screenshot({ path: 'screenshots/track025a/bank-transfers-desktop.png', fullPage: true });
+});
+
+test('quick workflow filters derive status, show approved count and keep split families together', async ({ page }) => {
+  await openWorkbench(page);
+  await expect(page.locator('#transfer-approved-count')).toHaveText('1');
+  await expect(page.locator(`[data-transfer-row="${pendingId}"] .transfer-workflow-status`)).toHaveText('מאושרת לביצוע');
+  await expect(page.locator(`[data-transfer-row="${completedId}"] .transfer-workflow-status`)).toHaveText('בוצעה');
+
+  await page.getByRole('button', { name: /מאושרות לביצוע/ }).click();
+  await expect(page.locator(`[data-transfer-row="${pendingId}"]`)).toBeVisible();
+  await expect(page.locator(`[data-transfer-row="${completedId}"]`)).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'ממתינות לאישור' }).click();
+  await expect(page.locator(`[data-transfer-row="${parentId}"]`)).toBeVisible();
+  await expect(page.locator('#transfer-rows')).toContainText('סכום מקורי');
+
+  await page.getByRole('button', { name: 'בוצעו', exact: true }).click();
+  await expect(page.locator(`[data-transfer-row="${parentId}"]`)).toBeVisible();
+  await expect(page.locator(`[data-transfer-row="${completedId}"]`)).toBeVisible();
+  await expect.poll(() => page.locator('#transfer-status-filters').evaluate((node) => node.scrollWidth >= node.clientWidth)).toBeTruthy();
 });
 
 test('regular pending amount survives autosave and reload exactly once', async ({ page }) => {

@@ -578,6 +578,7 @@ p { line-height: 1.65; }
 .transfer-kpis article.pending{border-color:#d8aa2c;background:#fff9df}.transfer-kpis article.split{border-color:#4c91c7;background:#eaf5ff}
 .transfer-kpis article.attachment{border-color:#dc8c37;background:#fff3e5;cursor:pointer}
 .transfer-kpis span{font-size:.82rem;color:var(--muted-color,#596b65)}.transfer-kpis strong{font-size:1.35rem}
+.transfer-status-filters{display:flex;gap:.45rem;margin:0 0 .75rem;overflow-x:auto;padding-block:.1rem}.transfer-status-filters button{display:inline-flex;align-items:center;gap:.4rem;min-height:2.4rem;padding:.45rem .8rem;border:1px solid #b8c9c2;border-radius:999px;background:#fff;color:var(--text);font:inherit;font-weight:700;white-space:nowrap;cursor:pointer}.transfer-status-filters button[aria-pressed="true"]{border-color:var(--primary-700);background:var(--primary-700);color:#fff}.transfer-status-filters span{display:inline-grid;place-items:center;min-width:1.45rem;height:1.45rem;padding-inline:.3rem;border-radius:999px;background:#e8f1ed;color:#245746;font-size:.75rem}.transfer-status-filters button[aria-pressed="true"] span{background:#fff;color:var(--primary-700)}
 .transfer-toolbar{display:flex;align-items:end;flex-wrap:wrap;gap:.6rem;padding:.7rem;margin-bottom:.75rem}
 .transfer-toolbar label{display:grid;gap:.2rem;font-size:.75rem;font-weight:700}.transfer-toolbar select,.transfer-toolbar input{min-height:2.2rem}
 .transfer-search{flex:1;min-width:14rem}.transfer-search input{width:100%}.transfer-actions{display:flex;gap:.4rem;flex-wrap:wrap}
@@ -586,6 +587,7 @@ p { line-height: 1.65; }
 .transfer-table th{position:sticky;top:0;z-index:3;background:#f1f5f3;white-space:nowrap;padding:.55rem .45rem;border-bottom:1px solid #ccd8d3}
 .transfer-table td{padding:.3rem;border-bottom:1px solid #e2e8e5;vertical-align:middle}
 .transfer-table input,.transfer-table select{width:100%;min-width:7.5rem;min-height:2rem;padding:.25rem .35rem;border:1px solid #cbd8d2;border-radius:.35rem;background:#fff}
+.transfer-workflow-status{display:inline-flex;align-items:center;justify-content:center;margin-block-end:.3rem;padding:.22rem .5rem;border-radius:999px;font-weight:800;white-space:nowrap}.transfer-workflow-status.pending{background:#fff0c2;color:#75540a}.transfer-workflow-status.approved{background:#dceeff;color:#145b8f}.transfer-workflow-status.completed{background:#dff3e8;color:#176044}
 .transfer-table [name="name"],.transfer-table [name="notes"]{min-width:10rem}.transfer-table [name="amount"]{min-width:6.5rem}
 
 /* TRACK025 shared operational Workbench polish. */
@@ -617,7 +619,7 @@ dialog{border:0;border-radius:1rem;box-shadow:0 24px 70px #14372c40}dialog::back
 .row-actions{display:flex;align-items:center;gap:.3rem;min-width:15rem}.row-actions .button{padding:.35rem .5rem;min-height:2rem}
 .attachment-cell{white-space:nowrap;text-align:center}.autosave-status{font-size:.7rem;white-space:nowrap;color:#687972}.autosave-status[data-autosave-state="failed"]{color:#a12620}
 .transfer-sheet footer{padding:.55rem .8rem;background:#f7faf8;color:#66756f;font-size:.75rem}
-@media(max-width:900px){.transfer-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.transfer-heading{display:block}.transfer-scroll{max-height:none}.transfer-toolbar>*{flex:1 1 10rem}.transfer-actions{flex-basis:100%}}
+@media(max-width:900px){.transfer-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.transfer-heading{display:block}.transfer-scroll{max-height:none}.transfer-toolbar>*{flex:1 1 10rem}.transfer-actions{flex-basis:100%}.transfer-status-filters{margin-inline:-.25rem;padding-inline:.25rem}}
 .employee-import-dialog{width:min(1120px,calc(100vw - 2rem));max-width:none}.employee-import-dialog::backdrop{background:rgba(15,23,42,.55)}.employee-import-dialog>#employee-import-content{padding:1.5rem}
 .import-heading{display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;margin-bottom:1rem}.import-heading h2,.import-heading p{margin:.2rem 0}
 .employee-drop-zone{display:grid;place-items:center;gap:.4rem;min-height:210px;border:2px dashed #94a3b8;border-radius:14px;background:#f8fafc;cursor:pointer;text-align:center;padding:2rem}.employee-drop-zone:hover,.employee-drop-zone.dragging{border-color:#2563eb;background:#eff6ff}.employee-drop-zone span,.import-note{color:#64748b}

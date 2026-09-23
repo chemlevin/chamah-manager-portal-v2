@@ -5230,3 +5230,11 @@ Validation:
 - Canonical `/service-worker.js` returned `Cache-Control: no-store, must-revalidate, no-cache` and `Service-Worker-Allowed: /`, and contains immediate activation/client-claim behavior. Live Chromium and iPhone-sized WebKit checks confirmed root scope, active controllers, `updateViaCache: none`, cache `chamah-portal-dab8fb67403d`, versioned manifest/app/PWA scripts, successful `registration.update()`, and no console errors.
 - Re-ran the deterministic saved-app old-to-new update suite: Chromium and WebKit passed 2/2, including controller handoff, automatic reload onto the new versioned asset graph, old-cache removal, and Chromium offline-shell reload. No physical iPhone was available.
 - No database, user data, migration, Edge Function, business rule, calculation, API, or unrelated application change was made. Production PASS.
+
+## TRACK052 — Bank Transfer Status Filters (2026-09-23)
+
+- Added quick Bank Transfer workflow filters for all, awaiting approval, approved for execution, and completed. The approved-for-execution filter displays its scoped transfer count.
+- Workflow status is derived only from the existing fields: an execution date means completed; otherwise approval means approved for execution; otherwise the transfer awaits approval. Each visible parent or split child shows a clear derived status badge while the existing system-status control remains unchanged.
+- Filtering remains client-side over the already permission-scoped API response. Split families remain together when any visible family member matches, preserving TRACK045 daycare scope, action permissions, and isolated cross-daycare child behavior. No API, database, migration, Edge Function, calculation, or business-data change.
+- Validation: JavaScript syntax, `npm run build`, and `git diff --check` passed. The Bank Transfer suite passed 20 existing regression cases across desktop 1440px and mobile 390px; the focused TRACK052 filter/status/split/mobile case passed 2/2 after correcting a test-only strict selector. The first pre-build test attempt exercised stale `dist`; the source was then built and the final checks used the updated deployable bundle.
+- Production was not modified. Preview deployment details are recorded after deployment verification.

@@ -4,6 +4,8 @@ const money = new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" })[char]);
 const statusLabels = { PENDING: "ממתין", COMPLETED: "בוצע", PROBLEM: "בעיה" };
 const statusClasses = { PENDING: "pending", COMPLETED: "completed", PROBLEM: "problem" };
+const workflowStatus = (row) => row.execution_date ? "completed" : row.approved_for_execution ? "approved" : "pending";
+const workflowLabels = { pending: "ממתינה לאישור", approved: "מאושרת לביצוע", completed: "בוצעה" };
 const excelHeaders = {
   name: ["שם", "name"],
   amount: ["סכום", "amount"],
@@ -34,9 +36,15 @@ export function bankTransferWorkbenchTemplate() {
     <span id="transfer-message" class="workbench-message" role="status"></span>
   </section>
   <section id="transfer-kpis" class="transfer-kpis" aria-label="מדדי העברות"></section>
+  <nav id="transfer-status-filters" class="transfer-status-filters" aria-label="סינון מהיר לפי סטטוס">
+    <button type="button" data-transfer-status="all" aria-pressed="true">הכול</button>
+    <button type="button" data-transfer-status="pending" aria-pressed="false">ממתינות לאישור</button>
+    <button type="button" data-transfer-status="approved" aria-pressed="false">מאושרות לביצוע <span id="transfer-approved-count">0</span></button>
+    <button type="button" data-transfer-status="completed" aria-pressed="false">בוצעו</button>
+  </nav>
   <section class="transfer-toolbar panel">
     <label class="transfer-search">⌕ <input id="transfer-search" type="search" placeholder="חיפוש בכל השדות…"></label>
-    <label>תצוגה<select id="transfer-view"><option value="open">ממתין + בעיה</option><option value="all">כל ההעברות</option><option value="COMPLETED">בוצע / היסטוריה</option><option value="PENDING">ממתין</option><option value="PROBLEM">בעיה</option><option value="split">פיצולים</option><option value="missing-attachment">ללא קובץ מצורף</option></select></label>
+    <label>תצוגה<select id="transfer-view"><option value="open">ממתין + בעיה</option><option value="all" selected>כל ההעברות</option><option value="COMPLETED">בוצע / היסטוריה</option><option value="PENDING">ממתין</option><option value="PROBLEM">בעיה</option><option value="split">פיצולים</option><option value="missing-attachment">ללא קובץ מצורף</option></select></label>
     <label>מחלקה<select id="transfer-unit-filter"><option value="">כל המחלקות</option></select></label>
     <label>מיון<select id="transfer-sort"><option value="row_number:asc">מספר שורה</option><option value="amount:desc">סכום — גבוה לנמוך</option><option value="amount:asc">סכום — נמוך לגבוה</option><option value="name:asc">שם</option><option value="status:asc">סטטוס</option><option value="execution_date:desc">תאריך ביצוע</option></select></label>
     <div class="transfer-actions"><button id="transfer-add" class="button button-primary" type="button">+ הוספת שורה</button><button id="transfer-import" class="button button-secondary" type="button">ייבוא Excel</button><button id="transfer-export" class="button button-secondary" type="button">ייצוא Excel</button><input id="transfer-file" type="file" accept=".xlsx,.xls,.csv" hidden></div>
@@ -53,7 +61,7 @@ export function bankTransferWorkbenchTemplate() {
 export async function mountBankTransferWorkbench(request) {
   const state = {
     data: { transfers: [], categories: [], units: [], daycares: [], capabilities: {} },
-    query: "", view: "open", unit: "", sort: "row_number:asc",
+    query: "", view: "all", workflow: "all", unit: "", sort: "row_number:asc",
     drafts: new Map(), controllers: new Map(), expanded: new Set(), selectedRows: new Set(),
   };
   const $ = (selector) => document.querySelector(selector);
@@ -96,13 +104,14 @@ export async function mountBankTransferWorkbench(request) {
       const family = [row, ...summary.children.map(draft)];
       const matchesSearch = !query || family.some((item) => searchText(item).includes(query));
       const matchesUnit = !state.unit || family.some((item) => item.allocation_unit_id === state.unit);
+      const matchesWorkflow = state.workflow === "all" || family.some((item) => workflowStatus(item) === state.workflow);
       const matchesView = state.view === "all"
         || (state.view === "open" && rootOpen(source))
         || (state.view === "split" && summary.children.length)
         || (state.view === "missing-attachment" && family.some((item) => !item.attachment_path))
         || (state.view === "COMPLETED" && !rootOpen(source))
         || (["PENDING", "PROBLEM"].includes(state.view) && family.some((item) => item.status === state.view));
-      return matchesSearch && matchesUnit && matchesView;
+      return matchesSearch && matchesUnit && matchesView && matchesWorkflow;
     }).sort((leftSource, rightSource) => {
       const left = draft(leftSource), right = draft(rightSource);
       const a = left[sortKey] ?? "", b = right[sortKey] ?? "";
@@ -123,6 +132,7 @@ export async function mountBankTransferWorkbench(request) {
     const summary = child ? null : splitSummary(source);
     const isSplit = Boolean(summary?.children.length);
     const temp = source.bank_transfer_id.startsWith("temp-");
+    const workflow = workflowStatus(row);
     const health = row.status === "PENDING" && !row.execution_date ? "missing" : !row.name || !Number(row.amount) || row.status === "PROBLEM" ? "error" : row.status === "PENDING" ? "missing" : "complete";
     const healthLabel = health === "error" ? "בעייתי" : health === "missing" ? (row.execution_date ? "ממתין לביצוע" : "ממתין לתאריך ביצוע") : "תקין";
     const classes = [child || isSplit ? "split" : statusClasses[row.status], child ? "transfer-child-row" : "", `bank-row-${health}`].join(" ");
@@ -140,7 +150,7 @@ export async function mountBankTransferWorkbench(request) {
       <td><input name="notes" value="${esc(row.notes)}" aria-label="הערות"></td>
       <td><select name="allocation_unit_id" aria-label="מחלקה">${options(state.data.units, row.allocation_unit_id, "allocation_unit_id")}</select></td>
       <td><select name="daycare_id" aria-label="מעון">${daycareOptions(row.daycare_id, row.allocation_unit_id)}</select></td>
-      <td><select name="status" aria-label="סטטוס">${Object.entries(statusLabels).map(([value, title]) => `<option value="${value}" ${row.status === value ? "selected" : ""}>${title}</option>`).join("")}</select></td>
+      <td><span class="transfer-workflow-status ${workflow}">${workflowLabels[workflow]}</span><select name="status" aria-label="סטטוס מערכת">${Object.entries(statusLabels).map(([value, title]) => `<option value="${value}" ${row.status === value ? "selected" : ""}>${title}</option>`).join("")}</select></td>
       <td class="system-cell">${row.created_at ? esc(new Intl.DateTimeFormat("he-IL", { timeZone: "Asia/Jerusalem", dateStyle: "short" }).format(new Date(row.created_at))) : "יוקצה בשמירה"}</td>
       <td><input name="execution_date" type="date" value="${esc(row.execution_date)}" aria-label="תאריך ביצוע" ${state.data.capabilities.set_execution_date === false ? "readonly" : ""}></td>
       <td class="attachment-cell">${row.attachment_path ? `<button class="icon-button" data-open-attachment type="button" title="${esc(row.attachment_name)}">📎</button>` : ""}<button class="icon-button" data-upload-attachment type="button" ${temp ? "disabled" : ""} aria-label="העלאת קובץ">＋</button><input data-attachment-file type="file" hidden></td>
@@ -194,6 +204,8 @@ export async function mountBankTransferWorkbench(request) {
     const pendingChildren = splitParents.flatMap((row) => childrenFor(row.bank_transfer_id).map(draft).filter((child) => child.status === "PENDING"));
     const pendingCount = unsplitPending.length + splitParents.filter((row) => splitSummary(row).remaining > .005 || childrenFor(row.bank_transfer_id).some((child) => draft(child).status === "PENDING")).length;
     const pendingAmount = [...unsplitPending, ...pendingChildren].reduce((sum, row) => sum + Number(row.amount || 0), 0) + remaining;
+    const approvedCount = state.data.transfers.map(draft).filter((row) => workflowStatus(row) === "approved").length;
+    $("#transfer-approved-count").textContent = approvedCount;
     $("#transfer-kpis").innerHTML = [
       ["ממתינות", pendingCount, "pending"],
       ["סכום ממתין", money.format(pendingAmount), "pending"],
@@ -212,6 +224,7 @@ export async function mountBankTransferWorkbench(request) {
     $("#transfer-count").textContent = `${rows.length} העברות`;
     $("#transfer-selection").textContent = state.selectedRows.size ? `${state.selectedRows.size} שורות נבחרו` : "לא נבחרו שורות";
     $("#transfer-delete-selected").hidden = !state.selectedRows.size;
+    document.querySelectorAll("[data-transfer-status]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.transferStatus === state.workflow)));
     updateKpis();
     bindAutosave();
     state.controllers.forEach((controller, id) => {
@@ -328,10 +341,18 @@ export async function mountBankTransferWorkbench(request) {
   };
 
   $("#transfer-search").addEventListener("input", (event) => { state.query = event.target.value; render(); });
+  $("#transfer-status-filters").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-transfer-status]");
+    if (!button) return;
+    state.workflow = button.dataset.transferStatus;
+    state.view = "all";
+    $("#transfer-view").value = "all";
+    render();
+  });
   const showMissingAttachments = () => { state.view = "missing-attachment"; $("#transfer-view").value = state.view; render(); };
   $("#transfer-kpis").addEventListener("click", (event) => { if (event.target.closest("[data-filter-missing]")) showMissingAttachments(); });
   $("#transfer-kpis").addEventListener("keydown", (event) => { if (event.target.matches("[data-filter-missing]") && ["Enter", " "].includes(event.key)) { event.preventDefault(); showMissingAttachments(); } });
-  $("#transfer-view").addEventListener("change", (event) => { state.view = event.target.value; render(); });
+  $("#transfer-view").addEventListener("change", (event) => { state.view = event.target.value; state.workflow = "all"; render(); });
   $("#transfer-unit-filter").addEventListener("change", (event) => { state.unit = event.target.value; render(); });
   $("#transfer-sort").addEventListener("change", (event) => { state.sort = event.target.value; render(); });
   $("#transfer-select-all").addEventListener("change", (event) => {
