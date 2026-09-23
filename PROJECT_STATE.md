@@ -1,6 +1,6 @@
 # Project State
 
-Last reviewed: 2026-09-23 (TRACK050)
+Last reviewed: 2026-09-23 (TRACK051)
 
 This file contains current operational state only. Durable rules belong in
 `AGENTS.md` and `docs/business-rules.md`; detailed history belongs in
@@ -10,10 +10,12 @@ This file contains current operational state only. Durable rules belong in
 
 - Canonical branch: `main` / `origin/main`.
 - Canonical Production URL: `https://chamah-portal.vercel.app`.
-- Canonical Production serves READY TRACK049 deployment
-  `dpl_2Y416AaJAiRKiUQ2jdALgX54LofW` at approved Git SHA
-  `08221283052b74591604dbf88500e31cb75e28c1`, containing the TRACK048
-  pending transfer amount correction.
+- Canonical Production serves READY TRACK051 deployment
+  `dpl_7MgVWUCLdLjrY9ih4LLFR3GTk17Q`, promoted from the validated TRACK050
+  artifact built at implementation SHA
+  `2f883e462b5f329f60b7ed1c2f4bfa0b2f64e012`. Approved TRACK050 SHA
+  `4e00fb062de02303abeef7986f913249bfe301f1` adds only Preview documentation
+  after that deployable artifact.
 - The preview-named project domain
   `https://chamah-manager-portal-v2-preview.vercel.app` currently routes to the
   same Production artifact. It is not a separate Preview artifact despite its
@@ -37,6 +39,11 @@ This file contains current operational state only. Durable rules belong in
 
 ## Latest completed TRACKs
 
+- TRACK051: promoted only the validated TRACK050 Preview artifact to canonical
+  Production. Canonical assets and manifest serve build `dab8fb67403d`; the
+  root-scoped service worker has no-store headers, registers and updates in
+  Chromium and iPhone-sized WebKit, and the old-to-new update regression passes
+  2/2. No database, data, migration, or Edge Function change.
 - TRACK050: added build-versioned frontend assets and an update-aware offline
   app shell for iPhone Home Screen installations. READY Preview
   `dpl_3895d96tZ3yhYs59EnQwdvXQewRZ` is available at
