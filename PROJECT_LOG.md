@@ -5235,3 +5235,12 @@ Validation:
 - Added versioned policy document tables and RLS, limited draft update columns, checked publish/retire RPC, immutable published title/body snapshots.
 - Applied both forward-only migrations to linked Supabase preview backend; SQL schema/policy smoke check executed.
 - NOT complete: main SPA permissions/navigation integration, authenticated end-to-end testing, actual browser editor, MCP document read tools, deployment to Vercel production. Do not enable for staff yet.
+
+
+## 2026-11-09 — Documents module integrated in actual SPA (development branch)
+- Found active SPA in chamah-manager-portal/new/app.js and new/index.html, not legacy root index.
+- Added policy-documents.js lightweight list/search, create, inline draft editor, publish/retire, published snapshot, version history.
+- Integrated #documents routing, main navigation, homepage module, and permission labels; permissions remain revocable through existing portal users management.
+- Hardened DB: direct authenticated table reads/writes revoked; only permission-checked RPC list/create/save/publish/history; editor concurrency check on updated_at; immutable published snapshot. Unauthorized RPC list/history return empty.
+- Database migrations applied to linked Supabase; anonymous SQL smoke check returns empty; table privilege checks show no direct authenticated SELECT/UPDATE. Security advisor flags intentional SECURITY DEFINER callable RPCs (each checks auth.uid and effective permissions), plus unrelated existing notices.
+- Not deployed to Vercel. Browser end-to-end with actual staff login and production branch linkage remain unverified. Document attachment upload and MCP policy lookup not included in text-first MVP.
