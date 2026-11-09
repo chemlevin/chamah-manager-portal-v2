@@ -2,6 +2,10 @@
   "version": 2,
   "builds": [
     {
+      "src": "api/mcp.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "api/budget.js",
       "use": "@vercel/node"
     },
@@ -22,6 +26,10 @@
     }
   ],
   "routes": [
+    {
+      "src": "/api/mcp",
+      "dest": "/api/mcp.js"
+    },
     {
       "src": "/api/budget",
       "dest": "/api/budget.js"
