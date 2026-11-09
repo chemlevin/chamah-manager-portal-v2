@@ -5205,3 +5205,12 @@ Validation:
 - Verified RPC EXECUTE privilege: authenticated allowed, anon denied. Deployment returned ACTIVE. No end-to-end restricted-manager test or external HTTP smoke test was run. All existing profiles observed were organization-scoped; employee assignments table contained one row.
 - Existing Vercel frontend and budget/payroll calculation engines unchanged. No frontend deployment.
 - Follow-up: create restricted test user and verify cross-daycare denial, run gateway HTTP integration tests, audit production RLS independently, connect OAuth/MCP transport only after authentication tests.
+
+
+## 2026-11-09 - Isolated MCP Streamable HTTP endpoint
+
+- Committed `supabase/functions/portal-mcp-server/index.ts` to `security/mcp-rls-hardening` and deployed as a **new**, isolated Supabase Edge Function `portal-mcp-server` v1, ACTIVE, `verify_jwt=true`. No existing Edge Function was overwritten.
+- Implemented JSON-RPC `initialize`, `ping`, `tools/list`, `tools/call` and notification handling; exposed only `list_my_daycares` and `list_staff_by_daycare`, both read-only and backed by the scoped RPCs. User JWT is validated and forwarded; no service-role key or generic SQL tool.
+- Verified deployed source matches committed GitHub source and the deployment API reports ACTIVE. Attempted HTTP smoke test but runtime DNS could not resolve Supabase hostname; no successful external HTTP or authenticated end-to-end test is claimed.
+- Security audit found existing broad `portal_authorized_read` RLS policy on employees; **not changed** because it could break existing portal operations. No SELECTED-scope users exist for live cross-daycare validation. Before connecting real staff, test a restricted fixture and review RLS separately.
+- OAuth authorization server settings, consent endpoint, MCP resource discovery, and ChatGPT client registration remain unverified/unconfigured. This endpoint is **not** ready for real user connection.
