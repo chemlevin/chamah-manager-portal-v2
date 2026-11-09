@@ -1,11 +1,14 @@
 'use strict';
 
 // Read-only MCP Streamable HTTP endpoint. Each call uses the caller's Supabase
-// access token; no service_role key and no cross-user cache.
+// access token; no privileged server key and no cross-user cache.
 const SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
 const API_KEY = process.env.CHAMAH_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
-const RESOURCE = 'https://chamah-portal-chamah.vercel.app/api/mcp';
+const PORTAL_ORIGIN = 'https://chamah-portal.vercel.app';
+const RESOURCE = `${PORTAL_ORIGIN}/api/mcp`;
+const RESOURCE_METADATA = `${PORTAL_ORIGIN}/.well-known/oauth-protected-resource`;
 const AUTH_SERVER = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co/auth/v1';
+const PROTOCOL_VERSION = '2025-03-26';
 const TOOLS = [
   {name:'list_policies',description:'List published organizational policies visible to the authenticated user',inputSchema:{type:'object',properties:{search:{type:'string',maxLength:120}},additionalProperties:false}},
   {name:'read_policy',description:'Read the published version of an authorized policy (never drafts)',inputSchema:{type:'object',properties:{document_id:{type:'string',format:'uuid'}},required:['document_id'],additionalProperties:false}},
@@ -24,7 +27,7 @@ async function api(path,token,body){
 module.exports=async function handler(req,res){
  res.setHeader('Allow','POST, OPTIONS');
  if(req.url?.includes('.well-known/oauth-protected-resource'))return send(res,200,{resource:RESOURCE,authorization_servers:[AUTH_SERVER],bearer_methods_supported:['header']});
- res.setHeader('WWW-Authenticate', 'Bearer resource_metadata="https://chamah-portal-chamah.vercel.app/.well-known/oauth-protected-resource"');
+ res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${RESOURCE_METADATA}"`);
  if(req.method==='OPTIONS')return send(res,204,{});
  if(req.method!=='POST')return send(res,405,{error:'method_not_allowed'});
  const auth=req.headers.authorization||'';
@@ -34,13 +37,17 @@ module.exports=async function handler(req,res){
   const user=await api('/auth/v1/user',token);
   if(!user?.id)return send(res,401,{error:'authentication_required'});
  }catch{return send(res,401,{error:'invalid_or_expired_token'});}
+ try{
+  const access=await api('/rest/v1/rpc/portal_my_access',token,{});
+  if(!access?.profile?.is_active)return send(res,403,{error:'portal_access_denied'});
+ }catch(e){return send(res,e.status===401?401:403,{error:e.status===401?'invalid_or_expired_token':'portal_access_denied'});}
  let m=req.body;
  if(typeof m==='string'){try{m=JSON.parse(m)}catch{return send(res,400,error(null,-32700,'Parse error'));}}
  if(!m||Array.isArray(m)||typeof m!=='object'||m.jsonrpc!=='2.0'||typeof m.method!=='string')return send(res,400,error(m?.id??null,-32600,'Invalid request'));
  if(JSON.stringify(m).length>12000)return send(res,413,error(m.id??null,-32600,'Request too large'));
- const id=m.id??null;
- if(m.method==='notifications/initialized')return res.status(202).end();
- if(m.method==='initialize')return send(res,200,{jsonrpc:'2.0',id,result:{protocolVersion:'2025-03-26',capabilities:{tools:{listChanged:false}},serverInfo:{name:'chamah-portal-readonly',version:'0.1.0'}}});
+ if(m.id===undefined)return res.status(202).end();
+ const id=m.id;
+ if(m.method==='initialize')return send(res,200,{jsonrpc:'2.0',id,result:{protocolVersion:PROTOCOL_VERSION,capabilities:{tools:{listChanged:false}},serverInfo:{name:'chamah-portal-readonly',version:'0.1.0'}}});
  if(m.method==='ping')return send(res,200,{jsonrpc:'2.0',id,result:{}});
  if(m.method==='tools/list')return send(res,200,{jsonrpc:'2.0',id,result:{tools:TOOLS}});
  if(m.method!=='tools/call')return send(res,200,error(id,-32601,'Method not found'));
