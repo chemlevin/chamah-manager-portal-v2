@@ -31,6 +31,10 @@
   ],
   "routes": [
     {
+      "src": "/oauth/consent",
+      "dest": "/oauth-consent.html"
+    },
+    {
       "src": "/.well-known/oauth-protected-resource",
       "dest": "/api/mcp-oauth-metadata.js"
     },
