@@ -27,6 +27,10 @@
   ],
   "routes": [
     {
+      "src": "/.well-known/oauth-protected-resource",
+      "dest": "/api/mcp.js"
+    },
+    {
       "src": "/api/mcp",
       "dest": "/api/mcp.js"
     },
