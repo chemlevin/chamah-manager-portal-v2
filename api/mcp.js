@@ -4,6 +4,8 @@
 // access token; no service_role key and no cross-user cache.
 const SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
 const API_KEY = process.env.CHAMAH_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
+const RESOURCE = 'https://chamah-portal-chamah.vercel.app/api/mcp';
+const AUTH_SERVER = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co/auth/v1';
 const TOOLS = [
   {name:'list_policies',description:'List published organizational policies visible to the authenticated user',inputSchema:{type:'object',properties:{search:{type:'string',maxLength:120}},additionalProperties:false}},
   {name:'read_policy',description:'Read the published version of an authorized policy (never drafts)',inputSchema:{type:'object',properties:{document_id:{type:'string',format:'uuid'}},required:['document_id'],additionalProperties:false}},
@@ -21,6 +23,8 @@ async function api(path,token,body){
 }
 module.exports=async function handler(req,res){
  res.setHeader('Allow','POST, OPTIONS');
+ if(req.url?.includes('.well-known/oauth-protected-resource'))return send(res,200,{resource:RESOURCE,authorization_servers:[AUTH_SERVER],bearer_methods_supported:['header']});
+ res.setHeader('WWW-Authenticate', 'Bearer resource_metadata="https://chamah-portal-chamah.vercel.app/.well-known/oauth-protected-resource"');
  if(req.method==='OPTIONS')return send(res,204,{});
  if(req.method!=='POST')return send(res,405,{error:'method_not_allowed'});
  const auth=req.headers.authorization||'';
