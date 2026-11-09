@@ -5214,3 +5214,10 @@ Validation:
 - Verified deployed source matches committed GitHub source and the deployment API reports ACTIVE. Attempted HTTP smoke test but runtime DNS could not resolve Supabase hostname; no successful external HTTP or authenticated end-to-end test is claimed.
 - Security audit found existing broad `portal_authorized_read` RLS policy on employees; **not changed** because it could break existing portal operations. No SELECTED-scope users exist for live cross-daycare validation. Before connecting real staff, test a restricted fixture and review RLS separately.
 - OAuth authorization server settings, consent endpoint, MCP resource discovery, and ChatGPT client registration remain unverified/unconfigured. This endpoint is **not** ready for real user connection.
+
+
+## 2026-11-09 - MCP security contract tests and readiness check
+
+- Added dependency-free Node test source `tests/mcp-readonly-security.test.mjs` on the MCP hardening branch. Tests statically assert read-only tools, caller JWT forwarding, UUID validation, RPC authorization guards, and absence of destructive policy/data changes. These tests have NOT yet been run in CI; do not claim passing tests.
+- Rechecked live database: `employees` retains one broad `portal_authorized_read` policy; no active `SELECTED`-scope profiles exist. Thus cross-daycare authorization has not been proven and direct table access remains a separate risk.
+- Reviewed current Supabase MCP OAuth documentation and OpenAI custom MCP connector availability. OAuth server enablement, authorization consent flow, discovery, refresh scopes, and ChatGPT workspace eligibility remain outstanding. No existing production code was overwritten.
