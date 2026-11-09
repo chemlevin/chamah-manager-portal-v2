@@ -5221,3 +5221,10 @@ Validation:
 - Added dependency-free Node test source `tests/mcp-readonly-security.test.mjs` on the MCP hardening branch. Tests statically assert read-only tools, caller JWT forwarding, UUID validation, RPC authorization guards, and absence of destructive policy/data changes. These tests have NOT yet been run in CI; do not claim passing tests.
 - Rechecked live database: `employees` retains one broad `portal_authorized_read` policy; no active `SELECTED`-scope profiles exist. Thus cross-daycare authorization has not been proven and direct table access remains a separate risk.
 - Reviewed current Supabase MCP OAuth documentation and OpenAI custom MCP connector availability. OAuth server enablement, authorization consent flow, discovery, refresh scopes, and ChatGPT workspace eligibility remain outstanding. No existing production code was overwritten.
+
+
+## 2026-11-09 — Documents navigation scaffold
+- Added 'מסמכים ונהלים' entry to desktop/mobile home navigation and home module card in both mirrored index.html sources.
+- Created documents/index.html in both source trees as a clearly marked non-functional placeholder.
+- No uploads, publication, permissions or Supabase document storage implemented. No production deployment. Next: inspect actual portal permissions UI and implement default-deny upload authorization before enabling feature.
+- Validation: GitHub commits confirmed; runtime/build tests not executed.
