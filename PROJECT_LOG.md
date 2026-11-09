@@ -5228,3 +5228,10 @@ Validation:
 - Created documents/index.html in both source trees as a clearly marked non-functional placeholder.
 - No uploads, publication, permissions or Supabase document storage implemented. No production deployment. Next: inspect actual portal permissions UI and implement default-deny upload authorization before enabling feature.
 - Validation: GitHub commits confirmed; runtime/build tests not executed.
+
+
+## 2026-11-09 — Policy data model and revocable access (preview backend)
+- Added portal_sections entries documents, documents.manage, documents.publish, with no non-admin permission grants (default deny).
+- Added versioned policy document tables and RLS, limited draft update columns, checked publish/retire RPC, immutable published title/body snapshots.
+- Applied both forward-only migrations to linked Supabase preview backend; SQL schema/policy smoke check executed.
+- NOT complete: main SPA permissions/navigation integration, authenticated end-to-end testing, actual browser editor, MCP document read tools, deployment to Vercel production. Do not enable for staff yet.
