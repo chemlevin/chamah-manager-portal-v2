@@ -6,6 +6,7 @@ import { RULE_CATEGORIES, SYSTEM_RULES } from './management-catalog.generated.js
 import { DOCUMENTED_STATUS_RULES, REFERENCE_TABLES, VARIABLE_RULE_TABLES } from './management-data.js';
 import { mountAdministrationPrototype } from './administration-prototype.js';
 import { mountSettingsCenter } from './settings-center.js';
+import { mountPolicyDocuments } from './policy-documents.js';
 import { bankWorkbenchTemplateV2 as track015BankWorkbenchTemplate, mountBankWorkbenchV2 as mountBankWorkbench } from './bank-workbench-ux.js';
 import { bankTransferWorkbenchTemplate, mountBankTransferWorkbench } from './bank-transfer-workbench.js';
 import { workforceHubTemplate, employeesWorkbenchTemplate, payrollWorkbenchTemplate, parsePayrollWorkbook } from './workforce-workbench.js';
@@ -47,7 +48,7 @@ const HEBREW_SCREEN_LABELS = {
   'management.permissions.users': 'רשימת משתמשים והרשאות', 'management.rules': 'כללים',
   'management.rules.calculation': 'כללי חישוב', 'management.rules.system': 'כללי מערכת', 'management.settings': 'הגדרות', 'management.tables': 'טבלאות',
   'management.tables.calculation': 'טבלאות חישוב', 'management.tables.variables': 'כללים משתנים',
-  'management.audit': 'יומן שינויים', knowledge: 'מרכז הידע למשתמש', maintenance: 'תחזוקה', tasks: 'משימות'
+  'management.audit': 'יומן שינויים', documents: 'מסמכים ונהלים', 'documents.manage': 'עריכת נהלים', 'documents.publish': 'פרסום נהלים', knowledge: 'מרכז הידע למשתמש', maintenance: 'תחזוקה', tasks: 'משימות'
 };
 
 function canonicalizeSections(sections) {
@@ -110,6 +111,7 @@ const modules = [
   { route: 'accounting', href: 'dashboards/unit/organization/accounting', icon: '🧾', title: 'הנה״ח', description: 'בקרה ארגונית על תהליכי הנהלת החשבונות.' },
   { route: 'payroll', icon: '₪', title: 'שכר', description: 'מרכז מודולרי לתהליכי שכר ולחישובי שכר.' },
   { route: 'training', icon: '▤', title: 'הרשאות וטבלאות', description: 'טבלאות וכלי הרשאות ארגוניים במקום אחד.' },
+  { route: 'documents', icon: '📁', title: 'מסמכים ונהלים', description: 'נהלים ארגוניים, טיוטות וגרסאות מפורסמות.' },
   { route: 'knowledge', icon: '📚', title: 'מרכז הידע למשתמש', description: 'נהלים, הנחיות מקצועיות ומידע שימושי במקום אחד.' },
   { route: 'maintenance', icon: '🔧', title: 'תחזוקה', description: 'דיווח תקלות, מעקב טיפול וניהול תחזוקת המעונות.' },
   { route: 'tasks', icon: '✅', title: 'משימות', description: 'ריכוז משימות, מעקב אחר ביצוע ותיעדוף העבודה השוטפת.' }
@@ -1491,6 +1493,7 @@ async function render() {
       }
     }
   }
+  else if (route.section === 'documents') { $('#page-content').innerHTML = '<div id="policy-documents-root"></div>'; await mountPolicyDocuments($('#policy-documents-root'), rpc, { manage: permissionFor('documents.manage'), publish: permissionFor('documents.publish') }); }
   else if (route.section === 'training' && route.page === 'permissions' && route.child === 'users') { $('#page-content').innerHTML = usersPermissionsTemplate(); await loadPermissionsAdmin(); }
   else if (route.section === 'training' && route.page === 'rules' && route.child === 'system') { $('#page-content').innerHTML = systemRulesTemplate(); bindSystemRules(); }
   else if (route.section === 'training' && route.page === 'rules' && route.child === 'calculation') { $('#page-content').innerHTML = '<div id="prototype-admin-root"></div>'; mountAdministrationPrototype($('#prototype-admin-root'), 'rules'); }
