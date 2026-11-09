@@ -5195,3 +5195,13 @@ Validation:
 - Promoted the READY Git-linked TRACK045 Preview artifact at approved SHA `958b8f0770a194894fe6c11a889cb87050acaacd`. Its only change after implementation SHA `3635da5f514334597318489ed77dfc515c03f9ca` is TRACK045 documentation. Explicitly assigned canonical alias `https://chamah-portal.vercel.app` to READY Production deployment `dpl_3sGp9CahiMzQkab3VDCjfVxiVxpY`; Vercel CLI and deployment API resolve that alias to this ID and SHA.
 - Authenticated Production read-only validation: permissions editor loaded all three existing active users with existing portal-user / super-admin levels; HIDDEN / VIEW / EDIT matrix, ALL / ASSIGNED_DAYCARES scope, independent approval and execution-date controls, and Daycare Manager preset were present. Bank Transfers loaded its live row, filters, split summary, approval/completion controls, and execution-date field. Browser console had no warnings/errors; Vercel reported no runtime error clusters in the past hour. No user permission, assignment, or business record was changed; no Daycare Manager was activated.
 - Focused desktop-1440 and mobile-390 regression: 48/50 passed. The two archive handler fixture cases returned 403 because the pre-TRACK045 mock lacks a `portal_user_profiles` response and is stopped by the new permission guard before archive logic. This is a validation blocker, not an observed Production archive failure. No real archive mutation was attempted.
+
+
+## 2026-11-09 - Read-only scoped MCP backend gateway (initial rollout)
+
+- Added SQL migration source: `supabase/migrations/20261109_mcp_readonly_scoped_rpcs.sql`.
+- Applied two additive production Supabase RPCs: `portal_mcp_list_daycares()` and `portal_mcp_staff_by_daycare(uuid)`. Both require an authenticated active portal user, `dashboards.staffing.employees` VIEW/EDIT, and appropriate organization/daycare scope. No existing RLS policies were modified.
+- Added and deployed `supabase/functions/portal-mcp-readonly/index.ts` (Supabase Edge Function v1, JWT verification enabled). Only two read actions are allowlisted. The function validates the bearer token and forwards that user JWT to PostgREST RPCs; it does not use a service-role key.
+- Verified RPC EXECUTE privilege: authenticated allowed, anon denied. Deployment returned ACTIVE. No end-to-end restricted-manager test or external HTTP smoke test was run. All existing profiles observed were organization-scoped; employee assignments table contained one row.
+- Existing Vercel frontend and budget/payroll calculation engines unchanged. No frontend deployment.
+- Follow-up: create restricted test user and verify cross-daycare denial, run gateway HTTP integration tests, audit production RLS independently, connect OAuth/MCP transport only after authentication tests.
