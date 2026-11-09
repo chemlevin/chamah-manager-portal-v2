@@ -2,6 +2,10 @@
   "version": 2,
   "builds": [
     {
+      "src": "api/mcp-oauth-metadata.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "api/mcp.js",
       "use": "@vercel/node"
     },
@@ -28,7 +32,7 @@
   "routes": [
     {
       "src": "/.well-known/oauth-protected-resource",
-      "dest": "/api/mcp.js"
+      "dest": "/api/mcp-oauth-metadata.js"
     },
     {
       "src": "/api/mcp",
