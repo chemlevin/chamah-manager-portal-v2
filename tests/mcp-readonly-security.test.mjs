@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 const server = readFileSync(new URL('../supabase/functions/portal-mcp-server/index.ts', import.meta.url), 'utf8');
 const sql = readFileSync(new URL('../supabase/migrations/20261109_mcp_readonly_scoped_rpcs.sql', import.meta.url), 'utf8');
 
-test('MCP endpoint is read-only and exposes only allowlisted tools', () => {
+test('legacy Edge MCP endpoint remains scoped and contains no privileged key', () => {
   assert.match(server, /name: "list_my_daycares"/);
   assert.match(server, /name: "list_staff_by_daycare"/);
   assert.match(server, /method === "tools\/list"/);
@@ -34,7 +34,7 @@ test('Both RPCs enforce active user, screen and daycare scope', () => {
   assert.match(sql, /revoke all on function public\.portal_mcp_staff_by_daycare\(uuid\) from public, anon/);
 });
 
-test('Source does not modify existing policies, data, or payroll logic', () => {
+test('legacy scoped RPC source does not modify existing policies, data, or payroll logic', () => {
   assert.doesNotMatch(sql, /\b(drop|truncate|delete|update|alter policy|create policy)\b/i);
   assert.doesNotMatch(server, /\b(insert|update|delete)\b/i);
 });
