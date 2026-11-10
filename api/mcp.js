@@ -10,6 +10,15 @@ const RESOURCE_METADATA = `${PORTAL_ORIGIN}/.well-known/oauth-protected-resource
 const AUTH_SERVER = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co/auth/v1';
 const PROTOCOL_VERSION = '2025-03-26';
 const TOOLS = [
+  {name:'propose_supplier_bank_detail',description:'Propose an idempotent supplier bank-account change',inputSchema:{type:'object',properties:{supplier_id:{type:'string'},bank_detail:{type:'object'},idempotency_key:{type:'string'}},required:['supplier_id','bank_detail','idempotency_key'],additionalProperties:false}},
+  {name:'request_supplier_bank_verification_approval',description:'Approve an exact supplier bank verification decision',inputSchema:{type:'object',properties:{supplier_bank_detail_id:{type:'string'},decision:{type:'string',enum:['VERIFIED','REJECTED']},expected_row_version:{type:'integer'},note:{type:'string'},reason:{type:'string'}},required:['supplier_bank_detail_id','decision','expected_row_version','note','reason'],additionalProperties:false}},
+  {name:'verify_supplier_bank_detail',description:'Execute an approved supplier bank verification decision',inputSchema:{type:'object',properties:{supplier_bank_detail_id:{type:'string'},decision:{type:'string',enum:['VERIFIED','REJECTED']},expected_row_version:{type:'integer'},approval_id:{type:'string'},note:{type:'string'}},required:['supplier_bank_detail_id','decision','expected_row_version','approval_id','note'],additionalProperties:false}},
+  {name:'record_payment_execution',description:'Record immutable execution evidence separately from payment approval',inputSchema:{type:'object',properties:{execution:{type:'object'}},required:['execution'],additionalProperties:false}},
+  {name:'search_bank_reconciliation',description:'Search payment execution and bank reconciliation balances',inputSchema:{type:'object',properties:{status:{type:'string'},limit:{type:'integer'},offset:{type:'integer'}},additionalProperties:false}},
+  {name:'confirm_bank_reconciliation',description:'Confirm one or many partial bank reconciliation allocations atomically',inputSchema:{type:'object',properties:{matches:{type:'array',minItems:1,maxItems:100,items:{type:'object'}},idempotency_key:{type:'string'},note:{type:'string'}},required:['matches','idempotency_key'],additionalProperties:false}},
+  {name:'enqueue_bank_statement_import',description:'Queue a periodic bank statement import for asynchronous processing',inputSchema:{type:'object',properties:{statement:{type:'object'},idempotency_key:{type:'string'}},required:['statement','idempotency_key'],additionalProperties:false}},
+  {name:'enqueue_reconciliation_suggestions',description:'Queue suggestion-only automatic matching',inputSchema:{type:'object',properties:{criteria:{type:'object'},idempotency_key:{type:'string'}},required:['criteria','idempotency_key'],additionalProperties:false}},
+  {name:'get_financial_job',description:'Read asynchronous financial job status and result',inputSchema:{type:'object',properties:{job_id:{type:'string'}},required:['job_id'],additionalProperties:false}},
   {name:'search_suppliers',description:'Search canonical suppliers',inputSchema:{type:'object',properties:{search:{type:'string'},limit:{type:'integer'},offset:{type:'integer'}},additionalProperties:false}},
   {name:'find_supplier_duplicates',description:'Detect supplier duplicates',inputSchema:{type:'object',properties:{supplier:{type:'object'}},required:['supplier'],additionalProperties:false}},
   {name:'create_supplier',description:'Create a canonical supplier',inputSchema:{type:'object',properties:{supplier:{type:'object'}},required:['supplier'],additionalProperties:false}},
@@ -91,7 +100,7 @@ module.exports=async function handler(req,res){
  if(typeof m==='string'){try{m=JSON.parse(m)}catch{return send(res,400,error(null,-32700,'Parse error'));}}
  if(!m||Array.isArray(m)||typeof m!=='object'||m.jsonrpc!=='2.0'||typeof m.method!=='string')return send(res,400,error(m?.id??null,-32600,'Invalid request'));
  const requestSize=JSON.stringify(m).length;
- if(requestSize>(['upload_policy_file','upload_payment_document'].includes(m?.params?.name)?4300000:12000))return send(res,413,error(m.id??null,-32600,'Request too large'));
+ if(requestSize>(['upload_policy_file','upload_payment_document','enqueue_bank_statement_import'].includes(m?.params?.name)?4300000:12000))return send(res,413,error(m.id??null,-32600,'Request too large'));
  if(m.id===undefined)return res.status(202).end();
  const id=m.id;
  if(m.method==='initialize')return send(res,200,{jsonrpc:'2.0',id,result:{protocolVersion:PROTOCOL_VERSION,capabilities:{tools:{listChanged:false}},serverInfo:{name:'chamah-portal-director',version:'1.0.0'}}});
@@ -102,6 +111,33 @@ module.exports=async function handler(req,res){
  if(!TOOLS.some(t=>t.name===name)||!args||typeof args!=='object'||Array.isArray(args))return send(res,200,error(id,-32602,'Invalid tool'));
  let rpc,params;
  switch(name){
+ case 'propose_supplier_bank_detail':
+  if(Object.keys(args).length!==3||!UUID.test(args.supplier_id||'')||!args.bank_detail||typeof args.bank_detail!=='object'||Array.isArray(args.bank_detail)||typeof args.idempotency_key!=='string'||!args.idempotency_key.trim()||args.idempotency_key.length>160)return send(res,200,error(id,-32602,'Invalid supplier bank proposal'));
+  rpc='portal_mcp_propose_supplier_bank_detail';params={p_supplier_id:args.supplier_id,p_bank_detail:args.bank_detail,p_idempotency_key:args.idempotency_key};break;
+ case 'request_supplier_bank_verification_approval': {
+  if(Object.keys(args).length!==5||!UUID.test(args.supplier_bank_detail_id||'')||!['VERIFIED','REJECTED'].includes(args.decision)||!Number.isInteger(args.expected_row_version)||args.expected_row_version<1||typeof args.note!=='string'||!args.note.trim()||args.note.length>500||typeof args.reason!=='string'||args.reason.trim().length<3||args.reason.length>500)return send(res,200,error(id,-32602,'Invalid supplier bank verification approval'));
+  const payload={supplier_bank_detail_id:args.supplier_bank_detail_id,decision:args.decision,expected_row_version:args.expected_row_version,note:args.note.trim()};
+  rpc='portal_request_approval';params={p_action_code:'SUPPLIER_BANK.VERIFY',p_resource_type:'SUPPLIER_BANK_DETAIL',p_resource_id:args.supplier_bank_detail_id,p_payload:payload,p_reason:args.reason};break;
+ }
+ case 'verify_supplier_bank_detail':
+  if(Object.keys(args).length!==5||!UUID.test(args.supplier_bank_detail_id||'')||!['VERIFIED','REJECTED'].includes(args.decision)||!Number.isInteger(args.expected_row_version)||args.expected_row_version<1||!UUID.test(args.approval_id||'')||typeof args.note!=='string'||!args.note.trim()||args.note.length>500)return send(res,200,error(id,-32602,'Invalid supplier bank verification'));
+  rpc='portal_mcp_verify_supplier_bank_detail';params={p_supplier_bank_detail_id:args.supplier_bank_detail_id,p_decision:args.decision,p_expected_row_version:args.expected_row_version,p_approval_id:args.approval_id,p_note:args.note.trim()};break;
+ case 'record_payment_execution':
+  if(Object.keys(args).length!==1||!args.execution||typeof args.execution!=='object'||Array.isArray(args.execution)||!Array.isArray(args.execution.allocations)||args.execution.allocations.length<1||args.execution.allocations.length>100)return send(res,200,error(id,-32602,'Invalid payment execution'));
+  rpc='portal_mcp_record_payment_execution';params={p_execution:args.execution};break;
+ case 'search_bank_reconciliation':
+  if(Object.keys(args).some(k=>!['status','limit','offset'].includes(k))||(args.limit!==undefined&&(!Number.isInteger(args.limit)||args.limit<1||args.limit>100))||(args.offset!==undefined&&(!Number.isInteger(args.offset)||args.offset<0)))return send(res,200,error(id,-32602,'Invalid reconciliation search'));
+  rpc='portal_mcp_search_reconciliation';params={p_status:args.status||null,p_limit:args.limit||25,p_offset:args.offset||0};break;
+ case 'confirm_bank_reconciliation':
+  if(Object.keys(args).some(k=>!['matches','idempotency_key','note'].includes(k))||!Array.isArray(args.matches)||args.matches.length<1||args.matches.length>100||typeof args.idempotency_key!=='string'||!args.idempotency_key.trim()||args.idempotency_key.length>160||args.matches.some(v=>!v||typeof v!=='object'||!UUID.test(v.payment_request_id||'')||!UUID.test(v.bank_transaction_id||'')||(v.payment_execution_id!==undefined&&v.payment_execution_id!==null&&!UUID.test(v.payment_execution_id))||typeof v.amount!=='number'||v.amount<=0))return send(res,200,error(id,-32602,'Invalid reconciliation confirmation'));
+  rpc='portal_mcp_confirm_bank_reconciliation';params={p_matches:args.matches,p_idempotency_key:args.idempotency_key,p_note:args.note||null};break;
+ case 'enqueue_bank_statement_import':
+  if(Object.keys(args).length!==2||!args.statement||typeof args.statement!=='object'||Array.isArray(args.statement)||!UUID.test(args.statement.bank_account_id||'')||!Array.isArray(args.statement.rows)||args.statement.rows.length<1||args.statement.rows.length>5000||typeof args.idempotency_key!=='string'||!args.idempotency_key.trim()||args.idempotency_key.length>160)return send(res,200,error(id,-32602,'Invalid bank statement import'));
+  rpc='portal_mcp_enqueue_financial_job';params={p_job_type:'STATEMENT_IMPORT',p_payload:args.statement,p_idempotency_key:args.idempotency_key};break;
+ case 'enqueue_reconciliation_suggestions':
+  if(Object.keys(args).length!==2||!args.criteria||typeof args.criteria!=='object'||Array.isArray(args.criteria)||typeof args.idempotency_key!=='string'||!args.idempotency_key.trim()||args.idempotency_key.length>160)return send(res,200,error(id,-32602,'Invalid reconciliation suggestion job'));
+  rpc='portal_mcp_enqueue_financial_job';params={p_job_type:'MATCH_SUGGESTIONS',p_payload:args.criteria,p_idempotency_key:args.idempotency_key};break;
+ case 'get_financial_job': if(Object.keys(args).length!==1||!UUID.test(args.job_id||''))return send(res,200,error(id,-32602,'Invalid financial job'));rpc='portal_mcp_get_financial_job';params={p_job_id:args.job_id};break;
  case 'search_suppliers': rpc='portal_mcp_search_suppliers';params={p_search:args.search||null,p_limit:args.limit||25,p_offset:args.offset||0};break;
  case 'find_supplier_duplicates': if(!args.supplier||typeof args.supplier!=='object')return send(res,200,error(id,-32602,'Invalid supplier'));rpc='portal_mcp_find_supplier_duplicates';params={p_supplier:args.supplier};break;
  case 'create_supplier': if(!args.supplier||typeof args.supplier!=='object')return send(res,200,error(id,-32602,'Invalid supplier'));rpc='portal_mcp_create_supplier';params={p_supplier:args.supplier};break;
