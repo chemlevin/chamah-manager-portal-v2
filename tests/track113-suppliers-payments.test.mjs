@@ -24,4 +24,6 @@ test('lifecycle, approval, idempotency, allocation and audit contracts are expli
 test('MCP exposes closed supplier and payment tools without privileged credentials',()=>{
  for(const tool of ['search_suppliers','find_supplier_duplicates','create_supplier','update_supplier','import_suppliers','search_payment_requests','create_payment_request','update_payment_request','import_payment_requests','request_payment_transition_approval','transition_payment_request','upload_payment_document','analyze_suppliers_payments']) assert.match(mcp,new RegExp(`name:'${tool}'`));
  assert.doesNotMatch(mcp,/SUPABASE_SERVICE_ROLE_KEY|execute_sql|raw_sql/i);
+ assert.match(mcp,/require\('node:crypto'\)/);
+ assert.match(mcp,/crypto\.createHash\('sha256'\)/);
 });

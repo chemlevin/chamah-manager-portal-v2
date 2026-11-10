@@ -1,5 +1,7 @@
 'use strict';
 
+const crypto=require('node:crypto');
+
 // Director-only MCP Streamable HTTP endpoint. Every operation uses the caller's
 // Supabase token; no privileged key, generic table access, or cross-user cache.
 const SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
