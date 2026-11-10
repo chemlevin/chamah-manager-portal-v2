@@ -122,10 +122,10 @@ test.describe('new portal Supabase authentication', () => {
       expect(route.request().headers().authorization).toBe('Bearer recovery-access');
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'recovery-user' }) });
     });
-    let unitsAuthorization;
-    await page.route(`${supabaseUrl}/rest/v1/allocation_units**`, async (route) => {
-      unitsAuthorization = route.request().headers().authorization;
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    let configurationAuthorization;
+    await page.route(`${supabaseUrl}/functions/v1/portal-runtime-config**`, async (route) => {
+      configurationAuthorization = route.request().headers().authorization;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ configuration: {} }) });
     });
     await page.goto('/#access_token=recovery-access&refresh_token=recovery-refresh&expires_in=3600&token_type=bearer&type=recovery');
     await expect(page.locator('#recovery-view')).toBeVisible();
@@ -138,7 +138,7 @@ test.describe('new portal Supabase authentication', () => {
     expect(typeof updateBody.password).toBe('string');
     expect(updateBody.password.length).toBeGreaterThanOrEqual(10);
     await page.goto('/#dashboards');
-    await expect.poll(() => unitsAuthorization).toBe('Bearer recovery-access');
+    await expect.poll(() => configurationAuthorization).toBe('Bearer recovery-access');
     await page.reload();
     await expect(page.locator('#app-view')).toBeVisible();
   });
@@ -220,14 +220,14 @@ test.describe('new portal Supabase authentication', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ access_token: 'fresh-access', refresh_token: 'fresh-refresh', expires_in: 3600, token_type: 'bearer' }) });
     });
     await mockUser(page, 'fresh-access');
-    let authorization;
-    await page.route(`${supabaseUrl}/rest/v1/allocation_units**`, async (route) => {
-      authorization = route.request().headers().authorization;
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    let configurationAuthorization;
+    await page.route(`${supabaseUrl}/functions/v1/portal-runtime-config**`, async (route) => {
+      configurationAuthorization = route.request().headers().authorization;
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ configuration: {} }) });
     });
     await page.goto('/#dashboards');
     await expect(page.locator('#app-view')).toBeVisible();
-    await expect.poll(() => authorization).toBe('Bearer fresh-access');
+    await expect.poll(() => configurationAuthorization).toBe('Bearer fresh-access');
     const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), sessionKey);
     expect(stored.refresh_token).toBe('fresh-refresh');
   });

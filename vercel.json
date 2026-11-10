@@ -55,6 +55,14 @@
       "dest": "/api/allocations.js"
     },
     {
+      "src": "/service-worker.js",
+      "headers": {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Service-Worker-Allowed": "/"
+      },
+      "dest": "/service-worker.js"
+    },
+    {
       "handle": "filesystem"
     },
     {

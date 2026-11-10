@@ -51,7 +51,10 @@ async function openWorkbench(page, actions = []) {
       Object.assign(row, { status: 'COMPLETED' });
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ transfer: row }) });
     }
-    if (body.action === 'delete') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ archived: [body.bank_transfer_id] }) });
+    if (body.action === 'delete') {
+      data.transfers = data.transfers.filter((row) => row.bank_transfer_id !== body.bank_transfer_id && row.parent_transfer_id !== body.bank_transfer_id);
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ archived: [body.bank_transfer_id] }) });
+    }
     if (body.action === 'upload_attachment') {
       const row = data.transfers.find((item) => item.bank_transfer_id === body.bank_transfer_id);
       Object.assign(row, { attachment_path: `${row.bank_transfer_id}/receipt.pdf`, attachment_name: body.file_name });
@@ -82,6 +85,60 @@ test('default view, KPIs and split summary follow TRACK023 rules', async ({ page
   await page.locator('#transfer-view').selectOption('COMPLETED');
   await expect(page.locator(`[data-transfer-row="${completedId}"] [name="name"]`)).toHaveValue('תשלום היסטורי');
   if (testInfo.project.name === 'desktop-1440') await page.screenshot({ path: 'screenshots/track025a/bank-transfers-desktop.png', fullPage: true });
+});
+
+test('regular pending amount survives autosave and reload exactly once', async ({ page }) => {
+  const actions = [];
+  const data = await openWorkbench(page, actions);
+  const row = page.locator(`[data-transfer-row="${pendingId}"]`);
+  await row.locator('[name="amount"]').fill('325.50');
+  await expect.poll(() => actions.some((body) => body.action === 'save' && body.bank_transfer_id === pendingId && body.amount === 325.5)).toBeTruthy();
+  await expect.poll(() => data.transfers.find((item) => item.bank_transfer_id === pendingId)?.amount).toBe(325.5);
+  await page.reload();
+  await expect(page.locator(`[data-transfer-row="${pendingId}"] [name="amount"]`)).toHaveValue('325.5');
+  await expect(page.locator('#transfer-kpis article').nth(0)).toContainText('2');
+  await expect(page.locator('#transfer-kpis article').nth(1)).toContainText('925.50');
+});
+
+test('representative active split amounts show the pending total without counting the parent twice', async ({ page }) => {
+  const data = await openWorkbench(page);
+  data.transfers = [
+    { ...data.transfers[0], amount: 9750.53 },
+    { ...data.transfers[1], amount: 3750.53, status: 'PENDING', execution_date: null },
+    { ...data.transfers[1], bank_transfer_id: crypto.randomUUID(), amount: 6000, status: 'PENDING', execution_date: null },
+  ];
+  await page.reload();
+  await expect(page.locator('#transfer-kpis article').nth(0)).toContainText('1');
+  await expect(page.locator('#transfer-kpis article').nth(1)).toContainText('9,750.53');
+  await expect(page.locator('#transfer-kpis article').nth(3)).toContainText('0.00');
+});
+
+test('split pending children and unallocated balance count once across save and reload', async ({ page }) => {
+  const actions = [];
+  const data = await openWorkbench(page, actions);
+  page.on('dialog', (dialog) => dialog.accept());
+  await page.locator(`[data-toggle-split="${parentId}"]`).click();
+  await page.locator(`[data-add-split="${parentId}"]`).click();
+  const child = page.locator('[data-transfer-row^="temp-"]');
+  await child.locator('[name="amount"]').fill('600');
+  await expect.poll(() => data.transfers.some((row) => row.parent_transfer_id === parentId && row.status === 'PENDING' && row.amount === 600)).toBeTruthy();
+  await expect(page.locator('#transfer-kpis article').nth(0)).toContainText('2');
+  await expect(page.locator('#transfer-kpis article').nth(1)).toContainText('850.00');
+  await expect(page.locator('#transfer-kpis article').nth(3)).toContainText('0.00');
+  await page.reload();
+  await expect(page.locator('#transfer-kpis article').nth(1)).toContainText('850.00');
+  const savedChild = data.transfers.find((row) => row.parent_transfer_id === parentId && row.status === 'PENDING');
+  await page.locator(`[data-toggle-split="${parentId}"]`).click();
+  await page.locator(`[data-transfer-row="${savedChild.bank_transfer_id}"] [name="amount"]`).fill('500');
+  await expect.poll(() => data.transfers.find((row) => row.bank_transfer_id === savedChild.bank_transfer_id)?.amount).toBe(500);
+  await expect(page.locator('#transfer-kpis article').nth(1)).toContainText('850.00');
+  await expect(page.locator('#transfer-kpis article').nth(3)).toContainText('100.00');
+  await page.locator(`[data-transfer-row="${savedChild.bank_transfer_id}"] [data-delete-transfer]`).click();
+  await expect(page.locator('#transfer-kpis article').nth(1)).toContainText('850.00');
+  await page.locator(`[data-transfer-row="${childId}"] [data-delete-transfer]`).click();
+  await expect(page.locator('#transfer-kpis article').nth(1)).toContainText('1,250.00');
+  await page.reload();
+  await expect(page.locator('#transfer-kpis article').nth(1)).toContainText('1,250.00');
 });
 
 test('multi-select deletes selected transfer rows', async ({ page }) => {
