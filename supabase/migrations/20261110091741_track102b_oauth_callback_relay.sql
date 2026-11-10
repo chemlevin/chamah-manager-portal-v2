@@ -16,7 +16,7 @@ alter table public.portal_oauth_callback_relays enable row level security;
 revoke all on public.portal_oauth_callback_relays from public, anon, authenticated;
 
 create index if not exists portal_oauth_callback_relays_expiry_idx
-  on private.portal_oauth_callback_relays (expires_at);
+  on public.portal_oauth_callback_relays (expires_at);
 
 comment on table public.portal_oauth_callback_relays is
   'Short-lived OAuth relay coordination. Stores hashes, an ephemeral public key, and encrypted callback ciphertext only.';

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { webcrypto } from 'node:crypto';
 
 const migration = readFileSync(new URL('../supabase/migrations/20261110091741_track102b_oauth_callback_relay.sql', import.meta.url), 'utf8');
+const serviceGrant = readFileSync(new URL('../supabase/migrations/20261110092415_track102c_relay_service_role_grant.sql', import.meta.url), 'utf8');
 const relay = readFileSync(new URL('../supabase/functions/portal-oauth-callback-relay/index.ts', import.meta.url), 'utf8');
 
 test('relay storage is private, short-lived, and contains no plaintext OAuth secret columns', () => {
@@ -12,6 +13,8 @@ test('relay storage is private, short-lived, and contains no plaintext OAuth sec
   assert.match(migration, /revoke all .* from public, anon, authenticated/i);
   assert.match(migration, /sealed_payload jsonb/);
   assert.doesNotMatch(migration, /\b(code|token|verifier)\s+(text|jsonb)/i);
+  assert.match(serviceGrant, /grant select, insert, update, delete[\s\S]*to service_role/i);
+  assert.doesNotMatch(serviceGrant, /\bto\s+(?:anon|authenticated|public)\b/i);
 });
 
 test('relay hashes state and delivery secret, seals callback data, and atomically consumes it', () => {
@@ -21,6 +24,8 @@ test('relay hashes state and delivery secret, seals callback data, and atomicall
   assert.match(relay, /AES-GCM/);
   assert.match(relay, /sealed_payload=is\.null/);
   assert.match(relay, /method: "DELETE"/);
+  assert.match(relay, /expires_at=lt/);
+  assert.match(relay, /await cleanupExpired\(\)/);
   assert.match(relay, /Cache-Control": "no-store"/);
   assert.doesNotMatch(relay, /console\.(?:log|error)|SUPABASE_ANON_KEY/);
 });

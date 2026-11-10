@@ -17,6 +17,10 @@ async function rest(path: string, init: RequestInit = {}) {
   return fetch(`${SUPABASE_URL}/rest/v1/${path}`, { ...init, headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, ...(init.headers || {}) } });
 }
 
+async function cleanupExpired() {
+  await rest(`${TABLE}?expires_at=lt.${encodeURIComponent(new Date().toISOString())}`, { method: "DELETE", headers: { Prefer: "return=minimal" } });
+}
+
 async function seal(publicJwk: JsonWebKey, payload: unknown) {
   const rsaKey = await crypto.subtle.importKey("jwk", publicJwk, { name: "RSA-OAEP", hash: "SHA-256" }, false, ["encrypt"]);
   const aesKey = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt"]);
@@ -67,6 +71,7 @@ async function consumeRelay(req: Request) {
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
+  await cleanupExpired();
   if (req.method === "POST" && url.pathname.endsWith("/session")) return createRelay(req);
   if (req.method === "GET" && url.pathname.endsWith("/callback")) return receiveCallback(url);
   if (req.method === "POST" && url.pathname.endsWith("/consume")) return consumeRelay(req);
