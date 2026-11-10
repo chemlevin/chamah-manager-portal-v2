@@ -20,7 +20,8 @@ const TOOLS = [
   {name:'archive_policy',description:'Soft-delete a policy with an exact unconsumed approval',inputSchema:{type:'object',properties:{document_id:{type:'string',format:'uuid'},approval_id:{type:'string',format:'uuid'},reason:{type:'string',minLength:3,maxLength:500}},required:['document_id','approval_id','reason'],additionalProperties:false}},
   {name:'request_bulk_policy_archive_approval',description:'Create a short-lived approval for an exact bulk archive set',inputSchema:{type:'object',properties:{document_ids:{type:'array',minItems:1,maxItems:50,uniqueItems:true,items:{type:'string',format:'uuid'}},reason:{type:'string',minLength:3,maxLength:500}},required:['document_ids','reason'],additionalProperties:false}},
   {name:'bulk_archive_policies',description:'Atomically soft-delete an approved set of policies',inputSchema:{type:'object',properties:{document_ids:{type:'array',minItems:1,maxItems:50,uniqueItems:true,items:{type:'string',format:'uuid'}},approval_id:{type:'string',format:'uuid'},reason:{type:'string',minLength:3,maxLength:500}},required:['document_ids','approval_id','reason'],additionalProperties:false}},
-  {name:'upload_policy_file',description:'Upload a validated attachment (PDF, PNG, JPEG or text; up to 3 MiB)',inputSchema:{type:'object',properties:{document_id:{type:'string',format:'uuid'},filename:{type:'string',minLength:1,maxLength:120},content_type:{type:'string',enum:['application/pdf','image/png','image/jpeg','text/plain']},base64:{type:'string',minLength:1,maxLength:4194304}},required:['document_id','filename','content_type','base64'],additionalProperties:false}}
+  {name:'upload_policy_file',description:'Upload a validated attachment (PDF, PNG, JPEG or text; up to 3 MiB)',inputSchema:{type:'object',properties:{document_id:{type:'string',format:'uuid'},filename:{type:'string',minLength:1,maxLength:120},content_type:{type:'string',enum:['application/pdf','image/png','image/jpeg','text/plain']},base64:{type:'string',minLength:1,maxLength:4194304}},required:['document_id','filename','content_type','base64'],additionalProperties:false}},
+  {name:'download_policy_file',description:'Download a private policy attachment returned by upload_policy_file',inputSchema:{type:'object',properties:{object_path:{type:'string',minLength:1,maxLength:500}},required:['object_path'],additionalProperties:false}}
 ];
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function send(res,status,body){res.status(status).setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');return res.end(JSON.stringify(body));}
@@ -36,6 +37,13 @@ async function upload(path,token,contentType,bytes){
  const data=await r.json().catch(()=>null);
  if(!r.ok)throw Object.assign(new Error('Upload rejected'),{status:r.status,detail:data});
  return data;
+}
+async function download(path,token){
+ const r=await fetch(SUPABASE_URL+'/storage/v1/object/authenticated/policy-attachments/'+path,{headers:{apikey:API_KEY,Authorization:'Bearer '+token},signal:AbortSignal.timeout(15000)});
+ if(!r.ok)throw Object.assign(new Error('Download rejected'),{status:r.status});
+ const bytes=Buffer.from(await r.arrayBuffer());
+ if(bytes.length>3*1024*1024)throw Object.assign(new Error('Download exceeds MCP limit'),{status:413});
+ return {base64:bytes.toString('base64'),content_type:r.headers.get('content-type')||'application/octet-stream',size:bytes.length};
 }
 module.exports=async function handler(req,res){
  res.setHeader('Allow','POST, OPTIONS');
@@ -115,6 +123,13 @@ module.exports=async function handler(req,res){
    const result=await api('/rest/v1/rpc/portal_mcp_record_file',token,{p_document_id:args.document_id,p_object_path:objectPath.replace('policy-attachments/',''),p_size:bytes.length,p_content_type:args.content_type});
    return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(result)}],structuredContent:result,isError:false}});
   }catch(e){return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:e.status===403?'Permission denied':'Upload failed'}],isError:true}});}
+ }
+ case 'download_policy_file': {
+  if(Object.keys(args).length!==1||typeof args.object_path!=='string'||args.object_path.length>500||args.object_path.startsWith('/')||args.object_path.includes('..')||!new RegExp('^'+user.id+'/[0-9a-f-]{36}/[0-9a-f-]{36}-[A-Za-z0-9._-]+$','i').test(args.object_path))return send(res,200,error(id,-32602,'Invalid object path'));
+  try{
+   const result=await download(args.object_path,token);
+   return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(result)}],structuredContent:result,isError:false}});
+  }catch(e){return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:e.status===403?'Permission denied':'Download failed'}],isError:true}});}
  }
  }
  try{

@@ -33,12 +33,15 @@ test('sensitive actions use exact expiring one-time approvals and soft delete', 
   assert.match(migration, /changed<>cardinality\(p_document_ids\)/);
 });
 
-test('uploads are private, constrained and audited', () => {
+test('uploads and downloads are private, constrained and audited', () => {
   assert.match(migration, /'policy-attachments','policy-attachments',false,10485760/);
   assert.match(migration, /allowed_mime_types/);
   assert.match(migration, /policy_attachments_director_insert/);
   assert.match(mcp, /bytes\.length>3\*1024\*1024/);
   assert.match(mcp, /portal_mcp_record_file/);
+  assert.match(mcp, /name:'download_policy_file'/);
+  assert.match(mcp, /storage\/v1\/object\/authenticated\/policy-attachments/);
+  assert.doesNotMatch(mcp, /storage\/v1\/object\/public\/policy-attachments/);
 });
 
 test('legacy permissions UI is frozen and replaced by unified read-only status UX', () => {
