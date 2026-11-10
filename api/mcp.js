@@ -10,6 +10,19 @@ const RESOURCE_METADATA = `${PORTAL_ORIGIN}/.well-known/oauth-protected-resource
 const AUTH_SERVER = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co/auth/v1';
 const PROTOCOL_VERSION = '2025-03-26';
 const TOOLS = [
+  {name:'search_suppliers',description:'Search canonical suppliers',inputSchema:{type:'object',properties:{search:{type:'string'},limit:{type:'integer'},offset:{type:'integer'}},additionalProperties:false}},
+  {name:'find_supplier_duplicates',description:'Detect supplier duplicates',inputSchema:{type:'object',properties:{supplier:{type:'object'}},required:['supplier'],additionalProperties:false}},
+  {name:'create_supplier',description:'Create a canonical supplier',inputSchema:{type:'object',properties:{supplier:{type:'object'}},required:['supplier'],additionalProperties:false}},
+  {name:'update_supplier',description:'Update a supplier with optimistic concurrency',inputSchema:{type:'object',properties:{supplier_id:{type:'string'},expected_row_version:{type:'integer'},patch:{type:'object'}},required:['supplier_id','expected_row_version','patch'],additionalProperties:false}},
+  {name:'import_suppliers',description:'Import up to 100 suppliers',inputSchema:{type:'object',properties:{rows:{type:'array',minItems:1,maxItems:100,items:{type:'object'}},source_name:{type:'string'}},required:['rows'],additionalProperties:false}},
+  {name:'search_payment_requests',description:'Search canonical payment requests',inputSchema:{type:'object',properties:{search:{type:'string'},status:{type:'string'},limit:{type:'integer'},offset:{type:'integer'}},additionalProperties:false}},
+  {name:'create_payment_request',description:'Create an idempotent draft payment request',inputSchema:{type:'object',properties:{request:{type:'object'}},required:['request'],additionalProperties:false}},
+  {name:'update_payment_request',description:'Update an editable draft',inputSchema:{type:'object',properties:{payment_request_id:{type:'string'},expected_row_version:{type:'integer'},patch:{type:'object'}},required:['payment_request_id','expected_row_version','patch'],additionalProperties:false}},
+  {name:'import_payment_requests',description:'Import up to 100 payment drafts',inputSchema:{type:'object',properties:{rows:{type:'array',minItems:1,maxItems:100,items:{type:'object'}},source_name:{type:'string'}},required:['rows'],additionalProperties:false}},
+  {name:'upload_payment_document',description:'Upload a private invoice or payment attachment',inputSchema:{type:'object',properties:{payment_request_id:{type:'string'},document_type:{type:'string'},filename:{type:'string'},content_type:{type:'string'},base64:{type:'string'}},required:['payment_request_id','document_type','filename','content_type','base64'],additionalProperties:false}},
+  {name:'request_payment_transition_approval',description:'Approve an exact sensitive payment transition',inputSchema:{type:'object',properties:{payment_request_id:{type:'string'},target_status:{type:'string'},expected_row_version:{type:'integer'},detail:{type:'object'},reason:{type:'string'}},required:['payment_request_id','target_status','expected_row_version','detail','reason'],additionalProperties:false}},
+  {name:'transition_payment_request',description:'Execute a payment lifecycle transition',inputSchema:{type:'object',properties:{payment_request_id:{type:'string'},target_status:{type:'string'},expected_row_version:{type:'integer'},approval_id:{type:['string','null']},detail:{type:'object'}},required:['payment_request_id','target_status','expected_row_version','detail'],additionalProperties:false}},
+  {name:'analyze_suppliers_payments',description:'Analyze supplier and payment quality',inputSchema:{type:'object',properties:{},additionalProperties:false}},
   {name:'list_policies',description:'List published organizational policies visible to the authenticated user',inputSchema:{type:'object',properties:{search:{type:'string',maxLength:120}},additionalProperties:false}},
   {name:'read_policy',description:'Read the published version of an authorized policy (never drafts)',inputSchema:{type:'object',properties:{document_id:{type:'string',format:'uuid'}},required:['document_id'],additionalProperties:false}},
   {name:'list_daycares',description:'List daycares visible to the authenticated user',inputSchema:{type:'object',properties:{},additionalProperties:false}},
@@ -78,7 +91,7 @@ module.exports=async function handler(req,res){
  if(typeof m==='string'){try{m=JSON.parse(m)}catch{return send(res,400,error(null,-32700,'Parse error'));}}
  if(!m||Array.isArray(m)||typeof m!=='object'||m.jsonrpc!=='2.0'||typeof m.method!=='string')return send(res,400,error(m?.id??null,-32600,'Invalid request'));
  const requestSize=JSON.stringify(m).length;
- if(requestSize>(m?.params?.name==='upload_policy_file'?4300000:12000))return send(res,413,error(m.id??null,-32600,'Request too large'));
+ if(requestSize>(['upload_policy_file','upload_payment_document'].includes(m?.params?.name)?4300000:12000))return send(res,413,error(m.id??null,-32600,'Request too large'));
  if(m.id===undefined)return res.status(202).end();
  const id=m.id;
  if(m.method==='initialize')return send(res,200,{jsonrpc:'2.0',id,result:{protocolVersion:PROTOCOL_VERSION,capabilities:{tools:{listChanged:false}},serverInfo:{name:'chamah-portal-director',version:'1.0.0'}}});
@@ -89,6 +102,28 @@ module.exports=async function handler(req,res){
  if(!TOOLS.some(t=>t.name===name)||!args||typeof args!=='object'||Array.isArray(args))return send(res,200,error(id,-32602,'Invalid tool'));
  let rpc,params;
  switch(name){
+ case 'search_suppliers': rpc='portal_mcp_search_suppliers';params={p_search:args.search||null,p_limit:args.limit||25,p_offset:args.offset||0};break;
+ case 'find_supplier_duplicates': if(!args.supplier||typeof args.supplier!=='object')return send(res,200,error(id,-32602,'Invalid supplier'));rpc='portal_mcp_find_supplier_duplicates';params={p_supplier:args.supplier};break;
+ case 'create_supplier': if(!args.supplier||typeof args.supplier!=='object')return send(res,200,error(id,-32602,'Invalid supplier'));rpc='portal_mcp_create_supplier';params={p_supplier:args.supplier};break;
+ case 'update_supplier': if(!UUID.test(args.supplier_id||'')||!Number.isInteger(args.expected_row_version)||typeof args.patch!=='object')return send(res,200,error(id,-32602,'Invalid supplier update'));rpc='portal_mcp_update_supplier';params={p_supplier_id:args.supplier_id,p_patch:args.patch,p_expected_row_version:args.expected_row_version};break;
+ case 'import_suppliers': if(!Array.isArray(args.rows)||args.rows.length<1||args.rows.length>100)return send(res,200,error(id,-32602,'Supplier import requires 1-100 rows'));rpc='portal_mcp_import_suppliers';params={p_rows:args.rows,p_source_name:args.source_name||'MCP'};break;
+ case 'search_payment_requests': rpc='portal_mcp_search_payment_requests';params={p_search:args.search||null,p_status:args.status||null,p_limit:args.limit||25,p_offset:args.offset||0};break;
+ case 'create_payment_request': if(!args.request||typeof args.request!=='object')return send(res,200,error(id,-32602,'Invalid payment request'));rpc='portal_mcp_create_payment_request';params={p_request:args.request};break;
+ case 'update_payment_request': if(!UUID.test(args.payment_request_id||'')||!Number.isInteger(args.expected_row_version)||typeof args.patch!=='object')return send(res,200,error(id,-32602,'Invalid payment update'));rpc='portal_mcp_update_payment_request';params={p_payment_request_id:args.payment_request_id,p_patch:args.patch,p_expected_row_version:args.expected_row_version};break;
+ case 'import_payment_requests': if(!Array.isArray(args.rows)||args.rows.length<1||args.rows.length>100)return send(res,200,error(id,-32602,'Payment import requires 1-100 rows'));rpc='portal_mcp_import_payment_requests';params={p_rows:args.rows,p_source_name:args.source_name||'MCP'};break;
+ case 'upload_payment_document': {
+  if(!UUID.test(args.payment_request_id||'')||!['INVOICE','RECEIPT','BANK_CONFIRMATION','OTHER'].includes(args.document_type)||!['application/pdf','image/png','image/jpeg'].includes(args.content_type)||typeof args.base64!=='string')return send(res,200,error(id,-32602,'Invalid payment document'));
+  const bytes=Buffer.from(args.base64,'base64'); if(!bytes.length||bytes.length>3*1024*1024)return send(res,200,error(id,-32602,'File exceeds 3 MiB'));
+  const safeName=String(args.filename||'attachment').replace(/[^A-Za-z0-9._-]+/g,'_').slice(0,120); const objectPath=`payment-request-attachments/${user.id}/${args.payment_request_id}/${crypto.randomUUID()}-${safeName}`;
+  try{await upload(objectPath,token,args.content_type,bytes);const digest=crypto.createHash('sha256').update(bytes).digest('hex');const result=await api('/rest/v1/rpc/portal_mcp_record_payment_document',token,{p_payment_request_id:args.payment_request_id,p_document_type:args.document_type,p_object_path:objectPath.replace('payment-request-attachments/',''),p_filename:args.filename,p_content_type:args.content_type,p_size:bytes.length,p_sha256:digest});return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(result)}],structuredContent:result,isError:false}});}catch{return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:'Upload failed'}],isError:true}});}
+ }
+ case 'request_payment_transition_approval': {
+  const action={APPROVED:'PAYMENT_REQUEST.APPROVE',PAID:'PAYMENT_REQUEST.PAY',VERIFIED:'PAYMENT_REQUEST.VERIFY',CANCELLED:'PAYMENT_REQUEST.CANCEL'}[args.target_status];
+  if(!action||!UUID.test(args.payment_request_id||'')||!Number.isInteger(args.expected_row_version)||typeof args.detail!=='object'||typeof args.reason!=='string'||args.reason.trim().length<3)return send(res,200,error(id,-32602,'Invalid payment approval'));
+  rpc='portal_request_approval';params={p_action_code:action,p_resource_type:'PAYMENT_REQUEST',p_resource_id:args.payment_request_id,p_payload:{payment_request_id:args.payment_request_id,target_status:args.target_status,expected_row_version:args.expected_row_version,detail:args.detail},p_reason:args.reason};break;
+ }
+ case 'transition_payment_request': if(!UUID.test(args.payment_request_id||'')||!Number.isInteger(args.expected_row_version)||!['PENDING','APPROVED','PAID','VERIFIED','CANCELLED'].includes(args.target_status)||typeof args.detail!=='object'||(args.target_status!=='PENDING'&&!UUID.test(args.approval_id||'')))return send(res,200,error(id,-32602,'Invalid payment transition'));rpc='portal_mcp_transition_payment_request';params={p_payment_request_id:args.payment_request_id,p_target_status:args.target_status,p_expected_row_version:args.expected_row_version,p_approval_id:args.approval_id||null,p_detail:args.detail};break;
+ case 'analyze_suppliers_payments': if(Object.keys(args).length)return send(res,200,error(id,-32602,'Unexpected arguments'));rpc='portal_mcp_analyze_suppliers_payments';params={};break;
  case 'list_policies':
   if(Object.keys(args).some(k=>k!=='search')||(args.search!==undefined&&(typeof args.search!=='string'||args.search.length>120)))return send(res,200,error(id,-32602,'Invalid search'));
   rpc='portal_mcp_list_policies';params={p_search:args.search||null};break;
