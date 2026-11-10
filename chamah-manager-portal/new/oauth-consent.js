@@ -17,7 +17,11 @@ async function main(){
  if(accessError||!access?.profile?.is_active)return fail('לא ניתן לאמת הרשאות בפורטל. לא אושר חיבור.');
  const {data,error}=await sb.auth.oauth.getAuthorizationDetails(id);
  if(error||!data)return fail('לא ניתן לקרוא את פרטי בקשת החיבור.');
- if(!('authorization_id' in data)){return fail('בקשה זו כבר אושרה. יש לחזור לאפליקציה המבקשת.');}
+ if(!('authorization_id' in data)){
+  if(typeof data.redirect_url!=='string'||!data.redirect_url.startsWith('https://'))return fail('לא ניתן להשלים את החזרה לאפליקציה המבקשת.');
+  location.replace(data.redirect_url);
+  return;
+ }
  $('client').textContent=data.client?.name||'אפליקציה ללא שם';
  $('redirect').textContent=data.redirect_uri||'לא ידוע';
  $('scopes').textContent=data.scope||'לא צוינו';

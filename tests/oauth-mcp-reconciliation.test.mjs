@@ -35,6 +35,9 @@ test('Consent reuses and refreshes the portal session before OAuth approval or d
   assert.match(consentSource, /await sb\.auth\.getUser\(\)/);
   assert.match(consentSource, /access\?\.profile\?\.is_active/);
   assert.match(consentSource, /getAuthorizationDetails\(id\)/);
+  assert.match(consentSource, /!\('authorization_id' in data\)/);
+  assert.match(consentSource, /location\.replace\(data\.redirect_url\)/);
+  assert.doesNotMatch(consentSource, /בקשה זו כבר אושרה/);
   assert.match(consentSource, /approveAuthorization\(id\)/);
   assert.match(consentSource, /denyAuthorization\(id\)/);
   assert.doesNotMatch(consentSource, /service_role|SUPABASE_SERVICE_ROLE_KEY/i);

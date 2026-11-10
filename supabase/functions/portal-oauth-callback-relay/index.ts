@@ -4,7 +4,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const TABLE = "portal_oauth_callback_relays";
 const CALLBACK_URL = `${SUPABASE_URL}/functions/v1/portal-oauth-callback-relay/callback`;
-const MAX_TTL_SECONDS = 180;
+const MAX_TTL_SECONDS = 300;
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer" };
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });

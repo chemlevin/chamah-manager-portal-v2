@@ -26,6 +26,7 @@ test('relay hashes state and delivery secret, seals callback data, and atomicall
   assert.match(relay, /method: "DELETE"/);
   assert.match(relay, /expires_at=lt/);
   assert.match(relay, /await cleanupExpired\(\)/);
+  assert.match(relay, /MAX_TTL_SECONDS = 300/);
   assert.match(relay, /Cache-Control": "no-store"/);
   assert.doesNotMatch(relay, /console\.(?:log|error)|SUPABASE_ANON_KEY/);
 });
