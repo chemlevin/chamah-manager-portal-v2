@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 const sql=readFileSync(new URL('../supabase/migrations/20261110170000_track113_suppliers_payments.sql',import.meta.url),'utf8');
 const mcp=readFileSync(new URL('../api/mcp.js',import.meta.url),'utf8');
 const atomicSql=readFileSync(new URL('../supabase/migrations/20261111053632_track116_atomic_payment_attachments.sql',import.meta.url),'utf8');
+const cleanupPolicySql=readFileSync(new URL('../supabase/migrations/20261111060732_track116_storage_cleanup_policy_fix.sql',import.meta.url),'utf8');
 
 test('canonical additive supplier and payment aggregate is Director action-gated',()=>{
  for(const table of ['suppliers','supplier_bank_details','payment_requests','payment_request_allocations','payment_request_documents','payment_request_events']) assert.match(sql,new RegExp(`create table public\\.${table}`));
@@ -46,4 +47,8 @@ test('TRACK116 payment attachment retries use guarded compensation and immutable
  assert.match(atomicSql,/'phase','PREPARED'/);
  assert.match(atomicSql,/'phase','FINALIZED'/);
  assert.match(atomicSql,/'phase','CLEANED'/);
+ assert.match(cleanupPolicySql,/private\.portal_payment_attachment_cleanup_allowed/);
+ assert.match(cleanupPolicySql,/p_actor=auth\.uid\(\)/);
+ assert.match(cleanupPolicySql,/op\.status='CLEANUP_PENDING' and op\.payment_request_document_id is null/);
+ assert.doesNotMatch(cleanupPolicySql,/grant .*payment_attachment_operations/i);
 });

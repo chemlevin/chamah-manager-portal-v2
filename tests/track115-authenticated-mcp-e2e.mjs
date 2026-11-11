@@ -33,7 +33,9 @@ function vercelPost(body, token) {
   writeFileSync(configPath, `${lines.join('\n')}\n`, { encoding: 'utf8', mode: 0o600 });
   try {
     const args = ['--yes', 'vercel@50.28.0', 'curl', '/api/mcp', '--deployment', endpoint, '--', '--config', configPath];
-    const result = spawnSync('npx.cmd', args, { encoding: 'utf8', timeout: 45_000, windowsHide: true, shell: true });
+    const executable = process.platform === 'win32' ? process.execPath : 'npx';
+    const executableArgs = process.platform === 'win32' ? ['C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npx-cli.js', ...args] : args;
+    const result = spawnSync(executable, executableArgs, { encoding: 'utf8', timeout: 45_000, windowsHide: true });
     assert.equal(result.status, 0, `vercel curl failed: ${result.error?.message || result.stderr || result.stdout}`);
     return result.stdout.trim();
   } finally {
@@ -195,6 +197,19 @@ const invoiceReplay = await ok('upload_payment_document', {
   idempotency_key: `${marker}-invoice`,
 });
 assert.equal(invoiceReplay.payment_request_document_id, invoice.payment_request_document_id);
+const concurrentAttachmentArgs = {
+  payment_request_id: payment.payment_request_id,
+  document_type: 'OTHER',
+  filename: `${marker}-concurrent.pdf`,
+  content_type: 'application/pdf',
+  base64: Buffer.from(`%PDF-1.4\n${marker}-concurrent\n%%EOF`, 'utf8').toString('base64'),
+  idempotency_key: `${marker}-concurrent-invoice`,
+};
+const [concurrentInvoiceA, concurrentInvoiceB] = await Promise.all([
+  ok('upload_payment_document', concurrentAttachmentArgs),
+  ok('upload_payment_document', concurrentAttachmentArgs),
+]);
+assert.equal(concurrentInvoiceA.payment_request_document_id, concurrentInvoiceB.payment_request_document_id);
 
 const pending = await ok('transition_payment_request', {
   payment_request_id: payment.payment_request_id,
