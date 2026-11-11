@@ -30,7 +30,7 @@ const TOOLS = [
   {name:'create_payment_request',description:'Create an idempotent draft payment request',inputSchema:{type:'object',properties:{request:{type:'object'}},required:['request'],additionalProperties:false}},
   {name:'update_payment_request',description:'Update an editable draft',inputSchema:{type:'object',properties:{payment_request_id:{type:'string'},expected_row_version:{type:'integer'},patch:{type:'object'}},required:['payment_request_id','expected_row_version','patch'],additionalProperties:false}},
   {name:'import_payment_requests',description:'Import up to 100 payment drafts',inputSchema:{type:'object',properties:{rows:{type:'array',minItems:1,maxItems:100,items:{type:'object'}},source_name:{type:'string'}},required:['rows'],additionalProperties:false}},
-  {name:'upload_payment_document',description:'Upload a private invoice or payment attachment',inputSchema:{type:'object',properties:{payment_request_id:{type:'string'},document_type:{type:'string'},filename:{type:'string'},content_type:{type:'string'},base64:{type:'string'}},required:['payment_request_id','document_type','filename','content_type','base64'],additionalProperties:false}},
+  {name:'upload_payment_document',description:'Idempotently upload a private invoice or payment attachment',inputSchema:{type:'object',properties:{payment_request_id:{type:'string'},document_type:{type:'string'},filename:{type:'string'},content_type:{type:'string'},base64:{type:'string'},idempotency_key:{type:'string'}},required:['payment_request_id','document_type','filename','content_type','base64','idempotency_key'],additionalProperties:false}},
   {name:'request_payment_transition_approval',description:'Approve an exact sensitive payment transition',inputSchema:{type:'object',properties:{payment_request_id:{type:'string'},target_status:{type:'string'},expected_row_version:{type:'integer'},detail:{type:'object'},reason:{type:'string'}},required:['payment_request_id','target_status','expected_row_version','detail','reason'],additionalProperties:false}},
   {name:'transition_payment_request',description:'Execute a payment lifecycle transition',inputSchema:{type:'object',properties:{payment_request_id:{type:'string'},target_status:{type:'string'},expected_row_version:{type:'integer'},approval_id:{type:['string','null']},detail:{type:'object'}},required:['payment_request_id','target_status','expected_row_version','detail'],additionalProperties:false}},
   {name:'analyze_suppliers_payments',description:'Analyze supplier and payment quality',inputSchema:{type:'object',properties:{},additionalProperties:false}},
@@ -68,6 +68,21 @@ async function upload(path,token,contentType,bytes){
  const data=await r.json().catch(()=>null);
  if(!r.ok)throw Object.assign(new Error('Upload rejected'),{status:r.status,detail:data});
  return data;
+}
+async function removeStorageObject(bucket,path,token){
+ const r=await fetch(SUPABASE_URL+'/storage/v1/object/'+bucket,{method:'DELETE',headers:{apikey:API_KEY,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({prefixes:[path]}),signal:AbortSignal.timeout(15000)});
+ const data=await r.json().catch(()=>null);
+ if(!r.ok)throw Object.assign(new Error('Storage cleanup rejected'),{status:r.status});
+ return data;
+}
+async function compensatePaymentAttachment(operationId,token){
+ const cleanup=await api('/rest/v1/rpc/portal_mcp_begin_payment_attachment_cleanup',token,{p_operation_id:operationId});
+ if(cleanup.status==='FINALIZED')return cleanup;
+ if(cleanup.status==='CLEANUP_PENDING'){
+  await removeStorageObject('payment-request-attachments',cleanup.object_path,token);
+  await api('/rest/v1/rpc/portal_mcp_complete_payment_attachment_cleanup',token,{p_operation_id:operationId});
+ }
+ return cleanup;
 }
 async function download(path,token){
  const r=await fetch(SUPABASE_URL+'/storage/v1/object/authenticated/policy-attachments/'+path,{headers:{apikey:API_KEY,Authorization:'Bearer '+token},signal:AbortSignal.timeout(15000)});
@@ -150,10 +165,20 @@ module.exports=async function handler(req,res){
  case 'update_payment_request': if(!UUID.test(args.payment_request_id||'')||!Number.isInteger(args.expected_row_version)||typeof args.patch!=='object')return send(res,200,error(id,-32602,'Invalid payment update'));rpc='portal_mcp_update_payment_request';params={p_payment_request_id:args.payment_request_id,p_patch:args.patch,p_expected_row_version:args.expected_row_version};break;
  case 'import_payment_requests': if(!Array.isArray(args.rows)||args.rows.length<1||args.rows.length>100)return send(res,200,error(id,-32602,'Payment import requires 1-100 rows'));rpc='portal_mcp_import_payment_requests';params={p_rows:args.rows,p_source_name:args.source_name||'MCP'};break;
  case 'upload_payment_document': {
-  if(!UUID.test(args.payment_request_id||'')||!['INVOICE','RECEIPT','BANK_CONFIRMATION','OTHER'].includes(args.document_type)||!['application/pdf','image/png','image/jpeg'].includes(args.content_type)||typeof args.base64!=='string')return send(res,200,error(id,-32602,'Invalid payment document'));
+  if(Object.keys(args).length!==6||!UUID.test(args.payment_request_id||'')||!['INVOICE','RECEIPT','BANK_CONFIRMATION','OTHER'].includes(args.document_type)||!['application/pdf','image/png','image/jpeg'].includes(args.content_type)||typeof args.base64!=='string'||typeof args.idempotency_key!=='string'||!args.idempotency_key.trim()||args.idempotency_key.length>160)return send(res,200,error(id,-32602,'Invalid payment document'));
   const bytes=Buffer.from(args.base64,'base64'); if(!bytes.length||bytes.length>3*1024*1024)return send(res,200,error(id,-32602,'File exceeds 3 MiB'));
-  const safeName=String(args.filename||'attachment').replace(/[^A-Za-z0-9._-]+/g,'_').slice(0,120); const objectPath=`payment-request-attachments/${user.id}/${args.payment_request_id}/${crypto.randomUUID()}-${safeName}`;
-  try{await upload(objectPath,token,args.content_type,bytes);const digest=crypto.createHash('sha256').update(bytes).digest('hex');const result=await api('/rest/v1/rpc/portal_mcp_record_payment_document',token,{p_payment_request_id:args.payment_request_id,p_document_type:args.document_type,p_object_path:objectPath.replace('payment-request-attachments/',''),p_filename:args.filename,p_content_type:args.content_type,p_size:bytes.length,p_sha256:digest});return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(result)}],structuredContent:result,isError:false}});}catch{return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:'Upload failed'}],isError:true}});}
+  const digest=crypto.createHash('sha256').update(bytes).digest('hex'); let prepared;
+  try{
+   prepared=await api('/rest/v1/rpc/portal_mcp_prepare_payment_attachment',token,{p_payment_request_id:args.payment_request_id,p_document_type:args.document_type,p_filename:args.filename,p_content_type:args.content_type,p_size:bytes.length,p_sha256:digest,p_idempotency_key:args.idempotency_key});
+   if(prepared.status==='FINALIZED'){const result={status:'IDEMPOTENT_REPLAY',payment_request_document_id:prepared.payment_request_document_id,object_path:prepared.object_path,verified:true};return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(result)}],structuredContent:result,isError:false}});}
+   if(prepared.status==='CLEANUP_PENDING'){await compensatePaymentAttachment(prepared.operation_id,token);return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:'Previous failed upload was cleaned; retry safely'}],isError:true}});}
+   try{await upload('payment-request-attachments/'+prepared.object_path,token,args.content_type,bytes);}catch(e){if(e.status!==400)throw e;}
+   const result=await api('/rest/v1/rpc/portal_mcp_finalize_payment_attachment',token,{p_operation_id:prepared.operation_id});
+   return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(result)}],structuredContent:result,isError:false}});
+  }catch(e){
+   if(prepared?.operation_id){try{const cleanup=await compensatePaymentAttachment(prepared.operation_id,token);if(cleanup.status==='FINALIZED'){const result={status:'IDEMPOTENT_REPLAY',payment_request_document_id:cleanup.payment_request_document_id,object_path:cleanup.object_path,verified:true};return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(result)}],structuredContent:result,isError:false}});}}catch{}}
+   return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:'Upload failed safely; retry with the same idempotency key'}],isError:true}});
+  }
  }
  case 'request_payment_transition_approval': {
   const action={APPROVED:'PAYMENT_REQUEST.APPROVE',PAID:'PAYMENT_REQUEST.PAY',VERIFIED:'PAYMENT_REQUEST.VERIFY',CANCELLED:'PAYMENT_REQUEST.CANCEL'}[args.target_status];

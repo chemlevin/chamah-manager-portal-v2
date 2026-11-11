@@ -183,8 +183,18 @@ const invoice = await ok('upload_payment_document', {
   filename: `${marker}.pdf`,
   content_type: 'application/pdf',
   base64: Buffer.from(`%PDF-1.4\n${marker}\n%%EOF`, 'utf8').toString('base64'),
+  idempotency_key: `${marker}-invoice`,
 });
 assert.equal(invoice.verified, true);
+const invoiceReplay = await ok('upload_payment_document', {
+  payment_request_id: payment.payment_request_id,
+  document_type: 'INVOICE',
+  filename: `${marker}.pdf`,
+  content_type: 'application/pdf',
+  base64: Buffer.from(`%PDF-1.4\n${marker}\n%%EOF`, 'utf8').toString('base64'),
+  idempotency_key: `${marker}-invoice`,
+});
+assert.equal(invoiceReplay.payment_request_document_id, invoice.payment_request_document_id);
 
 const pending = await ok('transition_payment_request', {
   payment_request_id: payment.payment_request_id,
