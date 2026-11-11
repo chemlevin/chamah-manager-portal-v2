@@ -49,6 +49,12 @@ const BASE_TOOLS = [
   {name:'create_employee',description:'Create one validated employee and verify the persisted result',inputSchema:{type:'object',properties:{employee:{type:'object',properties:{employee_code:{type:'string',minLength:1,maxLength:50},national_id:{type:'string',maxLength:30},first_name:{type:'string',minLength:1,maxLength:100},last_name:{type:'string',minLength:1,maxLength:100},phone:{type:'string',maxLength:30},email:{type:'string',maxLength:254},birth_date:{type:'string',format:'date'},notes:{type:'string',maxLength:2000}},required:['employee_code','first_name','last_name'],additionalProperties:false}},required:['employee'],additionalProperties:false}},
   {name:'update_employee',description:'Update allowlisted employee fields with optimistic concurrency and persisted-result verification',inputSchema:{type:'object',properties:{employee_id:{type:'string',format:'uuid'},expected_row_version:{type:'integer',minimum:1},patch:{type:'object',properties:{first_name:{type:'string',minLength:1,maxLength:100},last_name:{type:'string',minLength:1,maxLength:100},phone:{type:['string','null'],maxLength:30},email:{type:['string','null'],maxLength:254},birth_date:{type:['string','null'],format:'date'},notes:{type:['string','null'],maxLength:2000},lifecycle_status:{type:'string',enum:['ACTIVE','INACTIVE','ARCHIVED']}},minProperties:1,additionalProperties:false}},required:['employee_id','expected_row_version','patch'],additionalProperties:false}},
   {name:'import_employees',description:'Validate and import up to 100 employees synchronously; larger imports require a durable job',inputSchema:{type:'object',properties:{source_name:{type:'string',maxLength:120},rows:{type:'array',minItems:1,maxItems:100,items:{type:'object',properties:{employee_code:{type:'string',minLength:1,maxLength:50},national_id:{type:'string',maxLength:30},first_name:{type:'string',minLength:1,maxLength:100},last_name:{type:'string',minLength:1,maxLength:100},phone:{type:'string',maxLength:30},email:{type:'string',maxLength:254},birth_date:{type:'string',format:'date'},notes:{type:'string',maxLength:2000}},required:['employee_code','first_name','last_name'],additionalProperties:false}}},required:['rows'],additionalProperties:false}},
+  {name:'operational_catalog',description:'Return the canonical mixed-domain import contract, stable keys and writable fields',inputSchema:{type:'object',properties:{},additionalProperties:false}},
+  {name:'employee_profile',description:'Read one complete canonical employee profile and all workforce relationships',inputSchema:{type:'object',properties:{employee_id:{type:'string',format:'uuid'}},required:['employee_id'],additionalProperties:false}},
+  {name:'preview_operational_changes',description:'Match and validate 1-100 mixed-domain canonical records without committing business data',inputSchema:{type:'object',properties:{rows:{type:'array',minItems:1,maxItems:100,items:{type:'object'}},source_name:{type:'string',maxLength:120},idempotency_key:{type:'string',minLength:8,maxLength:160}},required:['rows','idempotency_key'],additionalProperties:false}},
+  {name:'request_operational_approval',description:'Record explicit Director approval for the exact unchanged mixed-domain preview',inputSchema:{type:'object',properties:{batch_id:{type:'string',format:'uuid'},reason:{type:'string',minLength:3,maxLength:500}},required:['batch_id','reason'],additionalProperties:false}},
+  {name:'commit_operational_changes',description:'Atomically commit an approved mixed-domain change set with concurrency checks and audit evidence',inputSchema:{type:'object',properties:{batch_id:{type:'string',format:'uuid'},approval_id:{type:'string',format:'uuid'}},required:['batch_id','approval_id'],additionalProperties:false}},
+  {name:'get_operational_batch',description:'Read preview, approval, commit and verification evidence for one change set',inputSchema:{type:'object',properties:{batch_id:{type:'string',format:'uuid'}},required:['batch_id'],additionalProperties:false}},
   {name:'create_policy',description:'Create an organizational policy draft',inputSchema:{type:'object',properties:{title:{type:'string',minLength:1,maxLength:200},category:{type:'string',maxLength:120},body:{type:'string',maxLength:100000}},required:['title'],additionalProperties:false}},
   {name:'update_policy',description:'Update a policy draft with optimistic concurrency',inputSchema:{type:'object',properties:{document_id:{type:'string',format:'uuid'},title:{type:'string',minLength:1,maxLength:200},category:{type:'string',maxLength:120},body:{type:'string',maxLength:100000},expected_updated_at:{type:'string',format:'date-time'}},required:['document_id','title','category','body','expected_updated_at'],additionalProperties:false}},
   {name:'request_policy_archive_approval',description:'Create a short-lived approval bound to one policy archive request',inputSchema:{type:'object',properties:{document_id:{type:'string',format:'uuid'},reason:{type:'string',minLength:3,maxLength:500}},required:['document_id','reason'],additionalProperties:false}},
@@ -63,7 +69,13 @@ const READ_ONLY_TOOLS = new Set([
   'search_bank_reconciliation','get_financial_job','search_suppliers','find_supplier_duplicates',
   'search_payment_requests','analyze_suppliers_payments','list_policies','read_policy','list_daycares',
   'staff_by_daycare','search_daycares','data_capabilities','search_operational_data','analyze_operational_data',
-  'find_employee_duplicates','download_policy_file'
+  'find_employee_duplicates','download_policy_file','operational_catalog','employee_profile','get_operational_batch'
+]);
+const INSTITUTION_READ_TOOLS = new Set(['get_profile','list_daycares','staff_by_daycare','list_policies','read_policy']);
+const UNSAFE_LEGACY_WRITE_TOOLS = new Set([
+ 'create_employee','update_employee','import_employees','create_supplier','update_supplier','import_suppliers',
+ 'create_payment_request','update_payment_request','import_payment_requests','record_payment_execution',
+ 'confirm_bank_reconciliation','enqueue_bank_statement_import'
 ]);
 const DESTRUCTIVE_TOOLS = new Set(['archive_policy','bulk_archive_policies']);
 const TOOLS = BASE_TOOLS.map(tool=>({
@@ -124,7 +136,7 @@ module.exports=async function handler(req,res){
  const resourceMetadata=`${origin}/.well-known/oauth-protected-resource`;
  res.setHeader('Allow','POST, OPTIONS');
  if(req.url?.includes('.well-known/oauth-protected-resource'))return send(res,200,{resource,authorization_servers:[AUTH_SERVER],bearer_methods_supported:['header']});
- const challenge=`Bearer resource_metadata="${resourceMetadata}", error="invalid_token", error_description="Director sign-in is required"`;
+ const challenge=`Bearer resource_metadata="${resourceMetadata}", error="invalid_token", error_description="Active portal sign-in is required"`;
  res.setHeader('WWW-Authenticate',challenge);
  if(req.method==='OPTIONS')return send(res,204,{});
  if(req.method!=='POST')return send(res,405,{error:'method_not_allowed'});
@@ -140,10 +152,13 @@ module.exports=async function handler(req,res){
   const access=await api('/rest/v1/rpc/portal_my_access',token,{});
   if(!access?.profile?.is_active)return send(res,403,{error:'portal_access_denied'});
  }catch(e){return send(res,e.status===401?401:403,{error:e.status===401?'invalid_or_expired_token':'portal_access_denied'});}
+ let authorization,isDirector=false;
  try{
-  const authorization=await api('/rest/v1/rpc/portal_my_authorization',token,{});
-  if(!authorization?.active||!authorization?.roles?.includes('DIRECTOR'))return send(res,403,{error:'director_access_required'});
- }catch(e){return send(res,e.status===401?401:403,{error:e.status===401?'invalid_or_expired_token':'director_access_required'});}
+  authorization=await api('/rest/v1/rpc/portal_my_authorization',token,{});
+  if(!authorization?.active)return send(res,403,{error:'portal_access_denied'});
+  isDirector=authorization.roles?.includes('DIRECTOR')===true;
+ }catch(e){return send(res,e.status===401?401:403,{error:e.status===401?'invalid_or_expired_token':'portal_access_denied'});}
+ const availableTools=isDirector?TOOLS.filter(t=>!UNSAFE_LEGACY_WRITE_TOOLS.has(t.name)):TOOLS.filter(t=>INSTITUTION_READ_TOOLS.has(t.name));
  let m=req.body;
  if(typeof m==='string'){try{m=JSON.parse(m)}catch{return send(res,400,error(null,-32700,'Parse error'));}}
  if(!m||Array.isArray(m)||typeof m!=='object'||m.jsonrpc!=='2.0'||typeof m.method!=='string')return send(res,400,error(m?.id??null,-32600,'Invalid request'));
@@ -151,12 +166,12 @@ module.exports=async function handler(req,res){
  if(requestSize>(['upload_policy_file','upload_payment_document','enqueue_bank_statement_import'].includes(m?.params?.name)?4300000:12000))return send(res,413,error(m.id??null,-32600,'Request too large'));
  if(m.id===undefined)return res.status(202).end();
  const id=m.id;
- if(m.method==='initialize')return send(res,200,{jsonrpc:'2.0',id,result:{protocolVersion:PROTOCOL_VERSION,capabilities:{tools:{listChanged:false}},serverInfo:{name:'chamah-portal-director',version:'1.0.0'}}});
+ if(m.method==='initialize')return send(res,200,{jsonrpc:'2.0',id,result:{protocolVersion:PROTOCOL_VERSION,capabilities:{tools:{listChanged:false}},serverInfo:{name:isDirector?'chamah-portal-director':'chamah-portal-institution-readonly',version:'1.1.0'}}});
  if(m.method==='ping')return send(res,200,{jsonrpc:'2.0',id,result:{}});
- if(m.method==='tools/list')return send(res,200,{jsonrpc:'2.0',id,result:{tools:TOOLS}});
+ if(m.method==='tools/list')return send(res,200,{jsonrpc:'2.0',id,result:{tools:availableTools}});
  if(m.method!=='tools/call')return send(res,200,error(id,-32601,'Method not found'));
  const name=m.params?.name,args=m.params?.arguments||{};
- if(!TOOLS.some(t=>t.name===name)||!args||typeof args!=='object'||Array.isArray(args))return send(res,200,error(id,-32602,'Invalid tool'));
+ if(!availableTools.some(t=>t.name===name)||!args||typeof args!=='object'||Array.isArray(args))return send(res,200,error(id,-32602,'Invalid or unauthorized tool'));
  if(name==='get_profile'){
   if(Object.keys(args).length)return send(res,200,error(id,-32602,'Unexpected arguments'));
   const profile={id:user.id,name:String(user.user_metadata?.full_name||user.email||'Director'),email:String(user.email||''),nickname:String(user.user_metadata?.full_name||user.email||'Director')};
@@ -268,6 +283,24 @@ module.exports=async function handler(req,res){
  case 'import_employees':
   if(Object.keys(args).some(k=>!['rows','source_name'].includes(k))||!Array.isArray(args.rows)||args.rows.length<1||args.rows.length>100||(args.source_name!==undefined&&(typeof args.source_name!=='string'||args.source_name.length>120)))return send(res,200,error(id,-32602,'Employee import requires 1-100 rows'));
   rpc='portal_mcp_import_employees';params={p_rows:args.rows,p_source_name:args.source_name||'MCP'};break;
+ case 'operational_catalog':
+  if(Object.keys(args).length)return send(res,200,error(id,-32602,'Unexpected arguments'));
+  rpc='portal_mcp_operational_catalog';params={};break;
+ case 'employee_profile':
+  if(Object.keys(args).length!==1||!UUID.test(args.employee_id||''))return send(res,200,error(id,-32602,'Invalid employee ID'));
+  rpc='portal_mcp_employee_profile';params={p_employee_id:args.employee_id};break;
+ case 'preview_operational_changes':
+  if(Object.keys(args).some(k=>!['rows','source_name','idempotency_key'].includes(k))||!Array.isArray(args.rows)||args.rows.length<1||args.rows.length>100||typeof args.idempotency_key!=='string'||args.idempotency_key.trim().length<8||args.idempotency_key.length>160)return send(res,200,error(id,-32602,'Operational preview requires 1-100 rows and an idempotency key'));
+  rpc='portal_mcp_preview_operational_changes';params={p_rows:args.rows,p_source_name:args.source_name||'ChatGPT',p_idempotency_key:args.idempotency_key.trim()};break;
+ case 'request_operational_approval':
+  if(Object.keys(args).length!==2||!UUID.test(args.batch_id||'')||typeof args.reason!=='string'||args.reason.trim().length<3||args.reason.length>500)return send(res,200,error(id,-32602,'Invalid operational approval request'));
+  rpc='portal_mcp_request_operational_approval';params={p_batch_id:args.batch_id,p_reason:args.reason.trim()};break;
+ case 'commit_operational_changes':
+  if(Object.keys(args).length!==2||!UUID.test(args.batch_id||'')||!UUID.test(args.approval_id||''))return send(res,200,error(id,-32602,'Invalid operational commit'));
+  rpc='portal_mcp_commit_operational_changes';params={p_batch_id:args.batch_id,p_approval_id:args.approval_id};break;
+ case 'get_operational_batch':
+  if(Object.keys(args).length!==1||!UUID.test(args.batch_id||''))return send(res,200,error(id,-32602,'Invalid operational batch'));
+  rpc='portal_mcp_get_operational_batch';params={p_batch_id:args.batch_id};break;
  case 'create_policy':
   if(Object.keys(args).some(k=>!['title','category','body'].includes(k))||typeof args.title!=='string'||!args.title.trim()||args.title.length>200||(args.category!==undefined&&(typeof args.category!=='string'||args.category.length>120))||(args.body!==undefined&&(typeof args.body!=='string'||args.body.length>100000)))return send(res,200,error(id,-32602,'Invalid policy'));
   rpc='portal_mcp_create_policy';params={p_title:args.title,p_category:args.category||'כללי',p_body:args.body||''};break;
