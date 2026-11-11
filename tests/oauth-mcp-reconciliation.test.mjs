@@ -15,8 +15,15 @@ test('OAuth protected-resource discovery and bearer challenge use the canonical 
     assert.match(source, new RegExp(CANONICAL_ORIGIN.replaceAll('.', '\\.')));
     assert.doesNotMatch(source, new RegExp(LEGACY_ORIGIN.replaceAll('.', '\\.')));
   }
-  assert.match(mcpSource, /RESOURCE_METADATA/);
+  assert.match(mcpSource, /requestOrigin/);
+  assert.match(mcpSource, /resource_metadata=/);
   assert.match(mcpSource, /WWW-Authenticate/);
+  assert.match(mcpSource, /securitySchemes:\[\{type:'oauth2',scopes:\[\]\}\]/);
+  assert.match(mcpSource, /readOnlyHint:READ_ONLY_TOOLS/);
+  assert.match(mcpSource, /destructiveHint:DESTRUCTIVE_TOOLS/);
+  assert.match(mcpSource, /name:'get_profile'/);
+  assert.match(mcpSource, /'openai\/profile':true/);
+  assert.doesNotMatch(metadataSource, /const RESOURCE='https:\/\/chamah-portal\.vercel\.app\/api\/mcp'/);
   assert.match(metadataSource, /authorization_servers/);
   assert.match(metadataSource, /bearer_methods_supported/);
 });

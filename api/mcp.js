@@ -6,12 +6,11 @@ const crypto=require('node:crypto');
 // Supabase token; no privileged key, generic table access, or cross-user cache.
 const SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
 const API_KEY = process.env.CHAMAH_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
-const PORTAL_ORIGIN = 'https://chamah-portal.vercel.app';
-const RESOURCE = `${PORTAL_ORIGIN}/api/mcp`;
-const RESOURCE_METADATA = `${PORTAL_ORIGIN}/.well-known/oauth-protected-resource`;
+const PRODUCTION_ORIGIN = 'https://chamah-portal.vercel.app';
 const AUTH_SERVER = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co/auth/v1';
 const PROTOCOL_VERSION = '2025-03-26';
-const TOOLS = [
+const BASE_TOOLS = [
+  {name:'get_profile',description:'Return the authenticated Director profile represented by this connection',inputSchema:{type:'object',properties:{},additionalProperties:false},outputSchema:{type:'object',properties:{id:{type:'string'},name:{type:'string'},email:{type:'string'},nickname:{type:'string'}},required:['id'],additionalProperties:false},_meta:{'openai/profile':true}},
   {name:'propose_supplier_bank_detail',description:'Propose an idempotent supplier bank-account change',inputSchema:{type:'object',properties:{supplier_id:{type:'string'},bank_detail:{type:'object'},idempotency_key:{type:'string'}},required:['supplier_id','bank_detail','idempotency_key'],additionalProperties:false}},
   {name:'request_supplier_bank_verification_approval',description:'Approve an exact supplier bank verification decision',inputSchema:{type:'object',properties:{supplier_bank_detail_id:{type:'string'},decision:{type:'string',enum:['VERIFIED','REJECTED']},expected_row_version:{type:'integer'},note:{type:'string'},reason:{type:'string'}},required:['supplier_bank_detail_id','decision','expected_row_version','note','reason'],additionalProperties:false}},
   {name:'verify_supplier_bank_detail',description:'Execute an approved supplier bank verification decision',inputSchema:{type:'object',properties:{supplier_bank_detail_id:{type:'string'},decision:{type:'string',enum:['VERIFIED','REJECTED']},expected_row_version:{type:'integer'},approval_id:{type:'string'},note:{type:'string'}},required:['supplier_bank_detail_id','decision','expected_row_version','approval_id','note'],additionalProperties:false}},
@@ -54,7 +53,30 @@ const TOOLS = [
   {name:'upload_policy_file',description:'Upload a validated attachment (PDF, PNG, JPEG or text; up to 3 MiB)',inputSchema:{type:'object',properties:{document_id:{type:'string',format:'uuid'},filename:{type:'string',minLength:1,maxLength:120},content_type:{type:'string',enum:['application/pdf','image/png','image/jpeg','text/plain']},base64:{type:'string',minLength:1,maxLength:4194304}},required:['document_id','filename','content_type','base64'],additionalProperties:false}},
   {name:'download_policy_file',description:'Download a private policy attachment returned by upload_policy_file',inputSchema:{type:'object',properties:{object_path:{type:'string',minLength:1,maxLength:500}},required:['object_path'],additionalProperties:false}}
 ];
+const READ_ONLY_TOOLS = new Set([
+  'get_profile',
+  'search_bank_reconciliation','get_financial_job','search_suppliers','find_supplier_duplicates',
+  'search_payment_requests','analyze_suppliers_payments','list_policies','read_policy','list_daycares',
+  'staff_by_daycare','data_capabilities','search_operational_data','analyze_operational_data',
+  'find_employee_duplicates','download_policy_file'
+]);
+const DESTRUCTIVE_TOOLS = new Set(['archive_policy','bulk_archive_policies']);
+const TOOLS = BASE_TOOLS.map(tool=>({
+ ...tool,
+ securitySchemes:[{type:'oauth2',scopes:[]}],
+ annotations:{
+  readOnlyHint:READ_ONLY_TOOLS.has(tool.name),
+  destructiveHint:DESTRUCTIVE_TOOLS.has(tool.name),
+  openWorldHint:false
+ },
+ _meta:{...(tool._meta||{}),securitySchemes:[{type:'oauth2',scopes:[]}]}
+}));
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function requestOrigin(req){
+ const raw=String(req.headers['x-forwarded-host']||req.headers.host||'').trim().toLowerCase();
+ const host=raw.split(',')[0].trim();
+ return /^(?:[a-z0-9-]+\.)*vercel\.app$/.test(host)?`https://${host}`:PRODUCTION_ORIGIN;
+}
 function send(res,status,body){res.status(status).setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');return res.end(JSON.stringify(body));}
 function error(id,code,message){return {jsonrpc:'2.0',id,error:{code,message}};}
 async function api(path,token,body){
@@ -92,9 +114,13 @@ async function download(path,token){
  return {base64:bytes.toString('base64'),content_type:r.headers.get('content-type')||'application/octet-stream',size:bytes.length};
 }
 module.exports=async function handler(req,res){
+ const origin=requestOrigin(req);
+ const resource=`${origin}/api/mcp`;
+ const resourceMetadata=`${origin}/.well-known/oauth-protected-resource`;
  res.setHeader('Allow','POST, OPTIONS');
- if(req.url?.includes('.well-known/oauth-protected-resource'))return send(res,200,{resource:RESOURCE,authorization_servers:[AUTH_SERVER],bearer_methods_supported:['header']});
- res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${RESOURCE_METADATA}"`);
+ if(req.url?.includes('.well-known/oauth-protected-resource'))return send(res,200,{resource,authorization_servers:[AUTH_SERVER],bearer_methods_supported:['header']});
+ const challenge=`Bearer resource_metadata="${resourceMetadata}", error="invalid_token", error_description="Director sign-in is required"`;
+ res.setHeader('WWW-Authenticate',challenge);
  if(req.method==='OPTIONS')return send(res,204,{});
  if(req.method!=='POST')return send(res,405,{error:'method_not_allowed'});
  const auth=req.headers.authorization||'';
@@ -126,6 +152,11 @@ module.exports=async function handler(req,res){
  if(m.method!=='tools/call')return send(res,200,error(id,-32601,'Method not found'));
  const name=m.params?.name,args=m.params?.arguments||{};
  if(!TOOLS.some(t=>t.name===name)||!args||typeof args!=='object'||Array.isArray(args))return send(res,200,error(id,-32602,'Invalid tool'));
+ if(name==='get_profile'){
+  if(Object.keys(args).length)return send(res,200,error(id,-32602,'Unexpected arguments'));
+  const profile={id:user.id,name:String(user.user_metadata?.full_name||user.email||'Director'),email:String(user.email||''),nickname:String(user.user_metadata?.full_name||user.email||'Director')};
+  return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(profile)}],structuredContent:profile,isError:false}});
+ }
  let rpc,params;
  switch(name){
  case 'propose_supplier_bank_detail':
