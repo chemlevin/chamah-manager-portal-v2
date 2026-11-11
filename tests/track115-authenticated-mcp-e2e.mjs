@@ -106,6 +106,7 @@ for (const name of [
 
 const marker = `TRACK115-${Date.now()}-${randomUUID().slice(0, 8)}`;
 const amount = 115.15;
+const fixtureAccountNumber = randomUUID().replace(/\D/g, '').padEnd(12, '5').slice(-12);
 const supplier = await ok('create_supplier', {
   supplier: {
     supplier_code: marker,
@@ -119,7 +120,7 @@ assert.equal(supplier.status, 'CREATED');
 
 const bankProposalArgs = {
   supplier_id: supplier.supplier_id,
-  bank_detail: { bank_code: '115', branch_code: '115', account_number: marker.replace(/\D/g, '').padEnd(9, '5').slice(0, 9), account_holder: `${marker} Supplier` },
+  bank_detail: { bank_code: '115', branch_code: '115', account_number: fixtureAccountNumber, account_holder: `${marker} Supplier` },
   idempotency_key: `${marker}-bank`,
 };
 const bankProposal = await ok('propose_supplier_bank_detail', bankProposalArgs);
