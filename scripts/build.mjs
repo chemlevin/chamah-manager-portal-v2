@@ -16,6 +16,24 @@ for (const entry of await readdir(portalSource)) {
   await cp(join(portalSource, entry), join('dist', entry), { recursive: true });
 }
 
+const previewSupabaseUrl = String(process.env.CHAMAH_SUPABASE_URL || '').replace(/\/$/, '');
+const previewSupabaseKey = String(process.env.CHAMAH_SUPABASE_PUBLISHABLE_KEY || '');
+if (Boolean(previewSupabaseUrl) !== Boolean(previewSupabaseKey)) {
+  throw new Error('CHAMAH_SUPABASE_URL and CHAMAH_SUPABASE_PUBLISHABLE_KEY must be configured together.');
+}
+if (previewSupabaseUrl) {
+  const productionUrl = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
+  const productionKey = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
+  const javascriptFiles = (await readdir('dist', { recursive: true, withFileTypes: true }))
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.js'))
+    .map((entry) => join(entry.parentPath || entry.path, entry.name));
+  for (const file of javascriptFiles) {
+    const source = await readFile(file, 'utf8');
+    const configured = source.replaceAll(productionUrl, previewSupabaseUrl).replaceAll(productionKey, previewSupabaseKey);
+    if (configured !== source) await writeFile(file, configured);
+  }
+}
+
 const deployFiles = (await readdir('dist', { recursive: true, withFileTypes: true }))
   .filter((entry) => entry.isFile())
   .map((entry) => join(entry.parentPath || entry.path, entry.name))

@@ -4,10 +4,11 @@ const crypto=require('node:crypto');
 
 // Director-only MCP Streamable HTTP endpoint. Every operation uses the caller's
 // Supabase token; no privileged key, generic table access, or cross-user cache.
-const SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
+const PRODUCTION_SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
+const SUPABASE_URL = String(process.env.CHAMAH_SUPABASE_URL || PRODUCTION_SUPABASE_URL).replace(/\/$/, '');
 const API_KEY = process.env.CHAMAH_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
 const PRODUCTION_ORIGIN = 'https://chamah-portal.vercel.app';
-const AUTH_SERVER = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co/auth/v1';
+const AUTH_SERVER = `${SUPABASE_URL}/auth/v1`;
 const PROTOCOL_VERSION = '2025-03-26';
 const BASE_TOOLS = [
   {name:'get_profile',description:'Return the authenticated Director profile represented by this connection',inputSchema:{type:'object',properties:{},additionalProperties:false},outputSchema:{type:'object',properties:{id:{type:'string'},name:{type:'string'},email:{type:'string'},nickname:{type:'string'}},required:['id'],additionalProperties:false},_meta:{'openai/profile':true}},
@@ -37,6 +38,10 @@ const BASE_TOOLS = [
   {name:'read_policy',description:'Read the published version of an authorized policy (never drafts)',inputSchema:{type:'object',properties:{document_id:{type:'string',format:'uuid'}},required:['document_id'],additionalProperties:false}},
   {name:'list_daycares',description:'List daycares visible to the authenticated user',inputSchema:{type:'object',properties:{},additionalProperties:false}},
   {name:'staff_by_daycare',description:'List employees assigned to an authorized daycare',inputSchema:{type:'object',properties:{daycare_id:{type:'string',format:'uuid'}},required:['daycare_id'],additionalProperties:false}},
+  {name:'search_daycares',description:'Search canonical daycare records with versions for conflict-safe updates',inputSchema:{type:'object',properties:{search:{type:'string',maxLength:120},limit:{type:'integer',minimum:1,maximum:100},offset:{type:'integer',minimum:0}},additionalProperties:false}},
+  {name:'preview_daycare_import',description:'Validate 1-100 daycare rows, detect duplicates and conflicts, and stage without writing daycare records',inputSchema:{type:'object',properties:{rows:{type:'array',minItems:1,maxItems:100,items:{type:'object'}},source_name:{type:'string',maxLength:120},idempotency_key:{type:'string',minLength:8,maxLength:160}},required:['rows','idempotency_key'],additionalProperties:false}},
+  {name:'request_daycare_import_approval',description:'Record Director approval for the exact staged daycare batch',inputSchema:{type:'object',properties:{batch_id:{type:'string',format:'uuid'},reason:{type:'string',minLength:3,maxLength:500}},required:['batch_id','reason'],additionalProperties:false}},
+  {name:'commit_daycare_import',description:'Commit an unchanged daycare batch using its exact unconsumed Director approval',inputSchema:{type:'object',properties:{batch_id:{type:'string',format:'uuid'},approval_id:{type:'string',format:'uuid'}},required:['batch_id','approval_id'],additionalProperties:false}},
   {name:'data_capabilities',description:'Report operational domains, record counts, relationships, supported actions and known gaps',inputSchema:{type:'object',properties:{},additionalProperties:false}},
   {name:'search_operational_data',description:'Search an existing operational domain with bounded pagination',inputSchema:{type:'object',properties:{domain:{type:'string',enum:['employees','banking','payments','payroll']},search:{type:'string',maxLength:120},limit:{type:'integer',minimum:1,maximum:100},offset:{type:'integer',minimum:0,maximum:10000}},required:['domain'],additionalProperties:false}},
   {name:'analyze_operational_data',description:'Return verified aggregate quality and operational metrics for an existing domain',inputSchema:{type:'object',properties:{domain:{type:'string',enum:['employees','banking','payments','payroll']}},required:['domain'],additionalProperties:false}},
@@ -57,7 +62,7 @@ const READ_ONLY_TOOLS = new Set([
   'get_profile',
   'search_bank_reconciliation','get_financial_job','search_suppliers','find_supplier_duplicates',
   'search_payment_requests','analyze_suppliers_payments','list_policies','read_policy','list_daycares',
-  'staff_by_daycare','data_capabilities','search_operational_data','analyze_operational_data',
+  'staff_by_daycare','search_daycares','data_capabilities','search_operational_data','analyze_operational_data',
   'find_employee_duplicates','download_policy_file'
 ]);
 const DESTRUCTIVE_TOOLS = new Set(['archive_policy','bulk_archive_policies']);
@@ -230,6 +235,18 @@ module.exports=async function handler(req,res){
  case 'staff_by_daycare':
   if(Object.keys(args).length!==1||!UUID.test(args.daycare_id||''))return send(res,200,error(id,-32602,'Invalid daycare ID'));
   rpc='portal_mcp_staff_by_daycare';params={requested_daycare_id:args.daycare_id};break;
+ case 'search_daycares':
+  if(Object.keys(args).some(k=>!['search','limit','offset'].includes(k))||(args.search!==undefined&&(typeof args.search!=='string'||args.search.length>120))||(args.limit!==undefined&&(!Number.isInteger(args.limit)||args.limit<1||args.limit>100))||(args.offset!==undefined&&(!Number.isInteger(args.offset)||args.offset<0)))return send(res,200,error(id,-32602,'Invalid daycare search'));
+  rpc='portal_mcp_search_daycares';params={p_search:args.search||null,p_limit:args.limit||25,p_offset:args.offset||0};break;
+ case 'preview_daycare_import':
+  if(Object.keys(args).some(k=>!['rows','source_name','idempotency_key'].includes(k))||!Array.isArray(args.rows)||args.rows.length<1||args.rows.length>100||typeof args.idempotency_key!=='string'||args.idempotency_key.trim().length<8||args.idempotency_key.length>160)return send(res,200,error(id,-32602,'Daycare preview requires 1-100 rows and an idempotency key'));
+  rpc='portal_mcp_preview_daycare_import';params={p_rows:args.rows,p_source_name:args.source_name||'ChatGPT',p_idempotency_key:args.idempotency_key.trim()};break;
+ case 'request_daycare_import_approval':
+  if(Object.keys(args).length!==2||!UUID.test(args.batch_id||'')||typeof args.reason!=='string'||args.reason.trim().length<3||args.reason.length>500)return send(res,200,error(id,-32602,'Invalid daycare approval request'));
+  rpc='portal_mcp_request_daycare_import_approval';params={p_batch_id:args.batch_id,p_reason:args.reason.trim()};break;
+ case 'commit_daycare_import':
+  if(Object.keys(args).length!==2||!UUID.test(args.batch_id||'')||!UUID.test(args.approval_id||''))return send(res,200,error(id,-32602,'Invalid daycare commit'));
+  rpc='portal_mcp_commit_daycare_import';params={p_batch_id:args.batch_id,p_approval_id:args.approval_id};break;
  case 'data_capabilities':
   if(Object.keys(args).length)return send(res,200,error(id,-32602,'Unexpected arguments'));
   rpc='portal_mcp_data_capabilities';params={};break;

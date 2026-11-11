@@ -1,1 +1,0 @@
-revoke all on function public.portal_mcp_has_full_read_access() from authenticated;
