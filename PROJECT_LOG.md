@@ -5726,3 +5726,11 @@ The following entries originated on the Production-only branch and are preserved
 - Applied forward-only migration `20261112213000_mcp_payroll_search_contract_fix.sql` to Production, replacing only the payroll search projection/filter with current canonical columns. No business data was changed.
 - The complete Director workflow acceptance is still not complete: no safe end-to-end synthetic commit/readback/audit run has yet been demonstrated, and the current MCP surface exposes synchronous 1–100-row preview/import limits without a Director-invisible automatic >100-row orchestration path. Status remains NOT READY.
 
+### Continued Production MCP acceptance — 2026-11-12
+
+- Fixed live payroll search routing in `api/mcp.js`: the declared `payroll` read now uses the canonical `payroll_records` search RPC. Production deployment `dpl_6ythpHkrcyWv3Gr59hUqmEhdGaEg` serves SHA `8ea8b388fc0c7dcde1f5a880c3b4e434a67f069b`; canonical alias was reassigned and live payroll search now returns an object-shaped result.
+- Executed a controlled synthetic Production employee CREATE through preview, approval, commit, readback and audit. Synthetic record ID `60320752-7d99-4557-a00e-3ee520a66e6b` was used; no existing organizational record was overwritten.
+- Executed UPDATE preview/approval/commit, exact duplicate classification (`SKIP`), stale-row conflict classification, and invalid-approval rejection.
+- Found remaining write defect: retrying the committed batch is still rejected as `Batch approval mismatch` despite the stored approval evidence. The forward-only idempotency migration was applied but the live MCP retry remains failing, so acceptance cannot be marked complete.
+- >100-row Director-invisible orchestration, non-Director authorization test, and complete file-ingestion acceptance remain blocked by the unresolved write acceptance and were not represented as PASS.
+
