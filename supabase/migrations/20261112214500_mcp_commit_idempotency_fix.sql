@@ -4,7 +4,6 @@ declare b public.mcp_ingestion_batches; r jsonb; current_row jsonb; item jsonb; 
 begin
  select * into b from public.mcp_ingestion_batches where batch_id=p_batch_id and actor_user_id=auth.uid() for update;
  if b.status='COMMITTED' then
-  if b.approval_id is distinct from p_approval_id then raise exception 'Batch approval mismatch' using errcode='22023'; end if;
   return coalesce(b.commit_result,jsonb_build_object('batch_id',b.batch_id,'status','COMMITTED','verified',true))||jsonb_build_object('idempotent_replay',true);
  end if;
  if b.batch_id is null or b.domain<>'OPERATIONS' or b.status<>'READY' or b.approval_id is distinct from p_approval_id then raise exception 'Batch approval mismatch' using errcode='22023'; end if;
