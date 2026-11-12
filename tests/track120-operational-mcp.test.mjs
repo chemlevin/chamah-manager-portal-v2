@@ -15,6 +15,11 @@ test('institution users discover only scoped read tools',()=>{
   assert.match(api,/Invalid or unauthorized tool/);
 });
 
+test('MCP schema advertises tool-list changes and a new version',()=>{
+  assert.match(api,/listChanged:true/);
+  assert.match(api,/version:'1\.2\.0'/);
+});
+
 test('mixed-domain changes require preview, exact approval and atomic commit',()=>{
   assert.match(api,/preview_operational_changes/);
   assert.match(api,/request_operational_approval/);
