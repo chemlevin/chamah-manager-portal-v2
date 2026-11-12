@@ -404,13 +404,8 @@ function validatedOAuthResumeUrl() {
   }
 }
 
-function oauthDiagnostic(step, details = {}) {
-  fetch('/api/oauth-diagnostics', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ step, ...details }), keepalive: true }).catch(() => {});
-}
-
 function resumeOAuthAfterLogin() {
   const resumeUrl = validatedOAuthResumeUrl();
-  oauthDiagnostic('login_resume', { pending: Boolean(resumeUrl), present: Boolean(resumeUrl), length: resumeUrl ? resumeUrl.length : 0 });
   if (!resumeUrl) return false;
   location.replace(resumeUrl);
   return true;
