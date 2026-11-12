@@ -176,7 +176,7 @@ module.exports=async function handler(req,res){
  if(typeof m==='string'){try{m=JSON.parse(m)}catch{return send(res,400,error(null,-32700,'Parse error'));}}
  if(!m||Array.isArray(m)||typeof m!=='object'||m.jsonrpc!=='2.0'||typeof m.method!=='string')return send(res,400,error(m?.id??null,-32600,'Invalid request'));
  const requestSize=JSON.stringify(m).length;
- if(requestSize>(['upload_policy_file','upload_payment_document','enqueue_bank_statement_import'].includes(m?.params?.name)?4300000:12000))return send(res,413,error(m.id??null,-32600,'Request too large'));
+ if(requestSize>(['upload_policy_file','upload_payment_document','enqueue_bank_statement_import','preview_operational_changes'].includes(m?.params?.name)?4300000:12000))return send(res,413,error(m.id??null,-32600,'Request too large'));
  if(m.id===undefined)return res.status(202).end();
  const id=m.id;
  if(m.method==='initialize')return send(res,200,{jsonrpc:'2.0',id,result:{protocolVersion:PROTOCOL_VERSION,capabilities:{tools:{listChanged:true}},serverInfo:{name:isDirector?'chamah-portal-director':'chamah-portal-institution-readonly',version:'1.2.0'}}});
