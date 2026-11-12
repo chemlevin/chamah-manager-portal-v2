@@ -49,6 +49,11 @@ test('Consent reuses and refreshes the portal session before OAuth approval or d
   assert.doesNotMatch(consentSource, /בקשה זו כבר אושרה/);
   assert.match(consentSource, /approveAuthorization\(id\)/);
   assert.match(consentSource, /denyAuthorization\(id\)/);
+  assert.match(consentSource, /function navigateToOAuthCallback\(redirectUrl\)/);
+  assert.match(consentSource, /finalUrl\.searchParams\.has\('code'\)/);
+  assert.match(consentSource, /finalUrl\.searchParams\.has\('state'\)/);
+  assert.match(consentSource, /finalUrl\.host!==\'chatgpt\.com\'/);
+  assert.match(consentSource, /location\.replace\(finalUrl\.href\)/);
   assert.doesNotMatch(consentSource, /service_role|SUPABASE_SERVICE_ROLE_KEY/i);
 });
 
