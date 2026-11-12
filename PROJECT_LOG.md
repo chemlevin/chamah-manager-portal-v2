@@ -5681,3 +5681,9 @@ The following entries originated on the Production-only branch and are preserved
 - Actual Director discovery continued to expose a cached 40-tool schema even though the combined server source registered the three canonical operational tools and Director filtering retained them. The MCP initialize response advertised `tools.listChanged:false` and static server version `1.1.0`, providing no schema-change signal.
 - Updated only the MCP protocol metadata to advertise `tools.listChanged:true` and server version `1.2.0`; no authorization, role, legacy-tool, or data behavior changed. TRACK121 OAuth code remains unchanged.
 - Preview deployment READY: `dpl_AK7dry8fJiyx6DXFnTxaHTRJ9QTc`, URL `https://chamah-manager-portal-v2-preview-jnmsivh2d-chamah.vercel.app`, commit `ca37d78faa14c26b7bfc17f4a89c97273b7fb33a`. Focused validation passed 15/15. Production was not modified.
+
+## TRACK121 — Temporary safe OAuth diagnostics (2026-11-12)
+
+- Added a Preview-only `/api/oauth-diagnostics` endpoint and minimal consent/login instrumentation. It records timestamps, step names, presence/length metadata, redirect host/path, query parameter names, status codes, and pending-state facts only. It rejects the canonical Production host and never logs authorization codes, state values, access tokens, refresh tokens, or secrets.
+- Instrumented authorize receipt, authorization-id presence, redirect URI metadata, state presence/length, login resume, consent result, and final redirect destination/query names. TRACK120 MCP definitions and canonical alias were not changed.
+- Preview deployment READY: `dpl_BYbx85mrHvC99sTbMXjV8FGvwq7K`, URL `https://chamah-manager-portal-v2-preview-mzzy7py1d-chamah.vercel.app`, commit `f77b8d3daefd9185a133ff150d3d458d539395b9`. Validation passed 7/7 focused diagnostic/OAuth tests, build, syntax checks, and diff checks. Production was not modified.
