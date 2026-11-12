@@ -5687,3 +5687,9 @@ The following entries originated on the Production-only branch and are preserved
 - Added a Preview-only `/api/oauth-diagnostics` endpoint and minimal consent/login instrumentation. It records timestamps, step names, presence/length metadata, redirect host/path, query parameter names, status codes, and pending-state facts only. It rejects the canonical Production host and never logs authorization codes, state values, access tokens, refresh tokens, or secrets.
 - Instrumented authorize receipt, authorization-id presence, redirect URI metadata, state presence/length, login resume, consent result, and final redirect destination/query names. TRACK120 MCP definitions and canonical alias were not changed.
 - Preview deployment READY: `dpl_BYbx85mrHvC99sTbMXjV8FGvwq7K`, URL `https://chamah-manager-portal-v2-preview-mzzy7py1d-chamah.vercel.app`, commit `f77b8d3daefd9185a133ff150d3d458d539395b9`. Validation passed 7/7 focused diagnostic/OAuth tests, build, syntax checks, and diff checks. Production was not modified.
+
+## TRACK121 — Final OAuth callback navigation hardening (2026-11-12)
+
+- Hardened only the post-consent browser navigation. `navigateToOAuthCallback()` now parses the Supabase `redirect_url`, requires HTTPS `chatgpt.com/connector/oauth/*`, requires both `code` and `state` query parameters, records only safe callback metadata, and navigates with `location.replace(finalUrl.href)` so the complete encoded query string is preserved. Invalid/missing callback data is not redirected.
+- Added regression assertions for callback host/path, required query parameters, and full-URL navigation. TRACK120 MCP tools, canonical alias, Supabase configuration, and Production were untouched.
+- Preview deployment READY: `dpl_Gyhs1yJzgwDVA3LzHAZxdw8c3ZyE`, URL `https://chamah-manager-portal-v2-preview-e5j1ie8hz-chamah.vercel.app`, commit `ef2f5b55a0119fa2db6e5c59dab987faeac779e0`. Focused OAuth/diagnostic tests passed 7/7. Production was not modified.
