@@ -7,6 +7,7 @@ const migration=fs.readFileSync(new URL('../supabase/migrations/20261111203330_t
 const auditLineage=fs.readFileSync(new URL('../supabase/migrations/20261112032954_track120_audit_lineage_fix.sql',import.meta.url),'utf8');
 const auditReadback=fs.readFileSync(new URL('../supabase/migrations/20261112065000_track120_batch_audit_readback.sql',import.meta.url),'utf8');
 const fullDelivery=fs.readFileSync(new URL('../supabase/migrations/20261112070000_track120_full_operational_delivery.sql',import.meta.url),'utf8');
+const approvalScopeFix=fs.readFileSync(new URL('../supabase/migrations/20261112082000_track120_authorization_audit_channel_fix.sql',import.meta.url),'utf8');
 
 test('institution users discover only scoped read tools',()=>{
   assert.match(api,/INSTITUTION_READ_TOOLS = new Set\(\['get_profile','list_daycares','staff_by_daycare','list_policies','read_policy'\]\)/);
@@ -63,5 +64,15 @@ test('final delivery keeps new domains canonical and approval bound',()=>{
   assert.match(fullDelivery,/STALE_ROW_VERSION/);
   assert.match(fullDelivery,/MCP_CREATE/);
   assert.match(fullDelivery,/MCP_UPDATE/);
+});
+
+test('operational commit consumes the private void approval helper',()=>{
+  assert.match(approvalScopeFix,/perform private\.portal_consume_approval\(p_approval_id,'OPERATIONS\.WRITE'/);
+  assert.doesNotMatch(approvalScopeFix,/public\.portal_consume_approval/);
+  assert.match(approvalScopeFix,/approval:=jsonb_build_object\('approval_id',p_approval_id/);
+  assert.match(approvalScopeFix,/previous_values/);
+  assert.doesNotMatch(approvalScopeFix,/old_values/);
+  assert.match(approvalScopeFix,/actor_user_id,channel,action_code/);
+  assert.match(approvalScopeFix,/values\(auth\.uid\(\),'MCP','OPERATIONS\.WRITE'/);
 });
 
