@@ -26,6 +26,7 @@ const AUTO_REFRESH_RETRY_MS = 30 * 1000;
 const MIN_PASSWORD_LENGTH = 10;
 const PRODUCTION_PORTAL_URL = 'https://chamah-portal.vercel.app/';
 const PREVIEW_PORTAL_URL = 'https://chamah-portal-chemlevin-chamah.vercel.app/';
+const OAUTH_RESUME_PARAM = 'oauth_resume';
 const $ = (selector) => document.querySelector(selector);
 const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 });
 const number = new Intl.NumberFormat('he-IL', { maximumFractionDigits: 1 });
@@ -387,6 +388,27 @@ function showLogin(message = '') {
   $('#login-view').hidden = false;
   $('#login-view').style.display = '';
   $('#login-message').textContent = message;
+}
+
+function validatedOAuthResumeUrl() {
+  const value = new URLSearchParams(location.search).get(OAUTH_RESUME_PARAM);
+  if (!value || value.length > 2048) return null;
+  try {
+    const resume = new URL(value);
+    const portal = new URL(location.origin + '/');
+    const authorizationId = resume.searchParams.get('authorization_id');
+    if (resume.origin !== portal.origin || resume.pathname !== '/oauth/consent' || resume.hash || resume.username || resume.password || resume.searchParams.size !== 1 || !authorizationId || authorizationId.length > 300 || !/^[a-zA-Z0-9._~-]+$/.test(authorizationId)) return null;
+    return resume.href;
+  } catch {
+    return null;
+  }
+}
+
+function resumeOAuthAfterLogin() {
+  const resumeUrl = validatedOAuthResumeUrl();
+  if (!resumeUrl) return false;
+  location.replace(resumeUrl);
+  return true;
 }
 
 async function ensureAccessToken() {
@@ -1876,6 +1898,7 @@ $('#login-form').addEventListener('submit', async (event) => {
     await signInWithPassword(email.value.trim(), password.value);
     password.value = '';
     if (!await validateSession()) throw new Error('לא ניתן לאמת את החיבור. יש לנסות שוב.');
+    if (resumeOAuthAfterLogin()) return;
     await showPortalHome();
   } catch (error) { message.textContent = error.message; }
   finally { setAuthPending(false); }
@@ -1989,6 +2012,7 @@ async function initializeAuth() {
     showLogin();
     return;
   }
+  if (resumeOAuthAfterLogin()) return;
   await showPortalHome();
 }
 

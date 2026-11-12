@@ -8,6 +8,8 @@ const mcpSource = readFileSync(new URL('../api/mcp.js', import.meta.url), 'utf8'
 const metadataSource = readFileSync(new URL('../api/mcp-oauth-metadata.js', import.meta.url), 'utf8');
 const consentSource = readFileSync(new URL('../chamah-manager-portal/new/oauth-consent.js', import.meta.url), 'utf8');
 const appSource = readFileSync(new URL('../chamah-manager-portal/new/app.js', import.meta.url), 'utf8');
+const portalHtml = readFileSync(new URL('../chamah-manager-portal/new/index.html', import.meta.url), 'utf8');
+const buildSource = readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8');
 const vercel = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
 
 test('OAuth protected-resource discovery and bearer challenge use the canonical production origin', () => {
@@ -48,6 +50,22 @@ test('Consent reuses and refreshes the portal session before OAuth approval or d
   assert.match(consentSource, /approveAuthorization\(id\)/);
   assert.match(consentSource, /denyAuthorization\(id\)/);
   assert.doesNotMatch(consentSource, /service_role|SUPABASE_SERVICE_ROLE_KEY/i);
+});
+
+test('Unauthenticated OAuth resumes through the Preview portal login using only the authorization ID', () => {
+  assert.match(consentSource, /if\(sessionError\|\|!session\)return redirectToPortalLogin\(\)/);
+  assert.match(consentSource, /if\(authError\|\|!user\)return redirectToPortalLogin\(\)/);
+  assert.match(consentSource, /searchParams\.set\('authorization_id',id\)/);
+  assert.match(consentSource, /searchParams\.set\('oauth_resume',resume\.href\)/);
+  assert.match(buildSource, /javascriptFiles\.push\(join\('dist', 'oauth-consent\.js'\)\)/);
+  assert.match(appSource, /function validatedOAuthResumeUrl\(\)/);
+  assert.match(appSource, /resume\.origin !== portal\.origin/);
+  assert.match(appSource, /resume\.pathname !== '\/oauth\/consent'/);
+  assert.match(appSource, /resume\.searchParams\.size !== 1/);
+  assert.match(appSource, /if \(resumeOAuthAfterLogin\(\)\) return/);
+  assert.match(appSource, /validateSession\(\)/);
+  assert.match(portalHtml, /id="login-form"/);
+  assert.doesNotMatch(appSource, /localStorage\.setItem\([^\n]*oauth_resume/i);
 });
 
 test('MCP validates active portal access and delegates data authorization to scoped RPCs', () => {

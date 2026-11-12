@@ -7,12 +7,19 @@ const sb=createClient(project,key,{auth:{storage,storageKey:'chamah-oauth-sessio
 const $=id=>document.getElementById(id);
 const id=new URLSearchParams(location.search).get('authorization_id');
 const fail=msg=>{$('status').textContent=msg};
+function redirectToPortalLogin(){
+ const resume=new URL('/oauth/consent',location.origin);
+ resume.searchParams.set('authorization_id',id);
+ const login=new URL('/',location.origin);
+ login.searchParams.set('oauth_resume',resume.href);
+ location.replace(login.href);
+}
 async function main(){
  if(!id||id.length>300||!/^[a-zA-Z0-9._~-]+$/.test(id))return fail('בקשת אישור לא תקינה.');
  const {data:{session},error:sessionError}=await sb.auth.getSession();
- if(sessionError||!session)return fail('יש להיכנס תחילה לפורטל חמ״ה באותו דפדפן, ואז לחזור לקישור האישור.');
+ if(sessionError||!session)return redirectToPortalLogin();
  const {data:{user},error:authError}=await sb.auth.getUser();
- if(authError||!user)return fail('יש להיכנס תחילה לפורטל חמ״ה באותו דפדפן, ואז לחזור לקישור האישור.');
+ if(authError||!user)return redirectToPortalLogin();
  const {data:access,error:accessError}=await sb.rpc('portal_my_access');
  if(accessError||!access?.profile?.is_active)return fail('לא ניתן לאמת הרשאות בפורטל. לא אושר חיבור.');
  const {data,error}=await sb.auth.oauth.getAuthorizationDetails(id);

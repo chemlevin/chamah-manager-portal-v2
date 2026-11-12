@@ -27,6 +27,7 @@ if (previewSupabaseUrl) {
   const javascriptFiles = (await readdir('dist', { recursive: true, withFileTypes: true }))
     .filter((entry) => entry.isFile() && entry.name.endsWith('.js'))
     .map((entry) => join(entry.parentPath || entry.path, entry.name));
+  javascriptFiles.push(join('dist', 'oauth-consent.js'));
   for (const file of javascriptFiles) {
     const source = await readFile(file, 'utf8');
     const configured = source.replaceAll(productionUrl, previewSupabaseUrl).replaceAll(productionKey, previewSupabaseKey);
