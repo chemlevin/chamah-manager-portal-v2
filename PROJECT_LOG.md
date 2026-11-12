@@ -5701,3 +5701,10 @@ The following entries originated on the Production-only branch and are preserved
 - Latest verified Preview deployment remains READY as `dpl_Gyhs1yJzgwDVA3LzHAZxdw8c3ZyE`, commit `ef2f5b55a0119fa2db6e5c59dab987faeac779e0`. No deployment or Production resource was modified in this session.
 - Added `docs/audits/TRACK122-real-data-readiness.md`. Suppliers/payments and banking/reconciliation are READY for mapped synthetic-to-real dry-run preparation; workforce, payroll history, certificates, budgets/configuration, and policies/documents are PARTIAL; children/enrollment is BLOCKED for person-level semantics; billing/collections is BLOCKED because no canonical domain contract was verified.
 - Focused validation passed 19/19 TRACK120/OAuth tests, JavaScript syntax checks, `npm run build`, and `git diff --check`. Full repository Playwright remains blocked by the pre-existing mixed test-runner configuration. Stopped at the Production Readiness Gate; no real data was ingested and no Production change was made.
+
+## TRACK121–122 — Approved child, billing, provenance implementation (2026-11-12)
+
+- Repaired the local Git permission issue by using elevated Git filesystem access; committed the prior cleanup/readiness work as `ceedff0335e73062ca4be32e1b94ff4e8e4f2a2d`.
+- Applied Preview-only migration `20261112100000_track122_children_billing_provenance` to isolated Supabase `iwsbjudahtjyigecymzd`. Added minimum person-level `children` and effective-dated `child_enrollments`, monthly `daycare_billing_records`, `collection_receipts`, and versioned `mcp_source_mapping_versions`. All new tables have RLS enabled and no public/authenticated table grants.
+- Extended the existing TRACK120 generic entity metadata and operational catalog/report to include the new entities. Existing preview → approval → commit → readback/audit, idempotency, concurrency, and authorization paths remain the only write path.
+- Added synthetic contract coverage in `tests/track122-children-billing.test.mjs`. No real organizational data was ingested.
