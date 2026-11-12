@@ -280,7 +280,8 @@ module.exports=async function handler(req,res){
   rpc='portal_mcp_data_capabilities';params={};break;
  case 'search_operational_data':
   if(!['employees','banking','payments','payroll'].includes(args.domain)||Object.keys(args).some(k=>!['domain','search','limit','offset'].includes(k))||(args.search!==undefined&&(typeof args.search!=='string'||args.search.length>120))||(args.limit!==undefined&&(!Number.isInteger(args.limit)||args.limit<1||args.limit>100))||(args.offset!==undefined&&(!Number.isInteger(args.offset)||args.offset<0||args.offset>10000)))return send(res,200,error(id,-32602,'Invalid operational search'));
-  rpc='portal_mcp_search_operational_data';params={p_domain:args.domain,p_search:args.search||null,p_limit:args.limit||25,p_offset:args.offset||0};break;
+  if(args.domain==='payroll'){rpc='portal_mcp_search_records';params={p_entity:'payroll_records',p_search:args.search||null,p_limit:args.limit||25,p_offset:args.offset||0};}
+  else {rpc='portal_mcp_search_operational_data';params={p_domain:args.domain,p_search:args.search||null,p_limit:args.limit||25,p_offset:args.offset||0};}break;
  case 'analyze_operational_data':
   if(Object.keys(args).length!==1||!['employees','banking','payments','payroll'].includes(args.domain))return send(res,200,error(id,-32602,'Invalid analysis domain'));
   rpc='portal_mcp_analyze_operational_data';params={p_domain:args.domain};break;
