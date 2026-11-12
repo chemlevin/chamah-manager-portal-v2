@@ -67,6 +67,10 @@ const BASE_TOOLS = [
   {name:'upload_policy_file',description:'Upload a validated attachment (PDF, PNG, JPEG or text; up to 3 MiB)',inputSchema:{type:'object',properties:{document_id:{type:'string',format:'uuid'},filename:{type:'string',minLength:1,maxLength:120},content_type:{type:'string',enum:['application/pdf','image/png','image/jpeg','text/plain']},base64:{type:'string',minLength:1,maxLength:4194304}},required:['document_id','filename','content_type','base64'],additionalProperties:false}},
   {name:'download_policy_file',description:'Download a private policy attachment returned by upload_policy_file',inputSchema:{type:'object',properties:{object_path:{type:'string',minLength:1,maxLength:500}},required:['object_path'],additionalProperties:false}}
 ];
+const MCP_OBJECT_OUTPUT_SCHEMA={type:'object',additionalProperties:true};
+for(const tool of BASE_TOOLS){
+ if(!tool.outputSchema)tool.outputSchema=MCP_OBJECT_OUTPUT_SCHEMA;
+}
 const READ_ONLY_TOOLS = new Set([
   'get_profile',
   'search_bank_reconciliation','get_financial_job','search_suppliers','find_supplier_duplicates',
@@ -100,6 +104,11 @@ function requestOrigin(req){
 }
 function send(res,status,body){res.status(status).setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');return res.end(JSON.stringify(body));}
 function error(id,code,message){return {jsonrpc:'2.0',id,error:{code,message}};}
+function toStructuredContent(value){
+ if(value!==null&&typeof value==='object'&&!Array.isArray(value))return value;
+ if(Array.isArray(value))return {items:value,total:value.length};
+ return {value};
+}
 async function api(path,token,body){
  const r=await fetch(SUPABASE_URL+path,{method:body===undefined?'GET':'POST',headers:{apikey:API_KEY,Authorization:'Bearer '+token,...(body===undefined?{}:{'Content-Type':'application/json'})},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(10000)});
  const data=await r.json().catch(()=>null);
@@ -354,7 +363,8 @@ module.exports=async function handler(req,res){
  }
  try{
   const result=await api('/rest/v1/rpc/'+rpc,token,params);
-  return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(result)}],structuredContent:result,isError:false}});
+  const structuredContent=toStructuredContent(result);
+  return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(structuredContent)}],structuredContent,isError:false}});
  }catch(e){
   return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:e.status===401?'Session expired or invalid':e.status===403?'Permission denied':'Unable to retrieve data'}],isError:true}});
  }

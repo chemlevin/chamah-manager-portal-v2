@@ -5710,3 +5710,9 @@ The following entries originated on the Production-only branch and are preserved
 - Added synthetic contract coverage in `tests/track122-children-billing.test.mjs`. No real organizational data was ingested.
 - Validation passed 11/11 focused TRACK120/OAuth/child-billing tests, `node --check api/mcp.js`, build, and diff checks. Preview read-only SQL confirmed all five new tables and both catalog/report RPCs exist.
 - The first CLI deploy resolved to the wrong `chamah-portal` project and was canceled while QUEUED with no alias. The local Vercel project link was corrected to `prj_TLJVhQfA8oTkM5MCqfehqmBfVGwy`; isolated Preview deployment `dpl_Em75pXntejRwgpsfYHaMJbdCzMQP` is READY at `https://chamah-manager-portal-v2-preview-egcsxi27c-chamah.vercel.app`, built from commit `c24a6db7586f507069801d04656eac55c50d3f28`. The canonical Preview alias was not moved and Production was not modified.
+
+## Production MCP compatibility repair — 2026-11-12
+
+- Confirmed the MCP transport forwarded Supabase RPC results directly as `structuredContent`; list RPCs could therefore return a top-level array, which ChatGPT rejects. Most exposed tools also had no declared output schema.
+- Added a single transport-level compatibility boundary in `api/mcp.js`: every exposed tool advertises an object output schema; object results remain unchanged; arrays become `{items,total}`; null/scalar results become `{value}`. Authorization, RLS, RPC names, write semantics, and business data are unchanged.
+- Added `tests/mcp-contract.test.mjs` covering the full discovered tool list's object output contract and array/empty/null/scalar response normalization. Focused MCP/operational/children tests passed 14/14; build, syntax, and diff checks passed. Production deployment and live post-deployment acceptance remain pending.
