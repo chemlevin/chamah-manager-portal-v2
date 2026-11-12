@@ -4,6 +4,8 @@ import fs from 'node:fs';
 
 const api=fs.readFileSync(new URL('../api/mcp.js',import.meta.url),'utf8');
 const migration=fs.readFileSync(new URL('../supabase/migrations/20261111203330_track120_operational_mcp.sql',import.meta.url),'utf8');
+const auditLineage=fs.readFileSync(new URL('../supabase/migrations/20261112032954_track120_audit_lineage_fix.sql',import.meta.url),'utf8');
+const auditReadback=fs.readFileSync(new URL('../supabase/migrations/20261112065000_track120_batch_audit_readback.sql',import.meta.url),'utf8');
 
 test('institution users discover only scoped read tools',()=>{
   assert.match(api,/INSTITUTION_READ_TOOLS = new Set\(\['get_profile','list_daycares','staff_by_daycare','list_policies','read_policy'\]\)/);
@@ -32,8 +34,15 @@ test('canonical matching, concurrency and audit lineage are explicit',()=>{
   assert.match(migration,/AMBIGUOUS_STABLE_IDENTIFIERS/);
   assert.match(migration,/EXPECTED_ROW_VERSION_REQUIRED/);
   assert.match(migration,/row_version=expected/);
-  assert.match(migration,/_mcp_batch_id/);
+  assert.match(auditLineage,/_mcp_batch_id/);
   assert.match(migration,/MCP_CREATE/);
   assert.match(migration,/MCP_UPDATE/);
+});
+
+test('batch read-back exposes record and authorization audit evidence',()=>{
+  assert.match(auditReadback,/record_audit/);
+  assert.match(auditReadback,/authorization_audit/);
+  assert.match(auditReadback,/_mcp_batch_id/);
+  assert.match(auditReadback,/resource_type='OPERATIONAL_CHANGESET'/);
 });
 
