@@ -7,7 +7,14 @@ const sb=createClient(project,key,{auth:{storage,storageKey:'chamah-oauth-sessio
 const $=id=>document.getElementById(id);
 const id=new URLSearchParams(location.search).get('authorization_id');
 const fail=msg=>{$('status').textContent=msg};
+function diagnostic(step,details={}){
+ const payload={step,...details};
+ if(payload.state!==undefined){payload.present=Boolean(payload.state);payload.length=payload.state?String(payload.state).length:0;delete payload.state;}
+ if(payload.code!==undefined){payload.present=Boolean(payload.code);payload.length=payload.code?String(payload.code).length:0;delete payload.code;}
+ fetch('/api/oauth-diagnostics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),keepalive:true}).catch(()=>{});
+}
 function redirectToPortalLogin(){
+ diagnostic('login_resume',{pending:Boolean(id),present:Boolean(id),length:id?String(id).length:0});
  const resume=new URL('/oauth/consent',location.origin);
  resume.searchParams.set('authorization_id',id);
  const login=new URL('/',location.origin);
@@ -15,6 +22,7 @@ function redirectToPortalLogin(){
  location.replace(login.href);
 }
 async function main(){
+ diagnostic('authorize_request_received',{pending:Boolean(id),present:Boolean(id),length:id?String(id).length:0});
  if(!id||id.length>300||!/^[a-zA-Z0-9._~-]+$/.test(id))return fail('בקשת אישור לא תקינה.');
  const {data:{session},error:sessionError}=await sb.auth.getSession();
  if(sessionError||!session)return redirectToPortalLogin();
@@ -24,8 +32,11 @@ async function main(){
  if(accessError||!access?.profile?.is_active)return fail('לא ניתן לאמת הרשאות בפורטל. לא אושר חיבור.');
  const {data,error}=await sb.auth.oauth.getAuthorizationDetails(id);
  if(error||!data)return fail('לא ניתן לקרוא את פרטי בקשת החיבור.');
+ diagnostic('redirect_uri',{host:data.redirect_uri?new URL(data.redirect_uri).host:'',path:data.redirect_uri?new URL(data.redirect_uri).pathname:''});
+ if(data.state!==undefined)diagnostic('state_presence',{present:Boolean(data.state),length:data.state?String(data.state).length:0});
  if(!('authorization_id' in data)){
   if(typeof data.redirect_url!=='string'||!data.redirect_url.startsWith('https://'))return fail('לא ניתן להשלים את החזרה לאפליקציה המבקשת.');
+  const finalUrl=new URL(data.redirect_url); diagnostic('final_redirect',{host:finalUrl.host,path:finalUrl.pathname,queryNames:[...finalUrl.searchParams.keys()]});
   location.replace(data.redirect_url);
   return;
  }
@@ -40,7 +51,9 @@ async function main(){
    $('approve').disabled=$('deny').disabled=true;
    $('status').textContent='מעבד את ההחלטה…';
    const result=action==='approve'?await sb.auth.oauth.approveAuthorization(id):await sb.auth.oauth.denyAuthorization(id);
+   diagnostic('consent_approval',{status:result.error?'error':'success'});
    if(result.error||!result.data?.redirect_url){$('status').textContent='הפעולה נכשלה. נסה/י שוב.';$('approve').disabled=$('deny').disabled=false;return;}
+   const finalUrl=new URL(result.data.redirect_url); diagnostic('final_redirect',{host:finalUrl.host,path:finalUrl.pathname,queryNames:[...finalUrl.searchParams.keys()]});
    location.assign(result.data.redirect_url);
   });
  }
