@@ -5734,3 +5734,11 @@ The following entries originated on the Production-only branch and are preserved
 - Found remaining write defect: retrying the committed batch is still rejected as `Batch approval mismatch` despite the stored approval evidence. The forward-only idempotency migration was applied but the live MCP retry remains failing, so acceptance cannot be marked complete.
 - >100-row Director-invisible orchestration, non-Director authorization test, and complete file-ingestion acceptance remain blocked by the unresolved write acceptance and were not represented as PASS.
 
+### Production acceptance continuation — 2026-11-13
+
+- The previously approved Production row-version repair was applied to canonical Supabase project `vyyfuaqmbxvfqgbfqooc` after one platform confirmation retry. It recreates the missing `track120_bump_row_version` triggers for the approved writable tables.
+- Live Production MCP verification now passes UPDATE with expected `row_version`: synthetic employee `3684b721-3670-41ae-b632-326fdb2b4f27` advanced from version 1 to version 2, and readback confirmed the persisted value. A subsequent stale version 1 preview was classified `CONFLICT` with `STALE_ROW_VERSION`.
+- Live Production idempotent retry now returns `idempotent_replay: true` for a committed batch.
+- One 100-row synthetic Director operation completed through preview, one approval, commit, 100-record readback and 100 audit records. No existing organizational record was overwritten.
+- Authorization SQL simulation against Production confirmed the active Director has the expected actions and passes data read; a revoked former Director has `active=false`, no roles/actions, and is rejected by `portal_require_action('DATA.READ')`.
+
