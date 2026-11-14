@@ -4,7 +4,8 @@
     "start": "node scripts/serve.mjs",
     "qa": "node scripts/run-qa.mjs",
     "qa:update": "node scripts/run-qa.mjs --update",
-    "qa:report": "node tests/report.mjs"
+    "qa:report": "node tests/report.mjs",
+    "migration:preflight": "node scripts/migration-preflight.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.0"

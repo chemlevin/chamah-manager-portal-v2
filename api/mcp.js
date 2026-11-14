@@ -179,7 +179,9 @@ module.exports=async function handler(req,res){
  if(requestSize>(['upload_policy_file','upload_payment_document','enqueue_bank_statement_import','preview_operational_changes'].includes(m?.params?.name)?4300000:12000))return send(res,413,error(m.id??null,-32600,'Request too large'));
  if(m.id===undefined)return res.status(202).end();
  const id=m.id;
- if(m.method==='initialize')return send(res,200,{jsonrpc:'2.0',id,result:{protocolVersion:PROTOCOL_VERSION,capabilities:{tools:{listChanged:true}},serverInfo:{name:isDirector?'chamah-portal-director':'chamah-portal-institution-readonly',version:'1.3.0'}}});
+ // Streamable HTTP has no reliable notification channel to connected clients.
+ // Keep the connector contract stable; additive business fields belong in catalog tools.
+ if(m.method==='initialize')return send(res,200,{jsonrpc:'2.0',id,result:{protocolVersion:PROTOCOL_VERSION,capabilities:{tools:{listChanged:false}},serverInfo:{name:isDirector?'chamah-portal-director':'chamah-portal-institution-readonly',version:'1.4.0',contractVersion:'stable-1'}}});
  if(m.method==='ping')return send(res,200,{jsonrpc:'2.0',id,result:{}});
  if(m.method==='tools/list')return send(res,200,{jsonrpc:'2.0',id,result:{tools:availableTools}});
  if(m.method!=='tools/call')return send(res,200,error(id,-32601,'Method not found'));

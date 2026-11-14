@@ -1,4 +1,5 @@
 -- TRACK123y: keep commit approval digest scope identical to approval creation.
+-- Depends-On: 20261114090000_track123c_verified_promotion_gate.sql
 -- Preview-only authorization defect fix; Director authorization and ownership checks remain unchanged.
 create or replace function public.portal_mcp_commit_operational_changes(p_batch_id uuid,p_approval_id uuid)
 returns jsonb language plpgsql security definer set search_path=public,private,extensions,pg_temp as $$

@@ -5767,3 +5767,59 @@ The following entries originated on the Production-only branch and are preserved
 - Applied Preview-only migration `20261114190000_track123y_commit_approval_provenance_fix` to isolated Supabase `iwsbjudahtjyigecymzd`. The fix preserves `SECURITY DEFINER`, authenticated execute grants, batch ownership, Director approval, expiry, digest, provenance, synthetic rejection, concurrency, audit, and RLS behavior; it only aligns the commit approval payload with the approval payload.
 - Authenticated Preview acceptance passed end-to-end: synthetic approval rejected; legitimate `REAL_VERIFIED` employee preview approved and committed atomically; readback verified source provenance, verifier `9660a6ba-9bd2-4edc-bd6f-7629de86ce57`, server verification timestamp, persisted record, record audit, and authorization audit lineage.
 - Cleanup removed only disposable employee `cb5b55b2-79cb-4cdc-b87c-d26a9e6fb418` / `EMP-20261114-1906` from Preview after an approved archive transition. Preview employee search returned zero matches and the employee count returned to baseline 1. Production and `Chamah Daycare` were untouched.
+
+## TRACK124 — Production Deployment (2026-11-14)
+
+TRACK: TRACK124
+Status: BLOCKED
+Summary: Deployed the accepted TRACK123y application commit to the existing Production Vercel project and applied the exact forward-only TRACK123y database migration to Production. The permanent `Chamah Daycare` connector authenticated and exposed the operational catalog, but its live preview schema did not expose the required `source_provenance` argument. The server rejected the synthetic acceptance request before staging; no real or synthetic Production record was written.
+Root cause: The permanent connector's cached tool contract is stale relative to the deployed TRACK123c/123y Production contract. Its `preview_operational_changes` schema exposes only `idempotency_key`, `rows`, and `source_name`, while Production requires non-empty source provenance.
+Files changed: `PROJECT_LOG.md` only in this TRACK; approved migration source already existed at `supabase/migrations/20261114190000_track123y_commit_approval_provenance_fix.sql`.
+Database changes: Applied migration `track123y_commit_approval_provenance_fix` to Production project `vyyfuaqmbxvfqgbfqooc`; no business rows changed.
+Migrations: Production records version `20261114185130` as `track123y_commit_approval_provenance_fix`.
+Edge Functions: None.
+Tests: Production connector profile/catalog/read/report passed; synthetic preview was rejected with `Operational preview requires 1-1000 rows, source provenance, and an idempotency key`; baseline operational counts remained unchanged; Vercel deployment READY and exact source SHA verified. Legitimate preview/approval/commit/read-back/cleanup was not run because the connector cannot submit the required contract.
+Production impact: Production Vercel deployment `dpl_7ndmJDXzKDFXeHRMGdxLgFnAR7aY` READY from SHA `2d14579b272e6a59114f5fce91dc67b95b6fc2f1`; canonical alias `https://chamah-portal.vercel.app` assigned. Production Supabase schema changed only by the reviewed function replacement. No operational data was ingested.
+Commit SHA: `2d14579b272e6a59114f5fce91dc67b95b6fc2f1`
+Branch: `codex/track121-oauth-login-resume`
+Preview URL: None for this Production track.
+Production URL (if deployed): `https://chamah-portal.vercel.app`
+Blockers: Permanent `Chamah Daycare` connector schema refresh/re-registration is required so `preview_operational_changes` exposes `source_provenance`; until then authenticated REAL_VERIFIED Production acceptance cannot be completed.
+Next recommended TRACK: TRACK124 connector refresh and repeat the approved authenticated Production acceptance; do not ingest real operational data before PASS.
+
+## TRACK124 — Production Acceptance Closure (2026-11-14)
+
+TRACK: TRACK124
+Status: PASS
+Summary: Continued the existing TRACK124 after connector refresh. Verified the permanent `Chamah Daycare` connector forwarded `source_provenance`, applied the missing TRACK123c prerequisite migration while preserving the already-applied TRACK123y commit function, and completed authenticated Production acceptance and approved cleanup.
+Root cause: The initial Production rollout had TRACK123y’s commit repair without the prerequisite TRACK123c preview/approval contract migration. The refreshed connector exposed the new argument, revealing the missing Production RPC signatures.
+Files changed: `PROJECT_LOG.md` only.
+Database changes: Applied `track123c_verified_promotion_gate` to Production; no reference/configuration data changed. One disposable employee was created and then archived through the same preview → approval → commit workflow.
+Migrations: `20261114185130_track123y_commit_approval_provenance_fix`; `20261114190147_track123c_verified_promotion_gate`.
+Edge Functions: None.
+Tests: Permanent connector authenticated as Director `3af86c7f-6ba4-41f4-8d7c-1db262cf3e79`; catalog exposed approval-bound operational entities; synthetic approval was rejected; disposable neutral `REAL_VERIFIED` employee previewed, approved, committed atomically, read back, and idempotent replay returned `idempotent_replay=true`; batch read-back verified provenance, verifier, timestamps, approval consumption, record audit, authorization audit, and persisted record; approved archive cleanup committed at row version 2.
+Production impact: Production Vercel deployment `dpl_7ndmJDXzKDFXeHRMGdxLgFnAR7aY` remains READY from SHA `2d14579b272e6a59114f5fce91dc67b95b6fc2f1`; canonical alias remains `https://chamah-portal.vercel.app`. No real operational data was ingested. The disposable employee remains only as an archived audit-preserving tombstone; no active disposable employee remains.
+Commit SHA: `2d14579b272e6a59114f5fce91dc67b95b6fc2f1`
+Branch: `codex/track121-oauth-login-resume`
+Preview URL: None for this Production track.
+Production URL (if deployed): `https://chamah-portal.vercel.app`
+Blockers: None for the authorized acceptance scope.
+Next recommended TRACK: None.
+## TRACK125 — MCP & Deployment Reliability (2026-11-14)
+
+TRACK: TRACK125
+Status: PASS
+Summary: Replaced the inaccurate MCP refresh capability claim with an explicit stable contract policy and added migration deployment preflight checks. TRACK123y now declares TRACK123c as a forward-only prerequisite.
+Root cause: The Streamable HTTP endpoint had no reliable server-to-client notification channel, so `tools.list_changed` did not refresh cached connector schemas. TRACK123y had no machine-readable dependency on TRACK123c, allowing dependent Production code to arrive before its prerequisite migration.
+Files changed: api/mcp.js; scripts/migration-preflight.mjs; tests/track125-reliability.test.mjs; tests/track120-operational-mcp.test.mjs; supabase/migrations/20261114190000_track123y_commit_approval_provenance_fix.sql; docs/TRACK125_MCP_DEPLOYMENT_RELIABILITY.md; package.json.
+Database changes: None. No Production or Preview database was modified.
+Migrations: No migration applied. TRACK123y source now declares `Depends-On: 20261114090000_track123c_verified_promotion_gate.sql`.
+Edge Functions: None deployed.
+Tests: `node --check api/mcp.js` passed; `npm run migration:preflight` passed with 101 ordered migrations; focused MCP and TRACK125 tests passed 14/14 after updating the prior capability assertion; `git diff --check` passed.
+Production impact: None. No connector configuration, deployment, data, schema, function, or permission changed.
+Commit SHA: Pending commit.
+Branch: codex/track121-oauth-login-resume.
+Preview URL: Not deployed; isolated Preview live migration history was not queried because no linked Preview deployment/migration credential was available in this run.
+Production URL (if deployed): None.
+Blockers: Authenticated live verification of Supabase migration history and MCP connector behavior remains external to repository tests; the permanent connector must still be coordinated manually for any breaking contract update.
+Next recommended TRACK: None.

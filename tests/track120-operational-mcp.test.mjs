@@ -16,8 +16,8 @@ test('institution users discover only scoped read tools',()=>{
 });
 
 test('MCP schema advertises tool-list changes and a new version',()=>{
-  assert.match(api,/listChanged:true/);
-  assert.match(api,/version:'1\.3\.0'/);
+  assert.match(api,/listChanged:false/);
+  assert.match(api,/version:'1\.4\.0'/);
 });
 
 test('mixed-domain changes require preview, exact approval and atomic commit',()=>{
