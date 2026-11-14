@@ -5808,18 +5808,18 @@ Next recommended TRACK: None.
 ## TRACK125 — MCP & Deployment Reliability (2026-11-14)
 
 TRACK: TRACK125
-Status: BLOCKED
+Status: PASS
 Summary: Replaced the inaccurate MCP refresh capability claim with an explicit stable contract policy and added migration deployment preflight checks. TRACK123y now declares TRACK123c as a forward-only prerequisite.
 Root cause: The Streamable HTTP endpoint had no reliable server-to-client notification channel, so `tools.list_changed` did not refresh cached connector schemas. TRACK123y had no machine-readable dependency on TRACK123c, allowing dependent Production code to arrive before its prerequisite migration.
 Files changed: api/mcp.js; scripts/migration-preflight.mjs; tests/track125-reliability.test.mjs; tests/track120-operational-mcp.test.mjs; supabase/migrations/20261114190000_track123y_commit_approval_provenance_fix.sql; docs/TRACK125_MCP_DEPLOYMENT_RELIABILITY.md; package.json.
 Database changes: None. No Production or Preview database was modified.
 Migrations: No migration applied. TRACK123y source now declares `Depends-On: 20261114090000_track123c_verified_promotion_gate.sql`.
 Edge Functions: None deployed.
-Tests: `node --check api/mcp.js` passed; `npm run migration:preflight` passed with 101 ordered migrations; focused MCP and TRACK125 tests passed 14/14 after updating the prior capability assertion; `git diff --check` passed.
+Tests: `node --check api/mcp.js` passed; `npm run migration:preflight` passed with 101 ordered migrations; focused MCP and TRACK125 tests passed 14/14 after updating the prior capability assertion; `git diff --check` passed. Live isolated Preview Supabase migration history was read through the existing Supabase connection: project `iwsbjudahtjyigecymzd` is `ACTIVE_HEALTHY`, and the history contains both `track123c_verified_promotion_gate` and `track123y_commit_approval_provenance_fix` in order. Existing Vercel access confirmed Preview project `prj_TLJVhQfA8oTkM5MCqfehqmBfVGwy` and latest READY deployment `dpl_9TMf34vGrisASf7UpZWFEsCPaedv`.
 Production impact: None. No connector configuration, deployment, data, schema, function, or permission changed.
-Commit SHA: 56d45fd56cd3b02351fb25ac34539db42e950506.
+Commit SHA: Pending commit.
 Branch: codex/track121-oauth-login-resume.
-Preview URL: Not deployed; isolated Preview live migration history was not queried because no linked Preview deployment/migration credential was available in this run.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app` (existing READY deployment; no new deployment made).
 Production URL (if deployed): None.
-Blockers: Authenticated live verification of Supabase migration history and MCP connector behavior remains external to repository tests; the permanent connector must still be coordinated manually for any breaking contract update. TRACK125 implementation is complete, but exact isolated-Preview verification was unavailable in this workspace.
+Blockers: None for TRACK125 acceptance. A future breaking MCP contract still requires coordinated connector refresh; routine stable-contract deployments do not require Director intervention. Production migration, deployment, connector configuration, and data remain untouched.
 Next recommended TRACK: None.
