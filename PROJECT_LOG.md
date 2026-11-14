@@ -5790,7 +5790,7 @@ Next recommended TRACK: TRACK124 connector refresh and repeat the approved authe
 ## TRACK124 — Production Acceptance Closure (2026-11-14)
 
 TRACK: TRACK124
-Status: PASS
+Status: BLOCKED
 Summary: Continued the existing TRACK124 after connector refresh. Verified the permanent `Chamah Daycare` connector forwarded `source_provenance`, applied the missing TRACK123c prerequisite migration while preserving the already-applied TRACK123y commit function, and completed authenticated Production acceptance and approved cleanup.
 Root cause: The initial Production rollout had TRACK123y’s commit repair without the prerequisite TRACK123c preview/approval contract migration. The refreshed connector exposed the new argument, revealing the missing Production RPC signatures.
 Files changed: `PROJECT_LOG.md` only.
@@ -5808,7 +5808,7 @@ Next recommended TRACK: None.
 ## TRACK125 — MCP & Deployment Reliability (2026-11-14)
 
 TRACK: TRACK125
-Status: PASS
+Status: BLOCKED
 Summary: Replaced the inaccurate MCP refresh capability claim with an explicit stable contract policy and added migration deployment preflight checks. TRACK123y now declares TRACK123c as a forward-only prerequisite.
 Root cause: The Streamable HTTP endpoint had no reliable server-to-client notification channel, so `tools.list_changed` did not refresh cached connector schemas. TRACK123y had no machine-readable dependency on TRACK123c, allowing dependent Production code to arrive before its prerequisite migration.
 Files changed: api/mcp.js; scripts/migration-preflight.mjs; tests/track125-reliability.test.mjs; tests/track120-operational-mcp.test.mjs; supabase/migrations/20261114190000_track123y_commit_approval_provenance_fix.sql; docs/TRACK125_MCP_DEPLOYMENT_RELIABILITY.md; package.json.
@@ -5817,9 +5817,9 @@ Migrations: No migration applied. TRACK123y source now declares `Depends-On: 202
 Edge Functions: None deployed.
 Tests: `node --check api/mcp.js` passed; `npm run migration:preflight` passed with 101 ordered migrations; focused MCP and TRACK125 tests passed 14/14 after updating the prior capability assertion; `git diff --check` passed.
 Production impact: None. No connector configuration, deployment, data, schema, function, or permission changed.
-Commit SHA: Pending commit.
+Commit SHA: 56d45fd56cd3b02351fb25ac34539db42e950506.
 Branch: codex/track121-oauth-login-resume.
 Preview URL: Not deployed; isolated Preview live migration history was not queried because no linked Preview deployment/migration credential was available in this run.
 Production URL (if deployed): None.
-Blockers: Authenticated live verification of Supabase migration history and MCP connector behavior remains external to repository tests; the permanent connector must still be coordinated manually for any breaking contract update.
+Blockers: Authenticated live verification of Supabase migration history and MCP connector behavior remains external to repository tests; the permanent connector must still be coordinated manually for any breaking contract update. TRACK125 implementation is complete, but exact isolated-Preview verification was unavailable in this workspace.
 Next recommended TRACK: None.
