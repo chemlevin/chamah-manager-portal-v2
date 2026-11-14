@@ -5749,3 +5749,8 @@ The following entries originated on the Production-only branch and are preserved
 - Applied the forward-only migration to isolated Preview Supabase `iwsbjudahtjyigecymzd`; database verification confirmed the four new batch columns and updated security-definer RPC signatures. Production data/schema/deployment were not modified.
 - Focused repository validation passed 14/14 tests, `node --check api/mcp.js`, and `git diff --check`. Authenticated live bypass/legitimate-import acceptance was not executed because no authorized Director Preview session was available in this run; this remains a verification gap before any Production deployment.
 
+## TRACK123c-2 — Preview MCP Schema Refresh (2026-11-14)
+
+- Bumped MCP server metadata from `1.2.0` to `1.3.0` while retaining `tools.listChanged:true`; updated the schema regression assertion. Commit `d25af98` was pushed to the existing branch.
+- Deployed the refreshed code to isolated Preview as `dpl_9TMf34vGrisASf7UpZWFEsCPaedv`, READY at `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+- The connected Director Preview MCP schema still did not accept the new `source_provenance` argument; the legitimate acceptance call returned `INVALID_ARGUMENT`. No Preview business record or Production resource was changed.
