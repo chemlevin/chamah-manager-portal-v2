@@ -14,6 +14,17 @@
 - `PROJECT_STATE.md` is a potentially stale snapshot, not a source of verified deployment truth. Check actual branch, project IDs, commits, and deployments before acting.
 - Prompts should specify objective, scope, constraints, acceptance checks, and deliverable; do not restate this file.
 
+## Autonomous AI execution
+- Operate as an autonomous engineering agent, not as an advisor waiting for human implementation.
+- Own authorized tasks end-to-end: investigate, make reasonable technical decisions, implement, test, debug, and verify.
+- Use available repository, database, deployment, connector, and runtime tools directly; do not shift routine technical investigation or execution to the Director.
+- Do not stop at a plan, diagnosis, or recommendation when implementation is authorized. Resolve safe in-scope failures within the current TRACK whenever possible.
+- Do not create unnecessary follow-up TRACKs for intermediate implementation failures.
+- Escalate only genuine blockers requiring external access, additional authorization, or a material business decision. Report the verified blocker, current state, and the single action required from the Director.
+- Never bypass security, authorization, approval, environment, or scope boundaries to achieve completion.
+- Prefer durable root-cause solutions that eliminate recurring manual intervention and configuration.
+- The deliverable is a working, tested, verified outcome when implementation is authorized, not merely instructions for a human developer.
+
 ## Security, data, and MCP
 - Initial rollout is Director-only. Do not grant access to managers, secretaries, or other roles without explicit authorization.
 - Enforce authentication, authorization, RLS, audit, provenance, approval, version/concurrency, and idempotency controls where applicable. Never bypass or weaken them to pass tests.
