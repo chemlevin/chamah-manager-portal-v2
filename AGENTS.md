@@ -12,6 +12,8 @@
 - `docs/CODEX_WORKFLOW.md` is optional guidance: consult it only when a task needs workflow details not covered here. Do not load it automatically. Read only relevant sections of other documents and source files.
 - Search `PROJECT_LOG.md` by TRACK, feature, or decision; never require a full-history read by default. Append historical entries when required; never rewrite existing entries.
 - `PROJECT_STATE.md` is a potentially stale snapshot, not a source of verified deployment truth. Check actual branch, project IDs, commits, and deployments before acting.
+- Before drafting an implementation/TRACK prompt, perform a brief internal second-pass review: confirm the proposed task directly serves the Director's objective; choose the simplest and most resource-efficient approach that preserves quality; identify likely failure modes, dependencies, and unnecessary complexity; and shape the prompt so the agent can prevent or recover from those failures autonomously within scope. Do not output this internal review unless it materially affects a Director decision.
+- Optimize context, tool calls, and token usage to avoid unnecessary cost and repetition, but never at the expense of correctness, completeness, security, validation, or task quality. When efficiency conflicts with reliable completion of an authorized task, prioritize correctness and verified completion.
 - Prompts should specify objective, scope, constraints, acceptance checks, and deliverable; do not restate this file.
 
 ## Autonomous AI execution
