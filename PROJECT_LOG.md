@@ -5742,3 +5742,10 @@ The following entries originated on the Production-only branch and are preserved
 - One 100-row synthetic Director operation completed through preview, one approval, commit, 100-record readback and 100 audit records. No existing organizational record was overwritten.
 - Authorization SQL simulation against Production confirmed the active Director has the expected actions and passes data read; a revoked former Director has `active=false`, no roles/actions, and is rejected by `portal_require_action('DATA.READ')`.
 
+## TRACK123c — Secure Production Data Promotion (2026-11-14)
+
+- Added a minimal server-side real-data promotion gate to the existing MCP operational ingestion workflow. Preview batches now require non-empty source provenance; Director approval records `REAL_VERIFIED`, verifier identity, and server timestamp; commit revalidates provenance, verification, digest integrity, synthetic/test markers, approval, and concurrency before canonical writes.
+- Synthetic/test markers including TRACK, INTERNAL_ACCEPTANCE, synthetic, test-data, and example.invalid are rejected server-side before Production promotion. Existing preview, approval, digest, atomic commit, audit, idempotency, and row-version controls remain in place.
+- Applied the forward-only migration to isolated Preview Supabase `iwsbjudahtjyigecymzd`; database verification confirmed the four new batch columns and updated security-definer RPC signatures. Production data/schema/deployment were not modified.
+- Focused repository validation passed 14/14 tests, `node --check api/mcp.js`, and `git diff --check`. Authenticated live bypass/legitimate-import acceptance was not executed because no authorized Director Preview session was available in this run; this remains a verification gap before any Production deployment.
+
