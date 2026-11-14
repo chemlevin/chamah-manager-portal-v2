@@ -9,7 +9,7 @@
 
 ## Context discipline
 - Read this compact file once per task/session. Do not repeatedly reload unchanged instructions.
-- Consult `docs/CODEX_WORKFLOW.md` for development execution; read only the relevant parts of other documents and source files.
+- `docs/CODEX_WORKFLOW.md` is optional guidance: consult it only when a task needs workflow details not covered here. Do not load it automatically. Read only relevant sections of other documents and source files.
 - Search `PROJECT_LOG.md` by TRACK, feature, or decision; never require a full-history read by default. Append historical entries when required; never rewrite existing entries.
 - `PROJECT_STATE.md` is a potentially stale snapshot, not a source of verified deployment truth. Check actual branch, project IDs, commits, and deployments before acting.
 - Prompts should specify objective, scope, constraints, acceptance checks, and deliverable; do not restate this file.
