@@ -5754,3 +5754,16 @@ The following entries originated on the Production-only branch and are preserved
 - Bumped MCP server metadata from `1.2.0` to `1.3.0` while retaining `tools.listChanged:true`; updated the schema regression assertion. Commit `d25af98` was pushed to the existing branch.
 - Deployed the refreshed code to isolated Preview as `dpl_9TMf34vGrisASf7UpZWFEsCPaedv`, READY at `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
 - The connected Director Preview MCP schema still did not accept the new `source_provenance` argument; the legitimate acceptance call returned `INVALID_ARGUMENT`. No Preview business record or Production resource was changed.
+
+## TRACK123s — Stable Preview MCP routing (2026-11-14)
+
+- Added the stable Preview project domain `chamah-director-preview.vercel.app` to the existing Preview Vercel project `prj_TLJVhQfA8oTkM5MCqfehqmBfVGwy`; Production and the permanent `Chamah Daycare` connector were untouched.
+- Permanent rule: `Chamah Director Preview` uses the stable Preview MCP endpoint; deployment-specific URLs must not require new connectors, and Production connector routing must never be changed for Preview acceptance.
+- Stable endpoint reachability and authenticated Preview acceptance remain pending; no Preview data was written in this step.
+
+## TRACK123y — Preview Director commit authorization fix and acceptance (2026-11-14)
+
+- Diagnosed the authenticated Preview commit failure: approval creation digested `batch_id`, `row_version`, `preview_digest`, and `source_provenance`, while `portal_mcp_commit_operational_changes` consumed an approval digest omitting `source_provenance`. `private.portal_consume_approval` therefore raised `42501` (`Approval missing, expired, consumed or payload changed`), surfaced by MCP as `Permission denied`.
+- Applied Preview-only migration `20261114190000_track123y_commit_approval_provenance_fix` to isolated Supabase `iwsbjudahtjyigecymzd`. The fix preserves `SECURITY DEFINER`, authenticated execute grants, batch ownership, Director approval, expiry, digest, provenance, synthetic rejection, concurrency, audit, and RLS behavior; it only aligns the commit approval payload with the approval payload.
+- Authenticated Preview acceptance passed end-to-end: synthetic approval rejected; legitimate `REAL_VERIFIED` employee preview approved and committed atomically; readback verified source provenance, verifier `9660a6ba-9bd2-4edc-bd6f-7629de86ce57`, server verification timestamp, persisted record, record audit, and authorization audit lineage.
+- Cleanup removed only disposable employee `cb5b55b2-79cb-4cdc-b87c-d26a9e6fb418` / `EMP-20261114-1906` from Preview after an approved archive transition. Preview employee search returned zero matches and the employee count returned to baseline 1. Production and `Chamah Daycare` were untouched.
