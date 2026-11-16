@@ -5817,7 +5817,7 @@ Migrations: No migration applied. TRACK123y source now declares `Depends-On: 202
 Edge Functions: None deployed.
 Tests: `node --check api/mcp.js` passed; `npm run migration:preflight` passed with 101 ordered migrations; focused MCP and TRACK125 tests passed 14/14 after updating the prior capability assertion; `git diff --check` passed. Live isolated Preview Supabase migration history was read through the existing Supabase connection: project `iwsbjudahtjyigecymzd` is `ACTIVE_HEALTHY`, and the history contains both `track123c_verified_promotion_gate` and `track123y_commit_approval_provenance_fix` in order. Existing Vercel access confirmed Preview project `prj_TLJVhQfA8oTkM5MCqfehqmBfVGwy` and latest READY deployment `dpl_9TMf34vGrisASf7UpZWFEsCPaedv`.
 Production impact: None. No connector configuration, deployment, data, schema, function, or permission changed.
-Commit SHA: Pending commit.
+Commit SHA: `f83f9e07b4ea6b813eb29a9d009ac4e20f0dd25c`.
 Branch: codex/track121-oauth-login-resume.
 Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app` (existing READY deployment; no new deployment made).
 Production URL (if deployed): None.
@@ -6165,3 +6165,29 @@ Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.a
 Production URL (if deployed): None.
 Blockers: None for the requested approval workflow.
 Next recommended TRACK: Add a standalone authenticated MCP regression test if commit-safe disposable identities are available.
+### TRACK132 — Permanent Cross-Domain Import Contract Fix
+
+- Established contract version `1.0.0` across the MCP wrapper, versioned catalog RPC, staged batch metadata, Preview, Approval, and Commit calls.
+- Added forward-only migration `20261116190000_track132_operational_import_contract.sql`; Preview project `iwsbjudahtjyigecymzd` accepted it successfully.
+- Preview now exposes `portal_mcp_preview_operational_changes(text,jsonb,text,jsonb,text)`, `portal_mcp_request_operational_approval(text,uuid,text)`, `portal_mcp_commit_operational_changes(text,uuid,uuid)`, and `portal_mcp_operational_contract_catalog()`.
+- Stale or incompatible versions fail with `VERSION_MISMATCH`; existing authorization, provenance, digest, approval, idempotency, row-version, audit, atomicity, and synthetic-data guards remain in the delegated workflow RPCs.
+- Added focused regression coverage and deployed wrapper Preview `https://chamah-manager-portal-v2-preview-6yp0n6xeq-chamah.vercel.app`.
+- Disposable TRACK132 batch and approval were removed; read-back confirmed both remaining counts are zero. No canonical business records were written by this verification.
+- The active Director Preview/Chamah Daycare connector remains stale and still reports the pre-TRACK132 catalog/schema. Production currently has none of the versioned RPCs; no Production migration, deployment, connector refresh, or real-data load was attempted.
+
+TRACK: TRACK132
+Status: BLOCKED — Preview implementation complete; Production promotion and active connector refresh require explicit Director approval
+Summary: Cross-domain versioned import contract implemented and applied to isolated Preview; stale connector and Production parity remain gated.
+Root cause: MCP connector/schema and database RPC generations were not versioned together, allowing Preview/approval to bind successfully before commit reached an incompatible RPC contract.
+Files changed: api/mcp.js; supabase/migrations/20261116190000_track132_operational_import_contract.sql; tests/track132-operational-import-contract.test.mjs; PROJECT_LOG.md.
+Database changes: Preview only; added `mcp_ingestion_batches.contract_version` and versioned contract RPC overloads/catalog wrapper. No canonical business rows written.
+Migrations: Preview applied `track132_operational_import_contract`; Production not applied.
+Edge Functions: None.
+Tests: `node --check api/mcp.js` passed; TRACK132 focused tests 2/2 passed; migration preflight passed (108 ordered migrations); Preview/Production signature read-back completed; disposable batch and approval cleanup verified.
+Production impact: None. Production still lacks TRACK132 versioned RPCs; existing counts read back as children=0, employees=1.
+Commit SHA: Pending commit.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-6yp0n6xeq-chamah.vercel.app`.
+Production URL (if deployed): `https://chamah-portal.vercel.app` (unchanged).
+Blockers: Explicit Director approval is required before applying the migration/deploying the matching wrapper to Production and refreshing the active connector schema. Full 11-domain live commit tests cannot run safely until the connector and Production/Preview contract are aligned; synthetic promotion remains correctly blocked by the existing safeguard.
+Next recommended TRACK: After Director approval, promote the exact migration and wrapper, refresh/re-register the active connector, then run the disposable end-to-end matrix for children, employees, enrollment, occupancy, billing, collections, government funding, payroll, bank, suppliers, payments, and discrepancies with cleanup/read-back.
