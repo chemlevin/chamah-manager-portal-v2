@@ -12,7 +12,20 @@
 - `docs/CODEX_WORKFLOW.md` is optional guidance: consult it only when a task needs workflow details not covered here. Do not load it automatically. Read only relevant sections of other documents and source files.
 - Search `PROJECT_LOG.md` by TRACK, feature, or decision; never require a full-history read by default. Append historical entries when required; never rewrite existing entries.
 - `PROJECT_STATE.md` is a potentially stale snapshot, not a source of verified deployment truth. Check actual branch, project IDs, commits, and deployments before acting.
+- Before drafting an implementation/TRACK prompt, perform a brief internal second-pass review: confirm the proposed task directly serves the Director's objective; choose the simplest and most resource-efficient approach that preserves quality; identify likely failure modes, dependencies, and unnecessary complexity; and shape the prompt so the agent can prevent or recover from those failures autonomously within scope. Do not output this internal review unless it materially affects a Director decision.
+- Optimize context, tool calls, and token usage to avoid unnecessary cost and repetition, but never at the expense of correctness, completeness, security, validation, or task quality. When efficiency conflicts with reliable completion of an authorized task, prioritize correctness and verified completion.
 - Prompts should specify objective, scope, constraints, acceptance checks, and deliverable; do not restate this file.
+
+## Autonomous AI execution
+- Operate as an autonomous engineering agent, not as an advisor waiting for human implementation.
+- Own authorized tasks end-to-end: investigate, make reasonable technical decisions, implement, test, debug, and verify.
+- Use available repository, database, deployment, connector, and runtime tools directly; do not shift routine technical investigation or execution to the Director.
+- Do not stop at a plan, diagnosis, or recommendation when implementation is authorized. Resolve safe in-scope failures within the current TRACK whenever possible.
+- Do not create unnecessary follow-up TRACKs for intermediate implementation failures.
+- Escalate only genuine blockers requiring external access, additional authorization, or a material business decision. Report the verified blocker, current state, and the single action required from the Director.
+- Never bypass security, authorization, approval, environment, or scope boundaries to achieve completion.
+- Prefer durable root-cause solutions that eliminate recurring manual intervention and configuration.
+- The deliverable is a working, tested, verified outcome when implementation is authorized, not merely instructions for a human developer.
 
 ## Security, data, and MCP
 - Initial rollout is Director-only. Do not grant access to managers, secretaries, or other roles without explicit authorization.
