@@ -6020,6 +6020,30 @@ Production URL (if deployed): `https://chamah-portal.vercel.app` (no frontend de
 Blockers: Employee identity mismatch handling must be fixed and separately verified before this promotion can be marked fully complete.
 Next recommended TRACK: Add a forward-only employee identity mismatch guard that preserves employee-code/national-ID uniqueness and rejects conflicting pairs before any employee write.
 
+### TRACK130-PROD-PROMOTION continuation — employee identity matcher fixed
+
+- Committed the employee matcher migration and regression test as `acb660f` (`Fix employee identity mismatch matching`).
+- Applied `20261116130000_track130_employee_identity_matching.sql` to Production project `vyyfuaqmbxvfqgbfqooc`; Supabase recorded version `20261116125705`.
+- Production rollback-only verification: matching employee code and national ID returned `SKIP`; existing employee-code with different national ID returned `CONFLICT` (`EMPLOYEE_CODE_NATIONAL_ID_CONFLICT`); existing national ID with different employee code returned `CONFLICT` (`NATIONAL_ID_EMPLOYEE_CODE_CONFLICT`).
+- Final read-back confirmed the existing employee row remained unchanged, employee count remained `1`, child count remained `0`, and temporary TRACK130 employee batches remained `0`.
+
+TRACK: TRACK130-PROD-PROMOTION
+Status: COMPLETE — employee identity matcher fixed and verified
+Summary: Production now rejects conflicting employee identity pairs without changing or duplicating the existing employee.
+Root cause: Shared employee matcher used OR matching and accepted one matching identity while silently treating the other identity as an update.
+Files changed: supabase/migrations/20261116130000_track130_employee_identity_matching.sql; tests/track130-employee-identity-matching.test.mjs; PROJECT_LOG.md.
+Database changes: Production employee matcher RPC replaced; no canonical employee rows inserted or updated.
+Migrations: `20261116125705_track130_employee_identity_matching`.
+Edge Functions: None.
+Tests: Focused TRACK130 tests 7/7 passed; Production rollback-only identity verification passed in both mismatch directions.
+Production impact: Existing employee record unchanged; no real children or employee data loaded.
+Commit SHA: `acb660f8ce354712367f645c72e4ee5a9459b857`.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+Production URL (if deployed): `https://chamah-portal.vercel.app` (no frontend deployment changed).
+Blockers: None.
+Next recommended TRACK: None.
+
 ### TRACK130 promotion attempt — blocked before Production write
 
 - Exact migration source was available at `supabase/migrations/20261116100000_track130_child_reconciliation.sql`.
