@@ -58,6 +58,7 @@ const BASE_TOOLS = [
   {name:'search_operational_records',description:'Search any allowlisted canonical operational entity with bounded pagination',inputSchema:{type:'object',properties:{entity:{type:'string',minLength:1,maxLength:80},search:{type:'string',maxLength:120},limit:{type:'integer',minimum:1,maximum:100},offset:{type:'integer',minimum:0,maximum:10000}},required:['entity'],additionalProperties:false}},
   {name:'get_operational_record',description:'Read one canonical operational record by entity and UUID',inputSchema:{type:'object',properties:{entity:{type:'string',minLength:1,maxLength:80},record_id:{type:'string',format:'uuid'}},required:['entity','record_id'],additionalProperties:false}},
   {name:'operational_report',description:'Return canonical record counts and explicitly unsupported operational domains',inputSchema:{type:'object',properties:{},additionalProperties:false}},
+  {name:'child_reconciliation',description:'Read-only bounded child/daycare/month reconciliation with unresolved discrepancies',inputSchema:{type:'object',properties:{month:{type:'string',format:'date'},daycare_id:{type:'string',format:'uuid'},child_id:{type:'string',format:'uuid'}},required:['month'],additionalProperties:false}},
   {name:'create_policy',description:'Create an organizational policy draft',inputSchema:{type:'object',properties:{title:{type:'string',minLength:1,maxLength:200},category:{type:'string',maxLength:120},body:{type:'string',maxLength:100000}},required:['title'],additionalProperties:false}},
   {name:'update_policy',description:'Update a policy draft with optimistic concurrency',inputSchema:{type:'object',properties:{document_id:{type:'string',format:'uuid'},title:{type:'string',minLength:1,maxLength:200},category:{type:'string',maxLength:120},body:{type:'string',maxLength:100000},expected_updated_at:{type:'string',format:'date-time'}},required:['document_id','title','category','body','expected_updated_at'],additionalProperties:false}},
   {name:'request_policy_archive_approval',description:'Create a short-lived approval bound to one policy archive request',inputSchema:{type:'object',properties:{document_id:{type:'string',format:'uuid'},reason:{type:'string',minLength:3,maxLength:500}},required:['document_id','reason'],additionalProperties:false}},
@@ -77,7 +78,7 @@ const READ_ONLY_TOOLS = new Set([
   'search_payment_requests','analyze_suppliers_payments','list_policies','read_policy','list_daycares',
   'staff_by_daycare','search_daycares','data_capabilities','search_operational_data','analyze_operational_data',
   'find_employee_duplicates','download_policy_file','operational_catalog','employee_profile','get_operational_batch',
-  'search_operational_records','get_operational_record','operational_report'
+  'search_operational_records','get_operational_record','operational_report','child_reconciliation'
 ]);
 const INSTITUTION_READ_TOOLS = new Set(['get_profile','list_daycares','staff_by_daycare','list_policies','read_policy']);
 const UNSAFE_LEGACY_WRITE_TOOLS = new Set([
@@ -326,6 +327,9 @@ module.exports=async function handler(req,res){
  case 'operational_report':
   if(Object.keys(args).length)return send(res,200,error(id,-32602,'Unexpected arguments'));
   rpc='portal_mcp_operational_report';params={};break;
+ case 'child_reconciliation':
+  if(Object.keys(args).some(k=>!['month','daycare_id','child_id'].includes(k))||typeof args.month!=='string'||Number.isNaN(Date.parse(args.month))||(args.daycare_id!==undefined&&!UUID.test(args.daycare_id))||(args.child_id!==undefined&&!UUID.test(args.child_id)))return send(res,200,error(id,-32602,'Invalid child reconciliation request'));
+  rpc='portal_mcp_child_reconciliation';params={p_month:args.month,p_daycare_id:args.daycare_id||null,p_child_id:args.child_id||null};break;
  case 'create_policy':
   if(Object.keys(args).some(k=>!['title','category','body'].includes(k))||typeof args.title!=='string'||!args.title.trim()||args.title.length>200||(args.category!==undefined&&(typeof args.category!=='string'||args.category.length>120))||(args.body!==undefined&&(typeof args.body!=='string'||args.body.length>100000)))return send(res,200,error(id,-32602,'Invalid policy'));
   rpc='portal_mcp_create_policy';params={p_title:args.title,p_category:args.category||'כללי',p_body:args.body||''};break;

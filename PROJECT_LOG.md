@@ -5972,6 +5972,30 @@ Production URL (if deployed): None.
 Blockers: None for the requested approval workflow.
 Next recommended TRACK: Add a standalone authenticated MCP regression test if commit-safe disposable identities are available.
 
+### TRACK130 continuation — database-only payroll contract verification
+
+- Production-only database verification confirmed the canonical operational catalog is populated with payroll and TRACK130 entities, `unsupported=[]`, Director-only read authorization, and `payroll_records=0`.
+- Production bounded search for `payroll_records` and `2026-09-01` returned zero rows. No payroll business rows were inserted or changed.
+- Preview-only synthetic payroll contract test returned `READY`/`CREATE`, `canonical_writes=false`, and batch read-back with no committed rows; the exact staged batch was deleted afterward and verified by the delete result.
+- Google Drive was not used for this continuation.
+
+TRACK: TRACK130
+Status: COMPLETE — database-only contract verification; payroll batch pending source and approval
+Summary: Production catalog/read capabilities and Preview payroll preview/readback were verified without committing payroll rows.
+Root cause: Production contains no September 2026 payroll records to display or reconcile.
+Files changed: PROJECT_LOG.md; api/mcp.js; supabase/migrations/20261116100000_track130_child_reconciliation.sql; tests/track130-approval-workflow.test.mjs; tests/track130-child-reconciliation.test.mjs.
+Database changes: No Production business-data writes; Preview synthetic batch cleaned up.
+Migrations: Existing TRACK130 schema/RPCs remain applied; source migration is committed for reproducibility.
+Edge Functions: None.
+Tests: Focused tests 14/14 passed; build passed; MCP syntax and diff checks passed; Production catalog/capabilities/report/search verified; Preview payroll preview/readback passed.
+Production impact: Technical MCP/schema contract only; no payroll data changed.
+Commit SHA: Pending technical commit.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+Production URL (if deployed): `https://chamah-portal.vercel.app`.
+Blockers: Actual September 2026 payroll source rows and explicit Director approval for that exact batch are still required before commit.
+Next recommended TRACK: Load the exact September payroll rows into Preview, reconcile, obtain Director approval, commit once, and verify persisted Production read-back.
+
 ### TRACK130 continuation — child identity matching corrected in Preview
 
 - Root cause: Preview `private.portal_mcp_entity_meta('children')` advertised `national_id`, `source_system`, and `source_record_id` with `stable_mode='ANY'`; the shared stable-token function therefore emitted `DUPLICATE_IN_BATCH:children|source_system=...` for every row from the same source system.
