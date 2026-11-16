@@ -5989,11 +5989,11 @@ Migrations: Existing TRACK130 schema/RPCs remain applied; source migration is co
 Edge Functions: None.
 Tests: Focused tests 14/14 passed; build passed; MCP syntax and diff checks passed; Production catalog/capabilities/report/search verified; Preview payroll preview/readback passed.
 Production impact: Technical MCP/schema contract only; no payroll data changed.
-Commit SHA: Pending technical commit.
+Commit SHA: `188795cc37820e003c199d1f2f59c1152a1ddadf`.
 Branch: `codex/track121-oauth-login-resume`.
 Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
-Production URL (if deployed): `https://chamah-portal.vercel.app`.
-Blockers: Actual September 2026 payroll source rows and explicit Director approval for that exact batch are still required before commit.
+Production URL (if deployed): `https://chamah-portal.vercel.app` (deployment `dpl_5bHw515bmNDyYcHqobhLLjv3fnw7`, READY, alias verified).
+Blockers: Actual September 2026 payroll source rows and explicit Director approval for that exact batch are still required before commit; the connected production tool surface has not yet exposed standalone `child_reconciliation` although the database catalog advertises it.
 Next recommended TRACK: Load the exact September payroll rows into Preview, reconcile, obtain Director approval, commit once, and verify persisted Production read-back.
 
 ### TRACK130 continuation — child identity matching corrected in Preview
