@@ -5996,6 +5996,30 @@ Production URL (if deployed): `https://chamah-portal.vercel.app` (deployment `dp
 Blockers: Actual September 2026 payroll source rows and explicit Director approval for that exact batch are still required before commit; the connected production tool surface has not yet exposed standalone `child_reconciliation` although the database catalog advertises it.
 Next recommended TRACK: Load the exact September payroll rows into Preview, reconcile, obtain Director approval, commit once, and verify persisted Production read-back.
 
+### TRACK130 continuation — operational digest binding regression fixed
+
+- Root cause: `portal_mcp_preview_operational_changes()` stores `preview_digest = sha256(b.rows::text)`, but approval creation passed a transformed envelope to `portal_request_approval()`, producing a different `payload_digest`; commit then consumed the transformed digest and rejected the unchanged batch.
+- Added a forward-only digest-binding migration. Approval now inserts `payload_digest=b.preview_digest`, records `approval_row_version`, and commit consumes that exact digest while retaining authorization, provenance, synthetic-data, concurrency, audit, and idempotency checks.
+- Preview end-to-end passed for the same unchanged batch: approval digest exactly equaled preview digest and exact approved commit returned `COMMITTED`/`atomic=true`. The disposable fixture was deleted; Preview read-back shows `fixture_rows=0` and `payroll_records=0`.
+- Production migration applied and read back: `approval_row_version` exists, request RPC binds `b.preview_digest`, commit RPC calls `portal_consume_approval_digest`, and Production `payroll_records=0`.
+
+TRACK: TRACK130
+Status: COMPLETE — operational digest binding fixed and verified
+Summary: Preview → Approval → Commit now uses the immutable stored preview digest for the exact batch.
+Root cause: Approval hashed a transformed request envelope instead of the canonical staged payload digest.
+Files changed: supabase/migrations/20261116150000_track130_operational_digest_binding.sql; tests/track130-operational-digest-binding.test.mjs; tests/sql/track130_operational_digest_binding.sql; PROJECT_LOG.md.
+Database changes: Added `approval_row_version`; replaced operational approval and commit RPCs; added private digest-specific approval consumer. No real business data loaded.
+Migrations: `track130_operational_digest_binding` applied to isolated Preview and Production.
+Edge Functions: None.
+Tests: Focused local regression 14/14 passed; Preview live end-to-end digest equality and commit passed; cleanup and zero payroll-row verification passed; Production function/schema read-back passed.
+Production impact: Approval/commit contract corrected; no payroll or other real business rows changed.
+Commit SHA: Pending commit.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: None; database-only change.
+Production URL (if deployed): `https://chamah-portal.vercel.app` unchanged.
+Blockers: None.
+Next recommended TRACK: None.
+
 ### TRACK130 continuation — child identity matching corrected in Preview
 
 - Root cause: Preview `private.portal_mcp_entity_meta('children')` advertised `national_id`, `source_system`, and `source_record_id` with `stable_mode='ANY'`; the shared stable-token function therefore emitted `DUPLICATE_IN_BATCH:children|source_system=...` for every row from the same source system.
