@@ -5823,3 +5823,273 @@ Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.a
 Production URL (if deployed): None.
 Blockers: None for TRACK125 acceptance. A future breaking MCP contract still requires coordinated connector refresh; routine stable-contract deployments do not require Director intervention. Production migration, deployment, connector configuration, and data remain untouched.
 Next recommended TRACK: None.
+## TRACK130 — Child-level enrollment, billing, funding, and reconciliation
+
+- Existing capability: TRACK122 provided person-level child, enrollment, billing, receipt, provenance, and approved mixed-domain import scaffolding; aggregate `monthly_enrollment` remains intact.
+- Changes: added national-ID validation/uniqueness, government report/record separation, child theoretical revenue linkage to effective budget rules, auditable discrepancy lifecycle, and bounded read-only reconciliation exposed through MCP.
+- Verification: focused static contract tests added. No migration or live persistence test run because no verified isolated Preview database was available; Production was not touched.
+
+TRACK: TRACK130
+Status: IMPLEMENTED — pending isolated Preview migration/read-back
+Summary: Small forward-only extension of TRACK122 for child-level identity and reconciliation.
+Root cause: Existing child tables lacked national-ID matching and the required funding, theoretical revenue, discrepancy, and reconciliation contracts.
+Files changed: supabase/migrations/20261116100000_track130_child_reconciliation.sql; api/mcp.js; tests/track130-child-reconciliation.test.mjs; PROJECT_LOG.md
+Database changes: New child identity, funding, theoretical revenue, discrepancy, and read-only reconciliation structures; no data writes.
+Migrations: Added TRACK130 migration; not applied.
+Edge Functions: None.
+Tests: Added focused static contract tests; live migration/read-back not run.
+Production impact: None; no Preview or Production database, deployment, alias, or infrastructure changed.
+Commit SHA: None (uncommitted)
+Branch: current working branch (not changed)
+Preview URL: None
+Production URL (if deployed): None
+Blockers: Isolated Preview Supabase target/project and authorized migration/read-back verification are required before claiming runtime acceptance.
+Next recommended TRACK: Apply and verify in isolated Preview, then add fixture-backed import/matching tests.
+
+### TRACK130 continuation — environment verification
+
+- Read-only Supabase verification on 2026-11-16 found only project `iwsbjudahtjyigecymzd` (`chamah-manager-preview`, ACTIVE_HEALTHY, PostgreSQL 17.11.0.018, ap-northeast-2) and zero development branches.
+- Repository state identifies the linked operational backend as shared with Production. The Production project could not be independently queried with the available authorization, so isolation could not be proven.
+- Per TRACK130 safety requirements, migration application, synthetic inserts, cleanup, database read-back, and fixture-backed live integration checks were not attempted. No database, Production system, deployment, or infrastructure was changed.
+- Existing local focused tests remain the only verification evidence; no new test artifacts were created.
+
+TRACK: TRACK130
+Status: BLOCKED — no verified isolated Preview target
+Summary: Environment verification stopped TRACK130 before migration or synthetic data writes.
+Root cause: The accessible preview-named project is documented as sharing the Production backend, has no development branch, and the separate Production project could not be independently verified with current authorization.
+Files changed: PROJECT_LOG.md
+Database changes: None.
+Migrations: Not applied.
+Edge Functions: None.
+Tests: No live integration tests run; prior local TRACK130 focused tests remain passing.
+Production impact: None.
+Commit SHA: None; uncommitted.
+Branch: Current branch unchanged.
+Preview URL: None.
+Production URL (if deployed): None.
+Blockers: Director must provide or authorize a demonstrably isolated Preview Supabase project/branch and access sufficient to verify its project identity against Production before any write.
+Next recommended TRACK: Re-run TRACK130 after isolated Preview authorization; apply migration, run synthetic fixture read-back, clean all synthetic rows/artifacts, and confirm zero synthetic residue.
+
+### TRACK130 continuation — Preview migration and synthetic verification
+
+- Final Vercel read-only check: Preview project `prj_TLJVhQfA8oTkM5MCqfehqmBfVGwy` exposes encrypted Preview-only `CHAMAH_SUPABASE_URL` and `CHAMAH_SUPABASE_PUBLISHABLE_KEY` variables with TRACK120 isolated-Preview comments. Values were not decrypted; exact binding value remains unverified.
+- Applied TRACK130 successfully to Preview Supabase project `iwsbjudahtjyigecymzd`. Supabase recorded migration version `20261116104408`, name `track130_child_reconciliation`.
+- Schema read-back confirmed `children.national_id`, `children.age_group_id`, tables `government_funding_reports`, `government_funding_records`, `child_theoretical_revenue`, `child_discrepancies`, and functions `portal_normalize_national_id`, `portal_valid_national_id`, `portal_mcp_child_reconciliation`.
+- Synthetic transaction used marker `TRACK130_SYNTH`, two separate October reports, child/enrollment/billing/receipt/funding/theoretical-revenue/discrepancy rows, and rolled back after read-back. Reconciliation returned charges 100, collections 60, mapped funding 40, theoretical amount 120, and one unresolved discrepancy; report count was 2 and national-ID validation returned true.
+- Final cleanup read-back: synthetic residue was zero in all eight affected tables. Existing Preview counts remained `children=1`, `child_enrollments=1`, `daycare_billing_records=1`, `collection_receipts=1`, with new funding/revenue/discrepancy tables at zero rows.
+
+TRACK: TRACK130
+Status: COMPLETE — Preview migration and synthetic verification completed
+Summary: TRACK130 schema applied to isolated Preview target, verified with marked synthetic transaction, rolled back, and read back clean.
+Root cause: Existing TRACK122 child model lacked the full identity, funding, revenue, discrepancy, and reconciliation extension.
+Files changed: supabase/migrations/20261116100000_track130_child_reconciliation.sql; api/mcp.js; tests/track130-child-reconciliation.test.mjs; PROJECT_LOG.md
+Database changes: TRACK130 schema applied to Preview only.
+Migrations: Applied successfully as Supabase migration version `20261116104408` / `track130_child_reconciliation`.
+Edge Functions: None.
+Tests: Synthetic Preview read-back passed; local focused TRACK130 tests 3/3 passed; MCP handler syntax and diff checks passed.
+Production impact: None; Production project `vyyfuaqmbxvfqgbfqooc` was not modified.
+Commit SHA: None; uncommitted.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app` (existing deployment; no deployment changed).
+Production URL (if deployed): None.
+Blockers: Exact decrypted Vercel-to-Supabase URL binding remains unverified, although Preview-only encrypted variables and Supabase target metadata were confirmed.
+Next recommended TRACK: Add authenticated end-to-end MCP fixture coverage when a non-secret Preview service identity is available.
+
+### TRACK130 continuation — MCP schema-visibility mismatch resolved
+
+- Trace: Preview Supabase project `iwsbjudahtjyigecymzd` contained the TRACK130 migration (`20261116104408`) and all new tables/functions. Preview Vercel project `prj_TLJVhQfA8oTkM5MCqfehqmBfVGwy` had Preview-only encrypted `CHAMAH_SUPABASE_URL` and `CHAMAH_SUPABASE_PUBLISHABLE_KEY` variables with isolated-Preview comments. The connected Chamah Director Preview connector was reaching the same Preview RPC path: catalog/report already reflected TRACK130.
+- Root cause: `public.portal_mcp_data_capabilities()` remained the static TRACK112 contract with hard-coded `children=MISSING` and `collections=MISSING`; TRACK122 updated the dynamic catalog/report but did not update this capability RPC.
+- Fix: Replaced only the Preview `portal_mcp_data_capabilities()` function definition via direct SQL. No migration, business data, fixtures, permissions, deployment, or Production change was made.
+- Verification through the actual Chamah Director Preview connector: `data_capabilities` now returns `children=READ_WRITE_IMPORT`, `records=1`, TRACK130 relationships, and `collections=READ_ANALYZE`, `records=1`; `operational_catalog` contains `children`, `child_enrollments`, `daycare_billing_records`, and `collection_receipts`; `operational_report` returns counts for those entities and `unsupported=[]`.
+- Direct Preview DB read-back confirmed project ID `iwsbjudahtjyigecymzd`, migration version `20261116104408`, and the updated capability function contains TRACK130 status/relationships.
+
+TRACK: TRACK130
+Status: COMPLETE — MCP schema visibility mismatch resolved in Preview
+Summary: Updated the stale Preview capability RPC so the connected Chamah Director Preview MCP exposes TRACK130 capabilities consistently with the catalog and operational report.
+Root cause: TRACK112 hard-coded capability metadata was not updated when TRACK122/130 added child entities.
+Files changed: PROJECT_LOG.md only; Preview database function updated directly.
+Database changes: Replaced `public.portal_mcp_data_capabilities()` on Preview project `iwsbjudahtjyigecymzd`.
+Migrations: None applied in this continuation; existing TRACK130 migration remains `20261116104408`.
+Edge Functions: None.
+Tests: Actual connected Chamah Director Preview `data_capabilities`, `operational_catalog`, and `operational_report` verified after fix; no synthetic data used.
+Production impact: None; Production Supabase project `vyyfuaqmbxvfqgbfqooc` and Vercel Production were not modified.
+Commit SHA: None; uncommitted.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+Production URL (if deployed): None.
+Blockers: Exact decrypted Vercel URL value remains unavailable; Preview-only environment binding and matching MCP responses were verified.
+Next recommended TRACK: Add the corrected capability contract to the next forward migration/source-of-truth update without reapplying this Preview fix.
+
+### TRACK130 continuation — operational catalog mismatch resolved
+
+- Root cause: Preview `private.portal_mcp_entity_meta()` only defined TRACK122 child entities, and `portal_mcp_operational_catalog()` looped over only `children`, `child_enrollments`, `daycare_billing_records`, and `collection_receipts`.
+- Preview-only fix: replaced both functions directly on Supabase project `iwsbjudahtjyigecymzd`; no migration, fixture, business-data, permission, deployment, or Production change.
+- Added catalog metadata for `government_funding_reports`, `government_funding_records`, `child_theoretical_revenue`, and `child_discrepancies`; added `national_id` and `age_group_id` to child writable fields; added `read_only_capabilities: ['child_reconciliation']`.
+- Actual Preview MCP verification: catalog exposes all eight TRACK130 entities with IDs, writable fields, stable keys, required fields, and `approval_required=true`; `unsupported=[]`. `data_capabilities` remains `children=READ_WRITE_IMPORT` and `collections=READ_ANALYZE`; `operational_report` remains populated and unsupported-free.
+- Catalog fields were checked against the applied Preview information schema. No unsupported entity is advertised.
+- The separately named `child_reconciliation` MCP tool is not present in the currently registered Chamah Director Preview tool list; the read-only capability is advertised in the catalog and the Preview database RPC exists. Exposing it as a standalone connector tool would require a Preview MCP/API deployment update, which was not needed to resolve the requested catalog mismatch.
+
+TRACK: TRACK130
+Status: COMPLETE — operational catalog corrected in Preview
+Summary: Preview operational catalog now reflects the applied TRACK130 schema and read-only reconciliation capability.
+Root cause: TRACK122 catalog allowlist and entity metadata were not extended for TRACK130.
+Files changed: PROJECT_LOG.md only; Preview database functions `private.portal_mcp_entity_meta()` and `public.portal_mcp_operational_catalog()` updated directly.
+Database changes: Preview function definitions only; no business data changed.
+Migrations: None applied in this continuation.
+Edge Functions: None.
+Tests: Actual Chamah Director Preview MCP catalog, capabilities, and report verified; schema-column comparison verified read-only.
+Production impact: None.
+Commit SHA: None; uncommitted.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+Production URL (if deployed): None.
+Blockers: Standalone `child_reconciliation` connector tool registration remains a separate Preview API deployment task if required; catalog-level read-only capability is present.
+Next recommended TRACK: Deploy the existing Preview MCP source contract only if a standalone `child_reconciliation` tool is required by consumers.
+
+### TRACK130 continuation — generic operational approval workflow fixed
+
+- Root cause: `portal_mcp_request_operational_approval()` called the shared `portal_mcp_reject_synthetic()` guard before issuing an approval. That made every synthetic Preview READY batch fail with `INVALID_ARGUMENT`, regardless of entity. The same guard remains in `portal_mcp_commit_operational_changes()`, preserving the no-promotion safety boundary.
+- Preview-only fix: replaced the shared approval RPC to validate authorization, `OPERATIONS` domain, READY status, provenance, exact approval binding, audit/approval creation, and verification state without performing the commit-time synthetic rejection.
+- Existing batch `c9ff8469-66e9-44f0-8e33-6f4de53eb84a` received approval `4d58efed-b35d-444d-b420-d6b04fa936f9`.
+- Mixed generic Preview batch `a74f7e59-26ad-437e-b20f-9bfb7b260188` covered employees, child enrollments, billing, government funding reports, and discrepancies; it received approval `b2109f8b-4166-4ec6-af4b-aeed36bb3ba6`. Neither batch was committed.
+- Both temporary staged batches were deleted after verification. Final read-back: remaining batches `0`; business counts unchanged (`children=1`, `child_enrollments=1`, `daycare_billing_records=1`, `government_funding_reports=0`, `child_discrepancies=0`). Approval/audit artifacts were preserved.
+- Added local regression coverage for generic approval mapping and commit-time synthetic protection.
+
+TRACK: TRACK130
+Status: COMPLETE — generic Preview approval workflow verified
+Summary: Shared operational approval now works for all catalog entities while synthetic promotion remains blocked at commit.
+Root cause: Synthetic-data rejection was incorrectly enforced during approval creation instead of only at commit.
+Files changed: supabase/migrations/20261116100000_track130_child_reconciliation.sql; tests/track130-approval-workflow.test.mjs; PROJECT_LOG.md; Preview RPC `portal_mcp_request_operational_approval()`.
+Database changes: Preview approval RPC definition only; no canonical business rows committed.
+Migrations: No new migration applied; source migration updated for forward reproducibility.
+Edge Functions: None.
+Tests: Live Preview preview→approval verified for child and mixed employee/enrollment/billing/funding/discrepancy batch; local regression tests 5/5 passed.
+Production impact: None.
+Commit SHA: None; uncommitted.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+Production URL (if deployed): None.
+Blockers: None for the requested approval workflow.
+Next recommended TRACK: Add a standalone authenticated MCP regression test if commit-safe disposable identities are available.
+
+### TRACK130 continuation — child identity matching corrected in Preview
+
+- Root cause: Preview `private.portal_mcp_entity_meta('children')` advertised `national_id`, `source_system`, and `source_record_id` with `stable_mode='ANY'`; the shared stable-token function therefore emitted `DUPLICATE_IN_BATCH:children|source_system=...` for every row from the same source system.
+- Preview-only fix: replaced `private.portal_mcp_match_operational_row_v2(jsonb)` and `private.portal_mcp_stable_tokens(jsonb)` through the isolated Preview database. Child matching now treats national ID as the primary identity, uses the complete source-system/source-record-id pair for source-row idempotency, and reports national-ID/source-row conflicts instead of creating duplicate children. Production was not modified.
+- Actual Chamah Director Preview verification: three synthetic children sharing `source_system=clicktack_contracts` returned `READY` with three `CREATE` operations and no conflicts. Repeating the same idempotency key returned the same batch and digest. Two rows with the same national ID returned `CONFLICT` with `DUPLICATE_IN_BATCH:children|national_id=...`.
+- Cleanup read-back: temporary Preview batches were deleted; remaining TRACK130 identity regression batches `0`; Preview children with the synthetic source-row marker `0`.
+
+TRACK: TRACK130
+Status: COMPLETE — Preview child identity matching corrected
+Summary: Child preview matching no longer treats source_system alone as a child identity.
+Root cause: Child stable metadata used ANY semantics, producing a source_system-only duplicate token.
+Files changed: supabase/migrations/20261116120000_track130_child_identity_matching.sql; tests/track130-child-identity-matching.test.mjs; PROJECT_LOG.md; Preview RPC definitions.
+Database changes: Preview-only replacement of the shared child matcher and stable-token RPCs; no canonical business rows created.
+Migrations: Source migration added for forward reproducibility; applied directly to Preview RPCs only, not Production.
+Edge Functions: None.
+Tests: Six focused local TRACK130 tests passed; actual Preview MCP regression passed for three same-source children, idempotency, and duplicate national-ID detection.
+Production impact: None; Production Supabase and deployments were not modified.
+Commit SHA: None; uncommitted. Current HEAD: `fed0a739d2cf18b5256103ab1bdda52ee8062edd`.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+Production URL (if deployed): None.
+Blockers: None for the requested Preview matching fix.
+Next recommended TRACK: Promote the matching child-identity RPC migration only through the separately authorized Production migration workflow.
+
+### TRACK130-PROD-PROMOTION — child identity fix applied
+
+- Committed the verified Preview child identity fix as `ab94a91` (`Fix TRACK130 child identity matching`).
+- Production preflight passed for project `vyyfuaqmbxvfqgbfqooc`; the child identity migration was absent, then the exact committed migration `20261116120000_track130_child_identity_matching.sql` was applied successfully.
+- Production rollback-only verification returned `READY`/`CREATE` for three children sharing `source_system=clicktack_contracts`, and `CONFLICT` for duplicate national IDs. No canonical rows were written.
+- Employee read-back confirmed unique constraints on `employee_code` and `national_id`, and same employee-code/national-ID matching returned `SKIP`. However, existing employee-code or national-ID mismatches currently return `UPDATE`, not `CONFLICT`; this is an exact remaining blocker outside the child-only migration.
+
+TRACK: TRACK130-PROD-PROMOTION
+Status: BLOCKED — child promotion complete; employee mismatch acceptance remains unresolved
+Summary: Child identity migration promoted to Production with zero business-data writes.
+Root cause: Existing shared employee matcher uses OR semantics and does not reject a mismatched second identity value.
+Files changed: supabase/migrations/20261116120000_track130_child_identity_matching.sql; tests/track130-child-identity-matching.test.mjs; PROJECT_LOG.md.
+Database changes: Production child matcher/token RPCs applied; no canonical business records inserted or changed.
+Migrations: `track130_child_identity_matching` applied successfully.
+Edge Functions: None.
+Tests: Focused TRACK130 tests 6/6 passed; Production child rollback-only verification passed; employee mismatch verification failed as described.
+Production impact: Additive child matching behavior only; existing Production counts unchanged (`children=0`, child operational tables tested `0`, `employees=1`).
+Commit SHA: `ab94a91`.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+Production URL (if deployed): `https://chamah-portal.vercel.app` (no frontend deployment changed).
+Blockers: Employee identity mismatch handling must be fixed and separately verified before this promotion can be marked fully complete.
+Next recommended TRACK: Add a forward-only employee identity mismatch guard that preserves employee-code/national-ID uniqueness and rejects conflicting pairs before any employee write.
+
+### TRACK130 promotion attempt — blocked before Production write
+
+- Exact migration source was available at `supabase/migrations/20261116100000_track130_child_reconciliation.sql`.
+- Production preflight against Supabase project `vyyfuaqmbxvfqgbfqooc` failed with a Supabase MCP permission error on a read-only migration-history/business-count query.
+- Because Production migration state and existing-record invariants could not be read back with the connected authorization, no migration, RPC/catalog change, deployment, or data write was attempted.
+
+TRACK: TRACK130
+Status: BLOCKED — Production read-only authorization failed
+Summary: Promotion stopped before any Production mutation.
+Root cause: Connected Supabase authorization could not execute the required read-only Production preflight query.
+Files changed: PROJECT_LOG.md only.
+Database changes: None in Production.
+Migrations: Not applied to Production.
+Edge Functions: None.
+Tests: No Production verification run; local source remains available.
+Production impact: None.
+Commit SHA: None; uncommitted.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+Production URL (if deployed): None.
+Blockers: Supabase authorization with read access to project `vyyfuaqmbxvfqgbfqooc` is required to verify migration absence, schema, RPCs, catalog, capabilities, report, and unchanged business counts before applying TRACK130.
+Next recommended TRACK: Re-run Production preflight after the connected Supabase account receives read/write access to `vyyfuaqmbxvfqgbfqooc`.
+
+### TRACK130 Production promotion — completed
+
+- Production preflight succeeded through the authorized Supabase connection using database user `postgres`; no TRACK130 migration was present and `collection_receipts` was zero before promotion.
+- Applied the exact local file `supabase/migrations/20261116100000_track130_child_reconciliation.sql` to Production project `vyyfuaqmbxvfqgbfqooc`. Supabase recorded migration version `20261116114311`, name `track130_child_reconciliation`.
+- Copied the exact Preview-verified `portal_mcp_data_capabilities()`, `private.portal_mcp_entity_meta(text)`, and `portal_mcp_operational_catalog()` definitions to Production; no SQL was reconstructed from memory. No business-data insert/update/delete statements were executed.
+- Final read-back: TRACK130 tables `government_funding_reports`, `government_funding_records`, `child_theoretical_revenue`, and `child_discrepancies` present; RPCs `portal_mcp_child_reconciliation`, `portal_mcp_data_capabilities`, `portal_mcp_operational_catalog`, `portal_mcp_operational_report`, and `portal_mcp_request_operational_approval` present; catalog definition contains TRACK130 entities; capabilities definition contains child `READ_WRITE_IMPORT` support.
+- Final Production business counts: `children=0`, `child_enrollments=0`, `daycare_billing_records=0`, `collection_receipts=0`, `government_funding_reports=0`, `government_funding_records=0`, `child_theoretical_revenue=0`, `child_discrepancies=0`. No synthetic or real business data was added.
+
+TRACK: TRACK130
+Status: COMPLETE — Production promotion verified
+Summary: Exact TRACK130 migration and required Preview-verified RPC/catalog definitions promoted to Production with zero business-data writes.
+Root cause: Production had not yet received TRACK130 schema or shared MCP capability/catalog definitions.
+Files changed: PROJECT_LOG.md; exact migration source used unchanged.
+Database changes: TRACK130 schema and RPC/catalog definitions applied to Production project `vyyfuaqmbxvfqgbfqooc`.
+Migrations: Applied as `20261116114311_track130_child_reconciliation`.
+Edge Functions: None.
+Tests: Production schema/function/read-back verification completed; no data fixtures created.
+Production impact: Additive schema and MCP contract only; final affected-table counts all zero.
+Commit SHA: None; uncommitted.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+Production URL (if deployed): `https://chamah-portal.vercel.app` (no frontend deployment changed).
+Blockers: None for TRACK130 database promotion.
+Next recommended TRACK: Deploy the matching Production MCP/API source only if standalone `child_reconciliation` tool exposure is required.
+
+### TRACK130 continuation — generic operational approval workflow fixed
+
+- Root cause: `portal_mcp_request_operational_approval()` called the shared `portal_mcp_reject_synthetic()` guard before issuing an approval. That made every synthetic Preview READY batch fail with `INVALID_ARGUMENT`, regardless of entity. The same guard remains in `portal_mcp_commit_operational_changes()`, preserving the no-promotion safety boundary.
+- Preview-only fix: replaced the shared approval RPC to validate authorization, `OPERATIONS` domain, READY status, provenance, exact approval binding, audit/approval creation, and verification state without performing the commit-time synthetic rejection.
+- Existing batch `c9ff8469-66e9-44f0-8e33-6f4de53eb84a` received approval `4d58efed-b35d-444d-b420-d6b04fa936f9`.
+- Mixed generic Preview batch `a74f7e59-26ad-437e-b20f-9bfb7b260188` covered employees, child enrollments, billing, government funding reports, and discrepancies; it received approval `b2109f8b-4166-4ec6-af4b-aeed36bb3ba6`. Neither batch was committed.
+- Both temporary staged batches were deleted after verification. Final read-back: remaining batches `0`; business counts unchanged (`children=1`, `child_enrollments=1`, `daycare_billing_records=1`, `government_funding_reports=0`, `child_discrepancies=0`). Approval/audit artifacts were preserved.
+- Added local regression coverage for generic approval mapping and commit-time synthetic protection.
+
+TRACK: TRACK130
+Status: COMPLETE — generic Preview approval workflow verified
+Summary: Shared operational approval now works for all catalog entities while synthetic promotion remains blocked at commit.
+Root cause: Synthetic-data rejection was incorrectly enforced during approval creation instead of only at commit.
+Files changed: supabase/migrations/20261116100000_track130_child_reconciliation.sql; tests/track130-approval-workflow.test.mjs; PROJECT_LOG.md; Preview RPC `portal_mcp_request_operational_approval()`.
+Database changes: Preview approval RPC definition only; no canonical business rows committed.
+Migrations: No new migration applied; source migration updated for forward reproducibility.
+Edge Functions: None.
+Tests: Live Preview preview→approval verified for child and mixed employee/enrollment/billing/funding/discrepancy batch; local regression tests added.
+Production impact: None.
+Commit SHA: None; uncommitted.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+Production URL (if deployed): None.
+Blockers: None for the requested approval workflow.
+Next recommended TRACK: Add a standalone authenticated MCP regression test if commit-safe disposable identities are available.
