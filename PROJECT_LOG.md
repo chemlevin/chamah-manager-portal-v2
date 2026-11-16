@@ -6191,3 +6191,28 @@ Preview URL: `https://chamah-manager-portal-v2-preview-6yp0n6xeq-chamah.vercel.a
 Production URL (if deployed): `https://chamah-portal.vercel.app` (unchanged).
 Blockers: Explicit Director approval is required before applying the migration/deploying the matching wrapper to Production and refreshing the active connector schema. Full 11-domain live commit tests cannot run safely until the connector and Production/Preview contract are aligned; synthetic promotion remains correctly blocked by the existing safeguard.
 Next recommended TRACK: After Director approval, promote the exact migration and wrapper, refresh/re-register the active connector, then run the disposable end-to-end matrix for children, employees, enrollment, occupancy, billing, collections, government funding, payroll, bank, suppliers, payments, and discrepancies with cleanup/read-back.
+### TRACK132 Production promotion continuation
+
+- Director approval received for Production promotion.
+- Applied the exact committed migration from `a3cb2dd9f946e16040b8fb04027240bc45d449cf` to Production project `vyyfuaqmbxvfqgbfqooc`; Supabase recorded migration version `20261116144417_track132_operational_import_contract`.
+- Deployed the exact wrapper commit to canonical Vercel project `chamah-portal`; Ready deployment `dpl_BcZZwSn1x1vgdNZWg4BiHm4umhLN` is assigned to `https://chamah-portal.vercel.app`.
+- Production catalog read-back reports contract `1.0.0`, workflow `Preview → Reconciliation → Approval → Commit → Read-back`, and 1,000-row limit.
+- The active connector catalog refreshed, but its callable `preview_operational_changes` schema remains stale and omits required `contract_version`; a live call failed safely with `VERSION_MISMATCH` before creating a batch.
+- No temporary or real records were created in Production; no cleanup was required (`temporary batches created=0`, `temporary canonical records=0`).
+
+TRACK: TRACK132
+Status: BLOCKED — Production schema and wrapper promoted; active connector tool schema refresh still required
+Summary: Production contract is deployed and safely fails stale connector calls, but the connector cannot execute the new versioned workflow until its callable schema is refreshed.
+Root cause: Connector catalog metadata refreshed independently from the cached callable tool schema; the callable schema still omits required `contract_version`.
+Files changed: None after approved implementation commit; deployment used `a3cb2dd9f946e16040b8fb04027240bc45d449cf`.
+Database changes: Production TRACK132 contract migration applied; no business data writes.
+Migrations: `20261116144417_track132_operational_import_contract`.
+Edge Functions: None.
+Tests: Production catalog/version read-back passed; all four versioned RPC/catalog registrations were applied; stale connector Preview call correctly returned `VERSION_MISMATCH`; 11-domain commit matrix not run because the connector schema cannot submit the required contract version.
+Production impact: Wrapper and additive contract schema deployed; no real business data imported.
+Commit SHA: `a3cb2dd9f946e16040b8fb04027240bc45d449cf`.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-6yp0n6xeq-chamah.vercel.app`.
+Production URL (if deployed): `https://chamah-portal.vercel.app` (`dpl_BcZZwSn1x1vgdNZWg4BiHm4umhLN`).
+Blockers: Active Production connector callable schema must be refreshed/re-registered so Preview, Approval, and Commit submit `contract_version: 1.0.0`. Do not import real data until the 11-domain matrix passes.
+Next recommended TRACK: Refresh the active connector schema, then run the approved disposable matrix with a connector-supported safe test mode that preserves the existing synthetic-data guard.
