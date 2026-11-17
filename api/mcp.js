@@ -10,6 +10,8 @@ const API_KEY = process.env.CHAMAH_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_4
 const PRODUCTION_ORIGIN = 'https://chamah-portal.vercel.app';
 const AUTH_SERVER = `${SUPABASE_URL}/auth/v1`;
 const PROTOCOL_VERSION = '2025-03-26';
+const SERVER_VERSION = '1.5.0';
+const CONTRACT_VERSION = '1.0.0';
 const BASE_TOOLS = [
   {name:'get_profile',description:'Return the authenticated Director profile represented by this connection',inputSchema:{type:'object',properties:{},additionalProperties:false},outputSchema:{type:'object',properties:{id:{type:'string'},name:{type:'string'},email:{type:'string'},nickname:{type:'string'}},required:['id'],additionalProperties:false},_meta:{'openai/profile':true}},
   {name:'propose_supplier_bank_detail',description:'Propose an idempotent supplier bank-account change',inputSchema:{type:'object',properties:{supplier_id:{type:'string'},bank_detail:{type:'object'},idempotency_key:{type:'string'}},required:['supplier_id','bank_detail','idempotency_key'],additionalProperties:false}},
@@ -181,8 +183,8 @@ module.exports=async function handler(req,res){
  if(m.id===undefined)return res.status(202).end();
  const id=m.id;
  // Streamable HTTP has no reliable notification channel to connected clients.
- // Keep the connector contract stable; additive business fields belong in catalog tools.
- if(m.method==='initialize')return send(res,200,{jsonrpc:'2.0',id,result:{protocolVersion:PROTOCOL_VERSION,capabilities:{tools:{listChanged:false}},serverInfo:{name:isDirector?'chamah-portal-director':'chamah-portal-institution-readonly',version:'1.4.0',contractVersion:'stable-1'}}});
+ // Breaking callable-schema changes require an explicit manifest/version bump.
+ if(m.method==='initialize')return send(res,200,{jsonrpc:'2.0',id,result:{protocolVersion:PROTOCOL_VERSION,capabilities:{tools:{listChanged:false}},serverInfo:{name:isDirector?'chamah-portal-director':'chamah-portal-institution-readonly',version:SERVER_VERSION,contractVersion:CONTRACT_VERSION}}});
  if(m.method==='ping')return send(res,200,{jsonrpc:'2.0',id,result:{}});
  if(m.method==='tools/list')return send(res,200,{jsonrpc:'2.0',id,result:{tools:availableTools}});
  if(m.method!=='tools/call')return send(res,200,error(id,-32601,'Method not found'));

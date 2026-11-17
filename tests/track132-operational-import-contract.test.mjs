@@ -19,6 +19,13 @@ test('TRACK132 exposes one versioned contract across wrapper and RPC calls',()=>
   assert.match(migration,/portal_mcp_commit_operational_changes\(text,uuid,uuid\)/);
 });
 
+test('new connector registration advertises the TRACK132 manifest version',()=>{
+  assert.match(api,/const SERVER_VERSION = '1\.5\.0'/);
+  assert.match(api,/const CONTRACT_VERSION = '1\.0\.0'/);
+  assert.match(api,/version:SERVER_VERSION,contractVersion:CONTRACT_VERSION/);
+  assert.doesNotMatch(api,/contractVersion:'stable-1'/);
+});
+
 test('TRACK132 keeps the shared safeguards in the delegated commit path',()=>{
   assert.match(migration,/portal_mcp_commit_operational_changes\(p_batch_id,p_approval_id\)/);
   assert.match(migration,/stored is distinct from p_contract_version/);
