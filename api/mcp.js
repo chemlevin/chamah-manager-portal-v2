@@ -10,7 +10,7 @@ const API_KEY = process.env.CHAMAH_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_4
 const PRODUCTION_ORIGIN = 'https://chamah-portal.vercel.app';
 const AUTH_SERVER = `${SUPABASE_URL}/auth/v1`;
 const PROTOCOL_VERSION = '2025-03-26';
-const SERVER_VERSION = '1.5.0';
+const SERVER_VERSION = '1.6.0';
 const CONTRACT_VERSION = '1.0.0';
 const BASE_TOOLS = [
   {name:'get_profile',description:'Return the authenticated Director profile represented by this connection',inputSchema:{type:'object',properties:{},additionalProperties:false},outputSchema:{type:'object',properties:{id:{type:'string'},name:{type:'string'},email:{type:'string'},nickname:{type:'string'}},required:['id'],additionalProperties:false},_meta:{'openai/profile':true}},
@@ -61,6 +61,7 @@ const BASE_TOOLS = [
   {name:'get_operational_record',description:'Read one canonical operational record by entity and UUID',inputSchema:{type:'object',properties:{entity:{type:'string',minLength:1,maxLength:80},record_id:{type:'string',format:'uuid'}},required:['entity','record_id'],additionalProperties:false}},
   {name:'operational_report',description:'Return canonical record counts and explicitly unsupported operational domains',inputSchema:{type:'object',properties:{},additionalProperties:false}},
   {name:'child_reconciliation',description:'Read-only bounded child/daycare/month reconciliation with unresolved discrepancies',inputSchema:{type:'object',properties:{month:{type:'string',format:'date'},daycare_id:{type:'string',format:'uuid'},child_id:{type:'string',format:'uuid'}},required:['month'],additionalProperties:false}},
+  {name:'archive_operational_record',description:'Director-only approved soft archive with exact entity, record, reason, and row version',inputSchema:{type:'object',properties:{entity:{type:'string'},record_id:{type:'string',format:'uuid'},expected_row_version:{type:'integer',minimum:1},reason:{type:'string',minLength:3,maxLength:500},approval_id:{type:'string',format:'uuid'}},required:['entity','record_id','expected_row_version','reason','approval_id'],additionalProperties:false}},
   {name:'create_policy',description:'Create an organizational policy draft',inputSchema:{type:'object',properties:{title:{type:'string',minLength:1,maxLength:200},category:{type:'string',maxLength:120},body:{type:'string',maxLength:100000}},required:['title'],additionalProperties:false}},
   {name:'update_policy',description:'Update a policy draft with optimistic concurrency',inputSchema:{type:'object',properties:{document_id:{type:'string',format:'uuid'},title:{type:'string',minLength:1,maxLength:200},category:{type:'string',maxLength:120},body:{type:'string',maxLength:100000},expected_updated_at:{type:'string',format:'date-time'}},required:['document_id','title','category','body','expected_updated_at'],additionalProperties:false}},
   {name:'request_policy_archive_approval',description:'Create a short-lived approval bound to one policy archive request',inputSchema:{type:'object',properties:{document_id:{type:'string',format:'uuid'},reason:{type:'string',minLength:3,maxLength:500}},required:['document_id','reason'],additionalProperties:false}},
@@ -89,6 +90,7 @@ const UNSAFE_LEGACY_WRITE_TOOLS = new Set([
  'confirm_bank_reconciliation','enqueue_bank_statement_import'
 ]);
 const DESTRUCTIVE_TOOLS = new Set(['archive_policy','bulk_archive_policies']);
+DESTRUCTIVE_TOOLS.add('archive_operational_record');
 const TOOLS = BASE_TOOLS.map(tool=>({
  ...tool,
  securitySchemes:[{type:'oauth2',scopes:[]}],
@@ -336,6 +338,9 @@ module.exports=async function handler(req,res){
  case 'child_reconciliation':
   if(Object.keys(args).some(k=>!['month','daycare_id','child_id'].includes(k))||typeof args.month!=='string'||Number.isNaN(Date.parse(args.month))||(args.daycare_id!==undefined&&!UUID.test(args.daycare_id))||(args.child_id!==undefined&&!UUID.test(args.child_id)))return send(res,200,error(id,-32602,'Invalid child reconciliation request'));
   rpc='portal_mcp_child_reconciliation';params={p_month:args.month,p_daycare_id:args.daycare_id||null,p_child_id:args.child_id||null};break;
+ case 'archive_operational_record':
+  if(Object.keys(args).length!==5||typeof args.entity!=='string'||!/^[a-z_]{1,80}$/.test(args.entity)||!UUID.test(args.record_id||'')||!Number.isInteger(args.expected_row_version)||args.expected_row_version<1||typeof args.reason!=='string'||args.reason.trim().length<3||args.reason.length>500||!UUID.test(args.approval_id||''))return send(res,200,error(id,-32602,'Invalid operational archive request'));
+  rpc='portal_mcp_archive_operational_record';params={p_entity:args.entity,p_record_id:args.record_id,p_expected_row_version:args.expected_row_version,p_reason:args.reason.trim(),p_approval_id:args.approval_id};break;
  case 'create_policy':
   if(Object.keys(args).some(k=>!['title','category','body'].includes(k))||typeof args.title!=='string'||!args.title.trim()||args.title.length>200||(args.category!==undefined&&(typeof args.category!=='string'||args.category.length>120))||(args.body!==undefined&&(typeof args.body!=='string'||args.body.length>100000)))return send(res,200,error(id,-32602,'Invalid policy'));
   rpc='portal_mcp_create_policy';params={p_title:args.title,p_category:args.category||'כללי',p_body:args.body||''};break;
@@ -380,6 +385,7 @@ module.exports=async function handler(req,res){
   return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(structuredContent)}],structuredContent,isError:false}});
  }catch(e){
   console.error(JSON.stringify({event:'mcp_upstream_error',rpc,status:e.status||500,code:e.upstreamCode||'UNKNOWN',message:e.upstreamMessage||'Upstream request rejected'}));
-  return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:e.status===401?'Session expired or invalid':e.status===403?'Permission denied':'Unable to retrieve data'}],isError:true}});
+  const detail=e.status===401?'Session expired or invalid':e.status===403?'Permission denied':(e.upstreamCode||'UPSTREAM_ERROR')+': '+(e.upstreamMessage||'Upstream request rejected');
+  return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:detail}],structuredContent:{error_code:e.upstreamCode||'UPSTREAM_ERROR',message:e.upstreamMessage||'Upstream request rejected',rpc},isError:true}});
  }
 };
