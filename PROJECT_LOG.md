@@ -6260,3 +6260,95 @@ Preview URL: None.
 Production URL (if deployed): `https://chamah-portal.vercel.app` — not changed.
 Blockers: The current Production Chamah Daycare connector session is terminated, and the accessible Vercel project does not expose the canonical Production alias; therefore the migration, deployment, five-batch retry, and read-back cannot be truthfully completed in this session.
 Next recommended TRACK: Restore the active Production connector session and bind the approved deployment/migration path, then retry the five existing approved batches without reloading data.
+### TRACK134 — Production MCP stabilization continuation
+
+- Verified the current Production Vercel project as `chamah-portal` (`prj_6IND7ee2E9s3KispBh6iBDWwQo6X`); its accessible project domains remain `chamah-manager-portal-v2-preview.vercel.app` and `chamah-portal-git-main-chamah.vercel.app`. The canonical `chamah-portal.vercel.app` domain is not attached in the accessible project scope, and direct domain lookup returned Vercel 403.
+- Verified Production Supabase project `vyyfuaqmbxvfqgbfqooc` is active, had migrations through TRACK133, and did not have the uniquely named commit wrapper. Applied the exact committed corrective migration `track132_commit_rpc_mapping_fix`; read-back confirms migration `20261117061315` and signature `portal_mcp_commit_operational_changes_v1(uuid,uuid,text)`.
+- Verified the local TRACK132 contract tests (4/4), MCP syntax, migration preflight (109 ordered migrations), and diff checks. Production security advisors were read; no new security policy was changed by this repair.
+- Live Chamah Daycare 0.0.2 calls (`operational_catalog`, `data_capabilities`, `get_profile`) still return `Session terminated`; no preview, approval, commit, batch retry, or business-data write was attempted. Vercel connector enumeration also returned 403, so connector registration/manifest refresh cannot be performed from this session.
+- OAuth root cause was deployment/alias drift: the repository already had the consent route and generated `dist/oauth-consent.html`, but the named Preview alias pointed at an older deployment. Deployed commit `9860392bcfc4af76993e6a70c739000c628999d1` as `dpl_7Ppjd5ybUQqQg92EeVEPWEpZM34ax` (READY) and reassigned `chamah-manager-portal-v2-preview.vercel.app` to it.
+- Exact URL verification passed with HTTP 200 and the Hebrew consent page: `https://chamah-manager-portal-v2-preview.vercel.app/oauth/consent?authorization_id=test-track134`. The page requires an authenticated Supabase session, displays authorization details, and exposes explicit approve/deny actions; no auto-approval or security bypass was added.
+
+TRACK: TRACK134
+Status: BLOCKED — Consent route deployed and exact Preview URL verified; authenticated live connector flow remains unavailable
+Summary: Applied and verified the additive Production commit-RPC compatibility fix, deployed the existing consent route to READY Preview, and rebound the named Preview alias while preserving all existing approval, digest, row-version, authorization, audit, idempotency, and atomicity controls.
+Root cause: The named Preview alias was serving an older deployment; the live connector session is still terminated and the canonical Production domain/connector registry remains inaccessible.
+Files changed: `supabase/migrations/20261117100000_track132_commit_rpc_mapping_fix.sql`; `PROJECT_LOG.md`. No application source change was needed because the consent route already existed in the committed tree.
+Database changes: Added only `public.portal_mcp_commit_operational_changes_v1(uuid,uuid,text)` in Production; no business rows changed.
+Migrations: Production applied `20261117061315_track132_commit_rpc_mapping_fix`.
+Edge Functions: None.
+Tests: TRACK132 focused tests 4/4 passed; `node --check api/mcp.js` passed; migration preflight 109/109 passed; `git diff --check` passed; Production signature and migration read-back passed; live connector calls failed with `Session terminated`.
+Production impact: Preview deployment `dpl_7Ppjd5ybUQqQg92EeVEPWEpZM34ax` READY; Preview alias changed. No Production alias, approval, batch, or business-data state changed.
+Commit SHA: `9860392bcfc4af76993e6a70c739000c628999d1`.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview.vercel.app/oauth/consent?authorization_id=test-track134` (HTTP 200).
+Production URL (if deployed): `https://chamah-portal.vercel.app` — canonical alias not verified/accessible.
+Blockers: The connected Chamah Daycare Production session still returns `Session terminated`, so the complete authenticated OAuth callback/MCP-session test and live children/payroll acceptance matrix cannot be truthfully run. Canonical Production Vercel domain/connector-registry access also remains unavailable.
+Next recommended TRACK: Reauthorize the active Production connector, then run the real MCP → Supabase authorize → consent → callback → MCP-session flow and the rollback-only acceptance matrix before retrying the five approved batches.
+### TRACK134 OAuth post-authentication trace
+
+- Live Supabase trace for the current Chamah connector: `client_id=157f5d1a-9c31-492c-a536-558545cb23c9`; `redirect_uri=https://chatgpt.com/connector/oauth/hH2c08CbCLJY`; `scope=openid email offline_access`; PKCE `S256`; resource `https://chamah-manager-portal-v2-preview.vercel.app/api/mcp`.
+- Supabase authorization returned `302`, the authenticated user completed login, authorization-details returned `200`, and token exchange returned `200` through `/auth/v1/oauth/token`. The registered client row exactly matches the observed client ID, redirect URI, public-client mode, authorization-code/refresh-token grants, and no-client-secret method.
+- The existing `auth.oauth_consents` row for this client/user is active and grants `openid email offline_access`; Supabase logs the authorization-details requests as `auto_approved=true`. This is provider-side consent state, not a login-password failure.
+- No subsequent MCP `POST /api/mcp` or `initialize` request was observed in Vercel logs. The current Chamah connector tool surface independently returns `Unknown tool`, so the connector is not exposing a usable post-token MCP session in this task.
+
+TRACK: TRACK134
+Status: BLOCKED — OAuth authorization and token exchange pass; current connector does not reach MCP initialize
+Summary: Traced the live OAuth chain end to end through successful authorization, callback, and token exchange. No repository code or business data was changed because the failure occurs after Supabase token issuance and before any MCP request reaches Vercel.
+Root cause: The active connector session/registry is not completing the post-token MCP connection and currently reports `Unknown tool`; an existing Supabase consent grant also causes provider-side auto-approval, so no fresh consent decision is exercised.
+Files changed: `PROJECT_LOG.md` only.
+Database changes: None.
+Migrations: None.
+Edge Functions: None.
+Tests: Read-only Supabase auth client/config and consent inspection; live auth logs verified authorization `302`, authorization details `200`, token exchange `200`; Vercel protected-resource metadata `200`; no MCP initialize observed.
+Production impact: None. No business data, OAuth client registration, consent row, scopes, or authorization controls were modified.
+Commit SHA: `9860392bcfc4af76993e6a70c739000c628999d1`.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview.vercel.app/api/mcp`.
+Production URL (if deployed): `https://chamah-portal.vercel.app/api/mcp` — not exercised.
+Blockers: The current Chamah connector must resume a valid MCP session after the already-successful token exchange; its tool surface currently returns `Unknown tool`, and no post-token MCP request is emitted. This requires connector-platform state/registry access, not a code or business-data change.
+Next recommended TRACK: With the same connector session restored, rerun fresh authorization and verify the first post-token request is `POST /api/mcp` with `initialize`, then `tools/list`, then `get_profile`; only after that run the full acceptance matrix.
+
+### TRACK135 Production commit-RPC deployment verification
+
+- Verified Production Supabase project `vyyfuaqmbxvfqgbfqooc` and migration `20261117061315_track132_commit_rpc_mapping_fix`; the exact `portal_mcp_commit_operational_changes_v1(uuid,uuid,text)` migration is present in remote history.
+- Verified the repository wrapper maps `commit_operational_changes` exclusively to `portal_mcp_commit_operational_changes_v1` with `p_batch_id`, `p_approval_id`, and `p_contract_version`.
+- Root cause was deployment drift: the canonical Production alias served `main` deployment `dpl_5Kytx1ipAki4SvyGCaiFrtwoXRRV` at commit `260bcfeb…`, while the verified wrapper fix existed at `9860392…`.
+- Deployed commit `9860392bcfc4af76993e6a70c739000c628999d1` as READY deployment `dpl_FMKdPiYzF5yqRjzpVoPMdRguJchu` and rebound `chamah-portal.vercel.app` to it. Production environment inspection showed no `CHAMAH_SUPABASE_URL` override; the wrapper therefore targets the hard-coded Production project.
+- Read-only batch inspection confirmed all five named batches are `READY`, `REAL_VERIFIED`, contract `1.0.0`, row version 1, and uncommitted with exact approval IDs preserved. No new batch, approval, or business row was created.
+- The current chat tool registry still exposes the old connector namespace; its commit call returns MCP internal error before reaching the deployed wrapper. Direct database commit was not attempted because that would bypass the requested live MCP wrapper path.
+
+TRACK: TRACK135
+Status: BLOCKED — connector tool registry has not refreshed to the active 0.0.2 Production connector
+Summary: Corrected Production deployment drift and rebound the canonical alias to the verified wrapper, but the available connector tool surface cannot invoke the new live session for the five existing batches.
+Root cause: Canonical alias served an older `main` deployment; after correction, this chat's connector registry remains stale and does not expose the active connector invocation path.
+Files changed: PROJECT_LOG.md only; deployed source was already committed.
+Database changes: None.
+Migrations: Verified `20261117061315_track132_commit_rpc_mapping_fix` already applied; no migration applied.
+Edge Functions: None.
+Tests: Local build, migration preflight, and focused contract tests previously passed; live Production deployment READY; five batch rows read-only verified.
+Production impact: Production wrapper deployment and canonical alias changed to the verified commit. No business data or security controls changed.
+Commit SHA: `9860392bcfc4af76993e6a70c739000c628999d1`.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: None.
+Production URL (if deployed): `https://chamah-portal.vercel.app/api/mcp`.
+Blockers: The active 0.0.2 connector is not callable from the current tool registry; available commit calls fail before producing a Vercel request. One connector-session/tool-registry refresh is required.
+Next recommended TRACK: Refresh the active Chamah Daycare 0.0.2 connector session, invoke the unchanged first batch through MCP, then retry and read back all five batches with persisted child and audit counts.
+# TRACK135 — Complete Production MCP Operations, Commit, and Deletion (2026-11-17)
+
+TRACK: TRACK135
+Status: BLOCKED — Production Commit requires a new Director approval after the single authorized retry exposed and the fix removed a false-positive synthetic-data guard.
+Summary: Traced the live Business Production connector through Vercel MCP, PostgREST, overloaded Commit RPCs, approval/digest/row-version checks, atomic write, and read-back. Added sanitized upstream error propagation, Director-only approval-bound operational archive, and narrowed synthetic-data rejection so legitimate track130-contracts-v1 provenance is accepted. Applied both forward-only migrations and deployed the MCP wrapper to Production; canonical alias was reassigned to deployment dpl_46NBSfVyg531dhVTHtMyeeMCCVjX.
+Root cause: The live Commit failure was hidden by the wrapper and the actual database error was 22023 — Synthetic or test data is not promotable to Production. The guard scanned all row JSON for track, falsely rejecting the legitimate mapping version track130-contracts-v1.
+Files changed: api/mcp.js; supabase/migrations/20261117130000_track135_operational_archive.sql; supabase/migrations/20261117140000_track135_synthetic_guard_precision.sql.
+Database changes: Applied track135_operational_archive and track135_synthetic_guard_precision to Production project vyyfuaqmbxvfqgbfqooc; no business rows changed.
+Migrations: 20261117130000_track135_operational_archive; 20261117140000_track135_synthetic_guard_precision.
+Edge Functions: None.
+Tests: node --check api/mcp.js, git diff --check, and migration preflight (111 ordered local migrations) passed. Live batch read-back before and after the single retry remained READY, committed_at null, commit_result null, row_version 1, approval unconsumed. No child records or audit writes were created.
+Production impact: Vercel Production deployment dpl_46NBSfVyg531dhVTHtMyeeMCCVjX is READY and canonical https://chamah-portal.vercel.app now points to it. Production schema changed only by the two forward-only RPC migrations. No business data changed.
+Commit SHA: 4cb8076
+Branch: codex/track121-oauth-login-resume
+Preview URL: https://chamah-portal-d0if02zgh-chamah.vercel.app
+Production URL (if deployed): https://chamah-portal.vercel.app
+Blockers: The supplied approval 306c73ed-e2ef-4190-8f3f-8e9bf31425f7 was retried exactly once and failed before writes. The corrected guard is now deployed/applied, but the existing approval cannot be retried again under the instruction. A new Director approval for the unchanged batch (or a new approved batch if it expires) is required; TRACK136 must not begin.
+Next recommended TRACK: Retry the unchanged batch exactly once only after the Director issues a fresh approval under the corrected production contract, then complete persisted commit/read-back verification and archive rollback probes.
