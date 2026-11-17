@@ -112,10 +112,14 @@ function toStructuredContent(value){
  if(Array.isArray(value))return {items:value,total:value.length};
  return {value};
 }
+function redactUpstreamDiagnostic(value){
+ const text=String(value||'').replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi,'[uuid]').replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,'[email]').slice(0,300);
+ return text||'Upstream request rejected';
+}
 async function api(path,token,body){
  const r=await fetch(SUPABASE_URL+path,{method:body===undefined?'GET':'POST',headers:{apikey:API_KEY,Authorization:'Bearer '+token,...(body===undefined?{}:{'Content-Type':'application/json'})},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(10000)});
  const data=await r.json().catch(()=>null);
- if(!r.ok)throw Object.assign(new Error('Upstream request rejected'),{status:r.status});
+ if(!r.ok)throw Object.assign(new Error('Upstream request rejected'),{status:r.status,upstreamCode:redactUpstreamDiagnostic(data?.code),upstreamMessage:redactUpstreamDiagnostic(data?.message)});
  return data;
 }
 async function upload(path,token,contentType,bytes){
@@ -375,6 +379,7 @@ module.exports=async function handler(req,res){
   const structuredContent=toStructuredContent(result);
   return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(structuredContent)}],structuredContent,isError:false}});
  }catch(e){
+  console.error(JSON.stringify({event:'mcp_upstream_error',rpc,status:e.status||500,code:e.upstreamCode||'UNKNOWN',message:e.upstreamMessage||'Upstream request rejected'}));
   return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:e.status===401?'Session expired or invalid':e.status===403?'Permission denied':'Unable to retrieve data'}],isError:true}});
  }
 };
