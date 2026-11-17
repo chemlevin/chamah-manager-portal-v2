@@ -32,4 +32,3 @@ Human acceptance questions:
 - What proves Preview, approval, atomic commit, and read-back?
 - Which rows are protected by dependencies and how is archive audited?
 - What is synthetic-only, what is isolated Preview, and what is explicitly not verified?
-

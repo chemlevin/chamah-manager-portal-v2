@@ -1,0 +1,14 @@
+-- TRACK114 follow-up: index reconciliation foreign keys used by audit and balance checks.
+create index supplier_bank_details_superseded_by_idx on public.supplier_bank_details(superseded_by_bank_detail_id) where superseded_by_bank_detail_id is not null;
+create index supplier_bank_detail_events_detail_idx on public.supplier_bank_detail_events(supplier_bank_detail_id,occurred_at desc);
+create index supplier_bank_detail_events_actor_idx on public.supplier_bank_detail_events(actor_user_id) where actor_user_id is not null;
+create index supplier_bank_detail_events_approval_idx on public.supplier_bank_detail_events(approval_id) where approval_id is not null;
+create index payment_executions_evidence_idx on public.payment_executions(evidence_document_id) where evidence_document_id is not null;
+create index payment_executions_recorded_by_idx on public.payment_executions(recorded_by_user_id) where recorded_by_user_id is not null;
+create index payment_execution_allocations_created_by_idx on public.payment_execution_allocations(created_by_user_id) where created_by_user_id is not null;
+create index reconciliation_confirmations_confirmed_by_idx on public.reconciliation_confirmations(confirmed_by_user_id) where confirmed_by_user_id is not null;
+create index payment_bank_reconciliations_execution_idx on public.payment_bank_reconciliations(payment_execution_id) where payment_execution_id is not null;
+create index payment_bank_reconciliations_created_by_idx on public.payment_bank_reconciliations(created_by_user_id) where created_by_user_id is not null;
+create index reconciliation_match_suggestions_bank_idx on public.reconciliation_match_suggestions(bank_transaction_id);
+create index reconciliation_match_suggestions_status_idx on public.reconciliation_match_suggestions(status,created_at) where status='SUGGESTED';
+create index financial_reconciliation_jobs_requested_by_idx on public.financial_reconciliation_jobs(requested_by_user_id) where requested_by_user_id is not null;

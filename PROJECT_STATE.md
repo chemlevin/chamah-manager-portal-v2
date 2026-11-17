@@ -1,6 +1,6 @@
 # Project State
 
-Last reviewed: 2026-09-22 (TRACK047)
+Last reviewed: 2026-11-10 (TRACK101)
 
 This file contains current operational state only. Durable rules belong in
 `AGENTS.md` and `docs/business-rules.md`; detailed history belongs in
@@ -10,10 +10,13 @@ This file contains current operational state only. Durable rules belong in
 
 - Canonical branch: `main` / `origin/main`.
 - Canonical Production URL: `https://chamah-portal.vercel.app`.
-- Canonical Production serves READY TRACK046 deployment
-  `dpl_3sGp9CahiMzQkab3VDCjfVxiVxpY` at Git SHA
-  `958b8f0770a194894fe6c11a889cb87050acaacd`, containing approved TRACK045
-  implementation `3635da5f514334597318489ed77dfc515c03f9ca`.
+- Canonical Production serves READY TRACK101 deployment
+  `dpl_CtzdQFhv7rojeqZGmh5mXxg9JEPg`, built from release Git SHA
+  `d21cfb5ae958c7695d05b9a07257d1f0532b2203` and independently exposed by
+  service-worker build ID `d21cfb5ae958`.
+- Immediate rollback target: READY deployment
+  `dpl_7MgVWUCLdLjrY9ih4LLFR3GTk17Q` at verified Git SHA
+  `2f883e462b5f329f60b7ed1c2f4bfa0b2f64e012`.
 - The preview-named project domain
   `https://chamah-manager-portal-v2-preview.vercel.app` currently routes to the
   same Production artifact. It is not a separate Preview artifact despite its
@@ -37,6 +40,22 @@ This file contains current operational state only. Durable rules belong in
 
 ## Latest completed TRACKs
 
+- TRACK101: reconciled Production commits `f718f8f`,
+  `0822128`, `15e4452`, `89ca14d`, and `2f883e4` into the OAuth/MCP security
+  branch. Critical local build, authentication, OAuth/MCP security,
+  service-worker, and Bank Transfers checks pass. Promoted READY deployment
+  `dpl_CtzdQFhv7rojeqZGmh5mXxg9JEPg` and explicitly assigned the canonical
+  alias. Canonical root, consent route, OAuth metadata, MCP bearer challenge,
+  and service-worker release headers/build ID were validated without entering
+  manual OAuth consent.
+- TRACK049: promoted only the approved TRACK048 artifact and assigned the
+  canonical alias to its READY Production deployment. Live split amount and
+  read-only browser/error checks passed; focused desktop and 390px tests 6/6.
+- TRACK048: fixed Bank Transfers pending amount for split families. The
+  Git-linked Preview `dpl_CLi7dzcJFtVaA4yuEz7EJHkKp6so` is READY at
+  `https://chamah-portal-16di7psvq-chamah.vercel.app`, serving commit
+  `f718f8fdffa4fe231c24b00ab8c60ae45dc82fc0`. No Production
+  deployment or backend mutation was made.
 - TRACK047: corrected only the outdated archive handler profile fixture; the
   focused desktop and 390px Bank Transfers/permissions suite passes 50/50.
 - TRACK046: promoted the approved TRACK045 artifact to canonical Production;

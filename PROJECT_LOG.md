@@ -5195,3 +5195,1197 @@ Validation:
 - Promoted the READY Git-linked TRACK045 Preview artifact at approved SHA `958b8f0770a194894fe6c11a889cb87050acaacd`. Its only change after implementation SHA `3635da5f514334597318489ed77dfc515c03f9ca` is TRACK045 documentation. Explicitly assigned canonical alias `https://chamah-portal.vercel.app` to READY Production deployment `dpl_3sGp9CahiMzQkab3VDCjfVxiVxpY`; Vercel CLI and deployment API resolve that alias to this ID and SHA.
 - Authenticated Production read-only validation: permissions editor loaded all three existing active users with existing portal-user / super-admin levels; HIDDEN / VIEW / EDIT matrix, ALL / ASSIGNED_DAYCARES scope, independent approval and execution-date controls, and Daycare Manager preset were present. Bank Transfers loaded its live row, filters, split summary, approval/completion controls, and execution-date field. Browser console had no warnings/errors; Vercel reported no runtime error clusters in the past hour. No user permission, assignment, or business record was changed; no Daycare Manager was activated.
 - Focused desktop-1440 and mobile-390 regression: 48/50 passed. The two archive handler fixture cases returned 403 because the pre-TRACK045 mock lacks a `portal_user_profiles` response and is stopped by the new permission guard before archive logic. This is a validation blocker, not an observed Production archive failure. No real archive mutation was attempted.
+
+
+## 2026-11-09 - Read-only scoped MCP backend gateway (initial rollout)
+
+- Added SQL migration source: `supabase/migrations/20261109_mcp_readonly_scoped_rpcs.sql`.
+- Applied two additive production Supabase RPCs: `portal_mcp_list_daycares()` and `portal_mcp_staff_by_daycare(uuid)`. Both require an authenticated active portal user, `dashboards.staffing.employees` VIEW/EDIT, and appropriate organization/daycare scope. No existing RLS policies were modified.
+- Added and deployed `supabase/functions/portal-mcp-readonly/index.ts` (Supabase Edge Function v1, JWT verification enabled). Only two read actions are allowlisted. The function validates the bearer token and forwards that user JWT to PostgREST RPCs; it does not use a service-role key.
+- Verified RPC EXECUTE privilege: authenticated allowed, anon denied. Deployment returned ACTIVE. No end-to-end restricted-manager test or external HTTP smoke test was run. All existing profiles observed were organization-scoped; employee assignments table contained one row.
+- Existing Vercel frontend and budget/payroll calculation engines unchanged. No frontend deployment.
+- Follow-up: create restricted test user and verify cross-daycare denial, run gateway HTTP integration tests, audit production RLS independently, connect OAuth/MCP transport only after authentication tests.
+
+
+## 2026-11-09 - Isolated MCP Streamable HTTP endpoint
+
+- Committed `supabase/functions/portal-mcp-server/index.ts` to `security/mcp-rls-hardening` and deployed as a **new**, isolated Supabase Edge Function `portal-mcp-server` v1, ACTIVE, `verify_jwt=true`. No existing Edge Function was overwritten.
+- Implemented JSON-RPC `initialize`, `ping`, `tools/list`, `tools/call` and notification handling; exposed only `list_my_daycares` and `list_staff_by_daycare`, both read-only and backed by the scoped RPCs. User JWT is validated and forwarded; no service-role key or generic SQL tool.
+- Verified deployed source matches committed GitHub source and the deployment API reports ACTIVE. Attempted HTTP smoke test but runtime DNS could not resolve Supabase hostname; no successful external HTTP or authenticated end-to-end test is claimed.
+- Security audit found existing broad `portal_authorized_read` RLS policy on employees; **not changed** because it could break existing portal operations. No SELECTED-scope users exist for live cross-daycare validation. Before connecting real staff, test a restricted fixture and review RLS separately.
+- OAuth authorization server settings, consent endpoint, MCP resource discovery, and ChatGPT client registration remain unverified/unconfigured. This endpoint is **not** ready for real user connection.
+
+
+## 2026-11-09 - MCP security contract tests and readiness check
+
+- Added dependency-free Node test source `tests/mcp-readonly-security.test.mjs` on the MCP hardening branch. Tests statically assert read-only tools, caller JWT forwarding, UUID validation, RPC authorization guards, and absence of destructive policy/data changes. These tests have NOT yet been run in CI; do not claim passing tests.
+- Rechecked live database: `employees` retains one broad `portal_authorized_read` policy; no active `SELECTED`-scope profiles exist. Thus cross-daycare authorization has not been proven and direct table access remains a separate risk.
+- Reviewed current Supabase MCP OAuth documentation and OpenAI custom MCP connector availability. OAuth server enablement, authorization consent flow, discovery, refresh scopes, and ChatGPT workspace eligibility remain outstanding. No existing production code was overwritten.
+
+
+## 2026-11-09 — Documents navigation scaffold
+- Added 'מסמכים ונהלים' entry to desktop/mobile home navigation and home module card in both mirrored index.html sources.
+- Created documents/index.html in both source trees as a clearly marked non-functional placeholder.
+- No uploads, publication, permissions or Supabase document storage implemented. No production deployment. Next: inspect actual portal permissions UI and implement default-deny upload authorization before enabling feature.
+- Validation: GitHub commits confirmed; runtime/build tests not executed.
+
+
+## 2026-11-09 — Policy data model and revocable access (preview backend)
+- Added portal_sections entries documents, documents.manage, documents.publish, with no non-admin permission grants (default deny).
+- Added versioned policy document tables and RLS, limited draft update columns, checked publish/retire RPC, immutable published title/body snapshots.
+- Applied both forward-only migrations to linked Supabase preview backend; SQL schema/policy smoke check executed.
+- NOT complete: main SPA permissions/navigation integration, authenticated end-to-end testing, actual browser editor, MCP document read tools, deployment to Vercel production. Do not enable for staff yet.
+
+
+## 2026-11-09 — Documents module integrated in actual SPA (development branch)
+- Found active SPA in chamah-manager-portal/new/app.js and new/index.html, not legacy root index.
+- Added policy-documents.js lightweight list/search, create, inline draft editor, publish/retire, published snapshot, version history.
+- Integrated #documents routing, main navigation, homepage module, and permission labels; permissions remain revocable through existing portal users management.
+- Hardened DB: direct authenticated table reads/writes revoked; only permission-checked RPC list/create/save/publish/history; editor concurrency check on updated_at; immutable published snapshot. Unauthorized RPC list/history return empty.
+- Database migrations applied to linked Supabase; anonymous SQL smoke check returns empty; table privilege checks show no direct authenticated SELECT/UPDATE. Security advisor flags intentional SECURITY DEFINER callable RPCs (each checks auth.uid and effective permissions), plus unrelated existing notices.
+- Not deployed to Vercel. Browser end-to-end with actual staff login and production branch linkage remain unverified. Document attachment upload and MCP policy lookup not included in text-first MVP.
+
+
+## 2026-11-09 — OAuth/MCP domain and session reconciliation (security branch)
+
+- Reconciled OAuth protected-resource metadata, MCP bearer challenges, and password-recovery production routing to the canonical `https://chamah-portal.vercel.app` domain. The legacy preview recovery URL remains unchanged because it is intentionally allowlisted.
+- MCP requests now require both a valid Supabase user token and an active `portal_my_access()` profile before protocol initialization, tool discovery, or tool calls. Tool data remains protected by the existing permission- and daycare-scoped RPCs; no service-role credential or direct table access was added.
+- The OAuth consent page continues to reuse the portal's `chamah.portal.session`, but now allows Supabase JS to refresh an expired access token before validating the user, active portal profile, authorization request, and approve/deny action.
+- Tightened stateless MCP JSON-RPC handling so requests without an `id` are treated as notifications and receive no JSON body. Existing allowlisted read-only tools and protocol version remain unchanged.
+- Added `tests/oauth-mcp-reconciliation.test.mjs` for canonical discovery/challenge URLs, Vercel routes, shared refreshable consent sessions, OAuth approve/deny compatibility, active-profile enforcement, scoped RPC delegation, and notification semantics.
+- Validation: JavaScript syntax checks passed; focused Node security contracts passed 8/8; `npm run build` passed; `git diff --check` passed. Existing authentication Playwright regression passed 28/32 across desktop 1440px and mobile 390px. The four failures are the previously documented stale assertions waiting for direct `allocation_units` requests although the current portal uses runtime configuration; all other login, invitation, recovery, persistence, refresh, and logout cases passed.
+- No Supabase Auth setting, OAuth client, domain, database schema/data, migration, Edge Function, Vercel Preview, or Production deployment was modified. Before Production approval, manually register/verify the intended OAuth client because Dynamic OAuth Apps remains disabled, then validate the complete authorization-code/PKCE flow and scoped MCP calls with active, inactive, restricted-daycare, full-read, and revoked users against a development Preview.
+
+## Reconciled Production history (2026-09-22 through 2026-09-23)
+
+The following entries originated on the Production-only branch and are preserved here during TRACK101 reconciliation.
+
+## TRACK048 — Fix Pending Transfer Amount (2026-09-22)
+
+- Traced the amount path end to end: the regular or child row's `amount` input is read by `readRow`, autosaved in a `save` request, validated and stored in `bank_transfers.amount` by `portal-bank-transfer-workbench`, returned by GET, and consumed by the Bank Transfers KPI. The parent retains the original transfer amount; children retain their own split amounts. No API or schema change was needed.
+- Root cause: the pending KPI added only the unallocated parent remainder for split families. It omitted pending child amounts. A read-only query of the linked backend found one active pending parent of ₪9,750.53 and two pending children of ₪3,750.53 and ₪6,000.00, which exactly allocate the parent. The prior calculation therefore displayed ₪0.00 despite pending work.
+- The KPI now adds pending regular amounts once, pending child amounts once, and only the positive unallocated remainder of a split parent. Split families count once in the pending count if a child is pending or an unallocated balance remains. Parent and child amounts are never added together as full amounts.
+- Added browser regressions for regular amount autosave/reload, the exact representative active split amounts, split amount edits and reload, and removal of split children to return to regular behavior. The existing Bank Transfers suite and the new cases passed 18/18 on desktop and 390px; the representative-record case passed 2/2 on both widths. Syntax, build, and diff checks passed. The linked backend was queried read-only; no real transfer was edited. Preview deployment details follow in `PROJECT_STATE.md`.
+
+## TRACK049 — Promote TRACK048 to Production (2026-09-22)
+
+- Verified approved TRACK048 commit `08221283052b74591604dbf88500e31cb75e28c1` and READY Git-linked Preview `dpl_97YJgstXUeubKcRb1yBdyVDFF18B` in canonical Vercel project `prj_6IND7ee2E9s3KispBh6iBDWwQo6X`. Prior canonical Production alias resolved to `dpl_3sGp9CahiMzQkab3VDCjfVxiVxpY`.
+- Promoted only that Preview artifact. Vercel created READY Production deployment `dpl_2Y416AaJAiRKiUQ2jdALgX54LofW` with source Git SHA `08221283052b74591604dbf88500e31cb75e28c1`. The canonical alias was separately pinned, so explicitly assigned `chamah-portal.vercel.app` to the new deployment. Independent CLI inspection resolved the canonical hostname to that exact deployment ID and approved SHA; fetching the canonical Bank Transfers script returned HTTP 200 with the corrected pending-child calculation.
+- Authenticated canonical Production, read-only: one pending split family showed ₪9,750.53 pending, with pending children ₪6,000.00 and ₪3,750.53, zero unallocated remainder, and no parent/child double count. Browser warning/error console was empty; Vercel reported no runtime errors in the selected range. No business record was changed.
+- Re-ran regular pending amount autosave/reload, exact representative split, and split edit/removal regressions across desktop 1440px and mobile 390px: 6/6 passed. Regular behavior was tested with representative mocked API records because the current live active set contains only the split family. No database, migration, Edge Function, or unrelated application module was modified. Production PASS.
+
+## TRACK050 — Fix iPhone Saved-App Cache (2026-09-23)
+
+- Root cause: the deployed portal had no manifest or service worker, and its root HTML referenced stable unversioned JavaScript and CSS paths. Existing iPhone Home Screen installations therefore depended entirely on WebKit's HTTP cache and could continue launching an old asset graph after a Production deployment.
+- Added a build-derived content version to deployed HTML script, stylesheet, manifest, and ES-module import URLs. Each deployment now produces a distinct asset graph without editing generated `dist` source directly.
+- Added a standalone web manifest and an update-aware service worker. Navigations are network-first with a cached root fallback; the versioned current app shell is cached for offline use; old portal caches are deleted on activation; the new worker skips waiting and claims clients immediately.
+- Added client lifecycle handling that checks for an updated worker on registration and every `pageshow`. Existing controlled installations reload once after a new worker takes control. First-time registration does not interrupt the active login or session flow.
+- Deployed HTML, JavaScript, and CSS use Vercel's `max-age=0, must-revalidate` static policy. The service-worker route explicitly adds `no-store` and root scope permission; the same behavior is represented by the local static server for regression testing.
+- Added a dedicated installed-app regression that builds `track050-old`, loads and controls the app, builds `track050-new`, requests a worker update, verifies automatic controller handoff and a reload onto the new versioned `app.js`, and checks old-cache removal. It passes in Chromium and iPhone-sized WebKit; Chromium also verifies a disconnected offline reload. A physical iPhone Home Screen installation was not available in the local test environment.
+- Validation: JavaScript syntax checks and `npm run build` passed; old-build to new-build PWA regression passed 2/2 (Chromium saved-app and WebKit iPhone profile); `git diff --check` passed. Existing authentication regression passed 28/32 across desktop 1440 and mobile 390. The four failures are pre-existing stale assertions for direct `allocation_units` requests even though the current portal uses the runtime-config contract; all remaining login, recovery, session, refresh, and logout cases passed.
+- Scope: frontend build/cache lifecycle and its tests only. No business rule, calculation, API, database, migration, Edge Function, or Production deployment changed.
+
+## TRACK101 — Reconcile Development and Production Before Deployment (2026-11-10)
+
+- Audited and merged the five Production-only commits into `security/mcp-rls-hardening`: `f718f8f` preserves correct pending totals for split Bank Transfers; `0822128` and `15e4452` preserve the TRACK048 Preview/Production record; `89ca14d` adds versioned assets, manifest, service-worker update lifecycle, and PWA tests; `2f883e4` enforces service-worker update headers through the Vercel route.
+- Resolved the only merge conflict in `PROJECT_LOG.md` by preserving both histories. OAuth consent, protected-resource discovery, MCP bearer enforcement, caller-JWT delegation, scoped RPCs, policy documents, portal navigation, and the existing bank-transfer/PWA fixes remain present. No Supabase migration, Edge Function, database data, RLS policy, Auth setting, OAuth client, business calculation, or API contract was changed during reconciliation.
+- Corrected two stale authentication test fixtures to observe the current authenticated `portal-runtime-config` request instead of the retired direct `allocation_units` request. Application authentication behavior was not changed.
+- Validation before release commit: JavaScript syntax checks passed; `npm run build` passed; OAuth/MCP security contracts passed 8/8; authentication regression passed 32/32 across desktop 1440px and mobile 390px; service-worker/PWA regression passed 2/2 in Chromium and iPhone-sized WebKit; affected Bank Transfers regression passed 20/20 across desktop and mobile; diff checks passed.
+- Recorded the pre-release rollback target as READY canonical deployment `dpl_7MgVWUCLdLjrY9ih4LLFR3GTk17Q`, verified by the user at Git SHA `2f883e462b5f329f60b7ed1c2f4bfa0b2f64e012`. Production staging, promotion, live endpoint validation, and the manual OAuth consent stop remain pending at this entry.
+- Created and pushed release merge commit `d21cfb5ae958c7695d05b9a07257d1f0532b2203` with parents `4d5b3fdf6f594c800356495c64e7ad705e48d80f` and `2f883e462b5f329f60b7ed1c2f4bfa0b2f64e012`. Deployed from a clean detached worktree so unrelated untracked files were excluded.
+- Staged the exact release as a Production-environment deployment without domains, stamped it with release metadata and service-worker build ID `d21cfb5ae958`, and validated root 200, OAuth consent route 200, protected-resource metadata 200 with canonical MCP resource, service worker 200 with `no-store` and root scope, and unauthenticated MCP initialization 401 with the canonical bearer metadata challenge.
+- Promoted READY deployment `dpl_CtzdQFhv7rojeqZGmh5mXxg9JEPg`. Vercel's promotion mapped only the preview-named project domain, so the canonical alias was explicitly reassigned from rollback deployment `dpl_7MgVWUCLdLjrY9ih4LLFR3GTk17Q` to the promoted deployment. Independent alias lookup and canonical HTTP checks confirmed the exact deployment and SHA-derived service-worker build ID. No runtime errors were reported in the post-deploy window.
+- Stopped before manual OAuth consent as required. No database, migration, Edge Function, Supabase Auth setting, OAuth client, RLS policy, user permission, or business record was changed.
+
+## TRACK102b — Secure HTTPS OAuth callback relay (2026-11-10)
+
+- Root cause: the registered loopback redirect reached a browser environment isolated from the machine hosting the callback listener, so consent was approved but no authorization code could be delivered to the initiating client.
+- Added an isolated, not-yet-deployed Supabase Edge Function design with create-session, HTTPS callback, and one-time consume actions. State and delivery secrets are stored only as SHA-256 hashes; the PKCE verifier remains client-side; callback results are hybrid-encrypted to a per-attempt RSA public key before storage; records expire within three minutes and successful consumption atomically deletes them.
+- Added a forward-only, not-yet-applied migration for the relay coordination table. RLS is enabled and all access is revoked from `public`, `anon`, and `authenticated`; only the isolated function service role is intended to access it. Existing portal authentication, consent, MCP endpoint, scoped RPCs, permissions, business data, and calculations are unchanged.
+- Added security-contract and simulated encryption/one-time-consumption tests. TRACK102b plus existing OAuth/MCP contracts passed 12/12; `git diff --check` passed.
+- No migration, Edge Function, Supabase Auth setting, OAuth client redirect, Vercel deployment, Production domain, permission, or business record was changed. Deployment and registration of the new HTTPS redirect require explicit approval, followed by a disposable-user end-to-end acceptance test.
+
+## TRACK102c — Deploy and validate HTTPS OAuth callback relay (2026-11-10)
+
+- Security review found and corrected two pre-deployment defects: the expiry index referenced the wrong schema, and expired abandoned relay rows had no opportunistic cleanup. The live synthetic test then failed closed because the Edge Function service role lacked an explicit table grant; added the minimal forward-only `service_role` CRUD grant and repeated the full test successfully.
+- Applied only relay migrations `track102b_oauth_callback_relay` and `track102c_relay_service_role_grant` to linked Supabase project `vyyfuaqmbxvfqgbfqooc`. The relay table has RLS enabled, no policies, no access for `anon` or `authenticated`, and only the required access for `service_role`.
+- Deployed isolated Edge Function `portal-oauth-callback-relay` version 1, ACTIVE, with JWT verification disabled solely for OAuth callback compatibility. All unrelated Edge Functions remain JWT-protected; unauthenticated canonical Vercel MCP and Supabase MCP initialization both returned 401.
+- Live non-sensitive synthetic acceptance passed: session 201, callback 200, wrong delivery secret 404, encrypted payload successfully decrypted only with the initiating private key, consume 200, consume replay 404, and callback replay 410. Forced-expiry cleanup removed the disposable row; final relay row count was zero.
+- Local OAuth/MCP and relay contracts passed 12/12; diff check passed. Post-deployment advisors reported the relay's intentional fail-closed RLS-with-no-policy configuration as informational; other advisor findings were pre-existing and unrelated.
+- No OAuth client redirect, Supabase Auth setting, portal permission, business record, Vercel deployment, Production portal asset, or domain was changed. Work stopped before OAuth consent pending manual registration of the new HTTPS redirect URI.
+
+## TRACK102d — Diagnose approved consent without callback (2026-11-10)
+
+- Verified directly that the active OAuth test client uses the registered HTTPS relay callback. Fresh relay sessions were created successfully, but the live relay row remained unsealed and the disposable client received no callback.
+- Supabase Auth recorded the authorization requests as approved and generated authorization codes for the correct HTTPS redirect. Aggregated relay logs contained no matching invocation, confirming that callback delivery never started; no code or token was exposed or exchanged.
+- Root cause: the consent page mishandled the documented `OAuthRedirect` response from `getAuthorizationDetails()`. When consent already existed, it displayed a static “already approved” message instead of navigating to the returned `redirect_url`, so the browser never invoked the relay callback.
+- Corrected only that branch to validate an HTTPS redirect and use `location.replace(data.redirect_url)`, matching current Supabase OAuth guidance. Added regression assertions that the already-consented branch redirects and no longer displays the blocking message.
+- Extended the isolated relay session TTL from three minutes to the migration's existing five-minute maximum for manual cross-turn acceptance and deployed `portal-oauth-callback-relay` version 2. No schema, permission, Auth setting, OAuth client, business record, or unrelated endpoint changed.
+- Validation: consent JavaScript syntax passed; OAuth/MCP and relay contracts passed 12/12; `npm run build` passed; `git diff --check` passed. The expired disposable client was stopped and relay cleanup was triggered. The consent-page fix has not been deployed to Production because Production frontend deployment requires explicit approval.
+
+## TRACK102d — Production OAuth redirect release and restricted-user acceptance (2026-11-10)
+
+- Verified approved release commit `75bdd971de6a3280f3d3958c47fed066e602d402` against its parent and remote branch. Pre-release validation passed: consent JavaScript syntax, `npm run build`, OAuth/MCP and relay contracts 12/12, and portal authentication 32/32 across desktop 1440px and mobile 390px.
+- Recorded canonical rollback deployment `dpl_CtzdQFhv7rojeqZGmh5mXxg9JEPg`. Deployed from a clean detached worktree, staged and verified the consent asset, then promoted SHA-stamped READY deployment `dpl_BcwrvQk7M9V15YH4yz9nCXy8EcXy`. Canonical `https://chamah-portal.vercel.app` resolves to that deployment; service-worker build ID `75bdd971de6a` proves the approved SHA-derived artifact, and the live consent asset contains the documented `OAuthRedirect` navigation fix.
+- Post-deploy checks passed: root 200, consent route 200, protected-resource metadata 200 with canonical MCP resource, relay reachable, unauthenticated MCP initialization 401 with bearer challenge, and no Vercel runtime errors in the post-release window.
+- Fresh disposable-user OAuth/PKCE acceptance passed without exposing secrets: HTTPS callback delivered, state validated, authorization-code exchange 200, refresh 200, access token audience `authenticated`, issuer/client claims matched, and lifetime was 3600 seconds. The harness's direct `/auth/v1/user` request returned 401 because it omitted the required publishable-key header; token validity was independently confirmed by successful refresh and the canonical MCP server's Supabase Auth validation.
+- MCP initialization returned protocol `2025-03-26`; discovery returned only `list_policies`, `read_policy`, `list_daycares`, and `staff_by_daycare`; a fabricated write tool was rejected. The disposable user was active, non-superadmin, selected-scope, without full-read access, assigned to one daycare, and had `HIDDEN` staffing permission; fail-closed MCP visibility returned zero daycares and no business records.
+- Remaining acceptance matrix rows—authorized daycare visibility with VIEW permission, cross-daycare denial, full-read, superadmin, inactive, grant revocation, and access-token termination—require separate disposable identities or explicit controlled test-user switching. No permission, user status, business record, Supabase Auth setting, OAuth client, database schema, or domain changed during this acceptance run.
+
+## TRACK105 — Phase 0 Policy Decisions, Access Audit, and Contract Tests (2026-11-10)
+
+- Reviewed TRACK103 and TRACK104, relevant repository migrations/functions/tests, current Supabase security guidance, and linked-project catalog metadata without changing schema, data, access controls, functions, or deployments.
+- Added a decision register for Bank-account scope, separation of duties, retention, and exact-duplicate exceptions. Each item records evidence, a nonbinding recommendation, operational impact, and the business/security/legal owners required to approve it. No policy was silently adopted.
+- Verified that reviewed tables have RLS, authenticated users have SELECT-only table grants, and Bank/Employee/Payroll domain commit RPCs are service-role-only. Identified the principal blocker: ingestion, quality, audit, and Bank tables share a portal-wide read predicate and do not enforce ownership, bank-account scope, reviewer redaction, or cross-scope isolation.
+- Documented additional gaps around durable approval sequencing, dormant row lineage/quality review, caller-supplied actor IDs at internal RPC boundaries, broad default function EXECUTE privileges, and the privileged service-role trust boundary.
+- Added six executable repository contract/security tests covering authorization rechecks, preview/approval/commit sequencing, duplicate handling, lineage, quality review, service-only domain commits, generic-writer prohibition, and compatibility preservation. The focused Node suite passed 6/6 and the scoped diff check passed.
+- No application source, production data, migration, Edge Function, RLS policy, grant, role, Supabase Auth setting, Vercel deployment, or business calculation changed. Phase 1 remains blocked on the explicit owner decisions and security/test gates recorded in `docs/audits/TRACK105.md`.
+
+## TRACK107 — Phase 1A Implementation Gates and Migration Design (2026-11-10)
+
+- Completed a strictly read-only Phase 1A audit of TRACK103–TRACK106, repository authorization/mutation surfaces, and linked isolated Preview catalog/configuration. No migration, data, identity, grant, RLS policy, function, bucket, deployment, Preview access, or Production access was changed.
+- Verified four active portal profiles linked to confirmed Supabase Auth identities: one current super-admin, two organization-wide non-super-admins, and one selected-scope non-super-admin. Proposed canonical Director/Super Manager/Manager role assignments keyed only by immutable Auth UUID, with the exact sole-Director mapping requiring explicit secure approval and no credentials or personal identity values stored in documentation.
+- Found 58 live non-Director `EDIT` rows across operational screens. Current Bank, transfer, workforce, employee-import, and payroll Edge Functions use service-role access after screen-level EDIT checks, so existing grants can reach mutations and conflict with the approved Director-only rule.
+- Verified all five Bank accounts map only to one legal entity; no Bank-account-to-allocation-unit/daycare relation exists. All seven daycares map to allocation units, but unallocated transactions and import/quality records have no reliable restricted-user scope. Account mapping and default-deny behavior are blocking business/security decisions.
+- Documented the proposed forward-only Phase 1A design for canonical roles/capabilities, scoped read predicates/RPCs, non-Director EDIT normalization, Director-only semantic mutations, temporary chat validation, durable import archives, Storage controls, catalog assertions, rollout order, risks, and exact approval gates.
+- The task was documentation-only. Existing application validation was not required; read-only repository contract tests and Markdown/diff verification are recorded in the TRACK completion report.
+
+## TRACK108 — Read-only Architecture Assessment (2026-11-10)
+
+- Reviewed TRACK106–107, relevant earlier audits and architecture/handbook documentation, current repository authorization and service-role surfaces, and the linked Supabase project through SELECT-only catalog and aggregate queries. No schema, data, identity, permission, RLS, grant, Storage object, Edge Function, Preview, or Production change was made.
+- Verified four active Auth-linked portal identities, one current technical super-admin/Director candidate, five active bank accounts, 2,451 bank transactions, 14 allocations, and 2,437 unallocated transactions. All seven daycare rows have allocation-unit mappings, but no trusted bank-account-to-daycare/unit authorization relation exists.
+- Corrected the TRACK107 permission interpretation: 58 non-Director `EDIT` rows exist across retained configurations, while 35 belong to the three users' current effective configurations; 23 are superseded permission-history rows.
+- Confirmed the principal security issue remains screen-level `EDIT` authorizing service-role workbenches, combined with broad portal-wide read policies and overlapping super-admin/scope/transfer/MCP flags. Supabase advisors also report 11 authenticated `SECURITY DEFINER` functions, five RLS-with-no-policy tables, and disabled leaked-password protection.
+- Recommended a partial rebuild: preserve canonical domain data, business constraints, audit history, Bank source immutability, allocations, and useful atomic RPC logic; replace the authorization kernel and privileged service boundary; introduce a dedicated supplier-payment request/approval/execution/confirmation aggregate instead of overloading `bank_transfers`.
+- Documented identity, permission, bank mapping, keep/replace, action-matrix, workflow, repair-versus-rebuild, phased implementation, missing-evidence, acceptance, and exact Director-approval tables in `docs/audits/TRACK108.md`.
+- This task was documentation-only. Application build and Playwright tests were not required; Markdown scope, diff, commit, and remote push verification are recorded in the TRACK completion report.
+
+## TRACK109 — Director Decisions & AI Architecture (2026-11-10)
+
+- Reviewed TRACK108, relevant TRACK103–107 decisions, repository OAuth/MCP source and contracts, and existing authorization documentation without changing application code, schema, data, identities, permissions, RLS, grants, functions, Storage, Preview, or Production.
+- Added a Hebrew Director decision table covering identity and role mapping, legacy EDIT treatment, Bank-account scope, payment workflow and separation of duties, retention, deletion, duplicate exceptions, AI actions, sensitive approvals, automation, service-role transition, multi-provider support, and deployment gates.
+- Defined one mandatory authorization path for Portal, API, MCP, external AI providers, and automation: authenticated user identity, protected role/resource/action evaluation, validation, explicit sensitive-action approval, semantic domain command, transaction safety, and append-only audit. AI agents inherit the user's permissions and never receive unrestricted service-role access.
+- Identified reusable infrastructure: Supabase Auth OAuth/PKCE, protected-resource discovery, the stateless MCP Streamable HTTP shell, caller-JWT forwarding, scoped read RPCs, closed tool allowlists, callback relay, and existing OAuth/MCP contract tests. Legacy MCP full-read, screen EDIT, super-admin flags, and service-role workbenches are explicitly transitional rather than the future authorization kernel.
+- Proposed phased delivery prioritizing unified scoped AI reads, then draft-only writes, approved sensitive commands, DELETE/bulk/automation controls, multi-provider verification, and legacy retirement.
+- Recorded 15 exact blockers before implementation. TRACK109 is documentation-only; application build and Playwright tests are not required. Markdown scope and diff checks are required before commit and push.
+
+## TRACK110 — Director-only Authorization & MCP Read/Write (2026-11-10)
+
+- Replaced the effective authorization boundary with a protected role/action model shared by Portal, API, and MCP. The sole TRACK108 technical Director identity is the only active `DIRECTOR`; the three other portal profiles were deactivated without deleting Auth identities, profiles, scopes, permissions, or historical data.
+- Added a closed action catalog for policy read/create/update, controlled soft-delete, atomic bulk archive, validated private file upload, and authorization administration. Legacy screen permissions remain navigation/history data and no longer authorize user-management mutations.
+- Added caller-JWT semantic RPCs, default-deny authorization, optimistic concurrency, short-lived one-time payload-bound approval artifacts, append-only authorization audit, and verified structured write responses. MCP contains no service-role key, generic table writer, raw SQL, or caller-supplied actor authority.
+- Added a private `policy-attachments` Storage bucket with MIME/size restrictions and Director-only object policies. MCP uploads are further limited to 3 MiB and generated actor/document paths.
+- Rebuilt the permissions page as a responsive read-only authorization dashboard showing identities, active role assignments, action capabilities, approval requirements, and security controls. The legacy invite/editor path remains available only to old mocked compatibility tests; the deployed `DIRECTOR_ONLY` response never exposes it.
+- Applied migration `track110_authorization_mcp` to the linked Preview Supabase project and deployed `portal-users` Edge Function v8 atomically with the authorization rollout. Live validation confirmed one active Director/profile, three inactive preserved profiles, seven active actions, three approval-gated actions, one private attachment bucket, and anonymous default deny.
+- Validation: JavaScript syntax checks passed; focused Node authorization/OAuth/MCP tests passed 13/13; build passed; focused desktop browser authorization suite passed 33/33; `git diff --check` passed. A broad `npx playwright test` invocation used the wrong Playwright CLI and was invalid; no result from that invocation is claimed.
+
+## TRACK111 — Live Director MCP acceptance (2026-11-10)
+
+- Ran end-to-end acceptance against the protected Vercel Preview and linked Preview Supabase backend with disposable Director/non-Director identities and `TRACK111-*` policy records. Verified Director discovery, create/update with optimistic-concurrency rejection, approved soft-delete, exact payload binding, replay/tamper rejection, successful bulk archive, failed-bulk atomic rollback, private file upload/download, non-Director HTTP 403, persisted rows, structured responses, approvals, and authorization audit events.
+- Fixed three live-only gaps: added allowlisted private `download_policy_file`; allowed authenticated Storage RLS to evaluate the non-exposed canonical authorization helper; and added the pgcrypto `extensions` schema to the approval functions' hardened `search_path`. Added owner-Director Storage delete policy so disposable attachments can be removed through the Storage API rather than by deleting metadata.
+- Applied forward-only Preview migrations `track111_storage_authorization_policy` and `track111_approval_digest_schema`. No Edge Function, Auth setting, Production deployment, business calculation, or existing business record was changed.
+- Live rollback checkpoint proved both requested rollback targets remained `DRAFT` and the exact approval remained unconsumed after a target mismatch. The successful acceptance run produced the expected CREATE/UPDATE/FILE_UPLOAD/DELETE/BULK audit records; all 12 disposable documents were soft-retired.
+- Cleanup completed: all three disposable Storage objects were deleted through the authenticated Storage API; the non-Director identity was removed; the Director QA identity was deprovisioned and retained only as an inactive tombstone required by immutable audit/document foreign keys; its remaining unconsumed approvals were expired; and the sole original active Director assignment was restored. Final verification found one active original Director, zero QA Storage objects, zero QA identities, no disposable non-Director user, and 12/12 QA documents `RETIRED`.
+- Local validation: `node --check api/mcp.js`; focused OAuth/MCP/relay/authorization contracts 14/14; `npm run build`; `git diff --check`. Supabase security advisors were rerun; findings are pre-existing RLS-with-no-policy tables, intentional authenticated `SECURITY DEFINER` RPCs, and disabled leaked-password protection. Production remains unchanged.
+- Production Vercel and Supabase Auth settings were not changed. Existing advisor findings remain for intentional authenticated semantic `SECURITY DEFINER` RPCs, internal RLS tables with no direct client policies, and disabled leaked-password protection; the last item requires a separate approved Auth-setting change.
+
+## TRACK112 — Data Management Readiness (2026-11-10)
+
+- Audited the linked Preview database, domain relationships, record completeness, existing imports/RPCs, TRACK110–111 authorization, and current Supabase MCP capabilities. Confirmed employees, banking, bank-transfer payments, and payroll are modeled; children are aggregate-only through `monthly_enrollment`; parents, suppliers, collections, and a canonical payments aggregate are not modeled.
+- Added Director-only operational actions and semantic MCP RPCs for capability discovery, bounded structured search, verified aggregates, employee duplicate detection, validated employee create/update, and synchronous employee import up to 100 rows. All writes derive the actor from `auth.uid()`, use the canonical action gate, preserve RLS/direct table denial, audit mutations, verify persisted results, and expose no generic table writer, raw SQL, or service-role credential.
+- Extended the shared audit vocabulary additively for authenticated MCP create/update events. Banking, payments, and payroll remain read/analysis only; existing financial write workflows and approval rules were not bypassed.
+- Assessed large imports and long analytical work as requiring a durable queued worker with retry, idempotency, status, cancellation, and result retrieval. TRACK112 intentionally caps synchronous imports instead of introducing an unproven queue.
+- Applied Preview migrations `track112_data_management_readiness` and `track112_mcp_audit_contract`. Live disposable acceptance verified capabilities, employee search, banking analysis, zero-match and positive duplicate detection, create, optimistic update, stale-version rejection, bulk partial failure, and persisted-result counts. Both disposable employees were retired through the lifecycle API and their audit history was retained.
+- Validation: `node --check api/mcp.js`; focused OAuth/MCP/authorization/data-readiness tests 27/27; `npm run build`; `git diff --check`. Supabase advisors were rerun; the new authenticated `SECURITY DEFINER` RPC notices are intentional and action-gated. Pre-existing RLS-with-no-policy and leaked-password-protection findings remain. Production was not changed.
+
+## TRACK113 — Suppliers & Payments (2026-11-10)
+
+- Added an additive canonical supplier and payment-request aggregate beside preserved legacy `bank_transfers`: suppliers, verified bank destinations, daycare allocations, private documents, append-only lifecycle events, optimistic row versions, and idempotency keys.
+- Implemented the lifecycle `DRAFT -> PENDING -> APPROVED -> PAID -> VERIFIED`, with approved cancellation from pre-payment states. Submit requires a verified supplier bank destination and invoice; approve, pay, verify, and cancel require short-lived one-time payload-bound approval artifacts.
+- Added Director-only semantic MCP/API tools for supplier/payment search, duplicate detection, create, update, bounded bulk import, analysis, attachments, and lifecycle transitions. The action catalog is extensible for future staff roles, but only `DIRECTOR` received the new actions.
+- Applied forward-only Preview migration `track113_suppliers_payments`. No legacy row, Budget behavior, Google Sheet contract, Production database, Production alias, or Production deployment was changed.
+- Preview verification confirmed zero pre-existing canonical supplier/payment rows, 14 new active actions, one private attachment bucket, and 12 supplier/payment RPCs before disposable acceptance. New tables use RLS with direct grants revoked; authenticated semantic `SECURITY DEFINER` RPC advisor notices are intentional and action-gated.
+- Live disposable acceptance through the Director-gated semantic RPCs created one supplier and one allocated payment draft, proved idempotent replay returned the original request without mutation, consumed an exact cancellation approval, and verified allocation total `123.45 = 123.45`, two lifecycle events, and one consumed approval. Cleanup retained audit/history while leaving the supplier `ARCHIVED` and request `CANCELLED`.
+- Deployed Vercel Preview `dpl_7rxX3QNgggka1SRTUutWiR8QStzr` at `https://chamah-portal-iry2nxr2y-chamah.vercel.app`; inspection reported target `preview` and status `Ready`. Production remained unchanged.
+- Validation: `node --check api/mcp.js`; focused TRACK110/112/113 contract tests 12/12; `npm run build`; `git diff --check`; Supabase security/performance advisors rerun.
+- Unresolved business rules: independent bank-detail verifier/separation of duties, monetary approval thresholds, invoice uniqueness/tax rules, retention/legal hold, and mapping of legacy transfers into canonical requests require Director/finance decisions. TRACK113 does not infer or backfill these rules.
+
+## TRACK114 — Financial Approval & Bank Reconciliation (2026-11-10)
+
+- Extended the TRACK113 aggregate with Director-only supplier-bank-change verification, immutable payment execution evidence, execution-to-request allocations, individual/bulk bank reconciliation confirmations, suggestion-only automatic matching, and durable asynchronous financial jobs. Payment approval, execution evidence, and reconciliation remain separate persisted actions.
+- Reconciliation confirmations are atomic and idempotent, lock source rows, support partial 1:1, N:1, and 1:N allocation, and reject payment-request, execution, and bank-transaction over-allocation. Automatic matching only creates constrained exact reference/amount suggestions and never confirms or allocates funds.
+- Added asynchronous statement imports and suggestion jobs with bounded payloads, retry state, duplicate bank fingerprint protection, status/result retrieval, and a one-minute private `pg_cron` worker. Added follow-up foreign-key/query indexes after the Preview performance-advisor review.
+- Applied forward-only Preview migrations `track114_financial_approval_reconciliation` and `track114_financial_fk_indexes`. Eight new actions are granted only to `DIRECTOR`; new tables have RLS enabled, direct client grants revoked, and private workers are not executable by public/anon/authenticated roles. No existing user, supplier, payment, bank transaction, Budget behavior, Production database, or Production deployment was changed.
+- Live rollback-checkpoint acceptance verified approved bank replacement and historical supersession, one execution allocated across two payments, three reconciliation rows covering partial 1:N and consolidated N:1 cases, idempotent replay, over-allocation rejection, completed statement/suggestion jobs, zero automatic confirmations, zero direct client grants, and zero retained QA rows. Final checks found eight Director grants, zero non-Director grants, zero anonymous RPC grants, zero queued jobs, and an active cron worker.
+- Validation: `node --check api/mcp.js`; focused authorization/OAuth/TRACK112–114 Node contracts passed 23/23; `npm run build`; `git diff --check`; Supabase security and performance advisors rerun. New advisor notices are the intentional default-deny RLS-with-no-policy tables and authenticated semantic `SECURITY DEFINER` RPCs; pre-existing leaked-password/RLS performance notices remain.
+- Deployed implementation commit `ae8926a502c9e298688739070d061f3eb8ed276d` to Vercel Preview deployment `dpl_cbfuLW5xhzJXk6dW4P8Ka5Y1MgxN`, READY at `https://chamah-portal-f07sboan2-chamah.vercel.app`. Deployment metadata confirms target Preview, the TRACK114 branch, and the exact implementation SHA. An authenticated Vercel fetch reached the MCP function and returned the expected GET 405 with `POST, OPTIONS` and the canonical OAuth bearer challenge; no staff token, real transfer, Production alias, or Production deployment was used.
+
+## TRACK115 — Authenticated MCP E2E Acceptance (2026-11-11)
+
+- Ran the deployed Preview MCP end to end with a disposable sole-Director Supabase Auth identity and Vercel's authenticated Preview transport. The workflow created a supplier, proposed and approval-verified its bank destination, created an idempotent allocated payment request, uploaded an invoice, submitted and approval-approved the request, recorded immutable execution evidence, approval-marked it paid, queued and polled an asynchronous statement import, found the imported transaction through MCP operational search, confirmed reconciliation, and approval-verified the fully reconciled payment. No staff credential, real transfer, Production alias, or Production deployment was used.
+- Verified anonymous MCP denial, direct-table denial, exact approval payload binding, approval replay rejection, stale-version rejection, supplier-bank/payment/execution/job/reconciliation idempotency, over-allocation rejection, caller-derived actor attribution, append-only authorization/domain audit, and exact financial equality: request, daycare allocation, execution, and reconciliation were each `115.15`, remaining balance was `0`, with one invoice and five lifecycle events.
+- Found and fixed a live-only payment-document defect: Storage accepted the private object, but `api/mcp.js` called `crypto.createHash` without importing Node crypto, so the handler returned a misleading upload failure after the object was stored. Added the missing `node:crypto` import and a regression assertion, plus the reusable `tests/track115-authenticated-mcp-e2e.mjs` live runner.
+- Focused TRACK110/112/113/114 contracts passed 18/18; JavaScript syntax, build, and `git diff --check` passed. The full authenticated live runner passed against Vercel Preview deployment `dpl_9YWNcBU2MsqKtDbGPEQ8RL37L5Cd`, READY at `https://chamah-portal-gwqt06807-chamah.vercel.app`, serving implementation commit `dc0301444b79c0f6c6f8284b7d2ac89ae4e15759` from `codex/track114-financial-reconciliation`.
+- Supabase security advisors were rerun. Findings remain the intentional default-deny RLS tables and action-gated authenticated semantic `SECURITY DEFINER` RPCs, plus the pre-existing disabled leaked-password-protection setting; TRACK115 made no persistent schema, policy, Auth-setting, Edge Function, or Production change.
+- Cleanup completed: two disposable Storage objects and all TRACK115 supplier, bank-detail, payment, execution, reconciliation, imported-transaction, import-batch, and job rows were removed; the temporary cleanup policy was dropped; the disposable identity was deactivated, sessions and Auth identity removed, and the original sole Director restored. Final checks found one active Director and zero QA active roles, profiles, Auth identities, sessions, suppliers, jobs, Storage objects, or cleanup policies. Immutable audit evidence remains: 11 authorization-audit and 9 domain-audit rows.
+## TRACK116 — Atomic Payment Attachment Handling (2026-11-11)
+
+- Replaced the payment-document upload/record gap with a Director-gated attachment operation state machine (`PENDING -> FINALIZED` or `CLEANUP_PENDING -> CLEANED`). Each operation is bound to the authenticated actor, a caller idempotency key, payment request, filename, MIME type, byte size, and SHA-256 digest; payload-changing key reuse is rejected and concurrent retries lock/converge on one deterministic object path and metadata row.
+- Added guarded compensation through the official Storage API. Database cleanup authorization is established before object deletion, and the Storage delete policy permits only the owning authorized Director, only for an unfinalized `CLEANUP_PENDING` operation with no document link. Finalized documents are returned as idempotent success and cannot be deleted by compensation after a lost response.
+- Applied Preview migrations `track116_atomic_payment_attachments` and `track116_storage_cleanup_policy_fix`. The follow-up was required after live cleanup proved that a Storage policy cannot directly inspect the intentionally grant-revoked operations table; a narrowly scoped `private.portal_payment_attachment_cleanup_allowed` predicate now preserves default-deny table access while authorizing exact cleanup paths.
+- Failure-injection tests verified uploaded-object compensation after metadata recording failure, one-object/one-row convergence for concurrent same-key retries, and protection of a valid finalized object after simulated response loss. Focused authorization/supplier/financial/attachment contracts passed 22/22; `node --check api/mcp.js`, `npm run build`, and `git diff --check` passed.
+- Live disposable acceptance through protected Vercel Preview MCP verified authenticated sequential replay and simultaneous same-key attachment calls. Before cleanup, four operations were `FINALIZED` with four distinct document IDs, four Storage objects, zero inconsistent operations, and matching finalization audit entries. The temporary sole-Director identity had no staff scope or staff credential.
+- Cleanup used the authorized Storage API to remove all four disposable objects, then removed all disposable supplier/payment/execution/reconciliation/import/operation rows and the disposable Auth identity while retaining append-only audit evidence with the disposable actor anonymized. Final Preview checks found zero payment attachment objects, operations, or document rows, zero QA Auth users, one active original Director, and exactly one guarded cleanup policy. Supabase security/performance advisors were rerun; new notices are the intentional default-deny operations table and action-gated semantic functions, alongside pre-existing findings. Production was not changed.
+- Vercel Preview deployment `dpl_HviqmnMj3bmqWQwGbrwLcUx2khRD` was READY at `https://chamah-portal-4434ditnr-chamah.vercel.app` for live acceptance. A final Preview deployment is recorded in the TRACK116 completion report after the documentation/follow-up commit.
+
+## TRACK117 — Production Rollout Gate (2026-11-11)
+
+- Final status: **BLOCKED — Production was not changed**. Reviewed TRACK113–116, the current repository and migration state, linked Supabase project, final TRACK116 Preview deployment, canonical Vercel Production deployment, security advisors, Director-only grants, direct table access, and financial/attachment integrity.
+- Verified the final pushed TRACK116 commit `e6366a65edeb468163ea091f191232a9adabedcf` is served by READY Preview deployment `dpl_GdFk5ZRbVqof3Y8Vrk9aZmj4RQ94`. The canonical Production hostname still resolves to READY rollback deployment `dpl_BcwrvQk7M9V15YH4yz9nCXy8EcXy`; no deployment, promotion, alias reassignment, migration, Edge Function, Auth setting, Storage object, role, or business row was changed.
+- Supabase migration inventory contains the TRACK113, TRACK114, and both TRACK116 migrations. Catalog checks found all 22 new supplier/payment/reconciliation actions granted only to `DIRECTOR`, one active Director, no direct anon/authenticated CRUD privileges on the 14 affected domain tables, RLS enabled on every affected table, one active guarded attachment cleanup policy, and the financial cron worker active.
+- Read-only integrity checks found zero allocation mismatches, zero attachment state/document inconsistencies, zero queued/running financial jobs, zero retained payment-attachment objects, and no execution over-allocation result. The only retained TRACK113 acceptance records are one archived supplier and one cancelled request for `123.45`, with allocations equal to the request amount; no QA migration or cleanup was performed.
+- Supabase health advisors returned no findings. Security advisors still report the documented intentional default-deny RLS-with-no-policy tables and action-gated authenticated `SECURITY DEFINER` RPCs, plus the pre-existing disabled leaked-password-protection setting. Performance findings remain advisory and were not changed in this rollout gate.
+- Blocking recovery evidence: `supabase backups list --remote=vyyfuaqmbxvfqgbfqooc` identified the linked project main branch as Production but returned `backups: null` and `pitr_enabled: false` (`walg_enabled: true`). Therefore no independently verified physical backup or PITR restore point exists for the database portion of the rollout, and database rollback readiness cannot be certified.
+- Additional migration-history risk: `supabase migration list --linked` shows schema changes applied under remote migration versions that differ from several checked-in local filenames, including TRACK110–116, alongside older local-only/remote-only entries. The required TRACK113–116 objects are present and verified, but migration-history parity is not clean enough to certify replay/rollback without reconciliation.
+- Per the TRACK stop condition, Production deployment and authenticated Production MCP smoke tests were not run after the failed backup/rollback gate. No staff access, real transfer, or QA data migration occurred.
+
+## TRACK117a — Production Recovery Readiness (2026-11-11)
+
+- Final status: **BLOCKED — recovery readiness is not yet sufficient to resume TRACK117**. No Production deployment, schema/data mutation, migration-history repair, Auth setting change, Storage mutation, staff access, real transfer, or QA data migration occurred.
+- Official Supabase guidance confirms that managed daily backups are available on Pro/Team/Enterprise, PITR is a paid add-on, free-tier recovery requires off-site logical `db dump` exports, and database backups preserve Storage metadata but not Storage object contents.
+- `supabase backups list --remote=vyyfuaqmbxvfqgbfqooc` still reports `backups: null`, `pitr_enabled: false`, and `walg_enabled: true`. The linked main branch therefore has no independently restorable managed backup/PITR point.
+- Dependency inventory found six Auth users, ten Auth sessions, three private Storage buckets, six custom Storage policies, and zero Storage objects/bytes. There are currently no binary Storage objects to export, but a valid logical backup must preserve database/Auth/Storage metadata and custom policies.
+- Prepared a user-only recovery directory at `C:\Users\User\Documents\Chamah-Recovery\TRACK117a-2026-11-11` with inherited ACLs removed and full control limited to the Windows user. The real logical dump failed before writing because Supabase CLI v3 requires Docker or Podman for `pg_dump`; neither container runtime nor native `psql`/`pg_restore` is installed. The resulting zero-byte file was removed, so no invalid backup artifact remains.
+- An isolated cost-free restore test could not be run because Docker/Podman and native PostgreSQL restore tooling are unavailable. Supabase branching/new-project restore is an alternative isolated environment but may be billable and was not created or priced without explicit organization/cost confirmation.
+- Read-only migration reconciliation found 80 local files and 84 remote history entries: 22 same-name migrations have different local/remote timestamps, one local migration (`mcp_readonly_scoped_rpcs`) has no remote-name match, and five remote migrations have no local-name match (`track028b_tuition_rates_collection_model`, `track029_supabase_keepalive`, `track054_explicit_table_grants`, `add_readonly_permission_scoped_mcp_daycare_rpc`, and `add_readonly_permission_scoped_mcp_staff_rpc`). Supabase compares timestamps, so the history is not clean even though TRACK113–116 schema objects are present.
+- Remote migration history was intentionally not repaired before a valid backup and isolated restore test. Official guidance confirms `migration repair` changes only the tracking table, not schema SQL; the safe next step is to capture and restore-test a complete logical backup, then reconcile exact local filenames/content to the authoritative remote history before any tracking-table repair.
+- Recovery/security validation remained stable: zero allocation mismatches, zero attachment inconsistencies, zero active financial jobs, zero Storage objects, one active Director, zero non-Director grants for TRACK113–116 actions, and no Supabase health findings. Security advisors still report intentional default-deny RLS tables/action-gated authenticated `SECURITY DEFINER` RPCs and the unresolved leaked-password-protection warning.
+
+## TRACK117b — Recovery & Migration Repair (2026-11-11)
+
+- Final status: **BLOCKED — recovery readiness is still insufficient to resume TRACK117**. No Production deployment, database/schema/business-data mutation, migration-history repair, Auth/Storage mutation, staff access, real transfer, or QA data migration occurred.
+- The approved PostgreSQL installation attempt downloaded the official PostgreSQL 17 installer through `winget` but stalled without presenting an installer window or installing files; it was stopped without a system change. A cost-free fallback used the official EDB PostgreSQL 17.11 Windows portable binaries. The archive SHA-256 was verified as `80379B2C04D51C30225532E0AE04509899141E9957ED096FE749D7FD9DF8F82F`, and `pg_dump`, `pg_restore`, and `initdb` are available in the user-only TRACK117a recovery directory.
+- A scoped custom-format logical dump was attempted with the short-lived linked-project PostgreSQL credentials and included `public`, `private`, `auth`, `storage`, and `supabase_migrations`. PostgreSQL rejected the dump while locking `auth` tables with `permission denied for schema auth`. The temporary CLI database role therefore cannot create a recovery-complete Auth backup. The zero-byte output was removed; no invalid or unencrypted backup artifact remains.
+- Because no complete logical backup could be created, AES-256 packaging and the required isolated restore test were not performed. A valid next attempt requires the existing PostgreSQL owner password or a restorable managed Supabase backup/PITR facility. Replacing the owner password or substituting API exports was rejected because that would change Production credentials or omit Auth password hashes and other database-only recovery state.
+- Current recovery scope remains six Auth users, ten Auth sessions, three private Storage buckets, six custom Storage policies, and zero Storage objects. Database backup can preserve Storage metadata but not binary Storage contents; there are presently no binary objects to export, but future recovery procedures must back them up separately.
+- Read-only statement hashing reconciled 79 same-name local/remote migrations. Only 33 are byte-equivalent after line-ending normalization; 46 differ and cannot be treated as equivalent without SQL-by-SQL proof. Eleven timestamp-drift pairs are exact-content matches: `mcp_full_access_daycares`, `mcp_private_permission_helper`, `portal_mcp_full_read_access`, `portal_mcp_full_read_policies`, `portal_mcp_policy_read`, `portal_policy_documents`, `portal_policy_published_title`, `portal_policy_safe_reads`, `portal_policy_secure_save`, `track111_storage_authorization_policy`, and `track111_approval_digest_schema`.
+- Eleven additional timestamp-drift pairs are not exact-content matches: `track030b_bank_upload_history`, `track102b_oauth_callback_relay`, `track102c_relay_service_role_grant`, `track110_authorization_mcp`, `track112_data_management_readiness`, `track112_mcp_audit_contract`, `track113_suppliers_payments`, `track114_financial_approval_reconciliation`, `track114_financial_fk_indexes`, `track116_atomic_payment_attachments`, and `track116_storage_cleanup_policy_fix`. The inventory also retains one local-only name (`mcp_readonly_scoped_rpcs`) and five remote-only names (`track028b_tuition_rates_collection_model`, `track029_supabase_keepalive`, `track054_explicit_table_grants`, `add_readonly_permission_scoped_mcp_daycare_rpc`, and `add_readonly_permission_scoped_mcp_staff_rpc`).
+- No local migration file was renamed and no remote migration-history row was repaired. Even the 11 exact timestamp-drift candidates were left unchanged because the mandatory complete backup/restore gate failed; blind replay and tracking-table-only repair remain unsafe while 46 same-name statement sets differ.
+- Read-only security and integrity evidence remains stable from the TRACK117/117a gate: one active Director, zero non-Director TRACK113–116 action grants, zero allocation mismatches, zero attachment inconsistencies, zero active financial jobs, zero Storage objects, and no Supabase health findings. The known disabled leaked-password-protection warning and intentional default-deny/action-gated `SECURITY DEFINER` advisor notices remain unresolved and unchanged.
+- TRACK117 must remain paused until authorized recovery credentials or a managed restorable backup permit a complete encrypted dump and isolated restore test. After that succeeds, each non-exact migration discrepancy must be proven against catalog/source effects before any narrowly scoped history repair; Production rollout and authenticated Production smoke tests remain prohibited until those gates pass.
+
+## TRACK117c — Existing Database Credentials Audit (2026-11-11)
+
+- Final status: **BLOCKED — no accessible existing PostgreSQL owner credential was found**. This was a read-only configuration and credential-location audit. No credential was printed or copied into the repository, and no Production deployment, database/Auth/Storage mutation, password reset, Vercel change, Supabase secret change, business-data access, or migration-history repair occurred.
+- Local configuration contains no `DATABASE_URL`, `DIRECT_URL`, `POSTGRES_PASSWORD`, `PGPASSWORD`, database-password equivalent, or populated PostgreSQL connection secret. The repository Supabase link stores project/organization metadata and a passwordless pooler endpoint only. Process and persistent Windows environment variables, Windows Credential Manager candidate targets, and PowerShell history candidate markers contained no PostgreSQL/Supabase database credential. Existing `.env.example` files contain only unrelated Google Sheets variable names.
+- The linked Vercel project was explicitly verified as `chamah/chamah-portal` (`prj_6IND7ee2E9s3KispBh6iBDWwQo6X`). Its Production environment has no environment variables, so Vercel does not hold an owner connection string or database password for this project.
+- Supabase's hosted Edge Function inventory contains the platform-injected `SUPABASE_DB_URL` plus API/JWKS variables. The authorized CLI exposes only names, timestamps, and one-way digests; it does not return the connection value. No checked-in Edge Function reads `SUPABASE_DB_URL`, and retrieving or testing it would require introducing/deploying new hosted code, which is a prohibited Production modification for this TRACK.
+- The platform-injected `SUPABASE_DB_URL` is therefore not an accessible backup credential. The only database connection material obtainable through the existing CLI session is the short-lived restricted connection already tested in TRACK117b; native `pg_dump` reached PostgreSQL but failed on `auth` with `permission denied for schema auth`. API secret/service-role keys bypass Data API RLS but are not PostgreSQL owner credentials and cannot produce a logical dump containing Auth password hashes and database-only state.
+- Auth-complete backup permission remains unverified for the inaccessible injected URL and disproven for every credential that is presently accessible. No valid encrypted logical backup or isolated restore exists, so TRACK117 remains blocked.
+- Safe recovery options, in order: (1) the user retrieves the existing database password from their own password manager/secure records and places it directly into a local `PGPASSWORD` session variable or secure prompt without sending it in chat; then run a read-only privilege probe followed by the encrypted dump/isolated restore workflow; (2) if the password is genuinely lost, explicitly authorize a Supabase database-password reset in a separate TRACK, first inventorying and updating every dependent connection because reset changes Production credentials; or (3) explicitly approve any plan/cost change needed for Supabase managed daily backups or PITR and restore into a separate project before relying on it. Supabase Support/organization administrators may help confirm plan/access, but an unrecoverable password still requires reset rather than extraction.
+- Required user action: choose option 1, 2, or 3. The safest cost-free path is option 1 if the existing password can be recovered. Until one option is authorized and a complete backup passes isolated restore, do not repair migration history or resume TRACK117 Production rollout.
+
+## TRACK117d — Database Password Rotation Readiness (2026-11-11)
+
+- Final status: **CONDITIONALLY READY FOR A SEPARATELY AUTHORIZED ROTATION; TRACK117 REMAINS BLOCKED**. This TRACK performed read-only dependency discovery and prepared the runbook only. No password was reset, exposed, generated, stored, or tested; no Production/Preview deployment, database/Auth/Storage mutation, Supabase/Vercel/GitHub configuration change, business-data access, or cost was incurred.
+- Repository and package inspection found no PostgreSQL driver/ORM, direct connection string, `SUPABASE_DB_URL`, `DATABASE_URL`, `DIRECT_URL`, `PGPASSWORD`, or database-password consumer. Portal Vercel APIs and the protected MCP use Supabase HTTP APIs with caller JWT/publishable credentials; deployed Supabase functions use `SUPABASE_URL` with platform-managed anon/service-role credentials. Those API credentials are distinct from the `postgres` role password.
+- All nine active deployed Edge Functions were inspected from their deployed source: `portal-users`, `portal-settings`, `portal-bank-workbench`, `portal-workforce-workbench`, `portal-bank-transfer-workbench`, `portal-runtime-config`, `portal-mcp-readonly`, `portal-mcp-server`, and `portal-oauth-callback-relay`. None references `SUPABASE_DB_URL`, another direct database URL, or a PostgreSQL password. Supabase still injects `SUPABASE_DB_URL` as platform metadata, but it has no application consumer in this project.
+- Vercel project `chamah/chamah-portal` was revalidated. Its complete environment inventory is empty across Production, Preview, and Development, so no Vercel deployment depends on the owner password. Supabase has no preview database branch; both current Preview application validation and the eventual Production frontend point at the same linked Supabase main project. Password rotation is therefore one shared-backend credential event, not separate Preview/Production rotations.
+- Database-side metadata was checked twice with identical results: zero active sessions using the `postgres` role, no Vault secrets, no foreign servers, no user mappings, and zero cron jobs whose commands contain PostgreSQL connection-string/password markers. Login roles are Supabase platform roles plus `postgres` and an expired temporary `cli_login_postgres`; no custom application login role was found. Supabase Auth, PostgREST, Realtime, and Storage use their own managed roles/pools and are not repository-configured with the owner password.
+- No `.github` workflow exists and the installed environment has no GitHub CLI. The connected GitHub integration intentionally cannot read repository-secret endpoints, so GitHub secret names could not be externally enumerated. With no workflow, no checked-in GitHub Actions path consumes a database password; a dormant secret could still exist and must be checked manually before rotation. The same discovery limit applies to user-managed clients outside the project, including password managers, `psql`, DBeaver/TablePlus, BI/reporting tools, n8n/Zapier/Retool, personal scripts, external hosts, and vendor integrations.
+- Rotation impact is low for the deployed application but potentially high for any undisclosed direct client. After reset, every direct/session/transaction-pooler connection using `postgres` and the old password fails. Supavisor may briefly return `28P01` while credentials refresh; repeated stale-password attempts can trigger a roughly two-minute circuit breaker that keeps extending if the client continues retrying. Official guidance recommends stopping stale clients, validating the new password by direct connection first, then retrying the pooler, and avoiding multiple rapid resets.
+- Prepared pre-rotation gates: the user must manually certify the external-client checklist and GitHub Actions secret names; choose a maintenance window; approve the credential-only risk while no complete restorable backup exists; ensure Dashboard Owner/Administrator access and Supabase account MFA; prepare the verified PostgreSQL 17.11 tools and locked recovery directory; choose a generated high-entropy password stored directly in a password manager; and explicitly authorize a separate rotation TRACK. Never send the password in chat, CLI arguments, SQL, source control, logs, or documentation.
+- Prepared execution order for the authorized TRACK: stop all identified direct clients/retry loops; reset only through Supabase Dashboard Database Settings or the Management API, never `ALTER ROLE`; store the new value immediately in the password manager; wait for propagation; validate one direct TLS connection as `postgres`; run read-only privilege probes for `auth`, `storage`, and `supabase_migrations`; retry the session pooler cautiously; then create the encrypted Auth/Storage-complete logical backup and perform the isolated local restore before any migration repair or Production rollout.
+- Prepared post-rotation validation: compare schema/table and Auth/Storage metadata counts between source and isolated restore; confirm Auth login/session refresh, Storage bucket metadata, Supabase REST/RPC, all nine Edge Functions, Preview MCP, canonical Production read-only availability, one active Director, and financial/attachment integrity without staff access, real transfers, or QA data migration. Confirm Vercel has no new database secret and monitor Postgres/pooler/Auth/Storage/Function logs for authentication failures without printing connection strings.
+- Prepared recovery behavior: if direct login fails, stop retries and verify the password/connection endpoint rather than rotating again; if direct works but Supavisor fails, wait for its credential cache/circuit breaker to clear and retry once; if any undisclosed client fails, keep it stopped until its secure store is updated and validated. A password reset cannot be rolled back to an unknown old value. If the new password is lost or the platform does not converge after direct validation, stop and contact Supabase Support before any further reset.
+- Exact user actions required before rotation: (1) inspect GitHub repository/environment/organization Actions secrets for database URL/password names; (2) identify or certify absent every external direct PostgreSQL client and its owner; (3) confirm a maintenance window and authorized operator with Dashboard Owner/Administrator access and MFA; (4) confirm secure password-manager storage and a private local method for supplying `PGPASSWORD`; (5) explicitly approve the reset despite the current lack of a restorable backup; and (6) authorize the separate execution TRACK. Until all six are confirmed, do not rotate and do not resume TRACK117.
+
+## TRACK117e — Database Password Rotation & Recovery Checkpoint (2026-11-11)
+
+- Current status: **PAUSED AT THE REQUIRED USER-CONFIRMATION AND DASHBOARD-AUTHENTICATION GATE**. No database password was reset, entered, generated, exposed, or stored; no Production deployment, schema/data/Auth/Storage mutation, credential/configuration change, staff access, or cost occurred.
+- Revalidated the TRACK117d technical prerequisites. The verified portable PostgreSQL 17.11 `pg_dump`, `pg_restore`, and `initdb` tools remain available in the user-only recovery directory. The linked Supabase project still reports no managed backup, no PITR, and no Preview branch. Repository state remains unchanged apart from this audit record.
+- Read-only database readiness found zero active `postgres` sessions, six Auth users, ten Auth sessions, three Storage buckets, zero Storage objects, and one active Director assignment. The initial readiness query used an incorrect role-assignment table name and failed without side effects; the corrected query succeeded and returned the stated baseline.
+- Opened the exact Supabase Database Settings URL for project `vyyfuaqmbxvfqgbfqooc`. The browser reached Supabase's sign-in page rather than authenticated project settings. Authentication was not automated, and no rotation control was opened or activated.
+- Rotation cannot proceed until the user personally signs in to the Supabase Dashboard and explicitly confirms all TRACK117d prerequisites: GitHub secret review, absence or shutdown of external PostgreSQL clients, authorized maintenance window/operator with MFA, secure password-manager storage, private local password transfer, and acceptance that no pre-rotation restorable backup exists.
+- After confirmation, the safe execution remains: user performs the final password-change submission in the Dashboard; validate direct TLS owner connectivity without logging the password; run Auth/Storage/migration privilege probes; cautiously validate the session pooler; create an encrypted Auth-complete logical backup; restore it into an isolated local PostgreSQL environment; compare schema and metadata counts; and stop immediately on any connectivity, dump, encryption, or restore failure. TRACK117 remains blocked until this evidence exists.
+
+## TRACK117e — Database Password Rotation & Recovery Attempt (2026-11-11)
+
+- Final status: **BLOCKED — isolated restore failed and execution stopped**. The user reported that the database password had been manually rotated and securely stored. No Production deployment, schema/data/Auth/Storage mutation, migration-history repair, staff access, real transfer, QA data migration, or cost occurred during validation.
+- Used a user-created Windows DPAPI credential artifact for local handoff. The password was never printed, passed as a command-line argument, written to source control, or sent through chat. The first local conversion attempt rejected the serialized ciphertext because its trailing line ending was included; no network connection occurred. After trimming only the ciphertext line ending, DPAPI decryption succeeded in memory and all plaintext variables, `PGPASSWORD`, and unmanaged BSTR memory were cleared after each use.
+- PostgreSQL owner connectivity succeeded over TLS through the linked session pooler as both `current_user=postgres` and `session_user=postgres`. Read-only privilege probes confirmed `USAGE` on `auth`, `storage`, and `supabase_migrations`, plus `SELECT` on `auth.users` and `storage.objects`. This proves the rotated owner credential is valid and sufficient for an Auth/Storage-complete logical dump.
+- Created a PostgreSQL 17.11 custom-format logical dump with compression, no owner/ACL replay, and schemas `public`, `private`, `auth`, `storage`, `supabase_migrations`, and `extensions`. The plaintext dump was 1,180,300 bytes with SHA-256 `41929EC515A34B75836A360AB3D9586C6BA798C87611FE77A6F264486C3CE996`. TOC verification found the required `auth.users`, `auth.sessions`, `storage.buckets`, `storage.objects`, and migration schema/data entries.
+- Encrypted the dump with Windows DPAPI CurrentUser protection inside the user-only recovery directory. A decrypt/re-encrypt round-trip reproduced the exact plaintext SHA-256. The retained encrypted artifact is `C:\Users\User\Documents\Chamah-Recovery\TRACK117a-2026-11-11\chamah-production-auth-storage-20261111-115227.backup.dpapi`, 1,180,518 bytes, encrypted-file SHA-256 `CF6136E4450B74BEF6EDF86E388B76652A42E2EEB141CDA3E0D2E487B03ED17F`. Recovery limitation: DPAPI decryption is bound to this Windows user profile and its DPAPI master keys; an independent off-device recovery key does not yet exist.
+- Initialized a PostgreSQL 17.11 localhost-only isolated cluster under the Windows temporary directory, created a dedicated restore database, prepared Supabase role names and common extension dependencies, and started restore with `--exit-on-error`, no ownership, and no privileges. Restore stopped at its first schema collision: `ERROR: schema "public" already exists`, because a fresh PostgreSQL database creates `public` while the dump correctly contains `CREATE SCHEMA public`.
+- Per the explicit stop-on-failure requirement, no adjusted restore, retry, data comparison, or broader Production service smoke test was attempted. The local PostgreSQL server was stopped. The plaintext dump, decrypted restore database/directory, schema-inspection file, and DPAPI password artifact were removed. Post-cleanup verification found only the encrypted backup remaining.
+- Production data and services were not modified. Owner connectivity is verified and an encrypted Auth-complete backup artifact exists, but restorable recovery is not certified until a new approved attempt restores into an isolated database prepared without the default `public` schema (or uses an equivalently reviewed TOC adjustment), validates row/schema counts, and completes non-destructive service checks. TRACK117 remains blocked.
+
+## TRACK117f — Isolated Restore Correction Attempt (2026-11-11)
+
+- Final status: **BLOCKED — stopped on an unexplained isolated PostgreSQL runtime discrepancy before restore**. No Production deployment, schema/data/Auth/Storage mutation, credential rotation, new Production backup, migration-history repair, staff access, real transfer, QA data migration, or cost occurred.
+- Verified the preserved encrypted artifact before decryption. Its size remained 1,180,518 bytes and SHA-256 exactly matched TRACK117e: `CF6136E4450B74BEF6EDF86E388B76652A42E2EEB141CDA3E0D2E487B03ED17F`. Windows DPAPI decryption in memory reproduced the expected plaintext dump SHA-256 `41929EC515A34B75836A360AB3D9586C6BA798C87611FE77A6F264486C3CE996`. The original encrypted file was never modified.
+- Initialized a fresh PostgreSQL 17.11 cluster in a new Windows temporary directory and planned the corrected restore exactly as approved: create a dedicated database, drop only its default `public` schema, prepare required Supabase role names/common extensions, leave the dump unchanged, and use `pg_restore --exit-on-error --no-owner --no-privileges` with a restore TOC that only avoids recreating the separately prepared `extensions` schema.
+- The first orchestration session verified/decrypted the artifact and initialized the cluster, but its shell-owned PostgreSQL process ended before database creation; the cluster still contained only PostgreSQL's default databases and no restore had run. A controlled restart then encountered a stale server marker. After a read-only readiness probe briefly reported the localhost port accepting connections, the immediately following `psql` connection failed with Windows socket `Permission denied (10013)`. No `pg_restore` invocation reached the target database.
+- This inconsistent localhost process/socket state was not safely explainable within the stop-on-discrepancy requirement. Work stopped without attempting another server start, restore, TOC change, count comparison, Production integrity query, or Auth/MCP/portal smoke test.
+- Cleanup stopped any isolated PostgreSQL process and removed the temporary decrypted dump, cluster, logs, and restore files. Post-cleanup verification found the temporary directory absent and the encrypted artifact present with its original SHA-256.
+- Recovery certification remains incomplete: no restored schema/table/row evidence exists and Production-versus-snapshot comparison was not performed. The backup is also not independently recoverable if this Windows profile and its DPAPI master keys are lost; a separate portable encryption key/off-device copy or managed restore facility is still required.
+- TRACK117 remains blocked. Migration-history blockers remain those recorded in TRACK117b: 46 non-byte-equivalent same-name migrations, including 11 non-equivalent timestamp-drift pairs, plus one local-only and five remote-only migration names. No migration history should be repaired and no Production deployment should be recommended until isolated restore and integrity/service validation succeed.
+
+## TRACK117g — Stable Isolated Restore Runtime Gate (2026-11-11)
+
+- Final status: **BLOCKED — no stable isolated PostgreSQL runtime is installed; stopped before decryption or restore**. No Production deployment, database/Auth/Storage mutation, credential rotation, new Production backup, migration change, staff access, real transfer, QA data migration, or cost occurred.
+- Revalidated the unchanged TRACK117e Windows-DPAPI artifact at `C:\Users\User\Documents\Chamah-Recovery\TRACK117a-2026-11-11\chamah-production-auth-storage-20261111-115227.backup.dpapi`. It remains 1,180,518 bytes with SHA-256 `CF6136E4450B74BEF6EDF86E388B76652A42E2EEB141CDA3E0D2E487B03ED17F`, exactly matching the TRACK117e/117f evidence. The encrypted artifact was not modified and no plaintext copy was created.
+- Runtime inventory found no Docker CLI/daemon and no Podman installation. `wsl.exe` exists only as the Windows launcher; both `wsl --status` and `wsl --list --verbose` report that Windows Subsystem for Linux is not installed, so there is no usable Linux distribution or container backend.
+- Per the instruction to stop troubleshooting the unstable native Windows PostgreSQL runtime, that runtime was not restarted or reused. Restore preparation, `pg_restore`, restored-data validation, Production comparison, integrity queries, and service smoke tests were not attempted because the required stable isolation gate did not pass.
+- The reliable cost-free path is an explicitly approved system-level installation of WSL 2 and Docker Desktop (or an approved equivalent Linux container engine), followed by a PostgreSQL 17 container readiness/health gate before decrypting the preserved artifact. Installation may require Administrator elevation, virtualization support, download/network access, acceptance of Docker Desktop's applicable license terms, and a Windows restart.
+- The backup remains DPAPI CurrentUser-bound and is not independently recoverable if this Windows profile and its DPAPI master keys are lost. A portable AES-256 copy must not be represented as prepared until the existing dump restores successfully and the user supplies a new recovery passphrase through a secure local handoff. No cloud upload is authorized or planned without separate explicit approval.
+- TRACK117 remains blocked. After runtime approval and successful restore certification, the remaining migration-history blockers are still those recorded in TRACK117b: 46 non-byte-equivalent same-name migrations, including 11 non-equivalent timestamp-drift pairs, plus one local-only and five remote-only migration names. No migration history repair or Production deployment is ready.
+
+## TRACK117g — Runtime Installation Readiness (2026-11-11)
+
+- Current status: **READY FOR USER APPROVAL OF SYSTEM CHANGES; NO INSTALLATION STARTED**. This checkpoint performed read-only compatibility, capacity, service, restart-state, and licensing research only. No Windows feature, security setting, service configuration, application, license, backup, database, Supabase project, Preview, or Production state was changed.
+- The host satisfies Docker Desktop's documented WSL 2 hardware and operating-system baseline: Windows 11 Pro x64 build 26200, 13th-generation Intel Core i7-1355U, 64-bit addressing, SLAT and VM-monitor extensions present, firmware virtualization enabled, 31.64 GB RAM, and 341.96 GB free on the 475.76 GB NTFS system volume. The required Windows Server (`LanmanServer`) service is running with automatic start. No active hypervisor is presently detected because WSL/Virtual Machine Platform is not installed.
+- The Windows launcher `wsl.exe` exists, but WSL reports that the subsystem is not installed. Docker and Podman remain absent. The supported preferred path is therefore WSL 2 followed by the current x86-64 Docker Desktop per-user installation using the WSL 2 backend.
+- A pending-file-rename queue exists for Chrome/Windows Installer temporary paths, although the Component Based Servicing and Windows Update reboot-required markers are absent. Because WSL feature enablement itself normally requires a restart, the installation plan must include one controlled reboot rather than attempting to reuse the current session.
+- Docker's current terms require license acceptance during download/installation. Docker Desktop is documented as free for personal use, education, non-commercial open source, and small businesses with both fewer than 250 employees and less than USD 10 million annual revenue. Professional use in a larger organization, government use, or commercial use outside those limits requires a paid Docker subscription. The user must identify the applicable category before installation; the project must not infer eligibility or accept terms on the user's behalf.
+- Exact proposed actions awaiting approval: (1) user confirms Docker Desktop license eligibility or an existing paid entitlement; (2) run elevated `wsl.exe --install --no-distribution` to enable WSL and Virtual Machine Platform without adding a general-purpose Linux distribution; (3) reboot Windows once; (4) verify WSL 2.1.5 or later, virtualization, and feature state; (5) download the signed current Docker Desktop x86-64 installer from Docker; (6) user reviews/accepts Docker's terms; (7) install Docker Desktop in recommended per-user mode with WSL 2 Linux containers; (8) start Docker Desktop and verify engine health; (9) pull the official PostgreSQL 17 image; and only then resume unchanged-backup checksum, container stability, restore, validation, cleanup, and portable AES-256 preparation. No backup data will be uploaded.
+- The original DPAPI artifact remains untouched. Restore certification and Production read-only checks remain deferred until the approved runtime installation is complete. No migration history repair or Production deployment is authorized.
+
+## TRACK117g — WSL 2 Feature Installation Checkpoint (2026-11-11)
+
+- Current status: **PAUSED BEFORE REQUIRED REBOOT**. The user approved the previously documented WSL 2 and Docker Desktop installation plan. No Docker download, Docker license acceptance, backup decryption, restore, Production access, cloud upload, migration change, or deployment occurred at this checkpoint.
+- The host's legacy `wsl.exe` supports only bare `--install` and rejected the documented `--no-distribution` option without changing state. To avoid an unnecessary Ubuntu installation, used Microsoft's minimal manual feature path instead.
+- Windows Administrator/UAC-approved DISM operations enabled `Microsoft-Windows-Subsystem-Linux` and `VirtualMachinePlatform`, each with `/all /norestart`. Both returned exit code `3010`, confirming successful feature enablement with one reboot required. No reboot was initiated automatically.
+- Work is intentionally paused for the user to save open work and explicitly approve or manually perform the reboot. After restart, verify feature state and WSL version before downloading Docker Desktop. Notify the user again before Docker's license-acceptance step.
+- The unchanged TRACK117e encrypted artifact remains untouched and no plaintext was created. Docker remains scoped to isolated restore verification rather than becoming a permanent backup dependency.
+
+## TRACK118 — Full Director MCP Capability Audit (2026-11-11)
+
+- Completed a documentation-only audit of the current portal, Vercel APIs, Supabase schema/RPCs/Edge Functions, Director MCP implementation, deployment evidence, and tests. Added `docs/audits/TRACK118.md` with a capability matrix covering Director authorization, organization, documents, workforce, assignments, pay terms, certificates, leave, imports, payroll, budgeting, occupancy, banking, suppliers, payments, attachments, reconciliation, reporting, data quality, master data, audit, and asynchronous work.
+- Confirmed `api/mcp.js` exposes 41 closed semantic Director tools and no unrestricted SQL, generic table selector, or service-role credential. Existing strengths include server-side Director/action gating, caller-derived identity, approvals, optimistic concurrency, idempotency, private Storage, atomic financial validation, append-only audit/lifecycle evidence, and durable statement-import/matching jobs.
+- Identified the principal capability gaps: no MCP coverage for employment/assignment/pay-term/eligibility/certificate/leave workflows, payroll lifecycle/rows/allocations, Budget/configuration/master-data mutation, banking assignments, legacy transfers, user/role administration, broad reporting/export, audit search, or generalized asynchronous imports/jobs.
+- Recorded that TRACK115 used a custom Node/Vercel JSON-RPC runner, not ChatGPT itself. Actual ChatGPT MCP OAuth discovery, consent, tool discovery, execution, refresh/revocation, file handling, asynchronous polling, and structured-result behavior remain unverified and are the highest-priority acceptance gap.
+- Recommended a phased plan: first prove the real ChatGPT Preview boundary and clear TRACK117 recovery gates; then add workforce parity, payroll parity, Budget/configuration/master data, complete finance/documents/reporting, and finally Director administration/operational hardening through shared semantic query/command services.
+- No application code, calculation, API contract, migration, database, Edge Function, Vercel deployment, Supabase setting, Production alias, or business record was changed. Application build and Playwright validation were not required for this Markdown-only task; documentation scope and diff integrity were checked separately before completion.
+
+## TRACK119 — Enable Direct ChatGPT Data Management (2026-11-11)
+
+- Status: **BLOCKED at isolated Preview database provisioning; Production unchanged**. Corrected the remote MCP transport so each Vercel Preview advertises its own protected-resource URL instead of the canonical Production MCP URL. Added per-tool OAuth security declarations, read/write/destructive annotations, and the standard authenticated-profile tool required for current ChatGPT plugin discovery and account identity.
+- Pushed implementation commit `777487951335a7468ae90424f0f23b76de900862` on `codex/track119-chatgpt-mcp` and deployed READY Vercel Preview `dpl_GYuorEniP4jqqQEm3KuzYZNEhQBC` at `https://chamah-portal-pces0e9rn-chamah.vercel.app`. Added a protection exception for that exact Preview hostname only. Public verification returned dynamic Preview resource metadata, while the MCP endpoint continued to return an OAuth `WWW-Authenticate` challenge and enforce authenticated active-Director authorization in application code.
+- The required database-isolation gate failed before any migration: Supabase account inspection found one visible project, `vyyfuaqmbxvfqgbfqooc` (`chamah-manager`), zero development branches, and the current Preview/Production code both referencing that project. No TRACK119 migration was applied to it. Supabase development-branch creation was unavailable because the organization is not on Pro.
+- The user approved a separate isolated project only if its confirmed cost remained `$0/month`. Supabase reconfirmed `$0/month` immediately before provisioning, but rejected project creation because an organization administrator/owner had reached the two-active-free-project limit. No paid upgrade, pause, deletion, project, schema, synthetic fixture, Auth identity, environment variable, Edge Function, or database row was created or changed.
+- Consequently, actual ChatGPT OAuth consent, tool discovery, authenticated read, document ingestion, and controlled write acceptance were not run: doing so would have connected ChatGPT to the shared non-isolated Supabase project and violated the explicit isolation/no-sensitive-data requirement. The existing 41 business tools plus `get_profile` remain transport-ready, but workforce/payroll/daycare approval-gated ingestion was not implemented or applied because no authorized isolated database exists.
+- Validation completed: `node --check` for both MCP handlers; focused OAuth/MCP/authorization/data-management/supplier/payment/reconciliation/attachment contracts passed 31/31; `npm run build`; `git diff --check`; public Preview metadata HTTP 200; unauthenticated MCP HTTP 405 with the correct Preview-specific OAuth challenge. No Production deployment, alias, database, Auth, Storage, or data was modified.
+
+## TRACK119 — Isolated Preview, Daycare Ingestion, and ChatGPT MCP Acceptance (2026-11-11)
+
+- Final status: **READ-ONLY CHATGPT ACCEPTANCE PASSED; CONTROLLED WRITE ACCEPTANCE AWAITS SEPARATE EXPLICIT APPROVAL**. Production remained unchanged. The previously approved unused Supabase project `jnwteuroiinhrycslfpg` was deleted only after a final read-only audit found no application tables, Auth users/sessions, Storage buckets/objects, Vault secrets, custom Edge Functions, or active external dependencies.
+- Created the isolated Supabase Free-plan project `chamah-manager-preview` (`iwsbjudahtjyigecymzd`) with Nano compute and no paid upgrade. Replayed the complete schema into this project only, corrected duplicate migration-version ordering for fresh replay, enabled `pg_cron` before dependent migrations, deployed all nine matching Edge Functions, and linked local Preview configuration exclusively to the new project. No Production schema, Auth, Storage, function, secret, or data was copied or changed.
+- Added approval-gated daycare ingestion infrastructure: `DAYCARE.READ` and `DAYCARE.IMPORT`; RLS-protected ingestion batches; read/search, preview, approval-request, and atomic commit RPCs; 1–100-row bulk validation; idempotency; duplicate, license-conflict, stale-version, and invalid-row reporting; short-lived Director approval bound to the exact staged batch; audit evidence; and associated allocation-unit creation for new daycares. Added matching MCP tools and automated contract coverage. Only synthetic organization and Director fixtures were created.
+- Added Preview-specific Supabase URL and publishable-key injection for static builds and MCP OAuth metadata, while retaining the existing Production fallback in source. Scoped both Vercel Preview environment variables only to Git branch `codex/track119-chatgpt-mcp`. Deployed READY Preview `dpl_B4hWVCXXeNd46gVSKXVFJNdLzV7N` at `https://chamah-portal-4dcdo3f5g-chamah.vercel.app` from commit `6e2f739f28db40b2bf63aa1474fb77c83fda28fa`.
+- Configured Vercel Deployment Protection so the sole unprotected domain is `chamah-portal-4dcdo3f5g-chamah.vercel.app`. Restored protection for the superseded `chamah-portal-pces0e9rn-chamah.vercel.app`; verification returned a Vercel SSO `302` for the old URL. All other Preview deployments remain protected.
+- Enabled the OAuth server only in Supabase Preview and created one manually registered public OAuth client named `Chamah Director Preview - ChatGPT`, restricted to the exact callback `https://chatgpt.com/connector/oauth/R_13e1TGaZyM`. The client uses Authorization Code with PKCE, token-endpoint authentication `none`, no client secret, dynamic registration disabled, and ChatGPT defaults limited to `openid` plus `email`. The consent application and discovered authorization/token/OIDC/userinfo endpoints all point exclusively to `iwsbjudahtjyigecymzd`; the portal independently enforced the active Director profile.
+- Completed actual ChatGPT acceptance through the ChatGPT plugin UI rather than a custom JSON-RPC runner. ChatGPT installed and connected `Chamah Director Preview`, completed Director OAuth consent, discovered the MCP tools, executed `get_profile`, identified `TRACK119 Synthetic Director`, then executed `search_daycares` with an empty query and limit 10 and returned zero rows from the isolated synthetic database. The ChatGPT result explicitly reported both exact discovered tool names and a passed read-only acceptance test. No preview/import/approval/commit/update tool was called.
+- Post-acceptance security verification returned HTTP 200 for public protected-resource discovery with resource `https://chamah-portal-4dcdo3f5g-chamah.vercel.app/api/mcp` and authorization server `https://iwsbjudahtjyigecymzd.supabase.co/auth/v1`; an unauthenticated MCP POST returned HTTP 401 with `Director sign-in is required`; the old Preview returned Vercel SSO; and canonical Production `https://chamah-portal.vercel.app` continued to return HTTP 200 from its existing cached deployment. No secret or token was printed or committed.
+- Validation completed: `node --check api/mcp.js`; `node --check api/mcp-oauth-metadata.js`; `node --check scripts/build.mjs`; focused TRACK110/TRACK112/TRACK119 and OAuth reconciliation tests passed 16/16; `npm run build`; `git diff --check`; complete migration replay; nine-function deployment inventory; actual ChatGPT OAuth/tool execution; Vercel exception inventory; old-Preview protection probe; public discovery; unauthorized-access rejection; and canonical Production read-only probe.
+- Remaining acceptance scope: write-capable ChatGPT tests were intentionally not run because the user explicitly withheld write approval. The implemented flow is ready for a separate synthetic-only acceptance that stages a daycare file, reports duplicates/conflicts, requests Director approval, commits only after that approval, and verifies the resulting row and audit evidence.
+
+## TRACK119b — ChatGPT MCP Controlled Daycare Write Acceptance (2026-11-11)
+
+- Root cause of the failed `commit_daycare_import`: the TRACK119 commit RPC inserted `audit_events.operation = 'MCP_IMPORT'`, while the canonical `audit_events_operation_check` permits `MCP_CREATE` and `MCP_UPDATE` but not `MCP_IMPORT`. PostgreSQL therefore rejected the audit insert and rolled back the daycare write, approval consumption, and batch commit atomically. Live Preview evidence confirmed the failed approval remained unconsumed and its batch remained uncommitted.
+- Applied forward-only Preview-only migration `20261111195638_track119b_daycare_matching_and_audit_fix.sql` to isolated project `iwsbjudahtjyigecymzd`. The commit RPC now records the supported operation for each actual create/update. The preview RPC now exposes `CREATE`, `UPDATE`, `SKIP`, and `CONFLICT`, matches by stable `daycare_code` and `license_number` instead of names, reports `STABLE_IDENTIFIER_CONFLICT` and `AMBIGUOUS_STABLE_IDENTIFIERS`, requires an expected row version for changes, and rechecks identifiers/version at commit time.
+- Completed actual ChatGPT plugin execution against `Chamah Director Preview`. ChatGPT staged and committed an explicitly approved two-row synthetic create batch, then read back both rows. A separate explicitly approved update advanced `TRACK119B_ALPHA` from row version 1 to 2. The exact duplicate preview returned `SKIP`; a changed record without expected version returned `CONFLICT`; a valid expected-version change returned `UPDATE`; a new record returned `CREATE`; and a daycare-code/license pair pointing to different existing rows returned `AMBIGUOUS_STABLE_IDENTIFIERS`. No conflict, skip, ambiguous, or new-record preview was committed without Director approval.
+- Direct Preview database verification found only the approved synthetic rows (`TRACK119B_ALPHA` version 2 and `TRACK119B_BETA` version 1), three matching MCP audit events (two `MCP_CREATE`, one `MCP_UPDATE`), two consumed approvals for the successful batches, and no committed `TRACK119B_GAMMA`. Unapproved batches remained `READY` or `CONFLICTS` with null approval/commit values.
+- Added synthetic CSV fixtures for valid and within-file duplicate cases. Native ChatGPT file-attachment automation remains unverified because the Chrome extension file chooser could not access the local fixture without the additional local-file URL permission, which the user explicitly declined to enable. No permission was broadened; structured MCP ingestion and controlled writes were tested successfully, but native attachment-to-MCP handoff remains the sole TRACK119b acceptance blocker.
+- Validation completed: 17/17 focused OAuth/MCP/authorization/ingestion tests; `node --check` for both MCP handlers; `npm run build`; `git diff --check`; linked migration parity; actual ChatGPT create/update/read/duplicate/conflict/ambiguous execution; direct database/audit/approval/batch verification; public Preview discovery HTTP 200; unauthenticated MCP HTTP 401; superseded Preview HTTP 302; canonical Production HTTP 200. Production was not modified or deployed.
+
+## TRACK119b Closure and Production Operational Readiness Audit (2026-11-11)
+
+- Closed TRACK119b based on the user's completed manual native ChatGPT attachment test: ChatGPT successfully read the uploaded CSV files and submitted parsed records through the isolated Preview MCP ingestion tools. Documented that the accepted workflow is parsed-record ingestion; direct transfer or retention of the original binary is a separate optional capability and Chrome automation file access is not an operational blocker.
+- Added `docs/audits/TRACK119-production-operational-readiness.md`, a read-only audit of canonical tables, current portal and MCP coverage, authorization boundaries, actual blockers, and the shortest Preview-first path to operational use.
+- Confirmed the canonical schema already supports employees, employments, assignments, pay terms, compensation eligibility, certificates, leave, payroll, banking, suppliers, payments, and daycare data. Person-level children remain unmodeled; `monthly_enrollment` contains aggregate counts only.
+- Confirmed the minimum workforce gap is semantic MCP parity and approval-bound ingestion, not a schema rewrite. Current employee MCP import writes immediately and is create-only; relationship read-back and employment/assignment/pay-term/certificate/leave commands are absent. The recommended implementation reuses the TRACK119b batch/preview/approval/commit pattern and existing workforce validation.
+- Confirmed institution-level read-only RPC scoping exists for daycare/staff reads, but the MCP transport currently rejects all non-Director users before tool discovery. Recommended a role-based read-only tool allowlist with database scope checks retained and all write tools hidden/denied.
+- No application code, schema, RLS, OAuth setting, database record, Vercel deployment, Preview infrastructure, or Production resource was changed. Documentation-only validation checked implementation evidence, scope, and diff integrity; application build and UI tests were not required.
+
+## TRACK120 — Final ChatGPT Portal Administration & Operational Readiness (2026-11-12)
+
+- Implemented a closed, approval-bound mixed-domain MCP workflow over canonical Preview tables. Director tool discovery now exposes operational catalog/read-back plus preview, exact approval, atomic commit, and batch verification; active non-Director users discover only the existing institution-scoped read tools. Legacy direct write tools are hidden from MCP discovery so sensitive changes cannot bypass preview and approval.
+- Added canonical operational coverage for employees, employments, assignments, certificates, pay terms, compensation eligibility, leave, payroll records, payroll allocations, bank allocations, suppliers, and payment requests. Stable identifiers, duplicate/conflict reporting, expected row versions, idempotency, one-time expiring approval, commit-time concurrency checks, transaction rollback, authorization audit, and record audit lineage are enforced in database functions.
+- Applied forward-only Preview migrations through `20261112033512` to isolated Supabase project `iwsbjudahtjyigecymzd`. Fixed four defects found during actual acceptance: pgcrypto digest resolution, ingestion-domain constraint coverage, invalid audit foreign-key lineage, and missing row-version increments. Local applied migration history was preserved; corrections remain in separate forward migrations.
+- Actual synthetic Preview acceptance created employee `TRACK120_EMP` and supplier `TRACK120_SUP` in one mixed-domain batch, corrected the employee through a second approved batch, and verified the persisted correction (`TRACK120 correction and version verified`, row version 2), committed batches, approvals, and four MCP audit records. Stale-version commit testing proved rejection with canonical data unchanged. Institution-scoped read testing proved assigned-daycare visibility and cross-daycare denial inside a rollback-only fixture; no additional user was activated.
+- Validation passed: 20/20 focused authorization/MCP/ingestion/finance tests, migration parity, `node --check api/mcp.js`, build, and diff checks. Supabase advisors completed; TRACK120 functions are not anonymously executable, while the advisor still reports broad pre-existing authenticated SECURITY DEFINER warnings and leaked-password protection disabled. Performance findings are pre-existing RLS init-plan warnings.
+- Repository-wide `npx playwright test` remains blocked by the existing mixed Node/Playwright test-runner configuration, which loads incompatible suites and exits with `test() did not expect test() to be called here` / `No tests found`. Targeted suites remain reliable.
+- Deployed Preview `dpl_HEAzs9oSsJogUMrjW8vVz9ZDwnqZ` at `https://chamah-portal-8465o7emj-chamah.vercel.app` and assigned `https://chamah-track120-preview.vercel.app`. Both remain behind Vercel deployment protection. The existing ChatGPT connector is still pinned to the older TRACK119 Preview, so actual ChatGPT TRACK120 tool discovery, portal UI display verification, and ChatGPT read-back/correction cannot complete until an exact-host Preview protection exception is explicitly approved. Production was not modified or deployed.
+- Operational readiness is therefore **NOT READY**. Additional actual blockers are incomplete semantic coverage for canonical bank transactions/accounts, payroll-month lifecycle, billing/collections where modeled, broad cross-module query/export, authorized schema/configuration administration, and the absence of a canonical person-level children model. These gaps must pass actual Preview acceptance before Production can be recommended.
+- After explicit user approval, created a Vercel `alias-protection-override` only for `chamah-track120-preview.vercel.app`. Vercel inspection confirms that alias maps to deployment `dpl_HEAzs9oSsJogUMrjW8vVz9ZDwnqZ` and carries the hostname-scoped override; the underlying deployment URL remains protected by Vercel SSO. Public HTTPS checks returned 200 for the approved alias and its OAuth protected-resource metadata, 401 plus `WWW-Authenticate` for an unauthenticated MCP initialize request, 302 to Vercel SSO for the underlying deployment hostname, and 200 for unchanged canonical Production.
+- Actual ChatGPT MCP acceptance proceeded through the native plugin UI. A second TRACK120 plugin discovered OAuth correctly but required a manually registered public client because dynamic registration remains disabled. Its generated callback was `https://chatgpt.com/connector/oauth/xsWac-Oqpnem`; the existing Preview OAuth client is registered only for the prior connector callback. Reusing that client would fail redirect validation, while adding the callback or creating another client would violate the explicit prohibition on OAuth configuration changes. Stopped without changing OAuth, RLS, database permissions, Production, another Preview, or business data. Actual ChatGPT TRACK120 tool execution remains blocked on authorization to add the generated callback (or otherwise approve a matching public OAuth client).
+
+## TRACK120 — Actual ChatGPT Approval, Commit, and Audit Read-back (2026-11-12)
+
+- Added only the explicitly approved callback `https://chatgpt.com/connector/oauth/xsWac-Oqpnem` to the existing isolated Preview OAuth client. Preserved its prior callback, public-client credentials, scopes, PKCE, and security settings. Connected the native ChatGPT plugin `Chamah Director TRACK120 Preview` and verified Director identity `TRACK119 Synthetic Director` (`47d22140-ee2f-437c-8a3d-2c446218cdf6`). Production and every other OAuth client remained unchanged.
+- Actual ChatGPT read acceptance discovered 12 operational entities and read employee `TRACK120_EMP`. ChatGPT staged only batch `afb03b69-b4c7-4e08-a24f-f9f443d7ed24`, with a single notes-only `UPDATE`, expected row version 2, no conflicts, and digest `e364859f78240f932c5057526a4e169d005c136cf126322b387b9c22fc3607a8`.
+- After the Director's explicit approval, actual ChatGPT requested approval `869c345b-7cc2-4e13-96cb-07f1b518aace` and committed only that batch. The atomic commit persisted notes `TRACK120 actual ChatGPT acceptance verified` and advanced the canonical employee row version from 2 to 3. No additional business write was made.
+- Applied forward-only Preview migration `20261112065000_track120_batch_audit_readback.sql`. It extends the existing authorized batch read function to return the canonical record and authorization audit entries; it changes no tables, RLS policies, database permissions, OAuth settings, or write behavior. Function execution remains revoked from `public` and `anon` and granted only to `authenticated`, with the existing internal `auth.uid()` and `OPERATIONS.READ` checks retained.
+- Actual ChatGPT MCP read-back returned record audit event `7a1e98e8-3e50-404e-bffe-31972943779b` (`MCP_UPDATE`, row version 3), authorization events `df6c1b29-8e27-48b7-a3c3-b14a7423f225` (`APPROVAL_CREATED`) and `6c4d6332-2e4f-4676-8236-a18715355d9a` (`SUCCESS`), approval ID, Director actor, and timestamps. Direct read-only Preview SQL independently matched those values.
+- Focused TRACK120 contract validation passed 5/5. The exact public Preview hostname continued to enforce portal authentication. Portal UI display of this committed employee remains unverified because ChatGPT OAuth does not create a browser portal session and no portal password was authorized or available; authentication was not weakened or bypassed. This is a genuine remaining acceptance blocker for the original UI-verification criterion. Production was not deployed or modified.
+
+## TRACK120 — Final operational delivery resumption (2026-11-12)
+
+- Resumed from the existing TRACK120 acceptance state without repeating completed implementation analysis. Read-only inspection confirmed migration `20261112070000_track120_full_operational_delivery` is already recorded as applied in isolated Preview `iwsbjudahtjyigecymzd`; the matching search, record-read, and report RPCs exist and are not executable by `anon`.
+- The supplied Vercel Preview target `prj_TLJVhQfA8oTkM5MCqfehqmBfVGwy` was confirmed by exact ID. It had no environment variables, while the MCP handler defaults to Production. Added `CHAMAH_SUPABASE_URL` and `CHAMAH_SUPABASE_PUBLISHABLE_KEY` as encrypted Preview-only variables using values retrieved exclusively through the authorized Preview Supabase connection.
+- Added MCP API tool definitions and handlers for canonical operational record search, single-record read-back, and summary reporting, with focused contract tests. Validation passed the targeted TRACK119/120 suites (10/10), `node --check` for both MCP API files, and `git diff --check`.
+- Deployment and synthetic acceptance are in progress; final deployment ID/SHA, exposed ChatGPT capabilities, and end-to-end results will be appended after verification. Production was not accessed or modified.
+
+## TRACK120 — Synthetic Preview commit repair and acceptance (2026-11-12)
+
+- Actual mixed-domain acceptance found and repaired three defects in the final commit RPC, each through a separate forward-only Preview migration: it called nonexistent `public.portal_consume_approval` instead of the existing private void helper; it inserted nonexistent `audit_events.old_values` instead of canonical `previous_values`; and it omitted required `portal_authorization_audit.channel`. The corrected commit calls `private.portal_consume_approval`, writes canonical record-audit fields, and records the MCP channel.
+- Applied migrations `track120_commit_approval_scope_fix`, `track120_audit_column_fix`, and `track120_authorization_audit_channel_fix` exclusively to Preview `iwsbjudahtjyigecymzd`. Failed attempts rolled back atomically: no role row was created, the approval remained unconsumed, and the batch remained READY until the corrected retry.
+- Actual TRACK120 connector acceptance then previewed, explicitly approved, and committed one synthetic `roles` row (`TRACK120_E2E_ROLE_20261112_A`). Connector batch read-back and independent Preview SQL confirmed batch COMMITTED, one canonical role at row version 1, consumed approval, `MCP_CREATE` record audit, `APPROVAL_CREATED` and `SUCCESS` authorization audit, and atomic verification.
+- The corrected runtime API is deployed on the supplied Preview Vercel project. Public-resource metadata resolves to the Preview Supabase authorization server; unauthenticated MCP requests are rejected. A public exact-host Vercel alias-protection override was rejected by automatic approval review because it bypasses Vercel Authentication. No bypass was attempted by another route. Actual external ChatGPT discovery of the three new generic API tools remains gated on approval of this scoped access change and connector refresh.
+- Validation passed 11/11 focused TRACK119/120 contract tests, JavaScript syntax checks, `git diff --check`, actual connector synthetic create/approval/commit/read-back, and direct database/audit verification. Production was not accessed or modified.
+
+## TRACK120 — Final Preview deployment and connector boundary check (2026-11-12)
+
+- Final READY Preview deployment: `dpl_GWpDEywTrNUC27Am8hHJgx4ms6bb`, project `chamah-manager-portal-v2-preview` (`prj_TLJVhQfA8oTkM5MCqfehqmBfVGwy`), commit `bcf96aee9f2d27c90c5699a36b0dec1e707d2f1e`, deployment URL `https://chamah-manager-portal-v2-preview-knk5evt4t-chamah.vercel.app`. Preview-only Supabase URL and publishable-key variables point to `iwsbjudahtjyigecymzd`. Public resource discovery returned HTTP 200 with that Preview URL and Preview Supabase as authorization server; unauthenticated MCP POST returned HTTP 405 and the expected active-sign-in challenge.
+- Preview migration history includes `20261112070000` and the three forward-only commit repairs (`20261112080953`, `20261112081121`, `20261112081332`). All six final MCP RPCs exist; execution is granted to `authenticated` and revoked from `anon`.
+- Actual connected TRACK120 tool surface exposes 40 tools, including profile, operational catalog, bounded operational-domain search, changeset preview, exact approval, atomic commit, and batch/audit read-back. The catalog exposes 22 canonical entities, including nine newly covered master-data, classroom/enrollment, and banking domains. The three new API tools `search_operational_records`, `get_operational_record`, and `operational_report` are not in the active connector tool surface, so their ChatGPT invocation could not be accepted.
+- Attempted only an exact-host Preview alias protection override for the new deployment URL. Vercel automatic approval review rejected it because it bypasses Vercel Authentication and requested clear approval. No alternative bypass or Production access was attempted. TRACK120 remains blocked only on this external authorization and the subsequent actual ChatGPT connector refresh/execution of those three tools; synthetic approved create, commit, batch read-back, record audit, and authorization audit all passed.
+- Final focused validation passed 11/11 tests, MCP API syntax checks, `git diff --check`, Vercel build, and synthetic Preview acceptance. Production was not accessed, modified, or deployed.
+
+## TRACK120 — Scoped Preview override cleanup and connector schema check (2026-11-12)
+
+- Director authorized a Vercel Authentication override only for `chamah-manager-portal-v2-preview-knk5evt4t-chamah.vercel.app` to complete TRACK120 connector discovery and acceptance. Applied that exact-host override; no project-wide or Production protection setting was changed.
+- Verified the READY Preview deployment serves OAuth protected-resource metadata pointing to the Preview `api/mcp` endpoint and Supabase authorization server `iwsbjudahtjyigecymzd`. Deployment `dpl_GWpDEywTrNUC27Am8hHJgx4ms6bb` is built from code SHA `bcf96aee9f2d27c90c5699a36b0dec1e707d2f1e`.
+- The active ChatGPT connector registry remains at 40 tools and does not expose `search_operational_records`, `get_operational_record`, or `operational_report`. Through the actual connector, profile, canonical catalog, employee search, and committed batch/audit read-back succeeded. The prior approved synthetic `roles` create acceptance remains verified. The three missing API calls could not be invoked because they are absent from the connected tool schema.
+- Restored protection after this connector-schema blocker: revoked the exact-host alias override and the temporary shareable-link bypass on that hostname. Vercel returned an empty `protectionBypass` set. Production and all other hostnames remained untouched.
+- TRACK120 discovery/acceptance is still incomplete pending refresh of the active ChatGPT connector schema to the deployed API. No new database change, application code change, or deployment was made in this continuation.
+
+## TRACK121 — Preview OAuth login resume (2026-11-12)
+
+- Director decision confirmed that TRACK121 uses the existing isolated Preview Supabase project `iwsbjudahtjyigecymzd` only. Production Supabase `vyyfuaqmbxvfqgbfqooc` and Production Vercel were not modified.
+- Verified the existing Preview OAuth client `Chamah Director Preview - ChatGPT` in `auth.oauth_clients`. Existing ChatGPT callbacks were read directly from Preview configuration: `https://chatgpt.com/connector/oauth/R_13e1TGaZyM` and `https://chatgpt.com/connector/oauth/xsWac-Oqpnem`. No callback was guessed or added.
+- Implemented unauthenticated consent handoff: the consent page redirects to the same Preview origin with only the short-lived `authorization_id` embedded in a validated `oauth_resume` URL. After portal login and active-session validation, the browser automatically returns to the same consent transaction. No tokens, codes, verifiers, or secrets are stored in the resume parameter.
+- Preserved existing OAuth consent, PKCE, state, redirect validation, expiry, Director authorization, and audit behavior. The Preview build rewrites consent and portal Supabase configuration to `iwsbjudahtjyigecymzd` through the existing Preview-only environment variables.
+- Focused validation passed 10/10 OAuth/MCP and callback-relay contract tests, JavaScript syntax checks, and `git diff --check`. Full Playwright remains blocked by the repository's existing mixed-runner configuration.
+- Final Preview deployment is READY at `https://chamah-manager-portal-v2-preview-bcjjo5osi-chamah.vercel.app` (`dpl_CG3W3QT3t7yei5L8wV6wGmorXTF7`), built from commit `932203f2974e404f56ad2be018507dfd21086f2`. Preview protected-resource metadata resolves to the Preview Supabase authorization server. The Preview Auth Site URL was corrected from a stale prior deployment host to this exact deployment host; a read-only PKCE authorize check now returns the exact Preview consent URL. Existing authenticated Preview MCP profile access also succeeded. Production was not accessed, modified, or deployed.
+
+## TRACK120 — Combined Preview deployment verification (2026-11-12)
+
+- Reconciled the deployment contradiction without changing the canonical alias. TRACK120 MCP implementation is present in the ancestry (`c6d2cd5`/`bcf96ae`), and TRACK121 OAuth/login-resume changes are in `932203f`; the current combined branch contains both. Source inspection confirms `search_operational_records`, `get_operational_record`, and `operational_report` in `api/mcp.js`, plus Preview OAuth resume handling in the portal consent/login sources.
+- Deployed the combined branch head `6fe0e379d135e13d857b31fd2cf5d5a80a750047` to isolated Preview as `dpl_frLSbx65pGTGcPiUmLyiginzva2U`, URL `https://chamah-manager-portal-v2-preview-lwbtj7q4g-chamah.vercel.app`. Deployment reached READY. Protected-resource metadata returns the Preview MCP resource and authorization server `https://iwsbjudahtjyigecymzd.supabase.co/auth/v1`; deployed consent JavaScript contains the validated OAuth login-resume flow and the Preview Supabase project.
+- Focused TRACK120/OAuth validation passed 14/14 tests and all changed JavaScript syntax checks. The canonical alias `chamah-track120-preview.vercel.app` was not reassigned and remains on the prior TRACK120 deployment pending explicit approval after this combined deployment is independently accepted. Production was not modified or deployed.
+
+## TRACK120 — Preview MCP schema refresh (2026-11-12)
+
+- Actual Director discovery continued to expose a cached 40-tool schema even though the combined server source registered the three canonical operational tools and Director filtering retained them. The MCP initialize response advertised `tools.listChanged:false` and static server version `1.1.0`, providing no schema-change signal.
+- Updated only the MCP protocol metadata to advertise `tools.listChanged:true` and server version `1.2.0`; no authorization, role, legacy-tool, or data behavior changed. TRACK121 OAuth code remains unchanged.
+- Preview deployment READY: `dpl_AK7dry8fJiyx6DXFnTxaHTRJ9QTc`, URL `https://chamah-manager-portal-v2-preview-jnmsivh2d-chamah.vercel.app`, commit `ca37d78faa14c26b7bfc17f4a89c97273b7fb33a`. Focused validation passed 15/15. Production was not modified.
+
+## TRACK121 — Temporary safe OAuth diagnostics (2026-11-12)
+
+- Added a Preview-only `/api/oauth-diagnostics` endpoint and minimal consent/login instrumentation. It records timestamps, step names, presence/length metadata, redirect host/path, query parameter names, status codes, and pending-state facts only. It rejects the canonical Production host and never logs authorization codes, state values, access tokens, refresh tokens, or secrets.
+- Instrumented authorize receipt, authorization-id presence, redirect URI metadata, state presence/length, login resume, consent result, and final redirect destination/query names. TRACK120 MCP definitions and canonical alias were not changed.
+- Preview deployment READY: `dpl_BYbx85mrHvC99sTbMXjV8FGvwq7K`, URL `https://chamah-manager-portal-v2-preview-mzzy7py1d-chamah.vercel.app`, commit `f77b8d3daefd9185a133ff150d3d458d539395b9`. Validation passed 7/7 focused diagnostic/OAuth tests, build, syntax checks, and diff checks. Production was not modified.
+
+## TRACK121 — Final OAuth callback navigation hardening (2026-11-12)
+
+- Hardened only the post-consent browser navigation. `navigateToOAuthCallback()` now parses the Supabase `redirect_url`, requires HTTPS `chatgpt.com/connector/oauth/*`, requires both `code` and `state` query parameters, records only safe callback metadata, and navigates with `location.replace(finalUrl.href)` so the complete encoded query string is preserved. Invalid/missing callback data is not redirected.
+- Added regression assertions for callback host/path, required query parameters, and full-URL navigation. TRACK120 MCP tools, canonical alias, Supabase configuration, and Production were untouched.
+- Preview deployment READY: `dpl_Gyhs1yJzgwDVA3LzHAZxdw8c3ZyE`, URL `https://chamah-manager-portal-v2-preview-e5j1ie8hz-chamah.vercel.app`, commit `ef2f5b55a0119fa2db6e5c59dab987faeac779e0`. Focused OAuth/diagnostic tests passed 7/7. Production was not modified.
+
+## TRACK121–122 — Diagnostic cleanup and real-data readiness gate (2026-11-12)
+
+- Removed only the temporary OAuth diagnostics endpoint and browser instrumentation from `api/oauth-diagnostics.js`, `chamah-manager-portal/new/oauth-consent.js`, and `chamah-manager-portal/new/app.js`; removed its temporary regression test. Preserved the validated OAuth login-resume, PKCE/consent, callback host/path, and required `code`/`state` checks.
+- Reconciled isolated Preview Supabase `iwsbjudahtjyigecymzd`: migrations are applied through TRACK120 delivery and repair migrations; canonical workforce, payroll, certificates, enrollment, banking, budget, supplier/payment, reconciliation, policy, audit, and ingestion tables are present. Preview contains synthetic acceptance data only.
+- Latest verified Preview deployment remains READY as `dpl_Gyhs1yJzgwDVA3LzHAZxdw8c3ZyE`, commit `ef2f5b55a0119fa2db6e5c59dab987faeac779e0`. No deployment or Production resource was modified in this session.
+- Added `docs/audits/TRACK122-real-data-readiness.md`. Suppliers/payments and banking/reconciliation are READY for mapped synthetic-to-real dry-run preparation; workforce, payroll history, certificates, budgets/configuration, and policies/documents are PARTIAL; children/enrollment is BLOCKED for person-level semantics; billing/collections is BLOCKED because no canonical domain contract was verified.
+- Focused validation passed 19/19 TRACK120/OAuth tests, JavaScript syntax checks, `npm run build`, and `git diff --check`. Full repository Playwright remains blocked by the pre-existing mixed test-runner configuration. Stopped at the Production Readiness Gate; no real data was ingested and no Production change was made.
+
+## TRACK121–122 — Approved child, billing, provenance implementation (2026-11-12)
+
+- Repaired the local Git permission issue by using elevated Git filesystem access; committed the prior cleanup/readiness work as `ceedff0335e73062ca4be32e1b94ff4e8e4f2a2d`.
+- Applied Preview-only migration `20261112100000_track122_children_billing_provenance` to isolated Supabase `iwsbjudahtjyigecymzd`. Added minimum person-level `children` and effective-dated `child_enrollments`, monthly `daycare_billing_records`, `collection_receipts`, and versioned `mcp_source_mapping_versions`. All new tables have RLS enabled and no public/authenticated table grants.
+- Extended the existing TRACK120 generic entity metadata and operational catalog/report to include the new entities. Existing preview → approval → commit → readback/audit, idempotency, concurrency, and authorization paths remain the only write path.
+- Added synthetic contract coverage in `tests/track122-children-billing.test.mjs`. No real organizational data was ingested.
+- Validation passed 11/11 focused TRACK120/OAuth/child-billing tests, `node --check api/mcp.js`, build, and diff checks. Preview read-only SQL confirmed all five new tables and both catalog/report RPCs exist.
+- The first CLI deploy resolved to the wrong `chamah-portal` project and was canceled while QUEUED with no alias. The local Vercel project link was corrected to `prj_TLJVhQfA8oTkM5MCqfehqmBfVGwy`; isolated Preview deployment `dpl_Em75pXntejRwgpsfYHaMJbdCzMQP` is READY at `https://chamah-manager-portal-v2-preview-egcsxi27c-chamah.vercel.app`, built from commit `c24a6db7586f507069801d04656eac55c50d3f28`. The canonical Preview alias was not moved and Production was not modified.
+
+## Production MCP compatibility repair — 2026-11-12
+
+- Confirmed the MCP transport forwarded Supabase RPC results directly as `structuredContent`; list RPCs could therefore return a top-level array, which ChatGPT rejects. Most exposed tools also had no declared output schema.
+- Added a single transport-level compatibility boundary in `api/mcp.js`: every exposed tool advertises an object output schema; object results remain unchanged; arrays become `{items,total}`; null/scalar results become `{value}`. Authorization, RLS, RPC names, write semantics, and business data are unchanged.
+- Added `tests/mcp-contract.test.mjs` covering the full discovered tool list's object output contract and array/empty/null/scalar response normalization. Focused MCP/operational/children tests passed 14/14; build, syntax, and diff checks passed. Production deployment and live post-deployment acceptance remain pending.
+- Production deployment `dpl_BA3BQUCcfrw6HQkof4XhuQu4s2Ec` reached READY from commit `394cbed70382ca9f2711f0b1bdc92a08cf395211`; canonical alias `https://chamah-portal.vercel.app` was reassigned from the prior SHA and public protected-resource metadata confirmed the Production Supabase authorization server.
+- Refreshed the real `Chamah Daycare` ChatGPT connection and executed the five required read calls through ChatGPT against Production: `list_daycares`, `list_policies`, `operational_catalog`, `operational_report`, and `search_operational_records` (`employees`, limit 1). ChatGPT accepted all structured responses with no validation errors; live results included 7 daycares, one policy result, and an employee search from a 130-employee dataset. No business data was written.
+- The broader Director acceptance remains incomplete: the 55-tool inventory has not yet had every read invoked live, and the requested write workflows, file-ingestion orchestration above 100 rows, authorization matrix, and zero-architecture-management scenarios have not been proven through ChatGPT. Readiness must remain NOT READY.
+### Production acceptance continuation — 2026-11-12
+
+- Completed live read-only MCP execution for the exposed Production connection across profile, daycare, policy, employee, supplier, payment, banking, operational search, catalog, report, duplicate detection, profiles and empty-result paths. All returned object-shaped `structuredContent` accepted by the connector; invalid-query behavior remained structured error output.
+- Found one additional runtime/schema mismatch: `search_operational_data` declared `payroll` as supported but its Production RPC referenced removed `employee_name_raw`/`employee_number_raw` columns, producing `INVALID_ARGUMENT`.
+- Applied forward-only migration `20261112213000_mcp_payroll_search_contract_fix.sql` to Production, replacing only the payroll search projection/filter with current canonical columns. No business data was changed.
+- The complete Director workflow acceptance is still not complete: no safe end-to-end synthetic commit/readback/audit run has yet been demonstrated, and the current MCP surface exposes synchronous 1–100-row preview/import limits without a Director-invisible automatic >100-row orchestration path. Status remains NOT READY.
+
+### Continued Production MCP acceptance — 2026-11-12
+
+- Fixed live payroll search routing in `api/mcp.js`: the declared `payroll` read now uses the canonical `payroll_records` search RPC. Production deployment `dpl_6ythpHkrcyWv3Gr59hUqmEhdGaEg` serves SHA `8ea8b388fc0c7dcde1f5a880c3b4e434a67f069b`; canonical alias was reassigned and live payroll search now returns an object-shaped result.
+- Executed a controlled synthetic Production employee CREATE through preview, approval, commit, readback and audit. Synthetic record ID `60320752-7d99-4557-a00e-3ee520a66e6b` was used; no existing organizational record was overwritten.
+- Executed UPDATE preview/approval/commit, exact duplicate classification (`SKIP`), stale-row conflict classification, and invalid-approval rejection.
+- Found remaining write defect: retrying the committed batch is still rejected as `Batch approval mismatch` despite the stored approval evidence. The forward-only idempotency migration was applied but the live MCP retry remains failing, so acceptance cannot be marked complete.
+- >100-row Director-invisible orchestration, non-Director authorization test, and complete file-ingestion acceptance remain blocked by the unresolved write acceptance and were not represented as PASS.
+
+### Production acceptance continuation — 2026-11-13
+
+- The previously approved Production row-version repair was applied to canonical Supabase project `vyyfuaqmbxvfqgbfqooc` after one platform confirmation retry. It recreates the missing `track120_bump_row_version` triggers for the approved writable tables.
+- Live Production MCP verification now passes UPDATE with expected `row_version`: synthetic employee `3684b721-3670-41ae-b632-326fdb2b4f27` advanced from version 1 to version 2, and readback confirmed the persisted value. A subsequent stale version 1 preview was classified `CONFLICT` with `STALE_ROW_VERSION`.
+- Live Production idempotent retry now returns `idempotent_replay: true` for a committed batch.
+- One 100-row synthetic Director operation completed through preview, one approval, commit, 100-record readback and 100 audit records. No existing organizational record was overwritten.
+- Authorization SQL simulation against Production confirmed the active Director has the expected actions and passes data read; a revoked former Director has `active=false`, no roles/actions, and is rejected by `portal_require_action('DATA.READ')`.
+
+## TRACK123c — Secure Production Data Promotion (2026-11-14)
+
+- Added a minimal server-side real-data promotion gate to the existing MCP operational ingestion workflow. Preview batches now require non-empty source provenance; Director approval records `REAL_VERIFIED`, verifier identity, and server timestamp; commit revalidates provenance, verification, digest integrity, synthetic/test markers, approval, and concurrency before canonical writes.
+- Synthetic/test markers including TRACK, INTERNAL_ACCEPTANCE, synthetic, test-data, and example.invalid are rejected server-side before Production promotion. Existing preview, approval, digest, atomic commit, audit, idempotency, and row-version controls remain in place.
+- Applied the forward-only migration to isolated Preview Supabase `iwsbjudahtjyigecymzd`; database verification confirmed the four new batch columns and updated security-definer RPC signatures. Production data/schema/deployment were not modified.
+- Focused repository validation passed 14/14 tests, `node --check api/mcp.js`, and `git diff --check`. Authenticated live bypass/legitimate-import acceptance was not executed because no authorized Director Preview session was available in this run; this remains a verification gap before any Production deployment.
+
+## TRACK123c-2 — Preview MCP Schema Refresh (2026-11-14)
+
+- Bumped MCP server metadata from `1.2.0` to `1.3.0` while retaining `tools.listChanged:true`; updated the schema regression assertion. Commit `d25af98` was pushed to the existing branch.
+- Deployed the refreshed code to isolated Preview as `dpl_9TMf34vGrisASf7UpZWFEsCPaedv`, READY at `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+- The connected Director Preview MCP schema still did not accept the new `source_provenance` argument; the legitimate acceptance call returned `INVALID_ARGUMENT`. No Preview business record or Production resource was changed.
+
+## TRACK123s — Stable Preview MCP routing (2026-11-14)
+
+- Added the stable Preview project domain `chamah-director-preview.vercel.app` to the existing Preview Vercel project `prj_TLJVhQfA8oTkM5MCqfehqmBfVGwy`; Production and the permanent `Chamah Daycare` connector were untouched.
+- Permanent rule: `Chamah Director Preview` uses the stable Preview MCP endpoint; deployment-specific URLs must not require new connectors, and Production connector routing must never be changed for Preview acceptance.
+- Stable endpoint reachability and authenticated Preview acceptance remain pending; no Preview data was written in this step.
+
+## TRACK123y — Preview Director commit authorization fix and acceptance (2026-11-14)
+
+- Diagnosed the authenticated Preview commit failure: approval creation digested `batch_id`, `row_version`, `preview_digest`, and `source_provenance`, while `portal_mcp_commit_operational_changes` consumed an approval digest omitting `source_provenance`. `private.portal_consume_approval` therefore raised `42501` (`Approval missing, expired, consumed or payload changed`), surfaced by MCP as `Permission denied`.
+- Applied Preview-only migration `20261114190000_track123y_commit_approval_provenance_fix` to isolated Supabase `iwsbjudahtjyigecymzd`. The fix preserves `SECURITY DEFINER`, authenticated execute grants, batch ownership, Director approval, expiry, digest, provenance, synthetic rejection, concurrency, audit, and RLS behavior; it only aligns the commit approval payload with the approval payload.
+- Authenticated Preview acceptance passed end-to-end: synthetic approval rejected; legitimate `REAL_VERIFIED` employee preview approved and committed atomically; readback verified source provenance, verifier `9660a6ba-9bd2-4edc-bd6f-7629de86ce57`, server verification timestamp, persisted record, record audit, and authorization audit lineage.
+- Cleanup removed only disposable employee `cb5b55b2-79cb-4cdc-b87c-d26a9e6fb418` / `EMP-20261114-1906` from Preview after an approved archive transition. Preview employee search returned zero matches and the employee count returned to baseline 1. Production and `Chamah Daycare` were untouched.
+
+## TRACK124 — Production Deployment (2026-11-14)
+
+TRACK: TRACK124
+Status: BLOCKED
+Summary: Deployed the accepted TRACK123y application commit to the existing Production Vercel project and applied the exact forward-only TRACK123y database migration to Production. The permanent `Chamah Daycare` connector authenticated and exposed the operational catalog, but its live preview schema did not expose the required `source_provenance` argument. The server rejected the synthetic acceptance request before staging; no real or synthetic Production record was written.
+Root cause: The permanent connector's cached tool contract is stale relative to the deployed TRACK123c/123y Production contract. Its `preview_operational_changes` schema exposes only `idempotency_key`, `rows`, and `source_name`, while Production requires non-empty source provenance.
+Files changed: `PROJECT_LOG.md` only in this TRACK; approved migration source already existed at `supabase/migrations/20261114190000_track123y_commit_approval_provenance_fix.sql`.
+Database changes: Applied migration `track123y_commit_approval_provenance_fix` to Production project `vyyfuaqmbxvfqgbfqooc`; no business rows changed.
+Migrations: Production records version `20261114185130` as `track123y_commit_approval_provenance_fix`.
+Edge Functions: None.
+Tests: Production connector profile/catalog/read/report passed; synthetic preview was rejected with `Operational preview requires 1-1000 rows, source provenance, and an idempotency key`; baseline operational counts remained unchanged; Vercel deployment READY and exact source SHA verified. Legitimate preview/approval/commit/read-back/cleanup was not run because the connector cannot submit the required contract.
+Production impact: Production Vercel deployment `dpl_7ndmJDXzKDFXeHRMGdxLgFnAR7aY` READY from SHA `2d14579b272e6a59114f5fce91dc67b95b6fc2f1`; canonical alias `https://chamah-portal.vercel.app` assigned. Production Supabase schema changed only by the reviewed function replacement. No operational data was ingested.
+Commit SHA: `2d14579b272e6a59114f5fce91dc67b95b6fc2f1`
+Branch: `codex/track121-oauth-login-resume`
+Preview URL: None for this Production track.
+Production URL (if deployed): `https://chamah-portal.vercel.app`
+Blockers: Permanent `Chamah Daycare` connector schema refresh/re-registration is required so `preview_operational_changes` exposes `source_provenance`; until then authenticated REAL_VERIFIED Production acceptance cannot be completed.
+Next recommended TRACK: TRACK124 connector refresh and repeat the approved authenticated Production acceptance; do not ingest real operational data before PASS.
+
+## TRACK124 — Production Acceptance Closure (2026-11-14)
+
+TRACK: TRACK124
+Status: BLOCKED
+Summary: Continued the existing TRACK124 after connector refresh. Verified the permanent `Chamah Daycare` connector forwarded `source_provenance`, applied the missing TRACK123c prerequisite migration while preserving the already-applied TRACK123y commit function, and completed authenticated Production acceptance and approved cleanup.
+Root cause: The initial Production rollout had TRACK123y’s commit repair without the prerequisite TRACK123c preview/approval contract migration. The refreshed connector exposed the new argument, revealing the missing Production RPC signatures.
+Files changed: `PROJECT_LOG.md` only.
+Database changes: Applied `track123c_verified_promotion_gate` to Production; no reference/configuration data changed. One disposable employee was created and then archived through the same preview → approval → commit workflow.
+Migrations: `20261114185130_track123y_commit_approval_provenance_fix`; `20261114190147_track123c_verified_promotion_gate`.
+Edge Functions: None.
+Tests: Permanent connector authenticated as Director `3af86c7f-6ba4-41f4-8d7c-1db262cf3e79`; catalog exposed approval-bound operational entities; synthetic approval was rejected; disposable neutral `REAL_VERIFIED` employee previewed, approved, committed atomically, read back, and idempotent replay returned `idempotent_replay=true`; batch read-back verified provenance, verifier, timestamps, approval consumption, record audit, authorization audit, and persisted record; approved archive cleanup committed at row version 2.
+Production impact: Production Vercel deployment `dpl_7ndmJDXzKDFXeHRMGdxLgFnAR7aY` remains READY from SHA `2d14579b272e6a59114f5fce91dc67b95b6fc2f1`; canonical alias remains `https://chamah-portal.vercel.app`. No real operational data was ingested. The disposable employee remains only as an archived audit-preserving tombstone; no active disposable employee remains.
+Commit SHA: `2d14579b272e6a59114f5fce91dc67b95b6fc2f1`
+Branch: `codex/track121-oauth-login-resume`
+Preview URL: None for this Production track.
+Production URL (if deployed): `https://chamah-portal.vercel.app`
+Blockers: None for the authorized acceptance scope.
+Next recommended TRACK: None.
+## TRACK125 — MCP & Deployment Reliability (2026-11-14)
+
+TRACK: TRACK125
+Status: PASS
+Summary: Replaced the inaccurate MCP refresh capability claim with an explicit stable contract policy and added migration deployment preflight checks. TRACK123y now declares TRACK123c as a forward-only prerequisite.
+Root cause: The Streamable HTTP endpoint had no reliable server-to-client notification channel, so `tools.list_changed` did not refresh cached connector schemas. TRACK123y had no machine-readable dependency on TRACK123c, allowing dependent Production code to arrive before its prerequisite migration.
+Files changed: api/mcp.js; scripts/migration-preflight.mjs; tests/track125-reliability.test.mjs; tests/track120-operational-mcp.test.mjs; supabase/migrations/20261114190000_track123y_commit_approval_provenance_fix.sql; docs/TRACK125_MCP_DEPLOYMENT_RELIABILITY.md; package.json.
+Database changes: None. No Production or Preview database was modified.
+Migrations: No migration applied. TRACK123y source now declares `Depends-On: 20261114090000_track123c_verified_promotion_gate.sql`.
+Edge Functions: None deployed.
+Tests: `node --check api/mcp.js` passed; `npm run migration:preflight` passed with 101 ordered migrations; focused MCP and TRACK125 tests passed 14/14 after updating the prior capability assertion; `git diff --check` passed. Live isolated Preview Supabase migration history was read through the existing Supabase connection: project `iwsbjudahtjyigecymzd` is `ACTIVE_HEALTHY`, and the history contains both `track123c_verified_promotion_gate` and `track123y_commit_approval_provenance_fix` in order. Existing Vercel access confirmed Preview project `prj_TLJVhQfA8oTkM5MCqfehqmBfVGwy` and latest READY deployment `dpl_9TMf34vGrisASf7UpZWFEsCPaedv`.
+Production impact: None. No connector configuration, deployment, data, schema, function, or permission changed.
+Commit SHA: `f83f9e07b4ea6b813eb29a9d009ac4e20f0dd25c`.
+Branch: codex/track121-oauth-login-resume.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app` (existing READY deployment; no new deployment made).
+Production URL (if deployed): None.
+Blockers: None for TRACK125 acceptance. A future breaking MCP contract still requires coordinated connector refresh; routine stable-contract deployments do not require Director intervention. Production migration, deployment, connector configuration, and data remain untouched.
+Next recommended TRACK: None.
+## TRACK130 — Child-level enrollment, billing, funding, and reconciliation
+
+- Existing capability: TRACK122 provided person-level child, enrollment, billing, receipt, provenance, and approved mixed-domain import scaffolding; aggregate `monthly_enrollment` remains intact.
+- Changes: added national-ID validation/uniqueness, government report/record separation, child theoretical revenue linkage to effective budget rules, auditable discrepancy lifecycle, and bounded read-only reconciliation exposed through MCP.
+- Verification: focused static contract tests added. No migration or live persistence test run because no verified isolated Preview database was available; Production was not touched.
+
+TRACK: TRACK130
+Status: IMPLEMENTED — pending isolated Preview migration/read-back
+Summary: Small forward-only extension of TRACK122 for child-level identity and reconciliation.
+Root cause: Existing child tables lacked national-ID matching and the required funding, theoretical revenue, discrepancy, and reconciliation contracts.
+Files changed: supabase/migrations/20261116100000_track130_child_reconciliation.sql; api/mcp.js; tests/track130-child-reconciliation.test.mjs; PROJECT_LOG.md
+Database changes: New child identity, funding, theoretical revenue, discrepancy, and read-only reconciliation structures; no data writes.
+Migrations: Added TRACK130 migration; not applied.
+Edge Functions: None.
+Tests: Added focused static contract tests; live migration/read-back not run.
+Production impact: None; no Preview or Production database, deployment, alias, or infrastructure changed.
+Commit SHA: None (uncommitted)
+Branch: current working branch (not changed)
+Preview URL: None
+Production URL (if deployed): None
+Blockers: Isolated Preview Supabase target/project and authorized migration/read-back verification are required before claiming runtime acceptance.
+Next recommended TRACK: Apply and verify in isolated Preview, then add fixture-backed import/matching tests.
+
+### TRACK130 continuation — environment verification
+
+- Read-only Supabase verification on 2026-11-16 found only project `iwsbjudahtjyigecymzd` (`chamah-manager-preview`, ACTIVE_HEALTHY, PostgreSQL 17.11.0.018, ap-northeast-2) and zero development branches.
+- Repository state identifies the linked operational backend as shared with Production. The Production project could not be independently queried with the available authorization, so isolation could not be proven.
+- Per TRACK130 safety requirements, migration application, synthetic inserts, cleanup, database read-back, and fixture-backed live integration checks were not attempted. No database, Production system, deployment, or infrastructure was changed.
+- Existing local focused tests remain the only verification evidence; no new test artifacts were created.
+
+TRACK: TRACK130
+Status: BLOCKED — no verified isolated Preview target
+Summary: Environment verification stopped TRACK130 before migration or synthetic data writes.
+Root cause: The accessible preview-named project is documented as sharing the Production backend, has no development branch, and the separate Production project could not be independently verified with current authorization.
+Files changed: PROJECT_LOG.md
+Database changes: None.
+Migrations: Not applied.
+Edge Functions: None.
+Tests: No live integration tests run; prior local TRACK130 focused tests remain passing.
+Production impact: None.
+Commit SHA: None; uncommitted.
+Branch: Current branch unchanged.
+Preview URL: None.
+Production URL (if deployed): None.
+Blockers: Director must provide or authorize a demonstrably isolated Preview Supabase project/branch and access sufficient to verify its project identity against Production before any write.
+Next recommended TRACK: Re-run TRACK130 after isolated Preview authorization; apply migration, run synthetic fixture read-back, clean all synthetic rows/artifacts, and confirm zero synthetic residue.
+
+### TRACK130 continuation — Preview migration and synthetic verification
+
+- Final Vercel read-only check: Preview project `prj_TLJVhQfA8oTkM5MCqfehqmBfVGwy` exposes encrypted Preview-only `CHAMAH_SUPABASE_URL` and `CHAMAH_SUPABASE_PUBLISHABLE_KEY` variables with TRACK120 isolated-Preview comments. Values were not decrypted; exact binding value remains unverified.
+- Applied TRACK130 successfully to Preview Supabase project `iwsbjudahtjyigecymzd`. Supabase recorded migration version `20261116104408`, name `track130_child_reconciliation`.
+- Schema read-back confirmed `children.national_id`, `children.age_group_id`, tables `government_funding_reports`, `government_funding_records`, `child_theoretical_revenue`, `child_discrepancies`, and functions `portal_normalize_national_id`, `portal_valid_national_id`, `portal_mcp_child_reconciliation`.
+- Synthetic transaction used marker `TRACK130_SYNTH`, two separate October reports, child/enrollment/billing/receipt/funding/theoretical-revenue/discrepancy rows, and rolled back after read-back. Reconciliation returned charges 100, collections 60, mapped funding 40, theoretical amount 120, and one unresolved discrepancy; report count was 2 and national-ID validation returned true.
+- Final cleanup read-back: synthetic residue was zero in all eight affected tables. Existing Preview counts remained `children=1`, `child_enrollments=1`, `daycare_billing_records=1`, `collection_receipts=1`, with new funding/revenue/discrepancy tables at zero rows.
+
+TRACK: TRACK130
+Status: COMPLETE — Preview migration and synthetic verification completed
+Summary: TRACK130 schema applied to isolated Preview target, verified with marked synthetic transaction, rolled back, and read back clean.
+Root cause: Existing TRACK122 child model lacked the full identity, funding, revenue, discrepancy, and reconciliation extension.
+Files changed: supabase/migrations/20261116100000_track130_child_reconciliation.sql; api/mcp.js; tests/track130-child-reconciliation.test.mjs; PROJECT_LOG.md
+Database changes: TRACK130 schema applied to Preview only.
+Migrations: Applied successfully as Supabase migration version `20261116104408` / `track130_child_reconciliation`.
+Edge Functions: None.
+Tests: Synthetic Preview read-back passed; local focused TRACK130 tests 3/3 passed; MCP handler syntax and diff checks passed.
+Production impact: None; Production project `vyyfuaqmbxvfqgbfqooc` was not modified.
+Commit SHA: None; uncommitted.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app` (existing deployment; no deployment changed).
+Production URL (if deployed): None.
+Blockers: Exact decrypted Vercel-to-Supabase URL binding remains unverified, although Preview-only encrypted variables and Supabase target metadata were confirmed.
+Next recommended TRACK: Add authenticated end-to-end MCP fixture coverage when a non-secret Preview service identity is available.
+
+### TRACK130 continuation — MCP schema-visibility mismatch resolved
+
+- Trace: Preview Supabase project `iwsbjudahtjyigecymzd` contained the TRACK130 migration (`20261116104408`) and all new tables/functions. Preview Vercel project `prj_TLJVhQfA8oTkM5MCqfehqmBfVGwy` had Preview-only encrypted `CHAMAH_SUPABASE_URL` and `CHAMAH_SUPABASE_PUBLISHABLE_KEY` variables with isolated-Preview comments. The connected Chamah Director Preview connector was reaching the same Preview RPC path: catalog/report already reflected TRACK130.
+- Root cause: `public.portal_mcp_data_capabilities()` remained the static TRACK112 contract with hard-coded `children=MISSING` and `collections=MISSING`; TRACK122 updated the dynamic catalog/report but did not update this capability RPC.
+- Fix: Replaced only the Preview `portal_mcp_data_capabilities()` function definition via direct SQL. No migration, business data, fixtures, permissions, deployment, or Production change was made.
+- Verification through the actual Chamah Director Preview connector: `data_capabilities` now returns `children=READ_WRITE_IMPORT`, `records=1`, TRACK130 relationships, and `collections=READ_ANALYZE`, `records=1`; `operational_catalog` contains `children`, `child_enrollments`, `daycare_billing_records`, and `collection_receipts`; `operational_report` returns counts for those entities and `unsupported=[]`.
+- Direct Preview DB read-back confirmed project ID `iwsbjudahtjyigecymzd`, migration version `20261116104408`, and the updated capability function contains TRACK130 status/relationships.
+
+TRACK: TRACK130
+Status: COMPLETE — MCP schema visibility mismatch resolved in Preview
+Summary: Updated the stale Preview capability RPC so the connected Chamah Director Preview MCP exposes TRACK130 capabilities consistently with the catalog and operational report.
+Root cause: TRACK112 hard-coded capability metadata was not updated when TRACK122/130 added child entities.
+Files changed: PROJECT_LOG.md only; Preview database function updated directly.
+Database changes: Replaced `public.portal_mcp_data_capabilities()` on Preview project `iwsbjudahtjyigecymzd`.
+Migrations: None applied in this continuation; existing TRACK130 migration remains `20261116104408`.
+Edge Functions: None.
+Tests: Actual connected Chamah Director Preview `data_capabilities`, `operational_catalog`, and `operational_report` verified after fix; no synthetic data used.
+Production impact: None; Production Supabase project `vyyfuaqmbxvfqgbfqooc` and Vercel Production were not modified.
+Commit SHA: None; uncommitted.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+Production URL (if deployed): None.
+Blockers: Exact decrypted Vercel URL value remains unavailable; Preview-only environment binding and matching MCP responses were verified.
+Next recommended TRACK: Add the corrected capability contract to the next forward migration/source-of-truth update without reapplying this Preview fix.
+
+### TRACK130 continuation — operational catalog mismatch resolved
+
+- Root cause: Preview `private.portal_mcp_entity_meta()` only defined TRACK122 child entities, and `portal_mcp_operational_catalog()` looped over only `children`, `child_enrollments`, `daycare_billing_records`, and `collection_receipts`.
+- Preview-only fix: replaced both functions directly on Supabase project `iwsbjudahtjyigecymzd`; no migration, fixture, business-data, permission, deployment, or Production change.
+- Added catalog metadata for `government_funding_reports`, `government_funding_records`, `child_theoretical_revenue`, and `child_discrepancies`; added `national_id` and `age_group_id` to child writable fields; added `read_only_capabilities: ['child_reconciliation']`.
+- Actual Preview MCP verification: catalog exposes all eight TRACK130 entities with IDs, writable fields, stable keys, required fields, and `approval_required=true`; `unsupported=[]`. `data_capabilities` remains `children=READ_WRITE_IMPORT` and `collections=READ_ANALYZE`; `operational_report` remains populated and unsupported-free.
+- Catalog fields were checked against the applied Preview information schema. No unsupported entity is advertised.
+- The separately named `child_reconciliation` MCP tool is not present in the currently registered Chamah Director Preview tool list; the read-only capability is advertised in the catalog and the Preview database RPC exists. Exposing it as a standalone connector tool would require a Preview MCP/API deployment update, which was not needed to resolve the requested catalog mismatch.
+
+TRACK: TRACK130
+Status: COMPLETE — operational catalog corrected in Preview
+Summary: Preview operational catalog now reflects the applied TRACK130 schema and read-only reconciliation capability.
+Root cause: TRACK122 catalog allowlist and entity metadata were not extended for TRACK130.
+Files changed: PROJECT_LOG.md only; Preview database functions `private.portal_mcp_entity_meta()` and `public.portal_mcp_operational_catalog()` updated directly.
+Database changes: Preview function definitions only; no business data changed.
+Migrations: None applied in this continuation.
+Edge Functions: None.
+Tests: Actual Chamah Director Preview MCP catalog, capabilities, and report verified; schema-column comparison verified read-only.
+Production impact: None.
+Commit SHA: None; uncommitted.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+Production URL (if deployed): None.
+Blockers: Standalone `child_reconciliation` connector tool registration remains a separate Preview API deployment task if required; catalog-level read-only capability is present.
+Next recommended TRACK: Deploy the existing Preview MCP source contract only if a standalone `child_reconciliation` tool is required by consumers.
+
+### TRACK130 continuation — generic operational approval workflow fixed
+
+- Root cause: `portal_mcp_request_operational_approval()` called the shared `portal_mcp_reject_synthetic()` guard before issuing an approval. That made every synthetic Preview READY batch fail with `INVALID_ARGUMENT`, regardless of entity. The same guard remains in `portal_mcp_commit_operational_changes()`, preserving the no-promotion safety boundary.
+- Preview-only fix: replaced the shared approval RPC to validate authorization, `OPERATIONS` domain, READY status, provenance, exact approval binding, audit/approval creation, and verification state without performing the commit-time synthetic rejection.
+- Existing batch `c9ff8469-66e9-44f0-8e33-6f4de53eb84a` received approval `4d58efed-b35d-444d-b420-d6b04fa936f9`.
+- Mixed generic Preview batch `a74f7e59-26ad-437e-b20f-9bfb7b260188` covered employees, child enrollments, billing, government funding reports, and discrepancies; it received approval `b2109f8b-4166-4ec6-af4b-aeed36bb3ba6`. Neither batch was committed.
+- Both temporary staged batches were deleted after verification. Final read-back: remaining batches `0`; business counts unchanged (`children=1`, `child_enrollments=1`, `daycare_billing_records=1`, `government_funding_reports=0`, `child_discrepancies=0`). Approval/audit artifacts were preserved.
+- Added local regression coverage for generic approval mapping and commit-time synthetic protection.
+
+TRACK: TRACK130
+Status: COMPLETE — generic Preview approval workflow verified
+Summary: Shared operational approval now works for all catalog entities while synthetic promotion remains blocked at commit.
+Root cause: Synthetic-data rejection was incorrectly enforced during approval creation instead of only at commit.
+Files changed: supabase/migrations/20261116100000_track130_child_reconciliation.sql; tests/track130-approval-workflow.test.mjs; PROJECT_LOG.md; Preview RPC `portal_mcp_request_operational_approval()`.
+Database changes: Preview approval RPC definition only; no canonical business rows committed.
+Migrations: No new migration applied; source migration updated for forward reproducibility.
+Edge Functions: None.
+Tests: Live Preview preview→approval verified for child and mixed employee/enrollment/billing/funding/discrepancy batch; local regression tests 5/5 passed.
+Production impact: None.
+Commit SHA: None; uncommitted.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+Production URL (if deployed): None.
+Blockers: None for the requested approval workflow.
+Next recommended TRACK: Add a standalone authenticated MCP regression test if commit-safe disposable identities are available.
+
+### TRACK130 continuation — database-only payroll contract verification
+
+- Production-only database verification confirmed the canonical operational catalog is populated with payroll and TRACK130 entities, `unsupported=[]`, Director-only read authorization, and `payroll_records=0`.
+- Production bounded search for `payroll_records` and `2026-09-01` returned zero rows. No payroll business rows were inserted or changed.
+- Preview-only synthetic payroll contract test returned `READY`/`CREATE`, `canonical_writes=false`, and batch read-back with no committed rows; the exact staged batch was deleted afterward and verified by the delete result.
+- Google Drive was not used for this continuation.
+
+TRACK: TRACK130
+Status: COMPLETE — database-only contract verification; payroll batch pending source and approval
+Summary: Production catalog/read capabilities and Preview payroll preview/readback were verified without committing payroll rows.
+Root cause: Production contains no September 2026 payroll records to display or reconcile.
+Files changed: PROJECT_LOG.md; api/mcp.js; supabase/migrations/20261116100000_track130_child_reconciliation.sql; tests/track130-approval-workflow.test.mjs; tests/track130-child-reconciliation.test.mjs.
+Database changes: No Production business-data writes; Preview synthetic batch cleaned up.
+Migrations: Existing TRACK130 schema/RPCs remain applied; source migration is committed for reproducibility.
+Edge Functions: None.
+Tests: Focused tests 14/14 passed; build passed; MCP syntax and diff checks passed; Production catalog/capabilities/report/search verified; Preview payroll preview/readback passed.
+Production impact: Technical MCP/schema contract only; no payroll data changed.
+Commit SHA: `188795cc37820e003c199d1f2f59c1152a1ddadf`.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+Production URL (if deployed): `https://chamah-portal.vercel.app` (deployment `dpl_5bHw515bmNDyYcHqobhLLjv3fnw7`, READY, alias verified).
+Blockers: Actual September 2026 payroll source rows and explicit Director approval for that exact batch are still required before commit; the connected production tool surface has not yet exposed standalone `child_reconciliation` although the database catalog advertises it.
+Next recommended TRACK: Load the exact September payroll rows into Preview, reconcile, obtain Director approval, commit once, and verify persisted Production read-back.
+
+### TRACK130 continuation — operational digest binding regression fixed
+
+- Root cause: `portal_mcp_preview_operational_changes()` stores `preview_digest = sha256(b.rows::text)`, but approval creation passed a transformed envelope to `portal_request_approval()`, producing a different `payload_digest`; commit then consumed the transformed digest and rejected the unchanged batch.
+- Added a forward-only digest-binding migration. Approval now inserts `payload_digest=b.preview_digest`, records `approval_row_version`, and commit consumes that exact digest while retaining authorization, provenance, synthetic-data, concurrency, audit, and idempotency checks.
+- Preview end-to-end passed for the same unchanged batch: approval digest exactly equaled preview digest and exact approved commit returned `COMMITTED`/`atomic=true`. The disposable fixture was deleted; Preview read-back shows `fixture_rows=0` and `payroll_records=0`.
+- Production migration applied and read back: `approval_row_version` exists, request RPC binds `b.preview_digest`, commit RPC calls `portal_consume_approval_digest`, and Production `payroll_records=0`.
+
+TRACK: TRACK130
+Status: COMPLETE — operational digest binding fixed and verified
+Summary: Preview → Approval → Commit now uses the immutable stored preview digest for the exact batch.
+Root cause: Approval hashed a transformed request envelope instead of the canonical staged payload digest.
+Files changed: supabase/migrations/20261116150000_track130_operational_digest_binding.sql; tests/track130-operational-digest-binding.test.mjs; tests/sql/track130_operational_digest_binding.sql; PROJECT_LOG.md.
+Database changes: Added `approval_row_version`; replaced operational approval and commit RPCs; added private digest-specific approval consumer. No real business data loaded.
+Migrations: `track130_operational_digest_binding` applied to isolated Preview and Production.
+Edge Functions: None.
+Tests: Focused local regression 14/14 passed; Preview live end-to-end digest equality and commit passed; cleanup and zero payroll-row verification passed; Production function/schema read-back passed.
+Production impact: Approval/commit contract corrected; no payroll or other real business rows changed.
+Commit SHA: Pending commit.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: None; database-only change.
+Production URL (if deployed): `https://chamah-portal.vercel.app` unchanged.
+Blockers: None.
+Next recommended TRACK: None.
+
+### TRACK130 continuation — child identity matching corrected in Preview
+
+- Root cause: Preview `private.portal_mcp_entity_meta('children')` advertised `national_id`, `source_system`, and `source_record_id` with `stable_mode='ANY'`; the shared stable-token function therefore emitted `DUPLICATE_IN_BATCH:children|source_system=...` for every row from the same source system.
+- Preview-only fix: replaced `private.portal_mcp_match_operational_row_v2(jsonb)` and `private.portal_mcp_stable_tokens(jsonb)` through the isolated Preview database. Child matching now treats national ID as the primary identity, uses the complete source-system/source-record-id pair for source-row idempotency, and reports national-ID/source-row conflicts instead of creating duplicate children. Production was not modified.
+- Actual Chamah Director Preview verification: three synthetic children sharing `source_system=clicktack_contracts` returned `READY` with three `CREATE` operations and no conflicts. Repeating the same idempotency key returned the same batch and digest. Two rows with the same national ID returned `CONFLICT` with `DUPLICATE_IN_BATCH:children|national_id=...`.
+- Cleanup read-back: temporary Preview batches were deleted; remaining TRACK130 identity regression batches `0`; Preview children with the synthetic source-row marker `0`.
+
+TRACK: TRACK130
+Status: COMPLETE — Preview child identity matching corrected
+Summary: Child preview matching no longer treats source_system alone as a child identity.
+Root cause: Child stable metadata used ANY semantics, producing a source_system-only duplicate token.
+Files changed: supabase/migrations/20261116120000_track130_child_identity_matching.sql; tests/track130-child-identity-matching.test.mjs; PROJECT_LOG.md; Preview RPC definitions.
+Database changes: Preview-only replacement of the shared child matcher and stable-token RPCs; no canonical business rows created.
+Migrations: Source migration added for forward reproducibility; applied directly to Preview RPCs only, not Production.
+Edge Functions: None.
+Tests: Six focused local TRACK130 tests passed; actual Preview MCP regression passed for three same-source children, idempotency, and duplicate national-ID detection.
+Production impact: None; Production Supabase and deployments were not modified.
+Commit SHA: None; uncommitted. Current HEAD: `fed0a739d2cf18b5256103ab1bdda52ee8062edd`.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+Production URL (if deployed): None.
+Blockers: None for the requested Preview matching fix.
+Next recommended TRACK: Promote the matching child-identity RPC migration only through the separately authorized Production migration workflow.
+
+### TRACK130-PROD-PROMOTION — child identity fix applied
+
+- Committed the verified Preview child identity fix as `ab94a91` (`Fix TRACK130 child identity matching`).
+- Production preflight passed for project `vyyfuaqmbxvfqgbfqooc`; the child identity migration was absent, then the exact committed migration `20261116120000_track130_child_identity_matching.sql` was applied successfully.
+- Production rollback-only verification returned `READY`/`CREATE` for three children sharing `source_system=clicktack_contracts`, and `CONFLICT` for duplicate national IDs. No canonical rows were written.
+- Employee read-back confirmed unique constraints on `employee_code` and `national_id`, and same employee-code/national-ID matching returned `SKIP`. However, existing employee-code or national-ID mismatches currently return `UPDATE`, not `CONFLICT`; this is an exact remaining blocker outside the child-only migration.
+
+TRACK: TRACK130-PROD-PROMOTION
+Status: BLOCKED — child promotion complete; employee mismatch acceptance remains unresolved
+Summary: Child identity migration promoted to Production with zero business-data writes.
+Root cause: Existing shared employee matcher uses OR semantics and does not reject a mismatched second identity value.
+Files changed: supabase/migrations/20261116120000_track130_child_identity_matching.sql; tests/track130-child-identity-matching.test.mjs; PROJECT_LOG.md.
+Database changes: Production child matcher/token RPCs applied; no canonical business records inserted or changed.
+Migrations: `track130_child_identity_matching` applied successfully.
+Edge Functions: None.
+Tests: Focused TRACK130 tests 6/6 passed; Production child rollback-only verification passed; employee mismatch verification failed as described.
+Production impact: Additive child matching behavior only; existing Production counts unchanged (`children=0`, child operational tables tested `0`, `employees=1`).
+Commit SHA: `ab94a91`.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+Production URL (if deployed): `https://chamah-portal.vercel.app` (no frontend deployment changed).
+Blockers: Employee identity mismatch handling must be fixed and separately verified before this promotion can be marked fully complete.
+Next recommended TRACK: Add a forward-only employee identity mismatch guard that preserves employee-code/national-ID uniqueness and rejects conflicting pairs before any employee write.
+
+### TRACK130-PROD-PROMOTION continuation — employee identity matcher fixed
+
+- Committed the employee matcher migration and regression test as `acb660f` (`Fix employee identity mismatch matching`).
+- Applied `20261116130000_track130_employee_identity_matching.sql` to Production project `vyyfuaqmbxvfqgbfqooc`; Supabase recorded version `20261116125705`.
+- Production rollback-only verification: matching employee code and national ID returned `SKIP`; existing employee-code with different national ID returned `CONFLICT` (`EMPLOYEE_CODE_NATIONAL_ID_CONFLICT`); existing national ID with different employee code returned `CONFLICT` (`NATIONAL_ID_EMPLOYEE_CODE_CONFLICT`).
+- Final read-back confirmed the existing employee row remained unchanged, employee count remained `1`, child count remained `0`, and temporary TRACK130 employee batches remained `0`.
+
+TRACK: TRACK130-PROD-PROMOTION
+Status: COMPLETE — employee identity matcher fixed and verified
+Summary: Production now rejects conflicting employee identity pairs without changing or duplicating the existing employee.
+Root cause: Shared employee matcher used OR matching and accepted one matching identity while silently treating the other identity as an update.
+Files changed: supabase/migrations/20261116130000_track130_employee_identity_matching.sql; tests/track130-employee-identity-matching.test.mjs; PROJECT_LOG.md.
+Database changes: Production employee matcher RPC replaced; no canonical employee rows inserted or updated.
+Migrations: `20261116125705_track130_employee_identity_matching`.
+Edge Functions: None.
+Tests: Focused TRACK130 tests 7/7 passed; Production rollback-only identity verification passed in both mismatch directions.
+Production impact: Existing employee record unchanged; no real children or employee data loaded.
+Commit SHA: `acb660f8ce354712367f645c72e4ee5a9459b857`.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+Production URL (if deployed): `https://chamah-portal.vercel.app` (no frontend deployment changed).
+Blockers: None.
+Next recommended TRACK: None.
+
+### TRACK130 promotion attempt — blocked before Production write
+
+- Exact migration source was available at `supabase/migrations/20261116100000_track130_child_reconciliation.sql`.
+- Production preflight against Supabase project `vyyfuaqmbxvfqgbfqooc` failed with a Supabase MCP permission error on a read-only migration-history/business-count query.
+- Because Production migration state and existing-record invariants could not be read back with the connected authorization, no migration, RPC/catalog change, deployment, or data write was attempted.
+
+TRACK: TRACK130
+Status: BLOCKED — Production read-only authorization failed
+Summary: Promotion stopped before any Production mutation.
+Root cause: Connected Supabase authorization could not execute the required read-only Production preflight query.
+Files changed: PROJECT_LOG.md only.
+Database changes: None in Production.
+Migrations: Not applied to Production.
+Edge Functions: None.
+Tests: No Production verification run; local source remains available.
+Production impact: None.
+Commit SHA: None; uncommitted.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+Production URL (if deployed): None.
+Blockers: Supabase authorization with read access to project `vyyfuaqmbxvfqgbfqooc` is required to verify migration absence, schema, RPCs, catalog, capabilities, report, and unchanged business counts before applying TRACK130.
+Next recommended TRACK: Re-run Production preflight after the connected Supabase account receives read/write access to `vyyfuaqmbxvfqgbfqooc`.
+
+### TRACK130 Production promotion — completed
+
+- Production preflight succeeded through the authorized Supabase connection using database user `postgres`; no TRACK130 migration was present and `collection_receipts` was zero before promotion.
+- Applied the exact local file `supabase/migrations/20261116100000_track130_child_reconciliation.sql` to Production project `vyyfuaqmbxvfqgbfqooc`. Supabase recorded migration version `20261116114311`, name `track130_child_reconciliation`.
+- Copied the exact Preview-verified `portal_mcp_data_capabilities()`, `private.portal_mcp_entity_meta(text)`, and `portal_mcp_operational_catalog()` definitions to Production; no SQL was reconstructed from memory. No business-data insert/update/delete statements were executed.
+- Final read-back: TRACK130 tables `government_funding_reports`, `government_funding_records`, `child_theoretical_revenue`, and `child_discrepancies` present; RPCs `portal_mcp_child_reconciliation`, `portal_mcp_data_capabilities`, `portal_mcp_operational_catalog`, `portal_mcp_operational_report`, and `portal_mcp_request_operational_approval` present; catalog definition contains TRACK130 entities; capabilities definition contains child `READ_WRITE_IMPORT` support.
+- Final Production business counts: `children=0`, `child_enrollments=0`, `daycare_billing_records=0`, `collection_receipts=0`, `government_funding_reports=0`, `government_funding_records=0`, `child_theoretical_revenue=0`, `child_discrepancies=0`. No synthetic or real business data was added.
+
+TRACK: TRACK130
+Status: COMPLETE — Production promotion verified
+Summary: Exact TRACK130 migration and required Preview-verified RPC/catalog definitions promoted to Production with zero business-data writes.
+Root cause: Production had not yet received TRACK130 schema or shared MCP capability/catalog definitions.
+Files changed: PROJECT_LOG.md; exact migration source used unchanged.
+Database changes: TRACK130 schema and RPC/catalog definitions applied to Production project `vyyfuaqmbxvfqgbfqooc`.
+Migrations: Applied as `20261116114311_track130_child_reconciliation`.
+Edge Functions: None.
+Tests: Production schema/function/read-back verification completed; no data fixtures created.
+Production impact: Additive schema and MCP contract only; final affected-table counts all zero.
+Commit SHA: None; uncommitted.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+Production URL (if deployed): `https://chamah-portal.vercel.app` (no frontend deployment changed).
+Blockers: None for TRACK130 database promotion.
+Next recommended TRACK: Deploy the matching Production MCP/API source only if standalone `child_reconciliation` tool exposure is required.
+
+### TRACK130 continuation — generic operational approval workflow fixed
+
+- Root cause: `portal_mcp_request_operational_approval()` called the shared `portal_mcp_reject_synthetic()` guard before issuing an approval. That made every synthetic Preview READY batch fail with `INVALID_ARGUMENT`, regardless of entity. The same guard remains in `portal_mcp_commit_operational_changes()`, preserving the no-promotion safety boundary.
+- Preview-only fix: replaced the shared approval RPC to validate authorization, `OPERATIONS` domain, READY status, provenance, exact approval binding, audit/approval creation, and verification state without performing the commit-time synthetic rejection.
+- Existing batch `c9ff8469-66e9-44f0-8e33-6f4de53eb84a` received approval `4d58efed-b35d-444d-b420-d6b04fa936f9`.
+- Mixed generic Preview batch `a74f7e59-26ad-437e-b20f-9bfb7b260188` covered employees, child enrollments, billing, government funding reports, and discrepancies; it received approval `b2109f8b-4166-4ec6-af4b-aeed36bb3ba6`. Neither batch was committed.
+- Both temporary staged batches were deleted after verification. Final read-back: remaining batches `0`; business counts unchanged (`children=1`, `child_enrollments=1`, `daycare_billing_records=1`, `government_funding_reports=0`, `child_discrepancies=0`). Approval/audit artifacts were preserved.
+- Added local regression coverage for generic approval mapping and commit-time synthetic protection.
+
+TRACK: TRACK130
+Status: COMPLETE — generic Preview approval workflow verified
+Summary: Shared operational approval now works for all catalog entities while synthetic promotion remains blocked at commit.
+Root cause: Synthetic-data rejection was incorrectly enforced during approval creation instead of only at commit.
+Files changed: supabase/migrations/20261116100000_track130_child_reconciliation.sql; tests/track130-approval-workflow.test.mjs; PROJECT_LOG.md; Preview RPC `portal_mcp_request_operational_approval()`.
+Database changes: Preview approval RPC definition only; no canonical business rows committed.
+Migrations: No new migration applied; source migration updated for forward reproducibility.
+Edge Functions: None.
+Tests: Live Preview preview→approval verified for child and mixed employee/enrollment/billing/funding/discrepancy batch; local regression tests added.
+Production impact: None.
+Commit SHA: None; uncommitted.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-m9bmu39l2-chamah.vercel.app`.
+Production URL (if deployed): None.
+Blockers: None for the requested approval workflow.
+Next recommended TRACK: Add a standalone authenticated MCP regression test if commit-safe disposable identities are available.
+### TRACK132 — Permanent Cross-Domain Import Contract Fix
+
+- Established contract version `1.0.0` across the MCP wrapper, versioned catalog RPC, staged batch metadata, Preview, Approval, and Commit calls.
+- Added forward-only migration `20261116190000_track132_operational_import_contract.sql`; Preview project `iwsbjudahtjyigecymzd` accepted it successfully.
+- Preview now exposes `portal_mcp_preview_operational_changes(text,jsonb,text,jsonb,text)`, `portal_mcp_request_operational_approval(text,uuid,text)`, `portal_mcp_commit_operational_changes(text,uuid,uuid)`, and `portal_mcp_operational_contract_catalog()`.
+- Stale or incompatible versions fail with `VERSION_MISMATCH`; existing authorization, provenance, digest, approval, idempotency, row-version, audit, atomicity, and synthetic-data guards remain in the delegated workflow RPCs.
+- Added focused regression coverage and deployed wrapper Preview `https://chamah-manager-portal-v2-preview-6yp0n6xeq-chamah.vercel.app`.
+- Disposable TRACK132 batch and approval were removed; read-back confirmed both remaining counts are zero. No canonical business records were written by this verification.
+- The active Director Preview/Chamah Daycare connector remains stale and still reports the pre-TRACK132 catalog/schema. Production currently has none of the versioned RPCs; no Production migration, deployment, connector refresh, or real-data load was attempted.
+
+TRACK: TRACK132
+Status: BLOCKED — Preview implementation complete; Production promotion and active connector refresh require explicit Director approval
+Summary: Cross-domain versioned import contract implemented and applied to isolated Preview; stale connector and Production parity remain gated.
+Root cause: MCP connector/schema and database RPC generations were not versioned together, allowing Preview/approval to bind successfully before commit reached an incompatible RPC contract.
+Files changed: api/mcp.js; supabase/migrations/20261116190000_track132_operational_import_contract.sql; tests/track132-operational-import-contract.test.mjs; PROJECT_LOG.md.
+Database changes: Preview only; added `mcp_ingestion_batches.contract_version` and versioned contract RPC overloads/catalog wrapper. No canonical business rows written.
+Migrations: Preview applied `track132_operational_import_contract`; Production not applied.
+Edge Functions: None.
+Tests: `node --check api/mcp.js` passed; TRACK132 focused tests 2/2 passed; migration preflight passed (108 ordered migrations); Preview/Production signature read-back completed; disposable batch and approval cleanup verified.
+Production impact: None. Production still lacks TRACK132 versioned RPCs; existing counts read back as children=0, employees=1.
+Commit SHA: Pending commit.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-6yp0n6xeq-chamah.vercel.app`.
+Production URL (if deployed): `https://chamah-portal.vercel.app` (unchanged).
+Blockers: Explicit Director approval is required before applying the migration/deploying the matching wrapper to Production and refreshing the active connector schema. Full 11-domain live commit tests cannot run safely until the connector and Production/Preview contract are aligned; synthetic promotion remains correctly blocked by the existing safeguard.
+Next recommended TRACK: After Director approval, promote the exact migration and wrapper, refresh/re-register the active connector, then run the disposable end-to-end matrix for children, employees, enrollment, occupancy, billing, collections, government funding, payroll, bank, suppliers, payments, and discrepancies with cleanup/read-back.
+### TRACK132 Production promotion continuation
+
+- Director approval received for Production promotion.
+- Applied the exact committed migration from `a3cb2dd9f946e16040b8fb04027240bc45d449cf` to Production project `vyyfuaqmbxvfqgbfqooc`; Supabase recorded migration version `20261116144417_track132_operational_import_contract`.
+- Deployed the exact wrapper commit to canonical Vercel project `chamah-portal`; Ready deployment `dpl_BcZZwSn1x1vgdNZWg4BiHm4umhLN` is assigned to `https://chamah-portal.vercel.app`.
+- Production catalog read-back reports contract `1.0.0`, workflow `Preview → Reconciliation → Approval → Commit → Read-back`, and 1,000-row limit.
+- The active connector catalog refreshed, but its callable `preview_operational_changes` schema remains stale and omits required `contract_version`; a live call failed safely with `VERSION_MISMATCH` before creating a batch.
+- No temporary or real records were created in Production; no cleanup was required (`temporary batches created=0`, `temporary canonical records=0`).
+
+TRACK: TRACK132
+Status: BLOCKED — Production schema and wrapper promoted; active connector tool schema refresh still required
+Summary: Production contract is deployed and safely fails stale connector calls, but the connector cannot execute the new versioned workflow until its callable schema is refreshed.
+Root cause: Connector catalog metadata refreshed independently from the cached callable tool schema; the callable schema still omits required `contract_version`.
+Files changed: None after approved implementation commit; deployment used `a3cb2dd9f946e16040b8fb04027240bc45d449cf`.
+Database changes: Production TRACK132 contract migration applied; no business data writes.
+Migrations: `20261116144417_track132_operational_import_contract`.
+Edge Functions: None.
+Tests: Production catalog/version read-back passed; all four versioned RPC/catalog registrations were applied; stale connector Preview call correctly returned `VERSION_MISMATCH`; 11-domain commit matrix not run because the connector schema cannot submit the required contract version.
+Production impact: Wrapper and additive contract schema deployed; no real business data imported.
+Commit SHA: `a3cb2dd9f946e16040b8fb04027240bc45d449cf`.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview-6yp0n6xeq-chamah.vercel.app`.
+Production URL (if deployed): `https://chamah-portal.vercel.app` (`dpl_BcZZwSn1x1vgdNZWg4BiHm4umhLN`).
+Blockers: Active Production connector callable schema must be refreshed/re-registered so Preview, Approval, and Commit submit `contract_version: 1.0.0`. Do not import real data until the 11-domain matrix passes.
+Next recommended TRACK: Refresh the active connector schema, then run the approved disposable matrix with a connector-supported safe test mode that preserves the existing synthetic-data guard.
+
+### TRACK132 Connector manifest-generation repair
+
+- Identified the callable schema source as the deployed `api/mcp.js` Vercel Lambda: `initialize.serverInfo` and `tools/list` are generated there; no repository-side connector registration manifest exists.
+- Production deployment `dpl_BcZZwSn1x1vgdNZWg4BiHm4umhLN` was confirmed to use commit `a3cb2dd9f946e16040b8fb04027240bc45d449cf`, whose handler already contained the TRACK132 callable schemas but still advertised `serverInfo.version='1.4.0'` and `contractVersion='stable-1'`.
+- Bumped the explicit manifest generation to server version `1.5.0` and contract version `1.0.0`; stale clients remain rejected by existing `VERSION_MISMATCH` validation. Added a focused registration-manifest regression test.
+- Committed as `7fd020a58a5c700437bc6417ed6542d227cc9f76`, pushed to `codex/track121-oauth-login-resume`, and created READY Production deployment `dpl_Ddkg1nykrVinY5bG3UiTWyEML3wS` in Vercel project `prj_6IND7ee2E9s3KispBh6iBDWwQo6X`.
+- Vercel read-back shows that project currently has only `chamah-manager-portal-v2-preview.vercel.app`; the requested canonical `chamah-portal.vercel.app` is not attached to the accessible project, and the active callable registry in this session remains pre-TRACK132.
+
+TRACK: TRACK132
+Status: BLOCKED — deployment manifest generation repaired; external active connector/platform registry remains stale
+Summary: Published a new MCP manifest generation with TRACK132 contract metadata, while preserving server-side version rejection and all security/approval controls.
+Root cause: The deployed handler exposed TRACK132 schemas but retained the prior stable manifest marker; additionally, the active connector registry is external to the repository/Vercel project and is not updated by reconnecting this session.
+Files changed: api/mcp.js; tests/track132-operational-import-contract.test.mjs; PROJECT_LOG.md.
+Database changes: None.
+Migrations: None.
+Edge Functions: None.
+Tests: `node --test tests/track132-operational-import-contract.test.mjs` passed 3/3; `node --check api/mcp.js` passed; `git diff --check` passed. No business-data tool was invoked.
+Production impact: New READY Vercel deployment created; no database, business data, permissions, or approval state changed. Canonical endpoint alias was not independently verified on the accessible Vercel project.
+Commit SHA: `7fd020a58a5c700437bc6417ed6542d227cc9f76`.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview.vercel.app`.
+Production URL (if deployed): `https://chamah-portal.vercel.app` — not attached to the accessible Vercel project according to domain read-back.
+Blockers: The active platform connector registry still exposes the old callable schemas; no supported connector-registry mutation or cache-invalidation API is exposed in this session. External platform action must bind the active Chamah Daycare connector to the READY deployment/endpoint and refresh its callable manifest using server version `1.5.0`, contract version `1.0.0`. Do not run the business verification matrix until registry read-back shows `contract_version` on all three tools.
+Next recommended TRACK: Platform registry binding/manifest read-back only; then verify the three callable schemas before any data workflow.
+
+### TRACK130/132 Commit RPC mapping correction
+
+TRACK: TRACK130/132
+Status: BLOCKED — code and regression fix prepared; Production connector session terminated before migration/deployment verification
+Summary: Reproduced the repository-level defect: TRACK132 overloaded `portal_mcp_commit_operational_changes` on top of TRACK130's two-UUID RPC, causing PostgREST to return `Unable to retrieve data`. Added a uniquely named v1 wrapper with explicit UUID and contract-version arguments.
+Root cause: PostgREST RPC name overload ambiguity on Commit; the wrapper was calling the overloaded name.
+Files changed: api/mcp.js; supabase/migrations/20261117100000_track132_commit_rpc_mapping_fix.sql; tests/track132-operational-import-contract.test.mjs.
+Database changes: None applied; migration prepared only.
+Migrations: `20261117100000_track132_commit_rpc_mapping_fix.sql` prepared, not applied.
+Edge Functions: None.
+Tests: `node --test tests/track132-operational-import-contract.test.mjs` passed 4/4; migration preflight passed; `git diff --check` passed. Live Production reproduction was attempted through Chamah Daycare 0.0.2 but the connector returned `Session terminated` before the RPC call reached the batch.
+Production impact: None; no child data, approvals, or canonical records changed.
+Commit SHA: Pending.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: None.
+Production URL (if deployed): `https://chamah-portal.vercel.app` — not changed.
+Blockers: The current Production Chamah Daycare connector session is terminated, and the accessible Vercel project does not expose the canonical Production alias; therefore the migration, deployment, five-batch retry, and read-back cannot be truthfully completed in this session.
+Next recommended TRACK: Restore the active Production connector session and bind the approved deployment/migration path, then retry the five existing approved batches without reloading data.
+### TRACK134 — Production MCP stabilization continuation
+
+- Verified the current Production Vercel project as `chamah-portal` (`prj_6IND7ee2E9s3KispBh6iBDWwQo6X`); its accessible project domains remain `chamah-manager-portal-v2-preview.vercel.app` and `chamah-portal-git-main-chamah.vercel.app`. The canonical `chamah-portal.vercel.app` domain is not attached in the accessible project scope, and direct domain lookup returned Vercel 403.
+- Verified Production Supabase project `vyyfuaqmbxvfqgbfqooc` is active, had migrations through TRACK133, and did not have the uniquely named commit wrapper. Applied the exact committed corrective migration `track132_commit_rpc_mapping_fix`; read-back confirms migration `20261117061315` and signature `portal_mcp_commit_operational_changes_v1(uuid,uuid,text)`.
+- Verified the local TRACK132 contract tests (4/4), MCP syntax, migration preflight (109 ordered migrations), and diff checks. Production security advisors were read; no new security policy was changed by this repair.
+- Live Chamah Daycare 0.0.2 calls (`operational_catalog`, `data_capabilities`, `get_profile`) still return `Session terminated`; no preview, approval, commit, batch retry, or business-data write was attempted. Vercel connector enumeration also returned 403, so connector registration/manifest refresh cannot be performed from this session.
+- OAuth root cause was deployment/alias drift: the repository already had the consent route and generated `dist/oauth-consent.html`, but the named Preview alias pointed at an older deployment. Deployed commit `9860392bcfc4af76993e6a70c739000c628999d1` as `dpl_7Ppjd5ybUQqQg92EeVEPWEpZM34ax` (READY) and reassigned `chamah-manager-portal-v2-preview.vercel.app` to it.
+- Exact URL verification passed with HTTP 200 and the Hebrew consent page: `https://chamah-manager-portal-v2-preview.vercel.app/oauth/consent?authorization_id=test-track134`. The page requires an authenticated Supabase session, displays authorization details, and exposes explicit approve/deny actions; no auto-approval or security bypass was added.
+
+TRACK: TRACK134
+Status: BLOCKED — Consent route deployed and exact Preview URL verified; authenticated live connector flow remains unavailable
+Summary: Applied and verified the additive Production commit-RPC compatibility fix, deployed the existing consent route to READY Preview, and rebound the named Preview alias while preserving all existing approval, digest, row-version, authorization, audit, idempotency, and atomicity controls.
+Root cause: The named Preview alias was serving an older deployment; the live connector session is still terminated and the canonical Production domain/connector registry remains inaccessible.
+Files changed: `supabase/migrations/20261117100000_track132_commit_rpc_mapping_fix.sql`; `PROJECT_LOG.md`. No application source change was needed because the consent route already existed in the committed tree.
+Database changes: Added only `public.portal_mcp_commit_operational_changes_v1(uuid,uuid,text)` in Production; no business rows changed.
+Migrations: Production applied `20261117061315_track132_commit_rpc_mapping_fix`.
+Edge Functions: None.
+Tests: TRACK132 focused tests 4/4 passed; `node --check api/mcp.js` passed; migration preflight 109/109 passed; `git diff --check` passed; Production signature and migration read-back passed; live connector calls failed with `Session terminated`.
+Production impact: Preview deployment `dpl_7Ppjd5ybUQqQg92EeVEPWEpZM34ax` READY; Preview alias changed. No Production alias, approval, batch, or business-data state changed.
+Commit SHA: `9860392bcfc4af76993e6a70c739000c628999d1`.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview.vercel.app/oauth/consent?authorization_id=test-track134` (HTTP 200).
+Production URL (if deployed): `https://chamah-portal.vercel.app` — canonical alias not verified/accessible.
+Blockers: The connected Chamah Daycare Production session still returns `Session terminated`, so the complete authenticated OAuth callback/MCP-session test and live children/payroll acceptance matrix cannot be truthfully run. Canonical Production Vercel domain/connector-registry access also remains unavailable.
+Next recommended TRACK: Reauthorize the active Production connector, then run the real MCP → Supabase authorize → consent → callback → MCP-session flow and the rollback-only acceptance matrix before retrying the five approved batches.
+### TRACK134 OAuth post-authentication trace
+
+- Live Supabase trace for the current Chamah connector: `client_id=157f5d1a-9c31-492c-a536-558545cb23c9`; `redirect_uri=https://chatgpt.com/connector/oauth/hH2c08CbCLJY`; `scope=openid email offline_access`; PKCE `S256`; resource `https://chamah-manager-portal-v2-preview.vercel.app/api/mcp`.
+- Supabase authorization returned `302`, the authenticated user completed login, authorization-details returned `200`, and token exchange returned `200` through `/auth/v1/oauth/token`. The registered client row exactly matches the observed client ID, redirect URI, public-client mode, authorization-code/refresh-token grants, and no-client-secret method.
+- The existing `auth.oauth_consents` row for this client/user is active and grants `openid email offline_access`; Supabase logs the authorization-details requests as `auto_approved=true`. This is provider-side consent state, not a login-password failure.
+- No subsequent MCP `POST /api/mcp` or `initialize` request was observed in Vercel logs. The current Chamah connector tool surface independently returns `Unknown tool`, so the connector is not exposing a usable post-token MCP session in this task.
+
+TRACK: TRACK134
+Status: BLOCKED — OAuth authorization and token exchange pass; current connector does not reach MCP initialize
+Summary: Traced the live OAuth chain end to end through successful authorization, callback, and token exchange. No repository code or business data was changed because the failure occurs after Supabase token issuance and before any MCP request reaches Vercel.
+Root cause: The active connector session/registry is not completing the post-token MCP connection and currently reports `Unknown tool`; an existing Supabase consent grant also causes provider-side auto-approval, so no fresh consent decision is exercised.
+Files changed: `PROJECT_LOG.md` only.
+Database changes: None.
+Migrations: None.
+Edge Functions: None.
+Tests: Read-only Supabase auth client/config and consent inspection; live auth logs verified authorization `302`, authorization details `200`, token exchange `200`; Vercel protected-resource metadata `200`; no MCP initialize observed.
+Production impact: None. No business data, OAuth client registration, consent row, scopes, or authorization controls were modified.
+Commit SHA: `9860392bcfc4af76993e6a70c739000c628999d1`.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview.vercel.app/api/mcp`.
+Production URL (if deployed): `https://chamah-portal.vercel.app/api/mcp` — not exercised.
+Blockers: The current Chamah connector must resume a valid MCP session after the already-successful token exchange; its tool surface currently returns `Unknown tool`, and no post-token MCP request is emitted. This requires connector-platform state/registry access, not a code or business-data change.
+Next recommended TRACK: With the same connector session restored, rerun fresh authorization and verify the first post-token request is `POST /api/mcp` with `initialize`, then `tools/list`, then `get_profile`; only after that run the full acceptance matrix.
+
+### TRACK135 Production commit-RPC deployment verification
+
+- Verified Production Supabase project `vyyfuaqmbxvfqgbfqooc` and migration `20261117061315_track132_commit_rpc_mapping_fix`; the exact `portal_mcp_commit_operational_changes_v1(uuid,uuid,text)` migration is present in remote history.
+- Verified the repository wrapper maps `commit_operational_changes` exclusively to `portal_mcp_commit_operational_changes_v1` with `p_batch_id`, `p_approval_id`, and `p_contract_version`.
+- Root cause was deployment drift: the canonical Production alias served `main` deployment `dpl_5Kytx1ipAki4SvyGCaiFrtwoXRRV` at commit `260bcfeb…`, while the verified wrapper fix existed at `9860392…`.
+- Deployed commit `9860392bcfc4af76993e6a70c739000c628999d1` as READY deployment `dpl_FMKdPiYzF5yqRjzpVoPMdRguJchu` and rebound `chamah-portal.vercel.app` to it. Production environment inspection showed no `CHAMAH_SUPABASE_URL` override; the wrapper therefore targets the hard-coded Production project.
+- Read-only batch inspection confirmed all five named batches are `READY`, `REAL_VERIFIED`, contract `1.0.0`, row version 1, and uncommitted with exact approval IDs preserved. No new batch, approval, or business row was created.
+- The current chat tool registry still exposes the old connector namespace; its commit call returns MCP internal error before reaching the deployed wrapper. Direct database commit was not attempted because that would bypass the requested live MCP wrapper path.
+
+TRACK: TRACK135
+Status: BLOCKED — connector tool registry has not refreshed to the active 0.0.2 Production connector
+Summary: Corrected Production deployment drift and rebound the canonical alias to the verified wrapper, but the available connector tool surface cannot invoke the new live session for the five existing batches.
+Root cause: Canonical alias served an older `main` deployment; after correction, this chat's connector registry remains stale and does not expose the active connector invocation path.
+Files changed: PROJECT_LOG.md only; deployed source was already committed.
+Database changes: None.
+Migrations: Verified `20261117061315_track132_commit_rpc_mapping_fix` already applied; no migration applied.
+Edge Functions: None.
+Tests: Local build, migration preflight, and focused contract tests previously passed; live Production deployment READY; five batch rows read-only verified.
+Production impact: Production wrapper deployment and canonical alias changed to the verified commit. No business data or security controls changed.
+Commit SHA: `9860392bcfc4af76993e6a70c739000c628999d1`.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: None.
+Production URL (if deployed): `https://chamah-portal.vercel.app/api/mcp`.
+Blockers: The active 0.0.2 connector is not callable from the current tool registry; available commit calls fail before producing a Vercel request. One connector-session/tool-registry refresh is required.
+Next recommended TRACK: Refresh the active Chamah Daycare 0.0.2 connector session, invoke the unchanged first batch through MCP, then retry and read back all five batches with persisted child and audit counts.
+# TRACK135 — Complete Production MCP Operations, Commit, and Deletion (2026-11-17)
+
+TRACK: TRACK135
+Status: BLOCKED — Production Commit requires a new Director approval after the single authorized retry exposed and the fix removed a false-positive synthetic-data guard.
+Summary: Traced the live Business Production connector through Vercel MCP, PostgREST, overloaded Commit RPCs, approval/digest/row-version checks, atomic write, and read-back. Added sanitized upstream error propagation, Director-only approval-bound operational archive, and narrowed synthetic-data rejection so legitimate track130-contracts-v1 provenance is accepted. Applied both forward-only migrations and deployed the MCP wrapper to Production; canonical alias was reassigned to deployment dpl_46NBSfVyg531dhVTHtMyeeMCCVjX.
+Root cause: The live Commit failure was hidden by the wrapper and the actual database error was 22023 — Synthetic or test data is not promotable to Production. The guard scanned all row JSON for track, falsely rejecting the legitimate mapping version track130-contracts-v1.
+Files changed: api/mcp.js; supabase/migrations/20261117130000_track135_operational_archive.sql; supabase/migrations/20261117140000_track135_synthetic_guard_precision.sql.
+Database changes: Applied track135_operational_archive and track135_synthetic_guard_precision to Production project vyyfuaqmbxvfqgbfqooc; no business rows changed.
+Migrations: 20261117130000_track135_operational_archive; 20261117140000_track135_synthetic_guard_precision.
+Edge Functions: None.
+Tests: node --check api/mcp.js, git diff --check, and migration preflight (111 ordered local migrations) passed. Live batch read-back before and after the single retry remained READY, committed_at null, commit_result null, row_version 1, approval unconsumed. No child records or audit writes were created.
+Production impact: Vercel Production deployment dpl_46NBSfVyg531dhVTHtMyeeMCCVjX is READY and canonical https://chamah-portal.vercel.app now points to it. Production schema changed only by the two forward-only RPC migrations. No business data changed.
+Commit SHA: 4cb8076
+Branch: codex/track121-oauth-login-resume
+Preview URL: https://chamah-portal-d0if02zgh-chamah.vercel.app
+Production URL (if deployed): https://chamah-portal.vercel.app
+Blockers: The supplied approval 306c73ed-e2ef-4190-8f3f-8e9bf31425f7 was retried exactly once and failed before writes. The corrected guard is now deployed/applied, but the existing approval cannot be retried again under the instruction. A new Director approval for the unchanged batch (or a new approved batch if it expires) is required; TRACK136 must not begin.
+Next recommended TRACK: Retry the unchanged batch exactly once only after the Director issues a fresh approval under the corrected production contract, then complete persisted commit/read-back verification and archive rollback probes.
+# TRACK135 — Final Production Commit Acceptance (2026-11-17)
+
+TRACK: TRACK135
+Status: COMPLETE
+Summary: Verified the exact unchanged Production batch remained READY, created one fresh approval, performed exactly one final Commit with contract_version 1.0.0, and completed persisted read-back verification.
+Root cause: The prior failure was the synthetic guard falsely matching legitimate track130-contracts-v1 provenance; the guard precision migration resolved it.
+Files changed: None in this final authorization step.
+Database changes: One approved atomic Commit created 100 children from the existing batch. No new batch and no row or payload edits.
+Migrations: Existing TRACK135 migrations were already applied: operational archive and synthetic-guard precision.
+Edge Functions: None.
+Tests: Production connector read-back before Commit confirmed READY, row_version 1, unchanged digest, empty record audit, and unconsumed prior approval. Fresh approval 3cd49ef2-092d-4cdb-9b19-98eaa9a208bc was created for the exact digest. Exactly one Commit succeeded. Final read-back confirmed status COMMITTED, committed_at 2026-11-17 14:19:29.472417+00, row_version 2, atomic=true, approval consumed at the same timestamp, 100 created children, 100 record-audit entries, and 3 authorization-audit entries.
+Production impact: Authorized Production data write completed through the MCP preview → approval → Commit path. No duplicate batch or retry occurred.
+Commit SHA: 8c026d8
+Branch: codex/track121-oauth-login-resume
+Preview URL: https://chamah-portal-d0if02zgh-chamah.vercel.app
+Production URL (if deployed): https://chamah-portal.vercel.app
+Blockers: None for TRACK135.
+Next recommended TRACK: TRACK136
+
+# TRACK136 — Permanent Chamah Operating System
+
+TRACK: TRACK136
+Status: RELEASED — TRACK136 verified and pushed; canonical alias ownership remains an external Vercel-scope blocker
+Summary: Completed the permanent operating-system layer and resolved all three TRACK136 blockers: persistent request-origin audit, authoritative migration test reference, and MCP version mismatch.
+Root cause: The repository lacked a durable origin-audit adapter and had two stale legacy assertions: an undated migration filename and server version 1.5.0.
+Files changed: api/mcp.js; supabase/migrations/20261117150000_track136_request_origin_audit.sql; tests/mcp-readonly-security.test.mjs; tests/track114-financial-reconciliation.test.mjs; tests/track120-operational-mcp.test.mjs; tests/track132-operational-import-contract.test.mjs; docs/operating-system/README.md; docs/operating-system/mcp-contract-policy.json; scripts/check-mcp-contract.mjs; package.json; PROJECT_LOG.md
+Database changes: None applied; migration prepared only.
+Migrations: `20261117150000_track136_request_origin_audit.sql` applied in Production as remote version `20261117144756_track136_request_origin_audit`; schema columns and RPC read back successfully.
+Edge Functions: None.
+Tests: `node --test tests/*.test.mjs` passed 74/74; `npm run contract:check` passed; build passed; migration preflight passed; syntax and diff checks passed. Live authenticated deployment/read-back was not run.
+Production impact: Only the authorized TRACK136 schema/RPC migration and verified MCP deployment changed. No business data, batches, approvals, or records were modified.
+Commit SHA: `8574bdd`; pushed to `origin/codex/track121-oauth-login-resume`. Vercel deployment `dpl_2SQGN7SQeeYv4g7FoZcLT7teiyz4` is READY.
+Branch: codex/track121-oauth-login-resume
+Preview URL: None
+Production URL (if deployed): None
+Blockers: Canonical `chamah-portal.vercel.app` ownership/read-back is externally blocked: project-domain lookup returned 404 and apex project-domain lookup returned 403 for the connected Vercel scope. The temporary `.track136-release` project is confirmed `live:false`, serves only its own domains, and is not the Production alias; no supported project-delete capability is available. No connector refresh is required for BACKWARD_COMPATIBLE contract 1.0.0.
+Next recommended TRACK: Vercel owner grants access to the domain-owning scope and provides the supported cleanup path for `.track136-release`; no application or database work remains.

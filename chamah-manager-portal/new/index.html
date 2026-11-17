@@ -4,7 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#164936">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="פורטל חמ״ה">
   <title>פורטל הניהול של חמ״ה</title>
+  <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="admin-framework.css">
 </head>
@@ -72,6 +76,7 @@
           <a href="#dashboards/unit/organization/accounting" data-route="accounting"><span aria-hidden="true">🧾</span><span>הנה״ח</span></a>
           <a href="#payroll" data-route="payroll"><span aria-hidden="true">₪</span><span>שכר</span></a>
           <a href="#training" data-route="training"><span aria-hidden="true">▤</span><span>ניהול והגדרות</span></a>
+          <a href="#documents" data-route="documents"><span aria-hidden="true">📁</span><span>מסמכים ונהלים</span></a>
           <a href="#knowledge" data-route="knowledge"><span aria-hidden="true">▤</span><span>מרכז הידע למשתמש</span></a>
           <a href="#maintenance" data-route="maintenance"><span aria-hidden="true">⚙</span><span>תחזוקה</span></a>
           <a href="#tasks" data-route="tasks"><span aria-hidden="true">✓</span><span>משימות</span></a>
@@ -96,6 +101,7 @@
   </div>
   <script src="vendor/exceljs.min.js"></script>
   <script src="vendor/xlsx.full.min.js"></script>
+  <script src="pwa-update.js"></script>
   <script type="module" src="app.js"></script>
 </body>
 </html>

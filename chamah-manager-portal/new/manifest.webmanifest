@@ -1,0 +1,11 @@
+{
+  "name": "פורטל הניהול של חמ״ה",
+  "short_name": "פורטל חמ״ה",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f7f5",
+  "theme_color": "#164936"
+}

@@ -79,4 +79,3 @@ contract and migration are implemented and verified locally.
 
 See `docs/operating-system/future-work-template.md` for the machine-readable
 and human-readable work contract.
-

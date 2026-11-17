@@ -191,8 +191,9 @@ export async function mountBankTransferWorkbench(request) {
     const splitParents = roots().filter((row) => childrenFor(row.bank_transfer_id).length);
     const remaining = splitParents.reduce((sum, row) => sum + Math.max(0, splitSummary(row).remaining), 0);
     const unsplitPending = roots().filter((row) => !childrenFor(row.bank_transfer_id).length && draft(row).status === "PENDING").map(draft);
-    const pendingCount = unsplitPending.length + splitParents.filter((row) => splitSummary(row).remaining > .005).length;
-    const pendingAmount = unsplitPending.reduce((sum, row) => sum + Number(row.amount || 0), 0) + remaining;
+    const pendingChildren = splitParents.flatMap((row) => childrenFor(row.bank_transfer_id).map(draft).filter((child) => child.status === "PENDING"));
+    const pendingCount = unsplitPending.length + splitParents.filter((row) => splitSummary(row).remaining > .005 || childrenFor(row.bank_transfer_id).some((child) => draft(child).status === "PENDING")).length;
+    const pendingAmount = [...unsplitPending, ...pendingChildren].reduce((sum, row) => sum + Number(row.amount || 0), 0) + remaining;
     $("#transfer-kpis").innerHTML = [
       ["ממתינות", pendingCount, "pending"],
       ["סכום ממתין", money.format(pendingAmount), "pending"],

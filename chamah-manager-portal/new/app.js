@@ -6,6 +6,7 @@ import { RULE_CATEGORIES, SYSTEM_RULES } from './management-catalog.generated.js
 import { DOCUMENTED_STATUS_RULES, REFERENCE_TABLES, VARIABLE_RULE_TABLES } from './management-data.js';
 import { mountAdministrationPrototype } from './administration-prototype.js';
 import { mountSettingsCenter } from './settings-center.js';
+import { mountPolicyDocuments } from './policy-documents.js';
 import { bankWorkbenchTemplateV2 as track015BankWorkbenchTemplate, mountBankWorkbenchV2 as mountBankWorkbench } from './bank-workbench-ux.js';
 import { bankTransferWorkbenchTemplate, mountBankTransferWorkbench } from './bank-transfer-workbench.js';
 import { workforceHubTemplate, employeesWorkbenchTemplate, payrollWorkbenchTemplate, parsePayrollWorkbook } from './workforce-workbench.js';
@@ -23,8 +24,9 @@ const SESSION_REFRESH_LEEWAY_SECONDS = 60;
 const AUTO_REFRESH_MAX_DELAY_MS = 30 * 60 * 1000;
 const AUTO_REFRESH_RETRY_MS = 30 * 1000;
 const MIN_PASSWORD_LENGTH = 10;
-const PRODUCTION_PORTAL_URL = 'https://chamah-portal-chamah.vercel.app/';
+const PRODUCTION_PORTAL_URL = 'https://chamah-portal.vercel.app/';
 const PREVIEW_PORTAL_URL = 'https://chamah-portal-chemlevin-chamah.vercel.app/';
+const OAUTH_RESUME_PARAM = 'oauth_resume';
 const $ = (selector) => document.querySelector(selector);
 const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 });
 const number = new Intl.NumberFormat('he-IL', { maximumFractionDigits: 1 });
@@ -47,7 +49,7 @@ const HEBREW_SCREEN_LABELS = {
   'management.permissions.users': 'רשימת משתמשים והרשאות', 'management.rules': 'כללים',
   'management.rules.calculation': 'כללי חישוב', 'management.rules.system': 'כללי מערכת', 'management.settings': 'הגדרות', 'management.tables': 'טבלאות',
   'management.tables.calculation': 'טבלאות חישוב', 'management.tables.variables': 'כללים משתנים',
-  'management.audit': 'יומן שינויים', knowledge: 'מרכז הידע למשתמש', maintenance: 'תחזוקה', tasks: 'משימות'
+  'management.audit': 'יומן שינויים', documents: 'מסמכים ונהלים', 'documents.manage': 'עריכת נהלים', 'documents.publish': 'פרסום נהלים', knowledge: 'מרכז הידע למשתמש', maintenance: 'תחזוקה', tasks: 'משימות'
 };
 
 function canonicalizeSections(sections) {
@@ -110,6 +112,7 @@ const modules = [
   { route: 'accounting', href: 'dashboards/unit/organization/accounting', icon: '🧾', title: 'הנה״ח', description: 'בקרה ארגונית על תהליכי הנהלת החשבונות.' },
   { route: 'payroll', icon: '₪', title: 'שכר', description: 'מרכז מודולרי לתהליכי שכר ולחישובי שכר.' },
   { route: 'training', icon: '▤', title: 'הרשאות וטבלאות', description: 'טבלאות וכלי הרשאות ארגוניים במקום אחד.' },
+  { route: 'documents', icon: '📁', title: 'מסמכים ונהלים', description: 'נהלים ארגוניים, טיוטות וגרסאות מפורסמות.' },
   { route: 'knowledge', icon: '📚', title: 'מרכז הידע למשתמש', description: 'נהלים, הנחיות מקצועיות ומידע שימושי במקום אחד.' },
   { route: 'maintenance', icon: '🔧', title: 'תחזוקה', description: 'דיווח תקלות, מעקב טיפול וניהול תחזוקת המעונות.' },
   { route: 'tasks', icon: '✅', title: 'משימות', description: 'ריכוז משימות, מעקב אחר ביצוע ותיעדוף העבודה השוטפת.' }
@@ -387,6 +390,27 @@ function showLogin(message = '') {
   $('#login-message').textContent = message;
 }
 
+function validatedOAuthResumeUrl() {
+  const value = new URLSearchParams(location.search).get(OAUTH_RESUME_PARAM);
+  if (!value || value.length > 2048) return null;
+  try {
+    const resume = new URL(value);
+    const portal = new URL(location.origin + '/');
+    const authorizationId = resume.searchParams.get('authorization_id');
+    if (resume.origin !== portal.origin || resume.pathname !== '/oauth/consent' || resume.hash || resume.username || resume.password || resume.searchParams.size !== 1 || !authorizationId || authorizationId.length > 300 || !/^[a-zA-Z0-9._~-]+$/.test(authorizationId)) return null;
+    return resume.href;
+  } catch {
+    return null;
+  }
+}
+
+function resumeOAuthAfterLogin() {
+  const resumeUrl = validatedOAuthResumeUrl();
+  if (!resumeUrl) return false;
+  location.replace(resumeUrl);
+  return true;
+}
+
 async function ensureAccessToken() {
   if (!session?.access_token || !session?.refresh_token) return false;
   if (!session.expires_at || session.expires_at <= Date.now() / 1000 + SESSION_REFRESH_LEEWAY_SECONDS) return refreshSession();
@@ -609,7 +633,7 @@ function managementHubTemplate(page) {
 }
 
 function usersPermissionsTemplate() {
-  return `<section class="page-heading"><div><p class="eyebrow">הרשאות / ניהול משתמשים</p><h1>רשימת משתמשים והרשאות</h1><p>ניהול משתמשי Supabase Auth, טווח נתונים והרשאות מפורשות לפי מסך.</p></div><button id="invite-user-open" class="button button-primary" type="button">הזמנת משתמש</button></section><p id="permissions-feedback" class="form-message" role="status"></p><div id="permissions-admin-state" class="state panel">טוען משתמשים והרשאות…</div><section id="permissions-admin" class="permissions-admin" hidden></section>`;
+  return `<section class="page-heading"><div><p class="eyebrow">אבטחה / הרשאות מאוחדות</p><h1>רשימת משתמשים והרשאות</h1><p>מקור סמכות אחד לפורטל, ל־API ול־MCP. השינויים הרגישים נעולים ודורשים פעולה מאושרת ומתועדת.</p></div><button id="invite-user-open" class="button button-primary" type="button" hidden>הזמנת משתמש</button><span class="status-badge status-success">Director only</span></section><p id="permissions-feedback" class="form-message" role="status"></p><div id="permissions-admin-state" class="state panel">טוען הרשאות מאוחדות…</div><section id="permissions-admin" class="permissions-admin" hidden></section>`;
 }
 
 async function portalUsersRequest(method = 'GET', body) {
@@ -684,11 +708,27 @@ function permissionRows(model) {
 
 function renderPermissionsAdmin() {
   const root = $('#permissions-admin'); if (!root || !usersAdminData) return;
+  usersAdminData = normalizeUsersAdminData(usersAdminData);
+  if (usersAdminData.authorization_mode === 'DIRECTOR_ONLY') {
+    const assignments = usersAdminData.role_assignments || [];
+    const actions = usersAdminData.actions || [];
+    const roleActions = new Set((usersAdminData.role_actions || []).filter((item) => item.role_code === 'DIRECTOR').map((item) => item.action_code));
+    const assigned = new Map(assignments.filter((item) => !item.revoked_at).map((item) => [item.user_id, item.role_code]));
+    const kindLabels = { READ: 'קריאה', CREATE: 'יצירה', UPDATE: 'עדכון', DELETE: 'מחיקה מבוקרת', BULK: 'פעולה מרוכזת', FILE_UPLOAD: 'העלאת קובץ', ADMIN: 'ניהול רגיש' };
+    root.innerHTML = `<section class="authorization-summary panel"><div><span class="status-badge status-success">פעיל</span><h2>מודל הרשאה מאוחד</h2><p>זהות מאומתת + תפקיד + פעולה סמנטית. כל זהות ללא תפקיד פעיל נחסמת כברירת מחדל.</p></div><dl><div><dt>תפקידים פעילים</dt><dd>${(usersAdminData.roles || []).filter((item) => item.is_active).length}</dd></div><div><dt>פעולות מוגדרות</dt><dd>${actions.length}</dd></div><div><dt>פעולות עם אישור</dt><dd>${actions.filter((item) => item.requires_approval).length}</dd></div></dl></section><section class="authorization-layout"><section class="panel"><h2>זהויות</h2><div class="authorization-identities">${usersAdminData.users.map((user) => { const profile=usersAdminData.profiles.find((item)=>item.user_id===user.id); const role=assigned.get(user.id); return `<article><div><strong>${escapeHtml(profile?.display_name || user.email || 'ללא שם')}</strong><small>${escapeHtml(user.email || '')}</small></div><span class="status-badge ${role && profile?.is_active ? 'status-success' : 'status-neutral'}">${role && profile?.is_active ? 'Director · פעילה' : 'גישה מושבתת'}</span></article>`; }).join('')}</div></section><section class="panel"><h2>קטלוג פעולות Director</h2><div class="authorization-actions">${actions.filter((item)=>roleActions.has(item.action_code)).map((item)=>`<article><div><code>${escapeHtml(item.action_code)}</code><strong>${escapeHtml(item.display_name)}</strong></div><span>${escapeHtml(kindLabels[item.action_kind] || item.action_kind)}${item.requires_approval ? ' · אישור חובה' : ''}</span></article>`).join('')}</div></section></section><section class="panel authorization-security"><h2>בקרות פעילות</h2><ul><li>גישה לפורטל ול־MCP למנהלת בלבד</li><li>מחיקה היא ארכוב בלבד ואינה מוחקת נתונים</li><li>DELETE ו־BULK דורשים אישור קצר־חיים הקשור בדיוק לתוכן הפעולה</li><li>קבצים מוגבלים לסוגים מאושרים ול־3 MiB בכלי MCP</li><li>כל החלטה ופעולת כתיבה נרשמות ביומן אבטחה append-only</li></ul><p class="muted">שינויי זהות והרשאה הוקפאו בממשק זה. הם ייפתחו רק דרך פקודה רגישה מאושרת.</p></section>`;
+    root.hidden = false;
+    return;
+  }
   if (!selectedPortalUserId || !usersAdminData.users.some((item) => item.id === selectedPortalUserId)) selectedPortalUserId = usersAdminData.users[0]?.id || '';
   const model = selectedPortalUserId ? adminUserModel(selectedPortalUserId) : null;
-  usersAdminData = normalizeUsersAdminData(usersAdminData);
   root.innerHTML = `<aside class="panel permissions-users"><h2>משתמשים</h2><div class="management-filters"><label>חיפוש משתמש<input id="user-search" type="search" placeholder="שם או דוא״ל"></label></div><div id="portal-user-list">${usersAdminData.users.map((user) => { const p = usersAdminData.profiles.find((item) => item.user_id === user.id); return `<button type="button" data-user-id="${user.id}" class="permission-user${user.id === selectedPortalUserId ? ' active' : ''}"><strong>${escapeHtml(p?.display_name || user.email || 'ללא שם')}</strong><small>${escapeHtml(user.email || '')}</small><span>${p?.is_super_admin ? 'מנהלת־על' : user.email_confirmed_at ? 'פעילה' : 'הוזמנה'}</span></button>`; }).join('')}</div></aside><div class="permissions-editor">${model ? `<form id="permissions-form" class="panel" data-original-super-admin="${model.profile.is_super_admin}"><div class="permissions-editor-head"><div><p class="eyebrow">פרטי משתמשת</p><h2>${escapeHtml(model.profile.display_name || model.user.email)}</h2><p>${escapeHtml(model.user.email || '')}</p></div><span class="status-badge status-info">${model.profile.is_super_admin ? 'מנהלת־על — גישה מלאה' : 'משתמשת פורטל'}</span></div><div class="form-grid"><label class="field">שם תצוגה<input name="display_name" value="${escapeHtml(model.profile.display_name || '')}"></label><div class="access-level-field"><span>רמת הרשאה</span><strong id="access-level-value">${model.profile.is_super_admin ? 'מנהלת־על' : 'משתמשת פורטל'}</strong><input name="is_super_admin" type="hidden" value="${model.profile.is_super_admin}"></div><label class="checkbox-field"><input name="is_active" type="checkbox" ${model.profile.is_active ? 'checked' : ''}> משתמשת פעילה</label></div><button id="show-super-admin" class="button button-quiet super-admin-reveal" type="button" aria-expanded="false" aria-controls="super-admin-control">הצג הרשאת משתמש־על</button><section id="super-admin-control" class="super-admin-control" hidden><strong>הרשאת משתמש־על</strong><p>משתמש־על מקבל גישה מלאה לכל המסכים, ההגדרות וכלי הניהול בפורטל.</p><button id="change-super-admin" class="button button-warning" type="button">${model.profile.is_super_admin ? 'הסרת הרשאת משתמש־על' : 'הענקת הרשאת משתמש־על'}</button></section><fieldset><legend>טווח נתונים ארגוני</legend><div class="scope-mode"><label><input type="radio" name="scope_mode" value="ORGANIZATION" ${model.profile.scope_mode === 'ORGANIZATION' ? 'checked' : ''}> כל הארגון</label><label><input type="radio" name="scope_mode" value="SELECTED" ${model.profile.scope_mode === 'SELECTED' ? 'checked' : ''}> יחידות ומעונות נבחרים</label></div><div class="scope-grid">${usersAdminData.allocation_units.map((unit) => `<label><input type="checkbox" name="unit_scope" value="${unit.allocation_unit_id}" ${model.unitIds.includes(unit.allocation_unit_id) ? 'checked' : ''}> <span>${escapeHtml(unit.display_name)}</span></label>`).join('')}${usersAdminData.daycares.map((daycare) => `<label><input type="checkbox" name="daycare_scope" value="${daycare.daycare_id}" ${model.daycareIds.includes(daycare.daycare_id) ? 'checked' : ''}> <span>${escapeHtml(daycare.display_name)}</span></label>`).join('')}</div></fieldset><section class="screen-permissions" aria-labelledby="screen-permissions-title"><h2 id="screen-permissions-title">הרשאות למסכי הפורטל</h2><p>לכל מסך מוגדרת הרשאה מפורשת.</p><div class="permission-table-wrap"><table id="permission-matrix" class="permission-table"><thead><tr><th scope="col">שם העמוד</th><th scope="col">מוסתר</th><th scope="col">צפייה</th><th scope="col">עריכה</th></tr></thead><tbody>${permissionRows(model)}</tbody></table></div></section><details class="audit-history"><summary>היסטוריית שינויים (${model.audit.length})</summary>${model.audit.length ? model.audit.map((event) => `<p><strong>${escapeHtml(event.operation)}</strong> · ${new Intl.DateTimeFormat('he-IL', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(event.occurred_at))}</p>`).join('') : '<p>לא קיימת היסטוריה.</p>'}</details><div class="form-actions"><button class="button button-primary" type="submit">שמירה</button><button id="cancel-permissions" class="button button-secondary" type="button">ביטול</button></div></form>` : '<section class="panel"><p>אין משתמשים.</p></section>'}</div>`;
   if (model) root.querySelector('.screen-permissions').insertAdjacentHTML('beforebegin', `<fieldset class="bank-transfer-permissions"><legend>העברות בנקאיות</legend><p>הרשאת המסך נקבעת בטבלה למטה: לא להציג / צפייה / עריכה. לעריכת מנהלת מעון: עריכה, מעונות משויכים וללא פעולות הביצוע. סמני את המעונות בטווח הנתונים הארגוני.</p><button id="daycare-transfer-preset" class="button button-secondary" type="button">הכנת תצורת עריכה למנהלת מעון</button><div class="scope-mode"><label><input type="radio" name="bank_transfer_scope" value="ALL" ${model.profile.bank_transfer_scope !== 'ASSIGNED_DAYCARES' ? 'checked' : ''}> כל ההעברות</label><label><input type="radio" name="bank_transfer_scope" value="ASSIGNED_DAYCARES" ${model.profile.bank_transfer_scope === 'ASSIGNED_DAYCARES' ? 'checked' : ''}> מעונות משויכים בלבד</label></div><div class="scope-grid"><label><input type="checkbox" name="approve_for_execution" ${model.profile.bank_transfer_approve_for_execution !== false ? 'checked' : ''}> אישור לביצוע</label><label><input type="checkbox" name="set_execution_date" ${model.profile.bank_transfer_set_execution_date !== false ? 'checked' : ''}> קביעה / שינוי תאריך ביצוע</label></div></fieldset>`);
+  if (model && portalAccess?.profile?.is_super_admin) {
+    const mcpControl = document.createElement('fieldset');
+    mcpControl.className = 'bank-transfer-permissions';
+    mcpControl.innerHTML = `<legend>גישה דרך MCP</legend><p>גישה מלאה לקריאת נתונים דרך MCP בלבד. אינה מאפשרת כתיבה או שינוי. רק מנהלת־על יכולה לשנות הרשאה זו.</p><label class="checkbox-field"><input id="mcp-full-read-toggle" type="checkbox" ${model.profile.mcp_full_read_access ? 'checked' : ''}> גישה מלאה לנתונים דרך MCP</label><button class="button button-secondary" type="button" id="mcp-save-access">שמירת הרשאת MCP</button>`;
+    root.querySelector('.screen-permissions').insertAdjacentElement('beforebegin',mcpControl);
+  }
   const permissionIntro = root.querySelector('.screen-permissions > p');
   if (permissionIntro) permissionIntro.textContent = 'כל עמוד ללא הרשאה שמורה נשאר מוסתר. הרשאת הורה אינה פותחת עמודי ילד; אפשר להעניק הרשאה מפורשת לענף שלם.';
   const hiddenHeading = root.querySelector('.permission-table thead th:nth-child(2)');
@@ -741,12 +781,25 @@ function bindPermissionsAdmin() {
   $('#user-search')?.addEventListener('input', (event) => { const query = event.target.value.trim().toLowerCase(); document.querySelectorAll('[data-user-id]').forEach((item) => { item.hidden = !item.textContent.toLowerCase().includes(query); }); });
   $('#show-super-admin')?.addEventListener('click', (event) => { const control = $('#super-admin-control'); control.hidden = !control.hidden; event.currentTarget.setAttribute('aria-expanded', String(!control.hidden)); event.currentTarget.textContent = control.hidden ? 'הצג הרשאת משתמש־על' : 'הסתר הרשאת משתמש־על'; });
   $('#change-super-admin')?.addEventListener('click', () => { const field = form.elements.is_super_admin; const granting = field.value !== 'true'; const warning = granting ? 'הענקת הרשאת משתמש־על תיתן גישה מלאה לכל המסכים, ההגדרות וכלי הניהול. להמשיך?' : 'הסרת הרשאת משתמש־על תבטל את הגישה המלאה ותפעיל את ההרשאות המפורטות לפי מסך. להמשיך?'; if (!confirm(warning)) return; field.value = String(granting); superAdminConfirmed = true; dirty = true; $('#access-level-value').textContent = granting ? 'מנהלת־על' : 'משתמשת פורטל'; $('#change-super-admin').textContent = granting ? 'הסרת הרשאת משתמש־על' : 'הענקת הרשאת משתמש־על'; form.querySelectorAll('[data-permission]').forEach((radio) => { radio.disabled = granting; }); });
+  $('#mcp-save-access')?.addEventListener('click', async () => {
+    const enabled = $('#mcp-full-read-toggle').checked;
+    if (enabled && !confirm('לאשר גישה מלאה לקריאת נתונים ארגוניים דרך MCP למשתמש זה?')) return;
+    $('#permissions-feedback').textContent = 'שומר הרשאת MCP…';
+    try {
+      await rpc('portal_admin_set_mcp_full_read_access',{p_user_id:selectedPortalUserId,p_enabled:enabled});
+      const profile=usersAdminData.profiles.find(item=>item.user_id===selectedPortalUserId);
+      if(profile)profile.mcp_full_read_access=enabled;
+      $('#permissions-feedback').textContent = 'הרשאת MCP נשמרה.';
+    } catch(error){$('#permissions-feedback').textContent=error.message;$('#mcp-full-read-toggle').checked=!enabled;}
+  });
   $('#cancel-permissions')?.addEventListener('click', renderPermissionsAdmin);
   form?.addEventListener('submit', async (event) => { event.preventDefault(); const values = new FormData(form); const isSuperAdmin = values.get('is_super_admin') === 'true'; if (isSuperAdmin !== (form.dataset.originalSuperAdmin === 'true') && !superAdminConfirmed) { $('#permissions-feedback').textContent = 'יש לאשר במפורש את שינוי הרשאת משתמש־העל.'; return; } if (!isSuperAdmin && values.get('bank_transfer_scope') === 'ASSIGNED_DAYCARES' && (values.get('scope_mode') !== 'SELECTED' || !values.getAll('daycare_scope').length)) { $('#permissions-feedback').textContent = 'יש לבחור טווח נתונים נבחר ולשייך לפחות מעון אחד.'; return; } const payload = { user_id: selectedPortalUserId, profile: { display_name: values.get('display_name'), is_active: values.has('is_active'), is_super_admin: isSuperAdmin, scope_mode: values.get('scope_mode') }, permissions: [...form.querySelectorAll('[data-screen][data-explicit="true"]')].map((row) => ({ screen_code: row.dataset.screen, permission_level: row.querySelector('[data-permission]:checked').value })), allocation_unit_ids: [...new Set(values.getAll('unit_scope'))], daycare_ids: [...new Set(values.getAll('daycare_scope'))], bank_transfer: { scope: values.get('bank_transfer_scope'), approve_for_execution: values.has('approve_for_execution'), set_execution_date: values.has('set_execution_date') } }; $('#permissions-feedback').textContent = 'שומר…'; try { usersAdminData = normalizeUsersAdminData(await portalUsersRequest('PATCH', payload)); dirty = false; $('#permissions-feedback').textContent = 'השינויים נשמרו בהצלחה.'; renderPermissionsAdmin(); } catch (error) { $('#permissions-feedback').textContent = error.message; } });
 }
 
 async function loadPermissionsAdmin() {
   try { usersAdminData = normalizeUsersAdminData(await portalUsersRequest()); $('#permissions-admin-state').hidden = true; renderPermissionsAdmin(); } catch (error) { $('#permissions-admin-state').className = 'state error panel'; $('#permissions-admin-state').textContent = error.message; }
+  if (usersAdminData?.authorization_mode === 'DIRECTOR_ONLY') return;
+  if ($('#invite-user-open')) $('#invite-user-open').hidden = false;
   $('#invite-user-open')?.addEventListener('click', async () => { const email = prompt('כתובת דוא״ל להזמנה:'); if (!email) return; const displayName = prompt('שם תצוגה (לא חובה):') || ''; $('#permissions-feedback').textContent = 'שולח הזמנה…'; try { usersAdminData = await portalUsersRequest('POST', { email, display_name: displayName }); $('#permissions-feedback').textContent = 'ההזמנה נשלחה בהצלחה.'; renderPermissionsAdmin(); } catch (error) { $('#permissions-feedback').textContent = error.message; } });
 }
 
@@ -1491,6 +1544,7 @@ async function render() {
       }
     }
   }
+  else if (route.section === 'documents') { $('#page-content').innerHTML = '<div id="policy-documents-root"></div>'; await mountPolicyDocuments($('#policy-documents-root'), rpc, { manage: permissionFor('documents.manage'), publish: permissionFor('documents.publish') }); }
   else if (route.section === 'training' && route.page === 'permissions' && route.child === 'users') { $('#page-content').innerHTML = usersPermissionsTemplate(); await loadPermissionsAdmin(); }
   else if (route.section === 'training' && route.page === 'rules' && route.child === 'system') { $('#page-content').innerHTML = systemRulesTemplate(); bindSystemRules(); }
   else if (route.section === 'training' && route.page === 'rules' && route.child === 'calculation') { $('#page-content').innerHTML = '<div id="prototype-admin-root"></div>'; mountAdministrationPrototype($('#prototype-admin-root'), 'rules'); }
@@ -1844,6 +1898,7 @@ $('#login-form').addEventListener('submit', async (event) => {
     await signInWithPassword(email.value.trim(), password.value);
     password.value = '';
     if (!await validateSession()) throw new Error('לא ניתן לאמת את החיבור. יש לנסות שוב.');
+    if (resumeOAuthAfterLogin()) return;
     await showPortalHome();
   } catch (error) { message.textContent = error.message; }
   finally { setAuthPending(false); }
@@ -1957,6 +2012,7 @@ async function initializeAuth() {
     showLogin();
     return;
   }
+  if (resumeOAuthAfterLogin()) return;
   await showPortalHome();
 }
 
