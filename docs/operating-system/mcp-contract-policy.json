@@ -1,0 +1,15 @@
+{
+  "contractVersion": "1.0.0",
+  "classification": "BACKWARD_COMPATIBLE",
+  "connectorRefreshRequired": false,
+  "source": "api/mcp.js",
+  "rules": {
+    "existingToolNames": "immutable",
+    "existingRequiredArguments": "immutable",
+    "existingArgumentTypes": "backward-compatible-only",
+    "responseEnvelopes": "backward-compatible-only",
+    "authorization": "must-not-weaken",
+    "breakingChange": "block deployment"
+  }
+}
+
