@@ -6352,3 +6352,40 @@ Preview URL: https://chamah-portal-d0if02zgh-chamah.vercel.app
 Production URL (if deployed): https://chamah-portal.vercel.app
 Blockers: The supplied approval 306c73ed-e2ef-4190-8f3f-8e9bf31425f7 was retried exactly once and failed before writes. The corrected guard is now deployed/applied, but the existing approval cannot be retried again under the instruction. A new Director approval for the unchanged batch (or a new approved batch if it expires) is required; TRACK136 must not begin.
 Next recommended TRACK: Retry the unchanged batch exactly once only after the Director issues a fresh approval under the corrected production contract, then complete persisted commit/read-back verification and archive rollback probes.
+# TRACK135 — Final Production Commit Acceptance (2026-11-17)
+
+TRACK: TRACK135
+Status: COMPLETE
+Summary: Verified the exact unchanged Production batch remained READY, created one fresh approval, performed exactly one final Commit with contract_version 1.0.0, and completed persisted read-back verification.
+Root cause: The prior failure was the synthetic guard falsely matching legitimate track130-contracts-v1 provenance; the guard precision migration resolved it.
+Files changed: None in this final authorization step.
+Database changes: One approved atomic Commit created 100 children from the existing batch. No new batch and no row or payload edits.
+Migrations: Existing TRACK135 migrations were already applied: operational archive and synthetic-guard precision.
+Edge Functions: None.
+Tests: Production connector read-back before Commit confirmed READY, row_version 1, unchanged digest, empty record audit, and unconsumed prior approval. Fresh approval 3cd49ef2-092d-4cdb-9b19-98eaa9a208bc was created for the exact digest. Exactly one Commit succeeded. Final read-back confirmed status COMMITTED, committed_at 2026-11-17 14:19:29.472417+00, row_version 2, atomic=true, approval consumed at the same timestamp, 100 created children, 100 record-audit entries, and 3 authorization-audit entries.
+Production impact: Authorized Production data write completed through the MCP preview → approval → Commit path. No duplicate batch or retry occurred.
+Commit SHA: 8c026d8
+Branch: codex/track121-oauth-login-resume
+Preview URL: https://chamah-portal-d0if02zgh-chamah.vercel.app
+Production URL (if deployed): https://chamah-portal.vercel.app
+Blockers: None for TRACK135.
+Next recommended TRACK: TRACK136
+
+# TRACK136 — Started
+
+TRACK: TRACK136
+Status: STARTED
+Summary: Opened after successful TRACK135 Production Commit and persisted verification.
+Root cause: None.
+Files changed: PROJECT_LOG.md
+Database changes: None.
+Migrations: None.
+Edge Functions: None.
+Tests: TRACK135 completion gate passed before start.
+Production impact: None initiated.
+Commit SHA: Pending.
+Branch: codex/track121-oauth-login-resume
+Preview URL: None
+Production URL (if deployed): None
+Blockers: No TRACK136 objective was supplied.
+Next recommended TRACK: Define the TRACK136 objective and acceptance checks.
