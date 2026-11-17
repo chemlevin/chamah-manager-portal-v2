@@ -6216,3 +6216,28 @@ Preview URL: `https://chamah-manager-portal-v2-preview-6yp0n6xeq-chamah.vercel.a
 Production URL (if deployed): `https://chamah-portal.vercel.app` (`dpl_BcZZwSn1x1vgdNZWg4BiHm4umhLN`).
 Blockers: Active Production connector callable schema must be refreshed/re-registered so Preview, Approval, and Commit submit `contract_version: 1.0.0`. Do not import real data until the 11-domain matrix passes.
 Next recommended TRACK: Refresh the active connector schema, then run the approved disposable matrix with a connector-supported safe test mode that preserves the existing synthetic-data guard.
+
+### TRACK132 Connector manifest-generation repair
+
+- Identified the callable schema source as the deployed `api/mcp.js` Vercel Lambda: `initialize.serverInfo` and `tools/list` are generated there; no repository-side connector registration manifest exists.
+- Production deployment `dpl_BcZZwSn1x1vgdNZWg4BiHm4umhLN` was confirmed to use commit `a3cb2dd9f946e16040b8fb04027240bc45d449cf`, whose handler already contained the TRACK132 callable schemas but still advertised `serverInfo.version='1.4.0'` and `contractVersion='stable-1'`.
+- Bumped the explicit manifest generation to server version `1.5.0` and contract version `1.0.0`; stale clients remain rejected by existing `VERSION_MISMATCH` validation. Added a focused registration-manifest regression test.
+- Committed as `7fd020a58a5c700437bc6417ed6542d227cc9f76`, pushed to `codex/track121-oauth-login-resume`, and created READY Production deployment `dpl_Ddkg1nykrVinY5bG3UiTWyEML3wS` in Vercel project `prj_6IND7ee2E9s3KispBh6iBDWwQo6X`.
+- Vercel read-back shows that project currently has only `chamah-manager-portal-v2-preview.vercel.app`; the requested canonical `chamah-portal.vercel.app` is not attached to the accessible project, and the active callable registry in this session remains pre-TRACK132.
+
+TRACK: TRACK132
+Status: BLOCKED — deployment manifest generation repaired; external active connector/platform registry remains stale
+Summary: Published a new MCP manifest generation with TRACK132 contract metadata, while preserving server-side version rejection and all security/approval controls.
+Root cause: The deployed handler exposed TRACK132 schemas but retained the prior stable manifest marker; additionally, the active connector registry is external to the repository/Vercel project and is not updated by reconnecting this session.
+Files changed: api/mcp.js; tests/track132-operational-import-contract.test.mjs; PROJECT_LOG.md.
+Database changes: None.
+Migrations: None.
+Edge Functions: None.
+Tests: `node --test tests/track132-operational-import-contract.test.mjs` passed 3/3; `node --check api/mcp.js` passed; `git diff --check` passed. No business-data tool was invoked.
+Production impact: New READY Vercel deployment created; no database, business data, permissions, or approval state changed. Canonical endpoint alias was not independently verified on the accessible Vercel project.
+Commit SHA: `7fd020a58a5c700437bc6417ed6542d227cc9f76`.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: `https://chamah-manager-portal-v2-preview.vercel.app`.
+Production URL (if deployed): `https://chamah-portal.vercel.app` — not attached to the accessible Vercel project according to domain read-back.
+Blockers: The active platform connector registry still exposes the old callable schemas; no supported connector-registry mutation or cache-invalidation API is exposed in this session. External platform action must bind the active Chamah Daycare connector to the READY deployment/endpoint and refresh its callable manifest using server version `1.5.0`, contract version `1.0.0`. Do not run the business verification matrix until registry read-back shows `contract_version` on all three tools.
+Next recommended TRACK: Platform registry binding/manifest read-back only; then verify the three callable schemas before any data workflow.
