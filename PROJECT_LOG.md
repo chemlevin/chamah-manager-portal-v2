@@ -6241,3 +6241,22 @@ Preview URL: `https://chamah-manager-portal-v2-preview.vercel.app`.
 Production URL (if deployed): `https://chamah-portal.vercel.app` — not attached to the accessible Vercel project according to domain read-back.
 Blockers: The active platform connector registry still exposes the old callable schemas; no supported connector-registry mutation or cache-invalidation API is exposed in this session. External platform action must bind the active Chamah Daycare connector to the READY deployment/endpoint and refresh its callable manifest using server version `1.5.0`, contract version `1.0.0`. Do not run the business verification matrix until registry read-back shows `contract_version` on all three tools.
 Next recommended TRACK: Platform registry binding/manifest read-back only; then verify the three callable schemas before any data workflow.
+
+### TRACK130/132 Commit RPC mapping correction
+
+TRACK: TRACK130/132
+Status: BLOCKED — code and regression fix prepared; Production connector session terminated before migration/deployment verification
+Summary: Reproduced the repository-level defect: TRACK132 overloaded `portal_mcp_commit_operational_changes` on top of TRACK130's two-UUID RPC, causing PostgREST to return `Unable to retrieve data`. Added a uniquely named v1 wrapper with explicit UUID and contract-version arguments.
+Root cause: PostgREST RPC name overload ambiguity on Commit; the wrapper was calling the overloaded name.
+Files changed: api/mcp.js; supabase/migrations/20261117100000_track132_commit_rpc_mapping_fix.sql; tests/track132-operational-import-contract.test.mjs.
+Database changes: None applied; migration prepared only.
+Migrations: `20261117100000_track132_commit_rpc_mapping_fix.sql` prepared, not applied.
+Edge Functions: None.
+Tests: `node --test tests/track132-operational-import-contract.test.mjs` passed 4/4; migration preflight passed; `git diff --check` passed. Live Production reproduction was attempted through Chamah Daycare 0.0.2 but the connector returned `Session terminated` before the RPC call reached the batch.
+Production impact: None; no child data, approvals, or canonical records changed.
+Commit SHA: Pending.
+Branch: `codex/track121-oauth-login-resume`.
+Preview URL: None.
+Production URL (if deployed): `https://chamah-portal.vercel.app` — not changed.
+Blockers: The current Production Chamah Daycare connector session is terminated, and the accessible Vercel project does not expose the canonical Production alias; therefore the migration, deployment, five-batch retry, and read-back cannot be truthfully completed in this session.
+Next recommended TRACK: Restore the active Production connector session and bind the approved deployment/migration path, then retry the five existing approved batches without reloading data.

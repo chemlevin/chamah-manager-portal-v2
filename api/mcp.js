@@ -316,7 +316,7 @@ module.exports=async function handler(req,res){
   rpc='portal_mcp_request_operational_approval';params={p_contract_version:args.contract_version,p_batch_id:args.batch_id,p_reason:args.reason.trim()};break;
  case 'commit_operational_changes':
   if(Object.keys(args).length!==3||args.contract_version!=='1.0.0'||!UUID.test(args.batch_id||'')||!UUID.test(args.approval_id||''))return send(res,200,error(id,-32602,args.contract_version?'Invalid operational commit':'VERSION_MISMATCH'));
-  rpc='portal_mcp_commit_operational_changes';params={p_contract_version:args.contract_version,p_batch_id:args.batch_id,p_approval_id:args.approval_id};break;
+  rpc='portal_mcp_commit_operational_changes_v1';params={p_batch_id:args.batch_id,p_approval_id:args.approval_id,p_contract_version:args.contract_version};break;
  case 'get_operational_batch':
   if(Object.keys(args).length!==1||!UUID.test(args.batch_id||''))return send(res,200,error(id,-32602,'Invalid operational batch'));
   rpc='portal_mcp_get_operational_batch';params={p_batch_id:args.batch_id};break;
