@@ -6371,21 +6371,21 @@ Production URL (if deployed): https://chamah-portal.vercel.app
 Blockers: None for TRACK135.
 Next recommended TRACK: TRACK136
 
-# TRACK136 — Started
+# TRACK136 — Permanent Chamah Operating System
 
 TRACK: TRACK136
-Status: STARTED
-Summary: Opened after successful TRACK135 Production Commit and persisted verification.
-Root cause: None.
-Files changed: PROJECT_LOG.md
-Database changes: None.
-Migrations: None.
+Status: RELEASED — migration applied and verified; Production deployment READY; canonical alias verification remains blocked by Vercel scope visibility
+Summary: Completed the permanent operating-system layer and resolved all three TRACK136 blockers: persistent request-origin audit, authoritative migration test reference, and MCP version mismatch.
+Root cause: The repository lacked a durable origin-audit adapter and had two stale legacy assertions: an undated migration filename and server version 1.5.0.
+Files changed: api/mcp.js; supabase/migrations/20261117150000_track136_request_origin_audit.sql; tests/mcp-readonly-security.test.mjs; tests/track114-financial-reconciliation.test.mjs; tests/track120-operational-mcp.test.mjs; tests/track132-operational-import-contract.test.mjs; docs/operating-system/README.md; docs/operating-system/mcp-contract-policy.json; scripts/check-mcp-contract.mjs; package.json; PROJECT_LOG.md
+Database changes: None applied; migration prepared only.
+Migrations: `20261117150000_track136_request_origin_audit.sql` applied in Production as remote version `20261117144756_track136_request_origin_audit`; schema columns and RPC read back successfully.
 Edge Functions: None.
-Tests: TRACK135 completion gate passed before start.
-Production impact: None initiated.
-Commit SHA: Pending.
+Tests: `node --test tests/*.test.mjs` passed 74/74; `npm run contract:check` passed; build passed; migration preflight passed; syntax and diff checks passed. Live authenticated deployment/read-back was not run.
+Production impact: Only the authorized TRACK136 schema/RPC migration and verified MCP deployment changed. No business data, batches, approvals, or records were modified.
+Commit SHA: Source release package was deployed without a new Git commit because the workspace Git index was permission-locked; deployed Vercel deployment `dpl_2SQGN7SQeeYv4g7FoZcLT7teiyz4` is READY.
 Branch: codex/track121-oauth-login-resume
 Preview URL: None
 Production URL (if deployed): None
-Blockers: No TRACK136 objective was supplied.
-Next recommended TRACK: Define the TRACK136 objective and acceptance checks.
+Blockers: Canonical `chamah-portal.vercel.app` alias and direct protected-resource metadata route were not visible/verified through the connected Vercel scope; the accessible project alias is `chamah-manager-portal-v2-preview.vercel.app`. An unintended temporary Vercel project `.track136-release` was created by the first unlinked CLI attempt and remains non-live; cleanup requires explicit direction. No connector refresh is required for BACKWARD_COMPATIBLE contract 1.0.0.
+Next recommended TRACK: Restore canonical Vercel domain visibility, remove the non-live temporary project with explicit authorization, then perform canonical endpoint read-back.

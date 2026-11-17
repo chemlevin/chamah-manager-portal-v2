@@ -107,6 +107,9 @@ function requestOrigin(req){
  const host=raw.split(',')[0].trim();
  return /^(?:[a-z0-9-]+\.)*vercel\.app$/.test(host)?`https://${host}`:PRODUCTION_ORIGIN;
 }
+function safeHeader(req,name){const value=String(req.headers[name]||'').trim();return value&&value.length<=200?value:'Unknown';}
+function requestOriginMetadata(req,operation,toolName,endpoint){const requestId=UUID.test(safeHeader(req,'x-request-id'))?safeHeader(req,'x-request-id'):crypto.randomUUID();return {client_application:safeHeader(req,'x-client-application'),connector_id:safeHeader(req,'x-connector-id'),session_id:safeHeader(req,'x-session-id'),request_id:requestId,correlation_id:requestId,mcp_endpoint:endpoint||'Unknown',deployment_commit:String(process.env.VERCEL_GIT_COMMIT_SHA||'Unknown').slice(0,120),operation,tool_name:toolName};}
+async function recordRequestOrigin(req,token,operation,toolName,endpoint){return api('/rest/v1/rpc/portal_mcp_record_request_origin',token,{p_origin:requestOriginMetadata(req,operation,toolName,endpoint)});}
 function send(res,status,body){res.status(status).setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');return res.end(JSON.stringify(body));}
 function error(id,code,message){return {jsonrpc:'2.0',id,error:{code,message}};}
 function toStructuredContent(value){
@@ -379,6 +382,8 @@ module.exports=async function handler(req,res){
   }catch(e){return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:e.status===403?'Permission denied':'Download failed'}],isError:true}});}
  }
  }
+ const originOperation={preview_operational_changes:'PREVIEW',preview_daycare_import:'PREVIEW',request_operational_approval:'APPROVAL',request_daycare_import_approval:'APPROVAL',request_supplier_bank_verification_approval:'APPROVAL',request_payment_transition_approval:'APPROVAL',request_policy_archive_approval:'APPROVAL',request_bulk_policy_archive_approval:'APPROVAL',commit_operational_changes:'COMMIT',commit_daycare_import:'COMMIT',verify_supplier_bank_detail:'COMMIT',transition_payment_request:'COMMIT',archive_operational_record:'ARCHIVE',archive_policy:'DELETE',bulk_archive_policies:'DELETE'}[name];
+ if(originOperation)try{await recordRequestOrigin(req,token,originOperation,name,resource);}catch(e){return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:'Request-origin audit unavailable'}],isError:true}});}
  try{
   const result=await api('/rest/v1/rpc/'+rpc,token,params);
   const structuredContent=toStructuredContent(result);

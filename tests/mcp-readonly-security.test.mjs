@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const server = readFileSync(new URL('../supabase/functions/portal-mcp-server/index.ts', import.meta.url), 'utf8');
-const sql = readFileSync(new URL('../supabase/migrations/20261109_mcp_readonly_scoped_rpcs.sql', import.meta.url), 'utf8');
+const sql = readFileSync(new URL('../supabase/migrations/20261109091200_mcp_readonly_scoped_rpcs.sql', import.meta.url), 'utf8');
 
 test('legacy Edge MCP endpoint remains scoped and contains no privileged key', () => {
   assert.match(server, /name: "list_my_daycares"/);

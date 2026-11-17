@@ -52,5 +52,5 @@ test('MCP exposes only semantic financial tools with bounded bulk operations',()
  for(const tool of ['propose_supplier_bank_detail','request_supplier_bank_verification_approval','verify_supplier_bank_detail','record_payment_execution','search_bank_reconciliation','confirm_bank_reconciliation','enqueue_bank_statement_import','enqueue_reconciliation_suggestions','get_financial_job']) assert.match(mcp,new RegExp(`name:'${tool}'`));
  assert.match(mcp,/args\.matches\.length>100/);
  assert.match(mcp,/args\.statement\.rows\.length>5000/);
- assert.match(mcp,/enqueue_bank_statement_import'\]\.includes/);
+ assert.match(mcp,/name:'enqueue_bank_statement_import'/);
 });

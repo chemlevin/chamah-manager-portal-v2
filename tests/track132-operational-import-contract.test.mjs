@@ -21,7 +21,7 @@ test('TRACK132 exposes one versioned contract across wrapper and RPC calls',()=>
 });
 
 test('new connector registration advertises the TRACK132 manifest version',()=>{
-  assert.match(api,/const SERVER_VERSION = '1\.5\.0'/);
+  assert.match(api,/const SERVER_VERSION = '1\.6\.0'/);
   assert.match(api,/const CONTRACT_VERSION = '1\.0\.0'/);
   assert.match(api,/version:SERVER_VERSION,contractVersion:CONTRACT_VERSION/);
   assert.doesNotMatch(api,/contractVersion:'stable-1'/);

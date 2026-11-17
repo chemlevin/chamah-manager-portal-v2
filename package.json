@@ -1,5 +1,6 @@
 {
   "scripts": {
+    "contract:check": "node scripts/check-mcp-contract.mjs",
     "build": "node scripts/build.mjs",
     "start": "node scripts/serve.mjs",
     "qa": "node scripts/run-qa.mjs",
