@@ -23,8 +23,8 @@ async function invoke(argumentsValue){
 
 test('collection receipt ingestion provenance is not forced through correction metadata',()=>{
   assert.match(api,/const correctionRows=args\.rows\.some/);
-  assert.match(api,/const correctionRows=args\.rows\.some/);
-  assert.match(api,/anyOf:\[\{required:\['source_file','source_system'\]\}/);
+  assert.doesNotMatch(api,/source_provenance:[\s\S]{0,1200}anyOf:/);
+  assert.match(api,/correction metadata is required only for correction-shaped rows/);
 });
 
 test('correction metadata remains required for correction-shaped rows',()=>{
