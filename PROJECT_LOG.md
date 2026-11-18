@@ -6408,3 +6408,19 @@ Preview URL: None
 Production URL (if deployed): None
 Blockers: Canonical `chamah-portal.vercel.app` ownership/read-back is externally blocked: project-domain lookup returned 404 and apex project-domain lookup returned 403 for the connected Vercel scope. The temporary `.track136-release` project is confirmed `live:false`, serves only its own domains, and is not the Production alias; no supported project-delete capability is available. No connector refresh is required for BACKWARD_COMPATIBLE contract 1.0.0.
 Next recommended TRACK: Vercel owner grants access to the domain-owning scope and provides the supported cleanup path for `.track136-release`; no application or database work remains.
+TRACK: INTERNAL
+Status: Implemented; Preview deployment not performed
+Summary: Fixed the operational preview wrapper so source-backed collection_receipts imports are not incorrectly rejected for missing correction-only provenance fields. Added additive receipt lineage/month/date-availability fields while preserving contract version 1.0.0 and existing approval/commit flow.
+Root cause: api/mcp.js unconditionally validated reason, affected_records, and historical_impact for every preview, conflating correction provenance with import provenance.
+Files changed: api/mcp.js; supabase/migrations/20261118120000_track138_collection_receipt_ingestion_metadata.sql; tests/track138-collection-receipts-preview.test.mjs
+Database changes: Additive collection_receipts metadata columns and indexes; receipt_date is nullable so unavailable exact payment dates are not invented.
+Migrations: 20261118120000_track138_collection_receipt_ingestion_metadata.sql (not applied)
+Edge Functions: None
+Tests: Focused and related Node tests passed (18/18); build passed; migration preflight passed (116 migrations). Complete npm qa blocked by existing Windows spawn EINVAL; direct all-file node invocation is invalid for Playwright suites and produced 40 runner-context failures unrelated to this change.
+Production impact: None; no deployment or business data changes.
+Commit SHA: Not committed
+Branch: current working branch
+Preview URL: None
+Production URL (if deployed): None
+Blockers: Preview migration/application deployment requires the existing isolated Preview workflow and environment verification.
+Next recommended TRACK: Apply migration and deploy only to isolated Preview, then run the Business chat collection-receipts preview acceptance.
