@@ -17,8 +17,8 @@ import { mountWorkbenchPolish } from './workbench-polish.js';
 
 window.parsePayrollWorkbookForWorkbench = parsePayrollWorkbook;
 
-const SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
+const SUPABASE_URL = 'https://iwsbjudahtjyigecymzd.supabase.co';
+const SUPABASE_KEY = '__CHAMAH_PUBLISHABLE_KEY__';
 const SESSION_KEY = 'chamah.portal.session';
 const SESSION_REFRESH_LEEWAY_SECONDS = 60;
 const AUTO_REFRESH_MAX_DELAY_MS = 30 * 60 * 1000;

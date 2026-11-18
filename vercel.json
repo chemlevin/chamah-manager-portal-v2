@@ -14,6 +14,10 @@
       "use": "@vercel/node"
     },
     {
+      "src": "api/runtime-health.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "api/budget.js",
       "use": "@vercel/node"
     },
@@ -49,6 +53,10 @@
     {
       "src": "/api/oauth-diagnostics",
       "dest": "/api/oauth-diagnostics.js"
+    },
+    {
+      "src": "/api/runtime-health",
+      "dest": "/api/runtime-health.js"
     },
     {
       "src": "/api/budget",

@@ -1,6 +1,6 @@
 import {createClient} from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-const project='https://vyyfuaqmbxvfqgbfqooc.supabase.co';
-const key='sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
+const project='https://iwsbjudahtjyigecymzd.supabase.co';
+const key='__CHAMAH_PUBLISHABLE_KEY__';
 const sessionKey='chamah.portal.session';
 const storage={getItem:k=>k==='chamah-oauth-session'?localStorage.getItem(sessionKey):null,setItem:(k,v)=>{if(k==='chamah-oauth-session')localStorage.setItem(sessionKey,v)},removeItem:k=>{if(k==='chamah-oauth-session')localStorage.removeItem(sessionKey)}};
 const sb=createClient(project,key,{auth:{storage,storageKey:'chamah-oauth-session',autoRefreshToken:true,detectSessionInUrl:false,persistSession:true}});

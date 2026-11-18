@@ -28,8 +28,9 @@ test('TRACK119b uses stable identifiers, explicit skip and supported audit opera
   assert.match(fix, /portal_consume_approval/);
 });
 
-test('Preview Supabase selection is environment-scoped while Production retains its fallback', () => {
-  assert.match(mcp, /process\.env\.CHAMAH_SUPABASE_URL/);
+test('Supabase selection is canonical and legacy fallbacks are blocked', () => {
+  assert.match(mcp, /runtime-consistency/);
+  assert.doesNotMatch(mcp, /vyyfuaqmbxvfqgbfqooc/);
   assert.match(build, /CHAMAH_SUPABASE_URL and CHAMAH_SUPABASE_PUBLISHABLE_KEY must be configured together/);
-  assert.match(build, /replaceAll\(productionUrl, previewSupabaseUrl\)/);
+  assert.match(build, /non-canonical Supabase project/);
 });

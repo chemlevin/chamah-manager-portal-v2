@@ -22,15 +22,15 @@ if (Boolean(previewSupabaseUrl) !== Boolean(previewSupabaseKey)) {
   throw new Error('CHAMAH_SUPABASE_URL and CHAMAH_SUPABASE_PUBLISHABLE_KEY must be configured together.');
 }
 if (previewSupabaseUrl) {
-  const productionUrl = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
-  const productionKey = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
+  if (previewSupabaseUrl !== 'https://iwsbjudahtjyigecymzd.supabase.co') throw new Error('CHAMAH_SUPABASE_URL points to a non-canonical Supabase project.');
+  if (!previewSupabaseKey.startsWith('sb_publishable_')) throw new Error('CHAMAH_SUPABASE_PUBLISHABLE_KEY must be a publishable key.');
   const javascriptFiles = (await readdir('dist', { recursive: true, withFileTypes: true }))
     .filter((entry) => entry.isFile() && entry.name.endsWith('.js'))
     .map((entry) => join(entry.parentPath || entry.path, entry.name));
   javascriptFiles.push(join('dist', 'oauth-consent.js'));
   for (const file of javascriptFiles) {
     const source = await readFile(file, 'utf8');
-    const configured = source.replaceAll(productionUrl, previewSupabaseUrl).replaceAll(productionKey, previewSupabaseKey);
+    const configured = source.replaceAll('__CHAMAH_PUBLISHABLE_KEY__', previewSupabaseKey);
     if (configured !== source) await writeFile(file, configured);
   }
 }

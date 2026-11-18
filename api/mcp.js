@@ -1,14 +1,15 @@
 'use strict';
 
 const crypto=require('node:crypto');
+const {ACTIVE_SUPABASE_URL,ACTIVE_OAUTH_ISSUER,assertRuntimeConsistency}=require('./runtime-consistency');
 
 // Director-only MCP Streamable HTTP endpoint. Every operation uses the caller's
 // Supabase token; no privileged key, generic table access, or cross-user cache.
-const PRODUCTION_SUPABASE_URL = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
-const SUPABASE_URL = String(process.env.CHAMAH_SUPABASE_URL || PRODUCTION_SUPABASE_URL).replace(/\/$/, '');
-const API_KEY = process.env.CHAMAH_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
+const RUNTIME=assertRuntimeConsistency();
+const SUPABASE_URL = RUNTIME.supabaseUrl || ACTIVE_SUPABASE_URL;
+const API_KEY = process.env.CHAMAH_SUPABASE_PUBLISHABLE_KEY;
 const PRODUCTION_ORIGIN = 'https://chamah-portal.vercel.app';
-const AUTH_SERVER = `${SUPABASE_URL}/auth/v1`;
+const AUTH_SERVER = ACTIVE_OAUTH_ISSUER;
 const PROTOCOL_VERSION = '2025-03-26';
 const SERVER_VERSION = '1.6.0';
 const CONTRACT_VERSION = '1.0.0';

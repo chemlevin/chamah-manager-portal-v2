@@ -6424,3 +6424,37 @@ Preview URL: None
 Production URL (if deployed): None
 Blockers: Preview migration/application deployment requires the existing isolated Preview workflow and environment verification.
 Next recommended TRACK: Apply migration and deploy only to isolated Preview, then run the Business chat collection-receipts preview acceptance.
+
+TRACK: INTERNAL
+Status: Implemented; not deployed
+Summary: Added additive environment/issuer consistency safeguards, a read-only runtime health route, legacy-project fallback blocking, and focused consistency tests. Updated browser OAuth/client build placeholders to the active iws project while preserving MCP contract 1.0.0.
+Root cause: MCP, metadata, browser OAuth consent, and build logic retained silent fallback or embedded configuration for the previous Supabase project.
+Files changed: api/runtime-consistency.js; api/runtime-health.js; api/mcp.js; api/mcp-oauth-metadata.js; chamah-manager-portal/new/app.js; chamah-manager-portal/new/oauth-consent.js; scripts/build.mjs; vercel.json; tests/runtime-consistency.test.mjs; tests/track119-daycare-ingestion.test.mjs; PROJECT_LOG.md
+Database changes: None
+Migrations: None
+Edge Functions: None
+Tests: Focused consistency/OAuth tests 12/12; all repository Node contract/regression tests 86/86; MCP contract gate passed; build passed; npm qa wrapper blocked by existing Windows spawn EINVAL.
+Production impact: None; no deployment, OAuth approval, business data, batches, approvals, audits, permissions, or tables changed.
+Commit SHA: Not committed; current HEAD 37b80603393a3cf61b5a868e0dd35e1bc3e8b62f
+Branch: codex/track121-oauth-login-resume
+Preview URL: None
+Production URL (if deployed): None
+Blockers: Safeguards are not live until a separately authorized deployment is made; live verification below reflects the existing deployment only.
+Next recommended TRACK: Deploy this safeguard-only change through the approved Production release workflow, then call /api/runtime-health and repeat live MCP/OAuth checks.
+
+TRACK: INTERNAL
+Status: Deployed; authenticated MCP connector verification blocked
+Summary: Safeguard commit deployed to the canonical Chamah alias and verified live runtime consistency, protected-resource metadata, and MCP route behavior.
+Root cause: None; deployment completed successfully.
+Files changed: PROJECT_LOG.md
+Database changes: None
+Migrations: None
+Edge Functions: None
+Tests: Existing commit validation remained green; live runtime-health returned ok=true; canonical OAuth metadata returned the iws issuer; MCP route returned the expected unauthenticated 405 challenge.
+Production impact: Safeguard-only deployment; no business data, batches, approvals, audits, permissions, OAuth passwords, or database records changed.
+Commit SHA: 182d91e46a5fb51deda11fc2fb42ac6e2ddd6873 (deployment dpl_F6SgVVkjp1c9x437kJaKJhtoAoJ2)
+Branch: codex/track121-oauth-login-resume
+Preview URL: None
+Production URL (if deployed): https://chamah-portal.vercel.app
+Blockers: Connected Chamah production MCP tools returned an internal connector error, so authenticated get_profile, operational_catalog, child search, and source-only funding preview were not independently verified through the connector.
+Next recommended TRACK: Refresh or repair the connected production MCP authorization, then rerun read-only authenticated tool verification without creating a batch.
