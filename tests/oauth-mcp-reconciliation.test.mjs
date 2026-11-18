@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const CANONICAL_ORIGIN = 'https://chamah-portal.vercel.app';
 const LEGACY_ORIGIN = 'https://chamah-portal-chamah.vercel.app';
+const ACTIVE_SUPABASE_ORIGIN = 'https://iwsbjudahtjyigecymzd.supabase.co';
 const mcpSource = readFileSync(new URL('../api/mcp.js', import.meta.url), 'utf8');
 const metadataSource = readFileSync(new URL('../api/mcp-oauth-metadata.js', import.meta.url), 'utf8');
 const consentSource = readFileSync(new URL('../chamah-manager-portal/new/oauth-consent.js', import.meta.url), 'utf8');
@@ -11,6 +12,13 @@ const appSource = readFileSync(new URL('../chamah-manager-portal/new/app.js', im
 const portalHtml = readFileSync(new URL('../chamah-manager-portal/new/index.html', import.meta.url), 'utf8');
 const buildSource = readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8');
 const vercel = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
+
+test('OAuth consent and authorization use the active Supabase project only', () => {
+  assert.match(consentSource, new RegExp(ACTIVE_SUPABASE_ORIGIN.replaceAll('.', '\\.') + "'"));
+  assert.doesNotMatch(consentSource, /vyyfuaqmbxvfqgbfqooc/);
+  assert.match(consentSource, /getAuthorizationDetails\(id\)/);
+  assert.match(consentSource, /if\(error\|\|!data\)/);
+});
 
 test('OAuth protected-resource discovery and bearer challenge use the canonical production origin', () => {
   for (const source of [mcpSource, metadataSource, appSource]) {

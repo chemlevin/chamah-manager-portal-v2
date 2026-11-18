@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 const previewOrigin = 'http://127.0.0.1:4176';
-const supabaseOrigin = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
+const supabaseOrigin = 'https://iwsbjudahtjyigecymzd.supabase.co';
 const authorizationId = 'pending-OAuth.Authorization_123';
 
 async function mockPortalShell(page) {

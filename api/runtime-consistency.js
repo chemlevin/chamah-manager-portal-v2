@@ -9,14 +9,15 @@ const ACTIVE_OAUTH_ISSUER = `${ACTIVE_SUPABASE_URL}/auth/v1`;
 function normalizeUrl(value) { return String(value || '').trim().replace(/\/$/, ''); }
 
 function validateRuntimeConsistency(env = process.env) {
-  const configuredUrl = normalizeUrl(env.CHAMAH_SUPABASE_URL || ACTIVE_SUPABASE_URL);
-  const configuredIssuer = normalizeUrl(env.CHAMAH_OAUTH_ISSUER || ACTIVE_OAUTH_ISSUER);
+  const configuredUrl = normalizeUrl(env.CHAMAH_SUPABASE_URL);
+  const configuredIssuer = normalizeUrl(env.CHAMAH_OAUTH_ISSUER);
   const errors = [];
+  if (!configuredUrl) errors.push('CHAMAH_SUPABASE_URL is required');
+  if (!configuredIssuer) errors.push('CHAMAH_OAUTH_ISSUER is required');
+  if (!env.CHAMAH_SUPABASE_PUBLISHABLE_KEY) errors.push('CHAMAH_SUPABASE_PUBLISHABLE_KEY is required');
   if (configuredUrl !== ACTIVE_SUPABASE_URL) errors.push(`CHAMAH_SUPABASE_URL must be ${ACTIVE_SUPABASE_URL}`);
   if (configuredIssuer !== ACTIVE_OAUTH_ISSUER) errors.push(`CHAMAH_OAUTH_ISSUER must be ${ACTIVE_OAUTH_ISSUER}`);
-  if (env.CHAMAH_SUPABASE_URL && configuredUrl.includes('vyyfuaqmbxvfqgbfqooc')) errors.push('legacy Supabase project is blocked');
-  if (env.CHAMAH_OAUTH_ISSUER && configuredIssuer.includes('vyyfuaqmbxvfqgbfqooc')) errors.push('legacy OAuth issuer is blocked');
-  if (env.CHAMAH_SUPABASE_URL && !env.CHAMAH_SUPABASE_PUBLISHABLE_KEY) errors.push('CHAMAH_SUPABASE_PUBLISHABLE_KEY is required with CHAMAH_SUPABASE_URL');
+  if (configuredUrl.includes('vyyfuaqmbxvfqgbfqooc') || configuredIssuer.includes('vyyfuaqmbxvfqgbfqooc')) errors.push('legacy Supabase project is blocked');
   if (env.CHAMAH_SUPABASE_PUBLISHABLE_KEY && !String(env.CHAMAH_SUPABASE_PUBLISHABLE_KEY).startsWith('sb_publishable_')) errors.push('CHAMAH_SUPABASE_PUBLISHABLE_KEY must be a publishable key');
   return { ok: errors.length === 0, errors, project: ACTIVE_SUPABASE_PROJECT, supabaseUrl: configuredUrl, issuer: configuredIssuer, resource: CANONICAL_MCP_RESOURCE };
 }

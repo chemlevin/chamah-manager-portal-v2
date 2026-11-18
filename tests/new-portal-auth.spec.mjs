@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const supabaseUrl = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
+const supabaseUrl = 'https://iwsbjudahtjyigecymzd.supabase.co';
 const sessionKey = 'chamah.portal.session';
 
 const validSession = { access_token: 'valid-access', refresh_token: 'valid-refresh', expires_at: 4102444800 };

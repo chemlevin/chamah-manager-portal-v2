@@ -197,7 +197,7 @@ export async function mockNewPortalSupabase(page, units = allocationUnits) {
       classrooms: generalResponses.classrooms,
     }) });
   });
-  await page.route('https://vyyfuaqmbxvfqgbfqooc.supabase.co/rest/v1/**', async (route) => {
+  await page.route('https://iwsbjudahtjyigecymzd.supabase.co/rest/v1/**', async (route) => {
     const url = new URL(route.request().url());
     const table = url.pathname.split('/').pop();
     requestedTables.push({ table, search: url.search });

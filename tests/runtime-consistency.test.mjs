@@ -14,6 +14,7 @@ test('blocks the legacy Supabase project and issuer', () => {
 });
 
 test('blocks partial or non-publishable runtime credentials', () => {
+  assert.equal(validateRuntimeConsistency({}).ok, false);
   assert.equal(validateRuntimeConsistency({ CHAMAH_SUPABASE_URL: 'https://iwsbjudahtjyigecymzd.supabase.co' }).ok, false);
   assert.equal(validateRuntimeConsistency({ CHAMAH_SUPABASE_URL: 'https://iwsbjudahtjyigecymzd.supabase.co', CHAMAH_SUPABASE_PUBLISHABLE_KEY: 'anon-key' }).ok, false);
 });

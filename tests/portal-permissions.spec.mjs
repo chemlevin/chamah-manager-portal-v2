@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { portalAccessFixture } from './new-portal-test-data.mjs';
 
-const base = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
+const base = 'https://iwsbjudahtjyigecymzd.supabase.co';
 const userId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const snapshot = {
   users: [{ id: userId, email: 'manager@example.test', email_confirmed_at: '2026-07-22T00:00:00Z' }],

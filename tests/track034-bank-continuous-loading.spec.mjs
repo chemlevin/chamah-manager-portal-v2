@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { portalAccessFixture } from './new-portal-test-data.mjs';
 
-const base = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
+const base = 'https://iwsbjudahtjyigecymzd.supabase.co';
 const account = { bank_account_id: 'account-1', display_name: 'חשבון מרכזי', source_account_number: '00123456', lifecycle_status: 'ACTIVE' };
 const defaults = {
   allocations: [], accounts: [account], units: [], daycares: [], categories: [], batches: [], uploadHistory: { accounts: [], batches: [] },

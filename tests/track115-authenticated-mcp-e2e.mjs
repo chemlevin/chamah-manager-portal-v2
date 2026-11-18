@@ -12,7 +12,7 @@ const daycareId = process.env.TRACK115_DAYCARE_ID;
 const bankAccountId = process.env.TRACK115_BANK_ACCOUNT_ID;
 assert.ok(endpoint && email && password && expectedUserId && daycareId && bankAccountId, 'TRACK115 live environment is incomplete');
 
-const supabase = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
+const supabase = 'https://iwsbjudahtjyigecymzd.supabase.co';
 const apiKey = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
 const auth = await fetch(`${supabase}/auth/v1/token?grant_type=password`, {
   method: 'POST',

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { portalAccessFixture } from './new-portal-test-data.mjs';
 
-const base = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
+const base = 'https://iwsbjudahtjyigecymzd.supabase.co';
 
 async function openAccounting(page, route, access = portalAccessFixture, workbench = {}) {
   await page.addInitScript(() => localStorage.setItem('chamah.portal.session', JSON.stringify({ access_token: 'accounting-access', refresh_token: 'accounting-refresh', expires_at: 4102444800 })));

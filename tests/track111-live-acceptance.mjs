@@ -9,7 +9,7 @@ const expectedUserId = process.env.TRACK111_USER_ID;
 const protectionBypass = process.env.TRACK111_VERCEL_BYPASS;
 assert.ok(endpoint && email && password && expectedUserId && protectionBypass, 'TRACK111 live environment is incomplete');
 
-const supabase = 'https://vyyfuaqmbxvfqgbfqooc.supabase.co';
+const supabase = 'https://iwsbjudahtjyigecymzd.supabase.co';
 const apiKey = 'sb_publishable_4MKSdjf7O1oVS4SWhQ36Qw_QUKW8dyW';
 const auth = await fetch(`${supabase}/auth/v1/token?grant_type=password`, {
   method: 'POST', headers: { apikey: apiKey, 'Content-Type': 'application/json' },

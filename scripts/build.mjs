@@ -18,12 +18,14 @@ for (const entry of await readdir(portalSource)) {
 
 const previewSupabaseUrl = String(process.env.CHAMAH_SUPABASE_URL || '').replace(/\/$/, '');
 const previewSupabaseKey = String(process.env.CHAMAH_SUPABASE_PUBLISHABLE_KEY || '');
-if (Boolean(previewSupabaseUrl) !== Boolean(previewSupabaseKey)) {
-  throw new Error('CHAMAH_SUPABASE_URL and CHAMAH_SUPABASE_PUBLISHABLE_KEY must be configured together.');
+const previewSupabaseIssuer = String(process.env.CHAMAH_OAUTH_ISSUER || '').replace(/\/$/, '');
+if (!previewSupabaseUrl || !previewSupabaseKey || !previewSupabaseIssuer) {
+  throw new Error('CHAMAH_SUPABASE_URL, CHAMAH_OAUTH_ISSUER, and CHAMAH_SUPABASE_PUBLISHABLE_KEY are required.');
 }
-if (previewSupabaseUrl) {
-  if (previewSupabaseUrl !== 'https://iwsbjudahtjyigecymzd.supabase.co') throw new Error('CHAMAH_SUPABASE_URL points to a non-canonical Supabase project.');
-  if (!previewSupabaseKey.startsWith('sb_publishable_')) throw new Error('CHAMAH_SUPABASE_PUBLISHABLE_KEY must be a publishable key.');
+if (previewSupabaseUrl !== 'https://iwsbjudahtjyigecymzd.supabase.co') throw new Error('CHAMAH_SUPABASE_URL points to a non-canonical Supabase project.');
+if (previewSupabaseIssuer !== 'https://iwsbjudahtjyigecymzd.supabase.co/auth/v1') throw new Error('CHAMAH_OAUTH_ISSUER points to a non-canonical OAuth issuer.');
+if (!previewSupabaseKey.startsWith('sb_publishable_')) throw new Error('CHAMAH_SUPABASE_PUBLISHABLE_KEY must be a publishable key.');
+{
   const javascriptFiles = (await readdir('dist', { recursive: true, withFileTypes: true }))
     .filter((entry) => entry.isFile() && entry.name.endsWith('.js'))
     .map((entry) => join(entry.parentPath || entry.path, entry.name));

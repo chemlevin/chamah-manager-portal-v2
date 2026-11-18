@@ -6458,3 +6458,20 @@ Preview URL: None
 Production URL (if deployed): https://chamah-portal.vercel.app
 Blockers: Connected Chamah production MCP tools returned an internal connector error, so authenticated get_profile, operational_catalog, child search, and source-only funding preview were not independently verified through the connector.
 Next recommended TRACK: Refresh or repair the connected production MCP authorization, then rerun read-only authenticated tool verification without creating a batch.
+
+TRACK: INTERNAL
+Status: Implemented; pending deployment
+Summary: Closed OAuth runtime/build configuration, required the active Supabase URL, issuer, and publishable key, aligned OAuth/browser regression fixtures to project iwsbjudahtjyigecymzd, and added same-project consent assertions.
+Root cause: Runtime consistency silently defaulted missing configuration, and the build allowed a missing publishable key, leaving OAuth consent unable to read authorization details reliably from the active project.
+Files changed: api/runtime-consistency.js; scripts/build.mjs; .env.example; tests/runtime-consistency.test.mjs; tests/oauth-mcp-reconciliation.test.mjs; tests/oauth-login-resume.spec.mjs; tests/new-portal-auth.spec.mjs; tests/new-portal-foundation.spec.mjs; tests/new-portal-sections.spec.mjs; tests/new-portal-test-data.mjs; tests/portal-permissions.spec.mjs; tests/accounting-navigation.spec.mjs; tests/track034-bank-continuous-loading.spec.mjs; tests/track111-live-acceptance.mjs; tests/track115-authenticated-mcp-e2e.mjs; PROJECT_LOG.md
+Database changes: None
+Migrations: None
+Edge Functions: None
+Tests: Focused OAuth/runtime tests 10/10; git diff --check passed; full suite/build pending.
+Production impact: No production change yet; Vercel issuer environment variable added for production and preview only. No business data, batches, approvals, audits, permissions, plugin identity, or endpoint changed.
+Commit SHA: Pending
+Branch: codex/track121-oauth-login-resume
+Preview URL: None
+Production URL (if deployed): https://chamah-portal.vercel.app
+Blockers: None known.
+Next recommended TRACK: Deploy and verify runtime-health, metadata, consent request readability, and authenticated get_profile through the existing Business connector.
