@@ -8,6 +8,24 @@ const sb=createClient(project,key,{auth:{storage,storageKey:'chamah-oauth-sessio
 const $=id=>document.getElementById(id);
 const id=new URLSearchParams(location.search).get('authorization_id');
 const fail=msg=>{$('status').textContent=msg};
+function diagnostic(stage,error,extra={}){
+ const safe={stage,project,origin:location.origin,status:Number(error?.status)||null,code:String(error?.code||error?.error_code||''),message:String(error?.message||error?.msg||'').slice(0,240),...extra};
+ console.warn('[oauth-consent]',safe);
+}
+function readPortalSession(){
+ try{
+  const value=JSON.parse(localStorage.getItem(sessionKey)||'null');
+  if(!value?.access_token||!value?.refresh_token)return null;
+  return {access_token:value.access_token,refresh_token:value.refresh_token};
+ }catch(error){diagnostic('session-storage',error);return null;}
+}
+async function restorePortalSession(){
+ const portalSession=readPortalSession();
+ if(!portalSession)return {session:null,error:null};
+ const result=await sb.auth.setSession(portalSession);
+ if(result.error)diagnostic('session-bind',result.error);
+ return result;
+}
 function redirectToPortalLogin(){
  const resume=new URL('/oauth/consent',canonicalOrigin);
  resume.searchParams.set('authorization_id',id);
@@ -26,14 +44,17 @@ function navigateToOAuthCallback(redirectUrl){
 async function main(){
  if(!id||id.length>300||!/^[a-zA-Z0-9._~-]+$/.test(id))return fail('בקשת אישור לא תקינה.');
  if(location.origin!==canonicalOrigin)return location.replace(`${canonicalOrigin}/oauth/consent?authorization_id=${encodeURIComponent(id)}`);
- const {data:{session},error:sessionError}=await sb.auth.getSession();
+ const {data:{session},error:sessionError}=await restorePortalSession();
+ if(sessionError)diagnostic('session-restore',sessionError);
  if(sessionError||!session)return redirectToPortalLogin();
  const {data:{user},error:authError}=await sb.auth.getUser();
+ if(authError)diagnostic('session-user',authError);
  if(authError||!user)return redirectToPortalLogin();
  const {data:access,error:accessError}=await sb.rpc('portal_my_access');
+ if(accessError)diagnostic('portal-access',accessError);
  if(accessError||!access?.profile?.is_active)return fail('לא ניתן לאמת הרשאות בפורטל. לא אושר חיבור.');
  const {data,error}=await sb.auth.oauth.getAuthorizationDetails(id);
- if(error||!data)return fail('לא ניתן לקרוא את פרטי בקשת החיבור.');
+ if(error||!data){diagnostic('authorization-details',error,{authorizationIdPresent:Boolean(id),authorizationIdLength:id?.length||0});return fail('לא ניתן לקרוא את פרטי בקשת החיבור.');}
  if(!('authorization_id' in data)){
   if(typeof data.redirect_url!=='string'||!data.redirect_url.startsWith('https://'))return fail('לא ניתן להשלים את החזרה לאפליקציה המבקשת.');
   if(!navigateToOAuthCallback(data.redirect_url))return fail('לא ניתן להשלים את החזרה לאפליקציה המבקשת.');
@@ -50,9 +71,9 @@ async function main(){
    $('approve').disabled=$('deny').disabled=true;
    $('status').textContent='מעבד את ההחלטה…';
    const result=action==='approve'?await sb.auth.oauth.approveAuthorization(id):await sb.auth.oauth.denyAuthorization(id);
-   if(result.error||!result.data?.redirect_url){$('status').textContent='הפעולה נכשלה. נסה/י שוב.';$('approve').disabled=$('deny').disabled=false;return;}
+   if(result.error||!result.data?.redirect_url){diagnostic(action==='approve'?'approve-authorization':'deny-authorization',result.error,{authorizationIdPresent:Boolean(id),authorizationIdLength:id?.length||0});$('status').textContent='הפעולה נכשלה. נסה/י שוב.';$('approve').disabled=$('deny').disabled=false;return;}
    if(!navigateToOAuthCallback(result.data.redirect_url)){$('status').textContent='החזרה לאפליקציה נכשלה: חסרים code או state.';$('approve').disabled=$('deny').disabled=false;return;}
   });
  }
 }
-main().catch(()=>fail('שגיאה בהכנת בקשת האישור.'));
+main().catch(error=>{diagnostic('consent-unhandled',error,{authorizationIdPresent:Boolean(id),authorizationIdLength:id?.length||0});fail('שגיאה בהכנת בקשת האישור.');});

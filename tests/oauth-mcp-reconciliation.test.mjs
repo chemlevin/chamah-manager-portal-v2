@@ -50,7 +50,10 @@ test('Vercel exposes consent, protected-resource metadata, and MCP routes indepe
 test('Consent reuses and refreshes the portal session before OAuth approval or denial', () => {
   assert.match(consentSource, /sessionKey='chamah\.portal\.session'/);
   assert.match(consentSource, /autoRefreshToken:true/);
-  assert.match(consentSource, /await sb\.auth\.getSession\(\)/);
+  assert.match(consentSource, /await restorePortalSession\(\)/);
+  assert.match(consentSource, /await sb\.auth\.setSession\(portalSession\)/);
+  assert.match(consentSource, /authorization-details/);
+  assert.match(consentSource, /authorizationIdLength/);
   assert.match(consentSource, /await sb\.auth\.getUser\(\)/);
   assert.match(consentSource, /access\?\.profile\?\.is_active/);
   assert.match(consentSource, /getAuthorizationDetails\(id\)/);
