@@ -2,5 +2,5 @@
 const PRODUCTION_ORIGIN='https://chamah-portal.vercel.app';
 const {ACTIVE_OAUTH_ISSUER,assertRuntimeConsistency}=require('./runtime-consistency');
 assertRuntimeConsistency();
-function requestOrigin(req){const raw=String(req.headers['x-forwarded-host']||req.headers.host||'').trim().toLowerCase();const host=raw.split(',')[0].trim();return /^(?:[a-z0-9-]+\.)*vercel\.app$/.test(host)?`https://${host}`:PRODUCTION_ORIGIN;}
-module.exports=(req,res)=>{if(req.method!=='GET'){res.setHeader('Allow','GET');return res.status(405).end();}const resource=`${requestOrigin(req)}/api/mcp`;res.setHeader('Cache-Control','public, max-age=300');res.setHeader('Content-Type','application/json');res.setHeader('X-Content-Type-Options','nosniff');return res.status(200).json({resource,authorization_servers:[ACTIVE_OAUTH_ISSUER],bearer_methods_supported:['header']});};
+const requestOrigin=()=>PRODUCTION_ORIGIN;
+module.exports=(req,res)=>{if(req.method!=='GET'){res.setHeader('Allow','GET');return res.status(405).end();}const resource=`${requestOrigin()}/api/mcp`;res.setHeader('Cache-Control','public, max-age=300');res.setHeader('Content-Type','application/json');res.setHeader('X-Content-Type-Options','nosniff');return res.status(200).json({resource,authorization_servers:[ACTIVE_OAUTH_ISSUER],bearer_methods_supported:['header']});};

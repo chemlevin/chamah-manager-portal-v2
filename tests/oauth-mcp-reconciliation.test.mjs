@@ -36,6 +36,8 @@ test('OAuth protected-resource discovery and bearer challenge use the canonical 
   assert.doesNotMatch(metadataSource, /const RESOURCE='https:\/\/chamah-portal\.vercel\.app\/api\/mcp'/);
   assert.match(metadataSource, /authorization_servers/);
   assert.match(metadataSource, /bearer_methods_supported/);
+  assert.doesNotMatch(metadataSource, /x-forwarded-host|req\.headers\.host/);
+  assert.doesNotMatch(mcpSource, /x-forwarded-host|req\.headers\.host/);
 });
 
 test('Vercel exposes consent, protected-resource metadata, and MCP routes independently', () => {
@@ -79,6 +81,8 @@ test('Unauthenticated OAuth resumes through the Preview portal login using only 
   assert.match(appSource, /validateSession\(\)/);
   assert.match(portalHtml, /id="login-form"/);
   assert.doesNotMatch(appSource, /localStorage\.setItem\([^\n]*oauth_resume/i);
+  assert.match(consentSource, /canonicalOrigin='https:\/\/chamah-portal\.vercel\.app'/);
+  assert.match(consentSource, /location\.origin!==canonicalOrigin/);
 });
 
 test('MCP validates active portal access and delegates data authorization to scoped RPCs', () => {

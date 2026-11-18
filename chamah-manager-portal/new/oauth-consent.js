@@ -1,5 +1,6 @@
 import {createClient} from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 const project='https://iwsbjudahtjyigecymzd.supabase.co';
+const canonicalOrigin='https://chamah-portal.vercel.app';
 const key='__CHAMAH_PUBLISHABLE_KEY__';
 const sessionKey='chamah.portal.session';
 const storage={getItem:k=>k==='chamah-oauth-session'?localStorage.getItem(sessionKey):null,setItem:(k,v)=>{if(k==='chamah-oauth-session')localStorage.setItem(sessionKey,v)},removeItem:k=>{if(k==='chamah-oauth-session')localStorage.removeItem(sessionKey)}};
@@ -8,9 +9,9 @@ const $=id=>document.getElementById(id);
 const id=new URLSearchParams(location.search).get('authorization_id');
 const fail=msg=>{$('status').textContent=msg};
 function redirectToPortalLogin(){
- const resume=new URL('/oauth/consent',location.origin);
+ const resume=new URL('/oauth/consent',canonicalOrigin);
  resume.searchParams.set('authorization_id',id);
- const login=new URL('/',location.origin);
+ const login=new URL('/',canonicalOrigin);
  login.searchParams.set('oauth_resume',resume.href);
  location.replace(login.href);
 }
@@ -24,6 +25,7 @@ function navigateToOAuthCallback(redirectUrl){
 }
 async function main(){
  if(!id||id.length>300||!/^[a-zA-Z0-9._~-]+$/.test(id))return fail('בקשת אישור לא תקינה.');
+ if(location.origin!==canonicalOrigin)return location.replace(`${canonicalOrigin}/oauth/consent?authorization_id=${encodeURIComponent(id)}`);
  const {data:{session},error:sessionError}=await sb.auth.getSession();
  if(sessionError||!session)return redirectToPortalLogin();
  const {data:{user},error:authError}=await sb.auth.getUser();
