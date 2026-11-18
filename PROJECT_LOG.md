@@ -6334,6 +6334,25 @@ Preview URL: None.
 Production URL (if deployed): `https://chamah-portal.vercel.app/api/mcp`.
 Blockers: The active 0.0.2 connector is not callable from the current tool registry; available commit calls fail before producing a Vercel request. One connector-session/tool-registry refresh is required.
 Next recommended TRACK: Refresh the active Chamah Daycare 0.0.2 connector session, invoke the unchanged first batch through MCP, then retry and read back all five batches with persisted child and audit counts.
+
+# TRACK137 — Read-only operational batch discovery (2026-11-18)
+
+TRACK: TRACK137
+Status: IMPLEMENTED — awaiting Production wrapper deployment and live MCP verification
+Summary: Added additive `list_operational_batches` MCP discovery with entity, month, status, and source filters. The read-only RPC returns batch identity, entity, source, month, row count, status, approval ID/validity, commit timestamp, and duplicate/conflict indicators.
+Root cause: The Production MCP exposed only single-batch lookup and had no safe read-only batch discovery operation.
+Files changed: api/mcp.js; supabase/migrations/20261118000000_track137_operational_batch_discovery.sql; tests/track137-operational-batch-discovery.test.mjs; PROJECT_LOG.md
+Database changes: Additive read-only RPC and authenticated execute grant applied to Production project `vyyfuaqmbxvfqgbfqooc`; no business rows changed.
+Migrations: `20261118000000_track137_operational_batch_discovery.sql` applied directly as `track137_operational_batch_discovery`.
+Edge Functions: None.
+Tests: Targeted MCP tests 13/13; `npm run contract:check` passed; migration preflight passed 115 ordered migrations; syntax and diff checks passed. Live wrapper verification pending deployment.
+Production impact: Database function only so far; no batches, approvals, commits, employees, payroll, or business data changed.
+Commit SHA: Pending.
+Branch: codex/track121-oauth-login-resume
+Preview URL: None.
+Production URL (if deployed): `https://chamah-portal.vercel.app/api/mcp` pending wrapper deployment.
+Blockers: None before deployment.
+Next recommended TRACK: Deploy and live-verify `list_operational_batches`, then inventory existing Production batches read-only.
 # TRACK135 — Complete Production MCP Operations, Commit, and Deletion (2026-11-17)
 
 TRACK: TRACK135

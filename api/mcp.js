@@ -57,6 +57,7 @@ const BASE_TOOLS = [
   {name:'request_operational_approval',description:'Record explicit Director approval for the exact unchanged mixed-domain preview and contract version',inputSchema:{type:'object',properties:{contract_version:{type:'string',const:'1.0.0'},batch_id:{type:'string',format:'uuid'},reason:{type:'string',minLength:3,maxLength:500}},required:['contract_version','batch_id','reason'],additionalProperties:false}},
   {name:'commit_operational_changes',description:'Atomically commit an approved mixed-domain change set bound to the exact contract version',inputSchema:{type:'object',properties:{contract_version:{type:'string',const:'1.0.0'},batch_id:{type:'string',format:'uuid'},approval_id:{type:'string',format:'uuid'}},required:['contract_version','batch_id','approval_id'],additionalProperties:false}},
   {name:'get_operational_batch',description:'Read preview, approval, commit and verification evidence for one change set',inputSchema:{type:'object',properties:{batch_id:{type:'string',format:'uuid'}},required:['batch_id'],additionalProperties:false}},
+  {name:'list_operational_batches',description:'List existing operational batches and approval/conflict state without changing data',inputSchema:{type:'object',properties:{entity:{type:'string',minLength:1,maxLength:80},month:{type:'string',format:'date'},status:{type:'string',enum:['READY','CONFLICTS','COMMITTED']},source:{type:'string',maxLength:120},limit:{type:'integer',minimum:1,maximum:100},offset:{type:'integer',minimum:0,maximum:10000}},additionalProperties:false}},
   {name:'search_operational_records',description:'Search any allowlisted canonical operational entity with bounded pagination',inputSchema:{type:'object',properties:{entity:{type:'string',minLength:1,maxLength:80},search:{type:'string',maxLength:120},limit:{type:'integer',minimum:1,maximum:100},offset:{type:'integer',minimum:0,maximum:10000}},required:['entity'],additionalProperties:false}},
   {name:'get_operational_record',description:'Read one canonical operational record by entity and UUID',inputSchema:{type:'object',properties:{entity:{type:'string',minLength:1,maxLength:80},record_id:{type:'string',format:'uuid'}},required:['entity','record_id'],additionalProperties:false}},
   {name:'operational_report',description:'Return canonical record counts and explicitly unsupported operational domains',inputSchema:{type:'object',properties:{},additionalProperties:false}},
@@ -81,7 +82,7 @@ const READ_ONLY_TOOLS = new Set([
   'search_payment_requests','analyze_suppliers_payments','list_policies','read_policy','list_daycares',
   'staff_by_daycare','search_daycares','data_capabilities','search_operational_data','analyze_operational_data',
   'find_employee_duplicates','download_policy_file','operational_catalog','employee_profile','get_operational_batch',
-  'search_operational_records','get_operational_record','operational_report','child_reconciliation'
+  'search_operational_records','get_operational_record','operational_report','list_operational_batches','child_reconciliation'
 ]);
 const INSTITUTION_READ_TOOLS = new Set(['get_profile','list_daycares','staff_by_daycare','list_policies','read_policy']);
 const UNSAFE_LEGACY_WRITE_TOOLS = new Set([
@@ -331,6 +332,9 @@ module.exports=async function handler(req,res){
  case 'get_operational_batch':
   if(Object.keys(args).length!==1||!UUID.test(args.batch_id||''))return send(res,200,error(id,-32602,'Invalid operational batch'));
   rpc='portal_mcp_get_operational_batch';params={p_batch_id:args.batch_id};break;
+ case 'list_operational_batches':
+  if(Object.keys(args).some(k=>!['entity','month','status','source','limit','offset'].includes(k))||(args.entity!==undefined&&(typeof args.entity!=='string'||!/^[a-z_]{1,80}$/i.test(args.entity)))||(args.month!==undefined&&(typeof args.month!=='string'||Number.isNaN(Date.parse(args.month))))||(args.status!==undefined&&!['READY','CONFLICTS','COMMITTED'].includes(args.status))||(args.source!==undefined&&(typeof args.source!=='string'||args.source.length>120))||(args.limit!==undefined&&(!Number.isInteger(args.limit)||args.limit<1||args.limit>100))||(args.offset!==undefined&&(!Number.isInteger(args.offset)||args.offset<0||args.offset>10000)))return send(res,200,error(id,-32602,'Invalid operational batch filters'));
+  rpc='portal_mcp_list_operational_batches';params={p_entity:args.entity||null,p_month:args.month||null,p_status:args.status||null,p_source:args.source||null,p_limit:args.limit||25,p_offset:args.offset||0};break;
  case 'search_operational_records':
   if(Object.keys(args).some(k=>!['entity','search','limit','offset'].includes(k))||typeof args.entity!=='string'||!/^[a-z_]{1,80}$/.test(args.entity)||(args.search!==undefined&&(typeof args.search!=='string'||args.search.length>120))||(args.limit!==undefined&&(!Number.isInteger(args.limit)||args.limit<1||args.limit>100))||(args.offset!==undefined&&(!Number.isInteger(args.offset)||args.offset<0||args.offset>10000)))return send(res,200,error(id,-32602,'Invalid operational record search'));
   rpc='portal_mcp_search_records';params={p_entity:args.entity,p_search:args.search||null,p_limit:args.limit||25,p_offset:args.offset||0};break;
