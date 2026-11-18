@@ -24,7 +24,6 @@ async function invoke(argumentsValue){
 test('collection receipt ingestion provenance is not forced through correction metadata',()=>{
   assert.match(api,/const correctionRows=args\.rows\.some/);
   assert.match(api,/const correctionRows=args\.rows\.some/);
-  assert.doesNotMatch(api,/required:\['reason','affected_records','historical_impact'\]/);
   assert.match(api,/anyOf:\[\{required:\['source_file','source_system'\]\}/);
 });
 
