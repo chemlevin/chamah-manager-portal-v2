@@ -6338,21 +6338,21 @@ Next recommended TRACK: Refresh the active Chamah Daycare 0.0.2 connector sessio
 # TRACK137 — Read-only operational batch discovery (2026-11-18)
 
 TRACK: TRACK137
-Status: IMPLEMENTED — awaiting Production wrapper deployment and live MCP verification
+Status: RELEASED — Production deployment READY; authenticated MCP invocation pending connector refresh
 Summary: Added additive `list_operational_batches` MCP discovery with entity, month, status, and source filters. The read-only RPC returns batch identity, entity, source, month, row count, status, approval ID/validity, commit timestamp, and duplicate/conflict indicators.
 Root cause: The Production MCP exposed only single-batch lookup and had no safe read-only batch discovery operation.
 Files changed: api/mcp.js; supabase/migrations/20261118000000_track137_operational_batch_discovery.sql; tests/track137-operational-batch-discovery.test.mjs; PROJECT_LOG.md
 Database changes: Additive read-only RPC and authenticated execute grant applied to Production project `vyyfuaqmbxvfqgbfqooc`; no business rows changed.
 Migrations: `20261118000000_track137_operational_batch_discovery.sql` applied directly as `track137_operational_batch_discovery`.
 Edge Functions: None.
-Tests: Targeted MCP tests 13/13; `npm run contract:check` passed; migration preflight passed 115 ordered migrations; syntax and diff checks passed. Live wrapper verification pending deployment.
-Production impact: Database function only so far; no batches, approvals, commits, employees, payroll, or business data changed.
-Commit SHA: Pending.
+Tests: Targeted MCP tests 13/13; `npm run contract:check` passed; migration preflight passed 115 ordered migrations; syntax and diff checks passed. Production RPC signature read back successfully. Authenticated live MCP invocation was not completed because the current connector registry has not refreshed to expose the new tool.
+Production impact: Production database has the additive read-only RPC; Vercel Production deployment `dpl_UYhif6YSzei4WpLHYgppWwq6J9ZZ` is READY. No batches, approvals, commits, employees, payroll, or business data changed.
+Commit SHA: `d47c9137123182cd31585ecc4bbee648b36ea12e`.
 Branch: codex/track121-oauth-login-resume
 Preview URL: None.
-Production URL (if deployed): `https://chamah-portal.vercel.app/api/mcp` pending wrapper deployment.
-Blockers: None before deployment.
-Next recommended TRACK: Deploy and live-verify `list_operational_batches`, then inventory existing Production batches read-only.
+Production URL (if deployed): `https://chamah-portal-td1i60ujd-chamah.vercel.app/api/mcp` (READY Production deployment); canonical `https://chamah-portal.vercel.app/api/mcp` remains externally scope-blocked.
+Blockers: Authenticated live MCP invocation requires connector/tool-registry refresh; canonical domain ownership remains externally scope-blocked.
+Next recommended TRACK: Refresh the Production connector, invoke `list_operational_batches` read-only, then inventory existing Production batches.
 # TRACK135 — Complete Production MCP Operations, Commit, and Deletion (2026-11-17)
 
 TRACK: TRACK135
