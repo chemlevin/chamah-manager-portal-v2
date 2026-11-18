@@ -25,6 +25,7 @@ test('collection receipt ingestion provenance is not forced through correction m
   assert.match(api,/const correctionRows=args\.rows\.some/);
   assert.match(api,/correctionRows&&\(/);
   assert.doesNotMatch(api,/required:\['reason','affected_records','historical_impact'\]/);
+  assert.match(api,/anyOf:\[\{required:\['source_file','source_system'\]\}/);
 });
 
 test('correction metadata remains required for correction-shaped rows',()=>{
@@ -32,6 +33,7 @@ test('correction metadata remains required for correction-shaped rows',()=>{
   assert.match(api,/args\.source_provenance\.reason/);
   assert.match(api,/args\.source_provenance\.affected_records/);
   assert.match(api,/args\.source_provenance\.historical_impact/);
+  assert.match(api,/args\.source_provenance\.correction_reason/);
 });
 
 test('collection receipt preview reaches the versioned RPC with source provenance only',async()=>{
