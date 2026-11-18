@@ -41,6 +41,17 @@ test('collection receipt preview reaches the versioned RPC with source provenanc
   assert.ok(calls.some(url=>url.includes('/rpc/portal_mcp_preview_operational_changes')));
 });
 
+test('source-backed government funding CREATE rows with record_id do not require correction metadata',async()=>{
+  const {body,calls}=await invoke({contract_version:'1.0.0',idempotency_key:'tama-source-create-001',source_name:'TAMA September 2026.xlsx',source_provenance:{source_file:'TAMA September 2026.xlsx',source_system:'TAMA_GOVERNMENT_FUNDING',source_description:'September child-level funding report'},rows:[{operation:'CREATE',entity:'government_funding_records',record_id:'00000000-0000-4000-8000-000000000005',values:{national_id:'123456782',funding_month:'2026-09-01',amount:100,source_file:'TAMA September 2026.xlsx',source_row_number:12,report_number:'SEPTEMBER-2026'}}]});
+  assert.equal(body.error,undefined);
+  assert.ok(calls.some(url=>url.includes('/rpc/portal_mcp_preview_operational_changes')));
+});
+
+test('government funding correction-shaped rows still require correction metadata',async()=>{
+  const {body}=await invoke({contract_version:'1.0.0',idempotency_key:'tama-correction-001',source_name:'TAMA correction.xlsx',source_provenance:{source_file:'TAMA correction.xlsx',source_system:'TAMA_GOVERNMENT_FUNDING'},rows:[{operation:'UPDATE',entity:'government_funding_records',record_id:'00000000-0000-4000-8000-000000000005',values:{amount:101}}]});
+  assert.equal(body.error?.message,'Correction reason, affected records, and historical impact are required');
+});
+
 test('receipt metadata is additive and preserves month/date availability/source lineage',()=>{
   for(const column of ['reporting_month','exact_payment_date_available','collection_status','source_file','source_row_number','child_id','daycare_id']) assert.match(migration,new RegExp(`add column if not exists ${column}`));
   assert.match(migration,/alter column receipt_date drop not null/);

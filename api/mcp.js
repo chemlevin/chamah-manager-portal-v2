@@ -320,7 +320,12 @@ module.exports=async function handler(req,res){
   rpc='portal_mcp_employee_profile';params={p_employee_id:args.employee_id};break;
  case 'preview_operational_changes':
   if(args.contract_version!=='1.0.0'||Object.keys(args).some(k=>!['contract_version','rows','source_name','source_provenance','idempotency_key'].includes(k))||!Array.isArray(args.rows)||args.rows.length<1||args.rows.length>1000||!args.source_provenance||typeof args.source_provenance!=='object'||Array.isArray(args.source_provenance)||Object.keys(args.source_provenance).length<1||typeof args.idempotency_key!=='string'||args.idempotency_key.trim().length<8||args.idempotency_key.length>160)return send(res,200,error(id,-32602,args.contract_version?'Operational preview requires contract_version 1.0.0, 1-1000 rows, source provenance, and an idempotency key':'VERSION_MISMATCH'));
-  const correctionRows=args.rows.some(r=>r?.record_id&&r?.values&&typeof r.values==='object');
+  const correctionRows=args.rows.some(r=>{
+   if(!r||typeof r!=='object')return false;
+   const operation=typeof r.operation==='string'?r.operation.toUpperCase():typeof r.op==='string'?r.op.toUpperCase():'';
+   if(['CREATE','INSERT','IMPORT'].includes(operation))return false;
+   return ['UPDATE','PATCH','DELETE','CORRECTION'].includes(operation)||(r.record_id&&r.values&&typeof r.values==='object');
+  });
   if(correctionRows){
    const reason=typeof args.source_provenance.reason==='string'?args.source_provenance.reason:args.source_provenance.correction_reason;
    if(typeof reason!=='string'||reason.trim().length<3||!Array.isArray(args.source_provenance.affected_records)||typeof args.source_provenance.historical_impact!=='string'||!args.source_provenance.historical_impact.trim())return send(res,200,error(id,-32602,'Correction reason, affected records, and historical impact are required'));
