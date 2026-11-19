@@ -41,3 +41,16 @@ test('does not match by row position and rejects missing national ID', () => {
   assert.equal(request.rows.length, 0);
   assert.equal(request.unresolved[0].reason, 'MISSING_NATIONAL_ID');
 });
+
+test('keeps missing TAMA amounts unresolved with source evidence', () => {
+  const report = { status: 'PARSED_READ_ONLY', source_provenance: { filename: 'September-2026.pdf' }, movements: [
+    { national_id: '238750186', movement_type: 'REGULAR', amount: null, original_payload: { numeric_values: { ministry_with_refund: { raw: null } } }, source_provenance: { filename: 'September-2026.pdf', page: 1, source_row: 1, raw_tokens: [{ text: '' }] } }
+  ] };
+  const request = buildOperationalPreviewRequest([report]);
+  assert.equal(request.rows.length, 0);
+  assert.equal(request.unresolved.length, 1);
+  assert.equal(request.unresolved[0].reason, 'MISSING_AMOUNT');
+  assert.equal(request.unresolved[0].source_provenance.page, 1);
+  assert.equal(request.source_provenance.unresolved_rows[0].raw_value, null);
+  assert.equal(request.canonical_writes, false);
+});
