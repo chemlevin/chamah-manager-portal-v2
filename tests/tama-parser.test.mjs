@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+const require=createRequire(import.meta.url);
+const {normalizeId,groupRows,parseTamaWords}=require('../lib/tama-parser.js');
+const w=(text,xMin,yMin,page=1)=>({text,xMin,xMax:xMin+String(text).length*5,yMin,yMax:yMin+8,page});
+test('normalizes ordinary and merged ID/grade tokens',()=>{assert.deepEqual(normalizeId('238750186').id,'238750186');assert.equal(normalizeId('4240816660').id,'240816660');assert.equal(normalizeId('4240816660').repaired,true);assert.equal(normalizeId('12238742670').id,'238742670');});
+test('groups by page and vertical coordinate, independent of input order',()=>{const rows=groupRows([w('id',390,10,2),w('x',10,10,2),w('y',10,11,2),w('z',10,30,1)]);assert.equal(rows[0].page,1);assert.equal(rows[1].words.length,3);});
+test('maps RTL columns by coordinates and preserves provenance',()=>{const words=[w('1,000',50,10),w('1,000',140,10),w('900',230,10),w('800',280,10),w('2,000',320,10),w('5',360,10),w('238750186',390,10)];const p=parseTamaWords(words,{sourceFilename:'x.pdf',reportMonth:'2026-09-01'});assert.equal(p.children.length,1);assert.equal(p.children[0].amounts.ministry_with_refund,1000);assert.equal(p.children[0].source_provenance.filename,'x.pdf');assert.equal(p.movements[0].movement_type,'REGULAR');});
+test('associates retro continuation and negative retro with preceding child',()=>{const words=[w('1,000',50,10),w('1,000',140,10),w('900',230,10),w('800',280,10),w('2,000',320,10),w('5',360,10),w('238750186',390,10),w('רטרו:09.2026',500,20),w('-100',140,20)];const p=parseTamaWords(words,{reportMonth:'2026-10-01'});assert.equal(p.movements[1].movement_type,'RETRO_ADJUSTMENT_NEGATIVE');assert.equal(p.movements[1].national_id,'238750186');assert.equal(p.movements[1].entitlement_month,'09-2026');});
+test('keeps orphan continuation as an exception',()=>{const p=parseTamaWords([w('רטרו:09.2026',500,10)]);assert.equal(p.exceptions[0].code,'ORPHAN_CONTINUATION_ROW');});
+test('duplicate files are handled outside parser by hash and parser remains source-preserving',()=>{const p=parseTamaWords([w('1,000',140,10),w('238750186',390,10)],{sourceFilename:'selected.pdf'});assert.equal(p.source_provenance.filename,'selected.pdf');});
