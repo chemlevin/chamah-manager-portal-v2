@@ -26,6 +26,19 @@ const approvedSupabaseUrls = new Set(['https://iwsbjudahtjyigecymzd.supabase.co'
 if (!approvedSupabaseUrls.has(previewSupabaseUrl)) throw new Error('CHAMAH_SUPABASE_URL points to an unapproved Supabase project.');
 if (previewSupabaseIssuer !== `${previewSupabaseUrl}/auth/v1`) throw new Error('CHAMAH_OAUTH_ISSUER must match CHAMAH_SUPABASE_URL/auth/v1.');
 if (!previewSupabaseKey.startsWith('sb_publishable_')) throw new Error('CHAMAH_SUPABASE_PUBLISHABLE_KEY must be a publishable key.');
+
+const repairMojibake = (value) => {
+  if (!/[×ÃÂâ]/.test(value)) return value;
+  try {
+    const repaired = Buffer.from(value, 'latin1').toString('utf8');
+    const before = (value.match(/[×ÃÂâ]/g) || []).length;
+    const after = (repaired.match(/[×ÃÂâ]/g) || []).length;
+    return after < before ? repaired : value;
+  } catch {
+    return value;
+  }
+};
+
 {
   const javascriptFiles = (await readdir('dist', { recursive: true, withFileTypes: true }))
     .filter((entry) => entry.isFile() && entry.name.endsWith('.js'))
@@ -33,7 +46,8 @@ if (!previewSupabaseKey.startsWith('sb_publishable_')) throw new Error('CHAMAH_S
   javascriptFiles.push(join('dist', 'oauth-consent.js'));
   for (const file of javascriptFiles) {
     const source = await readFile(file, 'utf8');
-    const configured = source.replaceAll('__CHAMAH_PUBLISHABLE_KEY__', previewSupabaseKey).replaceAll('__CHAMAH_SUPABASE_URL__', previewSupabaseUrl);
+    const normalized = repairMojibake(source);
+    const configured = normalized.replaceAll('__CHAMAH_PUBLISHABLE_KEY__', previewSupabaseKey).replaceAll('__CHAMAH_SUPABASE_URL__', previewSupabaseUrl);
     if (configured !== source) await writeFile(file, configured);
   }
 }
@@ -62,7 +76,7 @@ for (const file of deployFiles) {
 
 const appShell = deployFiles
   .filter((file) => /\.(?:html|js|css|webmanifest)$/.test(file))
-  .map((file) => `/${file.slice('dist'.length + 1).replaceAll('\\', '/')}`)
+  .map((file) => `/${file.slice('dist'.length + 1).replaceAll('\\\\', '/')}`)
   .filter((url) => !url.slice(1).includes('/') || url.startsWith('/vendor/'))
   .filter((url) => url !== '/service-worker.js')
   .map(versionUrl);
