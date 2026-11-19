@@ -11,7 +11,7 @@ const API_KEY = process.env.CHAMAH_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_4
 const PRODUCTION_ORIGIN = 'https://chamah-portal.vercel.app';
 const AUTH_SERVER = `${SUPABASE_URL}/auth/v1`;
 const PROTOCOL_VERSION = '2025-03-26';
-const SERVER_VERSION = '1.6.0';
+const SERVER_VERSION = '1.7.0';
 const CONTRACT_VERSION = '1.0.0';
 const BASE_TOOLS = [
   {name:'get_profile',description:'Return the authenticated Director profile represented by this connection',inputSchema:{type:'object',properties:{},additionalProperties:false},outputSchema:{type:'object',properties:{id:{type:'string'},name:{type:'string'},email:{type:'string'},nickname:{type:'string'}},required:['id'],additionalProperties:false},_meta:{'openai/profile':true}},
