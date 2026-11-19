@@ -2016,4 +2016,4 @@ async function initializeAuth() {
   await showPortalHome();
 }
 
-initializeAuth();
+initializeAuth().catch(() => showLogin('לא ניתן לשחזר את החיבור. יש להתחבר מחדש.'));
