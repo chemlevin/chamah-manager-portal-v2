@@ -6475,3 +6475,22 @@ Preview URL: None
 Production URL (if deployed): https://chamah-portal.vercel.app
 Blockers: None known.
 Next recommended TRACK: Deploy and verify runtime-health, metadata, consent request readability, and authenticated get_profile through the existing Business connector.
+
+### TRACK150 — Diagnose and repair MCP OAuth authorization flow
+
+TRACK: TRACK150
+Status: IMPLEMENTED — local fix verified; deployment pending
+Summary: Added the missing Preview-only OAuth diagnostic endpoint and correlation-safe consent error reporting. Live evidence identified the current `chamah-director-preview.vercel.app` deployment serving the legacy Supabase issuer, while the authoritative repository configuration targets `iwsbjudahtjyigecymzd`.
+Root cause: Deployment drift: protected-resource discovery advertised `https://vyyfuaqmbxvfqgbfqooc.supabase.co/auth/v1`, so ChatGPT discovered and used the wrong OAuth authorization server. The consent page then surfaced only the generic Hebrew failure message.
+Files changed: api/oauth-diagnostics.js; chamah-manager-portal/new/oauth-consent.js; tests/oauth-mcp-reconciliation.test.mjs; PROJECT_LOG.md
+Database changes: None.
+Migrations: None.
+Edge Functions: None.
+Tests: Focused OAuth/runtime tests 11/11; `npm run contract:check`; build with authoritative isolated Supabase configuration; live protected-resource metadata and MCP route inspection. Full OAuth approval/token exchange and authenticated `get_profile` remain pending deployment and connector execution.
+Production impact: None. No database, business data, OAuth client, existing connection, or business-data operation changed.
+Commit SHA: Pending.
+Branch: codex/oauth-canonical-host.
+Preview URL: https://chamah-director-preview.vercel.app/api/mcp
+Production URL (if deployed): None.
+Blockers: Deployment and non-business connector verification remain.
+Next recommended TRACK: Deploy the reviewed commit to the existing Preview project, verify all discovery metadata, then perform one non-business OAuth connection and read-only `get_profile` call.

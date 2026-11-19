@@ -7,10 +7,13 @@ const storage={getItem:k=>k==='chamah-oauth-session'?localStorage.getItem(sessio
 const sb=createClient(project,key,{auth:{storage,storageKey:'chamah-oauth-session',autoRefreshToken:true,detectSessionInUrl:false,persistSession:true}});
 const $=id=>document.getElementById(id);
 const id=new URLSearchParams(location.search).get('authorization_id');
+const correlationId=crypto.randomUUID();
 const fail=msg=>{$('status').textContent=msg};
+function report(stage,extra={}){fetch('/api/oauth-diagnostics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({step:stage,correlation_id:correlationId,...extra}),keepalive:true}).catch(()=>{});}
 function diagnostic(stage,error,extra={}){
  const safe={stage,project,origin:location.origin,status:Number(error?.status)||null,code:String(error?.code||error?.error_code||''),message:String(error?.message||error?.msg||'').slice(0,240),...extra};
  console.warn('[oauth-consent]',safe);
+ report(stage==='approve-authorization'||stage==='deny-authorization'?'consent_approval':'oauth_error',{status:safe.status,host:location.host,path:location.pathname});
 }
 function readPortalSession(){
  try{
@@ -42,7 +45,7 @@ function navigateToOAuthCallback(redirectUrl){
  }catch{return false;}
 }
 async function main(){
- if(!id||id.length>300||!/^[a-zA-Z0-9._~-]+$/.test(id))return fail('בקשת אישור לא תקינה.');
+ if(!id||id.length>300||!/^[a-zA-Z0-9._~-]+$/.test(id)){report('authorize_request_received',{present:Boolean(id),length:id?.length||0});return fail('בקשת אישור לא תקינה.');}
  if(location.origin!==canonicalOrigin)return location.replace(`${canonicalOrigin}/oauth/consent?authorization_id=${encodeURIComponent(id)}`);
  const {data:{session},error:sessionError}=await restorePortalSession();
  if(sessionError)diagnostic('session-restore',sessionError);

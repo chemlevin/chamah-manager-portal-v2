@@ -12,6 +12,7 @@ const appSource = readFileSync(new URL('../chamah-manager-portal/new/app.js', im
 const portalHtml = readFileSync(new URL('../chamah-manager-portal/new/index.html', import.meta.url), 'utf8');
 const buildSource = readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8');
 const vercel = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
+const diagnosticsSource = readFileSync(new URL('../api/oauth-diagnostics.js', import.meta.url), 'utf8');
 
 test('OAuth consent and authorization use the active Supabase project only', () => {
   assert.match(consentSource, new RegExp(ACTIVE_SUPABASE_ORIGIN.replaceAll('.', '\\.') + "'"));
@@ -45,6 +46,14 @@ test('Vercel exposes consent, protected-resource metadata, and MCP routes indepe
   assert.equal(routes.get('/oauth/consent'), '/oauth-consent.html');
   assert.equal(routes.get('/.well-known/oauth-protected-resource'), '/api/mcp-oauth-metadata.js');
   assert.equal(routes.get('/api/mcp'), '/api/mcp.js');
+  assert.equal(routes.get('/api/oauth-diagnostics'), '/api/oauth-diagnostics.js');
+});
+
+test('OAuth diagnostics accept only sanitized allowlisted events and never production', () => {
+  assert.match(diagnosticsSource, /ALLOWED = new Set/);
+  assert.match(diagnosticsSource, /PRODUCTION_HOST/);
+  assert.match(diagnosticsSource, /correlation_id/);
+  assert.doesNotMatch(diagnosticsSource, /body\.(?:authorization_id|access_token|refresh_token|client_secret|code)|safe\.(?:authorization_id|access_token|refresh_token|client_secret|code)/);
 });
 
 test('Consent reuses and refreshes the portal session before OAuth approval or denial', () => {
