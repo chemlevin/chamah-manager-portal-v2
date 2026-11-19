@@ -22,8 +22,9 @@ const previewSupabaseIssuer = String(process.env.CHAMAH_OAUTH_ISSUER || '').repl
 if (!previewSupabaseUrl || !previewSupabaseKey || !previewSupabaseIssuer) {
   throw new Error('CHAMAH_SUPABASE_URL, CHAMAH_OAUTH_ISSUER, and CHAMAH_SUPABASE_PUBLISHABLE_KEY are required.');
 }
-if (previewSupabaseUrl !== 'https://iwsbjudahtjyigecymzd.supabase.co') throw new Error('CHAMAH_SUPABASE_URL points to a non-canonical Supabase project.');
-if (previewSupabaseIssuer !== 'https://iwsbjudahtjyigecymzd.supabase.co/auth/v1') throw new Error('CHAMAH_OAUTH_ISSUER points to a non-canonical OAuth issuer.');
+const approvedSupabaseUrls = new Set(['https://iwsbjudahtjyigecymzd.supabase.co', 'https://vyyfuaqmbxvfqgbfqooc.supabase.co']);
+if (!approvedSupabaseUrls.has(previewSupabaseUrl)) throw new Error('CHAMAH_SUPABASE_URL points to an unapproved Supabase project.');
+if (previewSupabaseIssuer !== `${previewSupabaseUrl}/auth/v1`) throw new Error('CHAMAH_OAUTH_ISSUER must match CHAMAH_SUPABASE_URL/auth/v1.');
 if (!previewSupabaseKey.startsWith('sb_publishable_')) throw new Error('CHAMAH_SUPABASE_PUBLISHABLE_KEY must be a publishable key.');
 {
   const javascriptFiles = (await readdir('dist', { recursive: true, withFileTypes: true }))
@@ -32,7 +33,7 @@ if (!previewSupabaseKey.startsWith('sb_publishable_')) throw new Error('CHAMAH_S
   javascriptFiles.push(join('dist', 'oauth-consent.js'));
   for (const file of javascriptFiles) {
     const source = await readFile(file, 'utf8');
-    const configured = source.replaceAll('__CHAMAH_PUBLISHABLE_KEY__', previewSupabaseKey);
+    const configured = source.replaceAll('__CHAMAH_PUBLISHABLE_KEY__', previewSupabaseKey).replaceAll('__CHAMAH_SUPABASE_URL__', previewSupabaseUrl);
     if (configured !== source) await writeFile(file, configured);
   }
 }
