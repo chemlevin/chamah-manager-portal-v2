@@ -22,11 +22,12 @@ test('server-side TAMA operation parses the allowlisted reports and reconciles 7
   assert.deepEqual(built.reports.map(report => report.reconciliation.child_count), [205, 245, 270]);
   assert.deepEqual(built.reports.map(report => report.reconciliation.movement_total), [191302, 262867, 87240]);
   assert.equal(built.request.canonical_writes, false);
-  assert.equal(built.request.rows.length, 333);
-  assert.equal(built.request.unresolved.length, 387);
+  assert.equal(built.request.source_row_count, 720);
+  assert.equal(built.request.rows.length, 475);
+  assert.equal(built.request.unresolved.length, 0);
   assert.ok(built.request.preview_digest);
   assert.ok(built.request.idempotency_key);
-  assert.ok(built.request.rows.every(row => row.values?.national_id && row.values?.source_payload?.filename && row.values?.original_values));
+  assert.ok(built.request.rows.every(row => row.values?.national_id && row.values?.source_payload?.contributing_source_rows?.length && row.values?.original_values?.length));
 });
 
 test('the deployed function bundles exactly the three server-side report files', async () => {
