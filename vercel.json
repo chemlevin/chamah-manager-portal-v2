@@ -8,7 +8,7 @@
     {
       "src": "api/mcp.js",
       "use": "@vercel/node",
-      "config": {"includeFiles": ["documents/tama-2026/*.pdf"]}
+      "config": {"includeFiles": ["documents/tama-2026/*.pdf", "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"]}
     },
     {
       "src": "api/oauth-diagnostics.js",
