@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto=require('node:crypto');
+const {buildTamaPreviewRequest}=require('../lib/tama-report-files.js');
 
 // Director-only MCP Streamable HTTP endpoint. Every operation uses the caller's
 // Supabase token; no privileged key, generic table access, or cross-user cache.
@@ -54,6 +55,7 @@ const BASE_TOOLS = [
   {name:'operational_catalog',description:'Return the canonical mixed-domain import contract, stable keys and writable fields',inputSchema:{type:'object',properties:{},additionalProperties:false}},
   {name:'employee_profile',description:'Read one complete canonical employee profile and all workforce relationships',inputSchema:{type:'object',properties:{employee_id:{type:'string',format:'uuid'}},required:['employee_id'],additionalProperties:false}},
   {name:'preview_operational_changes',description:'Match and validate mixed-domain canonical records against the versioned import contract without committing business data',inputSchema:{type:'object',properties:{contract_version:{type:'string',const:'1.0.0'},rows:{type:'array',minItems:1,maxItems:1000,items:{type:'object'}},source_name:{type:'string',maxLength:120},source_provenance:{type:'object',minProperties:1},idempotency_key:{type:'string',minLength:8,maxLength:160}},required:['contract_version','rows','source_provenance','idempotency_key'],additionalProperties:false}},
+  {name:'preview_tama_funding_reports',description:'Parse the three allowlisted TAMA PDF reports server-side and create a read-only operational Preview batch without approval or commit',inputSchema:{type:'object',properties:{reports:{type:'array',minItems:3,maxItems:3,uniqueItems:true,items:{type:'string',enum:['September-2026.pdf','October-2026-1.pdf','October-2026-2.pdf']}}},required:['reports'],additionalProperties:false}},
   {name:'request_operational_approval',description:'Record explicit Director approval for the exact unchanged mixed-domain preview and contract version',inputSchema:{type:'object',properties:{contract_version:{type:'string',const:'1.0.0'},batch_id:{type:'string',format:'uuid'},reason:{type:'string',minLength:3,maxLength:500}},required:['contract_version','batch_id','reason'],additionalProperties:false}},
   {name:'commit_operational_changes',description:'Atomically commit an approved mixed-domain change set bound to the exact contract version',inputSchema:{type:'object',properties:{contract_version:{type:'string',const:'1.0.0'},batch_id:{type:'string',format:'uuid'},approval_id:{type:'string',format:'uuid'}},required:['contract_version','batch_id','approval_id'],additionalProperties:false}},
   {name:'get_operational_batch',description:'Read preview, approval, commit and verification evidence for one change set',inputSchema:{type:'object',properties:{batch_id:{type:'string',format:'uuid'}},required:['batch_id'],additionalProperties:false}},
@@ -81,7 +83,7 @@ const READ_ONLY_TOOLS = new Set([
   'search_payment_requests','analyze_suppliers_payments','list_policies','read_policy','list_daycares',
   'staff_by_daycare','search_daycares','data_capabilities','search_operational_data','analyze_operational_data',
   'find_employee_duplicates','download_policy_file','operational_catalog','employee_profile','get_operational_batch',
-  'search_operational_records','get_operational_record','operational_report','child_reconciliation'
+  'search_operational_records','get_operational_record','operational_report','child_reconciliation','preview_tama_funding_reports'
 ]);
 const INSTITUTION_READ_TOOLS = new Set(['get_profile','list_daycares','staff_by_daycare','list_policies','read_policy']);
 const UNSAFE_LEGACY_WRITE_TOOLS = new Set([
@@ -320,6 +322,18 @@ module.exports=async function handler(req,res){
  case 'preview_operational_changes':
   if(args.contract_version!=='1.0.0'||Object.keys(args).some(k=>!['contract_version','rows','source_name','source_provenance','idempotency_key'].includes(k))||!Array.isArray(args.rows)||args.rows.length<1||args.rows.length>1000||!args.source_provenance||typeof args.source_provenance!=='object'||Array.isArray(args.source_provenance)||Object.keys(args.source_provenance).length<1||typeof args.idempotency_key!=='string'||args.idempotency_key.trim().length<8||args.idempotency_key.length>160)return send(res,200,error(id,-32602,args.contract_version?'Operational preview requires contract_version 1.0.0, 1-1000 rows, source provenance, and an idempotency key':'VERSION_MISMATCH'));
   rpc='portal_mcp_preview_operational_changes';params={p_contract_version:args.contract_version,p_rows:args.rows,p_source_name:args.source_name||'ChatGPT',p_source_provenance:args.source_provenance,p_idempotency_key:args.idempotency_key.trim()};break;
+ case 'preview_tama_funding_reports': {
+  if(Object.keys(args).length!==1||!Array.isArray(args.reports)||args.reports.length!==3||new Set(args.reports).size!==3||args.reports.some(name=>!['September-2026.pdf','October-2026-1.pdf','October-2026-2.pdf'].includes(name)))return send(res,200,error(id,-32602,'Exactly the three allowlisted TAMA report filenames are required'));
+  try {
+   const built=await buildTamaPreviewRequest(args.reports);
+   rpc='portal_mcp_preview_operational_changes';
+   params={p_contract_version:'1.0.0',p_rows:built.request.rows,p_source_name:built.request.source_name,p_source_provenance:built.request.source_provenance,p_idempotency_key:built.request.idempotency_key};
+  } catch(e) {
+   const detail=e.reports||{code:e.message||'TAMA_PARSE_FAILED'};
+   return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify({status:'UNRESOLVED',error:detail,canonical_writes:false})}],structuredContent:{status:'UNRESOLVED',error:detail,canonical_writes:false},isError:true}});
+  }
+  break;
+ }
  case 'request_operational_approval':
   if(Object.keys(args).length!==3||args.contract_version!=='1.0.0'||!UUID.test(args.batch_id||'')||typeof args.reason!=='string'||args.reason.trim().length<3||args.reason.length>500)return send(res,200,error(id,-32602,args.contract_version?'Invalid operational approval request':'VERSION_MISMATCH'));
   rpc='portal_mcp_request_operational_approval';params={p_contract_version:args.contract_version,p_batch_id:args.batch_id,p_reason:args.reason.trim()};break;
@@ -382,11 +396,12 @@ module.exports=async function handler(req,res){
   }catch(e){return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:e.status===403?'Permission denied':'Download failed'}],isError:true}});}
  }
  }
- const originOperation={preview_operational_changes:'PREVIEW',preview_daycare_import:'PREVIEW',request_operational_approval:'APPROVAL',request_daycare_import_approval:'APPROVAL',request_supplier_bank_verification_approval:'APPROVAL',request_payment_transition_approval:'APPROVAL',request_policy_archive_approval:'APPROVAL',request_bulk_policy_archive_approval:'APPROVAL',commit_operational_changes:'COMMIT',commit_daycare_import:'COMMIT',verify_supplier_bank_detail:'COMMIT',transition_payment_request:'COMMIT',archive_operational_record:'ARCHIVE',archive_policy:'DELETE',bulk_archive_policies:'DELETE'}[name];
+const originOperation={preview_operational_changes:'PREVIEW',preview_tama_funding_reports:'PREVIEW',preview_daycare_import:'PREVIEW',request_operational_approval:'APPROVAL',request_daycare_import_approval:'APPROVAL',request_supplier_bank_verification_approval:'APPROVAL',request_payment_transition_approval:'APPROVAL',request_policy_archive_approval:'APPROVAL',request_bulk_policy_archive_approval:'APPROVAL',commit_operational_changes:'COMMIT',commit_daycare_import:'COMMIT',verify_supplier_bank_detail:'COMMIT',transition_payment_request:'COMMIT',archive_operational_record:'ARCHIVE',archive_policy:'DELETE',bulk_archive_policies:'DELETE'}[name];
  if(originOperation)try{await recordRequestOrigin(req,token,originOperation,name,resource);}catch(e){return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:'Request-origin audit unavailable'}],isError:true}});}
  try{
   const result=await api('/rest/v1/rpc/'+rpc,token,params);
   const structuredContent=toStructuredContent(result);
+  if(name==='preview_tama_funding_reports'&&structuredContent&&typeof structuredContent==='object'&&!Array.isArray(structuredContent))structuredContent.canonical_writes=false;
   return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(structuredContent)}],structuredContent,isError:false}});
  }catch(e){
   console.error(JSON.stringify({event:'mcp_upstream_error',rpc,status:e.status||500,code:e.upstreamCode||'UNKNOWN',message:e.upstreamMessage||'Upstream request rejected'}));
