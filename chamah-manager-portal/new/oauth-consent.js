@@ -1,5 +1,5 @@
 import {createClient} from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-const project='https://iwsbjudahtjyigecymzd.supabase.co';
+const project='__CHAMAH_SUPABASE_URL__';
 const key='__CHAMAH_PUBLISHABLE_KEY__';
 const sessionKey='chamah.portal.session';
 const storage={getItem:k=>k==='chamah-oauth-session'?localStorage.getItem(sessionKey):null,setItem:(k,v)=>{if(k==='chamah-oauth-session')localStorage.setItem(sessionKey,v)},removeItem:k=>{if(k==='chamah-oauth-session')localStorage.removeItem(sessionKey)}};
@@ -23,34 +23,34 @@ function navigateToOAuthCallback(redirectUrl){
  }catch{return false;}
 }
 async function main(){
- if(!id||id.length>300||!/^[a-zA-Z0-9._~-]+$/.test(id))return fail('בקשת אישור לא תקינה.');
+ if(!id||id.length>300||!/^[a-zA-Z0-9._~-]+$/.test(id))return fail('××§×©×ª ×××©××¨ ×× ×ª×§×× ×.');
  const {data:{session},error:sessionError}=await sb.auth.getSession();
  if(sessionError||!session)return redirectToPortalLogin();
  const {data:{user},error:authError}=await sb.auth.getUser();
  if(authError||!user)return redirectToPortalLogin();
  const {data:access,error:accessError}=await sb.rpc('portal_my_access');
- if(accessError||!access?.profile?.is_active)return fail('לא ניתן לאמת הרשאות בפורטל. לא אושר חיבור.');
+ if(accessError||!access?.profile?.is_active)return fail('×× × ××ª× ××××ª ××¨×©×××ª ××¤××¨××. ×× ×××©×¨ ×××××¨.');
  const {data,error}=await sb.auth.oauth.getAuthorizationDetails(id);
- if(error||!data)return fail('לא ניתן לקרוא את פרטי בקשת החיבור.');
+ if(error||!data)return fail('×× × ××ª× ××§×¨×× ××ª ×¤×¨×× ××§×©×ª ××××××¨.');
  if(!('authorization_id' in data)){
-  if(typeof data.redirect_url!=='string'||!data.redirect_url.startsWith('https://'))return fail('לא ניתן להשלים את החזרה לאפליקציה המבקשת.');
-  if(!navigateToOAuthCallback(data.redirect_url))return fail('לא ניתן להשלים את החזרה לאפליקציה המבקשת.');
+  if(typeof data.redirect_url!=='string'||!data.redirect_url.startsWith('https://'))return fail('×× × ××ª× ×××©××× ××ª ××××¨× ×××¤×××§×¦×× ××××§×©×ª.');
+  if(!navigateToOAuthCallback(data.redirect_url))return fail('×× × ××ª× ×××©××× ××ª ××××¨× ×××¤×××§×¦×× ××××§×©×ª.');
   return;
  }
- $('client').textContent=data.client?.name||'אפליקציה ללא שם';
- $('redirect').textContent=data.redirect_uri||'לא ידוע';
- $('scopes').textContent=data.scope||'לא צוינו';
+ $('client').textContent=data.client?.name||'××¤×××§×¦×× ××× ×©×';
+ $('redirect').textContent=data.redirect_uri||'×× ××××¢';
+ $('scopes').textContent=data.scope||'×× ×¦××× ×';
  $('details').hidden=false;
- $('status').textContent='בדוק/י היטב את פרטי האפליקציה לפני אישור.';
+ $('status').textContent='××××§/× ×××× ××ª ×¤×¨×× ×××¤×××§×¦×× ××¤× × ×××©××¨.';
  for(const action of ['approve','deny']){
   $(action).disabled=false;
   $(action).addEventListener('click',async()=>{
    $('approve').disabled=$('deny').disabled=true;
-   $('status').textContent='מעבד את ההחלטה…';
+   $('status').textContent='××¢×× ××ª ××××××â¦';
    const result=action==='approve'?await sb.auth.oauth.approveAuthorization(id):await sb.auth.oauth.denyAuthorization(id);
-   if(result.error||!result.data?.redirect_url){$('status').textContent='הפעולה נכשלה. נסה/י שוב.';$('approve').disabled=$('deny').disabled=false;return;}
-   if(!navigateToOAuthCallback(result.data.redirect_url)){$('status').textContent='החזרה לאפליקציה נכשלה: חסרים code או state.';$('approve').disabled=$('deny').disabled=false;return;}
+   if(result.error||!result.data?.redirect_url){$('status').textContent='××¤×¢××× × ××©××. × ×¡×/× ×©××.';$('approve').disabled=$('deny').disabled=false;return;}
+   if(!navigateToOAuthCallback(result.data.redirect_url)){$('status').textContent='××××¨× ×××¤×××§×¦×× × ××©××: ××¡×¨×× code ×× state.';$('approve').disabled=$('deny').disabled=false;return;}
   });
  }
 }
-main().catch(()=>fail('שגיאה בהכנת בקשת האישור.'));
+main().catch(()=>fail('×©×××× ×××× ×ª ××§×©×ª ××××©××¨.'));
