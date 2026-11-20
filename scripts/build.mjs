@@ -1,6 +1,8 @@
 import { cp, rm, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
+import runtimeContracts from '../config/runtime-contracts.json' with { type: 'json' };
+import { validateRuntimeConsistency } from '../api/runtime-consistency.js';
 await import('./generate-management-catalog.mjs');
 await rm('dist', { recursive: true, force: true });
 await mkdir('dist', { recursive: true });
@@ -16,15 +18,14 @@ for (const entry of await readdir(portalSource)) {
   await cp(join(portalSource, entry), join('dist', entry), { recursive: true });
 }
 
+const environment = String(process.env.CHAMAH_ENVIRONMENT || '').trim().toLowerCase();
+const contract = runtimeContracts[environment];
+if (!contract) throw new Error('CHAMAH_ENVIRONMENT must be production or preview.');
 const previewSupabaseUrl = String(process.env.CHAMAH_SUPABASE_URL || '').replace(/\/$/, '');
 const previewSupabaseKey = String(process.env.CHAMAH_SUPABASE_PUBLISHABLE_KEY || '');
 const previewSupabaseIssuer = String(process.env.CHAMAH_OAUTH_ISSUER || '').replace(/\/$/, '');
-if (!previewSupabaseUrl || !previewSupabaseKey || !previewSupabaseIssuer) {
-  throw new Error('CHAMAH_SUPABASE_URL, CHAMAH_OAUTH_ISSUER, and CHAMAH_SUPABASE_PUBLISHABLE_KEY are required.');
-}
-if (previewSupabaseUrl !== 'https://iwsbjudahtjyigecymzd.supabase.co') throw new Error('CHAMAH_SUPABASE_URL points to a non-canonical Supabase project.');
-if (previewSupabaseIssuer !== 'https://iwsbjudahtjyigecymzd.supabase.co/auth/v1') throw new Error('CHAMAH_OAUTH_ISSUER points to a non-canonical OAuth issuer.');
-if (!previewSupabaseKey.startsWith('sb_publishable_')) throw new Error('CHAMAH_SUPABASE_PUBLISHABLE_KEY must be a publishable key.');
+const runtime = validateRuntimeConsistency({ ...process.env, CHAMAH_ENVIRONMENT: environment });
+if (!runtime.ok) throw new Error(`Environment consistency check failed: ${runtime.errors.join('; ')}`);
 {
   const javascriptFiles = (await readdir('dist', { recursive: true, withFileTypes: true }))
     .filter((entry) => entry.isFile() && entry.name.endsWith('.js'))
@@ -32,7 +33,7 @@ if (!previewSupabaseKey.startsWith('sb_publishable_')) throw new Error('CHAMAH_S
   javascriptFiles.push(join('dist', 'oauth-consent.js'));
   for (const file of javascriptFiles) {
     const source = await readFile(file, 'utf8');
-    const configured = source.replaceAll('__CHAMAH_PUBLISHABLE_KEY__', previewSupabaseKey);
+    const configured = source.replaceAll('__CHAMAH_PUBLISHABLE_KEY__', previewSupabaseKey).replaceAll('__CHAMAH_SUPABASE_URL__', runtime.supabaseUrl).replaceAll('__CHAMAH_PORTAL_ORIGIN__', runtime.portalOrigin).replaceAll('__CHAMAH_MCP_ORIGIN__', runtime.mcpOrigin);
     if (configured !== source) await writeFile(file, configured);
   }
 }

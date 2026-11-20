@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 const CANONICAL_ORIGIN = 'https://chamah-portal.vercel.app';
 const PREVIEW_ORIGIN = 'https://chamah-director-preview.vercel.app';
 const LEGACY_ORIGIN = 'https://chamah-portal-chamah.vercel.app';
-const ACTIVE_SUPABASE_ORIGIN = 'https://iwsbjudahtjyigecymzd.supabase.co';
+const ACTIVE_SUPABASE_ORIGIN = '__CHAMAH_SUPABASE_URL__';
 const mcpSource = readFileSync(new URL('../api/mcp.js', import.meta.url), 'utf8');
 const metadataSource = readFileSync(new URL('../api/mcp-oauth-metadata.js', import.meta.url), 'utf8');
 const consentSource = readFileSync(new URL('../chamah-manager-portal/new/oauth-consent.js', import.meta.url), 'utf8');
@@ -16,7 +16,7 @@ const vercel = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url
 const diagnosticsSource = readFileSync(new URL('../api/oauth-diagnostics.js', import.meta.url), 'utf8');
 
 test('OAuth consent and authorization use the active Supabase project only', () => {
-  assert.match(consentSource, new RegExp(ACTIVE_SUPABASE_ORIGIN.replaceAll('.', '\\.') + "'"));
+  assert.match(consentSource, /__CHAMAH_SUPABASE_URL__/);
   assert.doesNotMatch(consentSource, /vyyfuaqmbxvfqgbfqooc/);
   assert.match(consentSource, /getAuthorizationDetails\(id\)/);
   assert.match(consentSource, /if\(error\|\|!data\)/);
@@ -28,7 +28,7 @@ test('OAuth protected-resource discovery and bearer challenge use the configured
     assert.match(source, /authorization_servers/);
     assert.doesNotMatch(source, new RegExp(LEGACY_ORIGIN.replaceAll('.', '\\.')));
   }
-  assert.match(readFileSync(new URL('../api/runtime-consistency.js', import.meta.url), 'utf8'), new RegExp(CANONICAL_ORIGIN.replaceAll('.', '\\.')));
+  assert.match(readFileSync(new URL('../config/runtime-contracts.json', import.meta.url), 'utf8'), new RegExp(CANONICAL_ORIGIN.replaceAll('.', '\\.')));
   assert.match(mcpSource, /requestOrigin/);
   assert.match(mcpSource, /resource_metadata=/);
   assert.match(mcpSource, /WWW-Authenticate/);
@@ -46,9 +46,24 @@ test('OAuth protected-resource discovery and bearer challenge use the configured
 
 test('Preview origin is selected from CHAMAH_MCP_ORIGIN while issuer stays fixed', async () => {
   const runtime = await import('../api/runtime-consistency.js');
-  const env = { CHAMAH_MCP_ORIGIN: PREVIEW_ORIGIN, CHAMAH_SUPABASE_URL: 'https://iwsbjudahtjyigecymzd.supabase.co', CHAMAH_OAUTH_ISSUER: 'https://iwsbjudahtjyigecymzd.supabase.co/auth/v1', CHAMAH_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test' };
+  const env = { CHAMAH_ENVIRONMENT: 'preview', CHAMAH_MCP_ORIGIN: PREVIEW_ORIGIN, CHAMAH_PORTAL_ORIGIN: PREVIEW_ORIGIN, CHAMAH_SUPABASE_PROJECT_ID: 'iwsbjudahtjyigecymzd', CHAMAH_SUPABASE_URL: 'https://iwsbjudahtjyigecymzd.supabase.co', CHAMAH_OAUTH_ISSUER: 'https://iwsbjudahtjyigecymzd.supabase.co/auth/v1', CHAMAH_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test', CHAMAH_BUILD_COMMIT: 'test-commit' };
   assert.equal(runtime.validateRuntimeConsistency(env).resource, `${PREVIEW_ORIGIN}/api/mcp`);
   assert.equal(runtime.validateRuntimeConsistency(env).issuer, 'https://iwsbjudahtjyigecymzd.supabase.co/auth/v1');
+});
+
+test('Preview OAuth routes cannot silently use the Production consent origin', () => {
+  assert.match(consentSource, /allowedPortalOrigins=new Set\(\['__CHAMAH_PORTAL_ORIGIN__','__CHAMAH_MCP_ORIGIN__'\]\)/);
+  assert.match(consentSource, /location\.origin!==canonicalOrigin/);
+  assert.match(consentSource, /new URL\('\/oauth\/consent',canonicalOrigin\)/);
+  assert.match(consentSource, /new URL\('\/',canonicalOrigin\)/);
+  assert.match(appSource, /resume\.origin !== portal\.origin/);
+  assert.doesNotMatch(metadataSource, /chamah-portal\.vercel\.app\/oauth\/consent/);
+});
+
+test('The active MCP contract exposes both bounded operational read-back tools', () => {
+  for (const name of ['get_profile', 'operational_catalog', 'get_operational_batch_status', 'get_operational_batch_page']) {
+    assert.match(mcpSource, new RegExp(`name:'${name}'`));
+  }
 });
 
 test('Vercel exposes consent, protected-resource metadata, and MCP routes independently', () => {
@@ -104,7 +119,7 @@ test('Unauthenticated OAuth resumes through the Preview portal login using only 
   assert.match(portalHtml, /id="login-form"/);
   assert.doesNotMatch(appSource, /localStorage\.setItem\([^\n]*oauth_resume/i);
   assert.match(consentSource, /allowedPortalOrigins=new Set/);
-  assert.match(consentSource, /allowedPortalOrigins\.has\(location\.origin\)\?location\.origin/);
+  assert.match(consentSource, /allowedPortalOrigins\.has\(location\.origin\)/);
   assert.match(consentSource, /location\.origin!==canonicalOrigin/);
 });
 

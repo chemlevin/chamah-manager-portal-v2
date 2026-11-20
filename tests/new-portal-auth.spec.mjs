@@ -90,21 +90,18 @@ test.describe('new portal Supabase authentication', () => {
     expect(requests).toBe(1);
   });
 
-  test('requests password recovery to the canonical portal without changing the login flow', async ({ page }) => {
-    let recoveryUrl;
-    let recoveryBody;
+  test('rejects password recovery from an unknown origin without contacting Auth', async ({ page }) => {
+    let recoveryRequests = 0;
     await page.route(`${supabaseUrl}/auth/v1/recover**`, async (route) => {
-      recoveryUrl = route.request().url();
-      recoveryBody = route.request().postDataJSON();
+      recoveryRequests += 1;
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
     await page.goto('/');
     await page.locator('#email').fill('existing@example.org');
     await page.locator('#forgot-password').click();
     await page.locator('#request-recovery').click();
-    await expect(page.locator('#recovery-request-message')).toContainText('אם הכתובת מורשית במערכת');
-    expect(recoveryBody).toEqual({ email: 'existing@example.org' });
-    expect(new URL(recoveryUrl).searchParams.get('redirect_to')).toBe('http://127.0.0.1:4176/');
+    await expect(page.locator('#recovery-request-message')).toContainText('Password recovery is unavailable');
+    expect(recoveryRequests).toBe(0);
     await expect(page.locator('#login-submit')).toBeVisible();
   });
 

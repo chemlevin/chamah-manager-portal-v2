@@ -14,18 +14,17 @@ import { mountEmployeesWorkbench } from './employees-workbench.js';
 import { mountPayrollWorkbench } from './payroll-workbench.js';
 import { payrollLandingTemplate, payrollOpenTemplate, mountPayrollOpen, payrollMonthsTemplate, mountPayrollMonths, payrollReportsTemplate, mountPayrollReports } from './payroll-module.js';
 import { mountWorkbenchPolish } from './workbench-polish.js';
+import { getPasswordRecoveryRedirect } from './auth-routing.js';
 
 window.parsePayrollWorkbookForWorkbench = parsePayrollWorkbook;
 
-const SUPABASE_URL = 'https://iwsbjudahtjyigecymzd.supabase.co';
+const SUPABASE_URL = '__CHAMAH_SUPABASE_URL__';
 const SUPABASE_KEY = '__CHAMAH_PUBLISHABLE_KEY__';
 const SESSION_KEY = 'chamah.portal.session';
 const SESSION_REFRESH_LEEWAY_SECONDS = 60;
 const AUTO_REFRESH_MAX_DELAY_MS = 30 * 60 * 1000;
 const AUTO_REFRESH_RETRY_MS = 30 * 1000;
 const MIN_PASSWORD_LENGTH = 10;
-const PRODUCTION_PORTAL_URL = 'https://chamah-portal.vercel.app/';
-const PREVIEW_PORTAL_URL = 'https://chamah-portal-chemlevin-chamah.vercel.app/';
 const OAUTH_RESUME_PARAM = 'oauth_resume';
 const $ = (selector) => document.querySelector(selector);
 const money = new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 });
@@ -246,11 +245,7 @@ async function signInWithPassword(email, password) {
 }
 
 async function requestPasswordRecovery(email) {
-  const redirectUrl = location.hostname === new URL(PRODUCTION_PORTAL_URL).hostname
-    ? PRODUCTION_PORTAL_URL
-    : location.hostname.endsWith('.vercel.app')
-      ? PREVIEW_PORTAL_URL
-      : `${location.origin}/`;
+  const redirectUrl = getPasswordRecoveryRedirect(location.origin);
   const response = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(redirectUrl)}`, {
     method: 'POST',
     headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },

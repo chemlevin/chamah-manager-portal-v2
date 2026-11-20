@@ -1,7 +1,7 @@
 import {createClient} from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-const project='https://iwsbjudahtjyigecymzd.supabase.co';
-const allowedPortalOrigins=new Set(['https://chamah-portal.vercel.app','https://chamah-director-preview.vercel.app']);
-const canonicalOrigin=allowedPortalOrigins.has(location.origin)?location.origin:'https://chamah-portal.vercel.app';
+const project='__CHAMAH_SUPABASE_URL__';
+const allowedPortalOrigins=new Set(['__CHAMAH_PORTAL_ORIGIN__','__CHAMAH_MCP_ORIGIN__']);
+const canonicalOrigin=location.origin;
 const key='__CHAMAH_PUBLISHABLE_KEY__';
 const sessionKey='chamah.portal.session';
 const storage={getItem:k=>k==='chamah-oauth-session'?localStorage.getItem(sessionKey):null,setItem:(k,v)=>{if(k==='chamah-oauth-session')localStorage.setItem(sessionKey,v)},removeItem:k=>{if(k==='chamah-oauth-session')localStorage.removeItem(sessionKey)}};
@@ -16,6 +16,7 @@ function diagnostic(stage,error,extra={}){
  console.warn('[oauth-consent]',safe);
  report(stage==='approve-authorization'||stage==='deny-authorization'?'consent_approval':'oauth_error',{status:safe.status,host:location.host,path:location.pathname});
 }
+if(!allowedPortalOrigins.has(location.origin)) fail('סביבת החיבור אינה מורשית.');
 function readPortalSession(){
  try{
   const value=JSON.parse(localStorage.getItem(sessionKey)||'null');

@@ -1,15 +1,15 @@
 'use strict';
 
 const crypto=require('node:crypto');
-const {ACTIVE_SUPABASE_URL,ACTIVE_OAUTH_ISSUER,configuredOrigin,assertRuntimeConsistency}=require('./runtime-consistency');
+const {assertRuntimeConsistency,configuredOrigin}=require('./runtime-consistency');
 
 // Director-only MCP Streamable HTTP endpoint. Every operation uses the caller's
 // Supabase token; no privileged key, generic table access, or cross-user cache.
 const RUNTIME=assertRuntimeConsistency();
-const SUPABASE_URL = RUNTIME.supabaseUrl || ACTIVE_SUPABASE_URL;
+const SUPABASE_URL = RUNTIME.supabaseUrl;
 const API_KEY = process.env.CHAMAH_SUPABASE_PUBLISHABLE_KEY;
 const MCP_ORIGIN = configuredOrigin();
-const AUTH_SERVER = ACTIVE_OAUTH_ISSUER;
+const AUTH_SERVER = RUNTIME.issuer;
 const PROTOCOL_VERSION = '2025-03-26';
 const SERVER_VERSION = '1.6.0';
 const CONTRACT_VERSION = '1.0.0';

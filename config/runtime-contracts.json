@@ -1,0 +1,16 @@
+{
+  "production": {
+    "supabaseProjectId": "vyyfuaqmbxvfqgbfqooc",
+    "supabaseUrl": "https://vyyfuaqmbxvfqgbfqooc.supabase.co",
+    "oauthIssuer": "https://vyyfuaqmbxvfqgbfqooc.supabase.co/auth/v1",
+    "portalOrigin": "https://chamah-portal.vercel.app",
+    "mcpOrigin": "https://chamah-portal.vercel.app"
+  },
+  "preview": {
+    "supabaseProjectId": "iwsbjudahtjyigecymzd",
+    "supabaseUrl": "https://iwsbjudahtjyigecymzd.supabase.co",
+    "oauthIssuer": "https://iwsbjudahtjyigecymzd.supabase.co/auth/v1",
+    "portalOrigin": "https://chamah-director-preview.vercel.app",
+    "mcpOrigin": "https://chamah-director-preview.vercel.app"
+  }
+}
