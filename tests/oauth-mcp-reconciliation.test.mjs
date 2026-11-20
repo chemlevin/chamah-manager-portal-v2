@@ -103,7 +103,8 @@ test('Unauthenticated OAuth resumes through the Preview portal login using only 
   assert.match(appSource, /validateSession\(\)/);
   assert.match(portalHtml, /id="login-form"/);
   assert.doesNotMatch(appSource, /localStorage\.setItem\([^\n]*oauth_resume/i);
-  assert.match(consentSource, /canonicalOrigin='https:\/\/chamah-portal\.vercel\.app'/);
+  assert.match(consentSource, /allowedPortalOrigins=new Set/);
+  assert.match(consentSource, /allowedPortalOrigins\.has\(location\.origin\)\?location\.origin/);
   assert.match(consentSource, /location\.origin!==canonicalOrigin/);
 });
 

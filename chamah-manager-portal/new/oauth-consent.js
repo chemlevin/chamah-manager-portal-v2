@@ -1,6 +1,7 @@
 import {createClient} from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 const project='https://iwsbjudahtjyigecymzd.supabase.co';
-const canonicalOrigin='https://chamah-portal.vercel.app';
+const allowedPortalOrigins=new Set(['https://chamah-portal.vercel.app','https://chamah-director-preview.vercel.app']);
+const canonicalOrigin=allowedPortalOrigins.has(location.origin)?location.origin:'https://chamah-portal.vercel.app';
 const key='__CHAMAH_PUBLISHABLE_KEY__';
 const sessionKey='chamah.portal.session';
 const storage={getItem:k=>k==='chamah-oauth-session'?localStorage.getItem(sessionKey):null,setItem:(k,v)=>{if(k==='chamah-oauth-session')localStorage.setItem(sessionKey,v)},removeItem:k=>{if(k==='chamah-oauth-session')localStorage.removeItem(sessionKey)}};

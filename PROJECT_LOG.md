@@ -5805,6 +5805,25 @@ Preview URL: None for this Production track.
 Production URL (if deployed): `https://chamah-portal.vercel.app`
 Blockers: None for the authorized acceptance scope.
 Next recommended TRACK: None.
+
+### TRACK153 — Fix Preview OAuth reconnect origin
+
+TRACK: TRACK153
+Status: IMPLEMENTED — local validation passed; isolated Preview deployment pending
+Summary: Made the OAuth consent page retain the current allowlisted portal origin, so reconnects initiated from `chamah-director-preview.vercel.app` stay on Preview while Production continues using its own origin.
+Root cause: `chamah-manager-portal/new/oauth-consent.js` hardcoded `https://chamah-portal.vercel.app` as `canonicalOrigin`, causing Preview consent requests to redirect to the Production consent host.
+Files changed: chamah-manager-portal/new/oauth-consent.js; tests/oauth-mcp-reconciliation.test.mjs; PROJECT_LOG.md
+Database changes: None.
+Migrations: None.
+Edge Functions: None.
+Tests: OAuth/runtime/MCP focused tests 14/14; `npm run contract:check`; `npm run build` with isolated Preview Supabase configuration and MCP origin.
+Production impact: None; Production Vercel, Supabase, aliases, OAuth behavior, schema, and data were not changed.
+Commit SHA: Pending.
+Branch: codex/oauth-canonical-host.
+Preview URL: https://chamah-director-preview.vercel.app
+Production URL (if deployed): None.
+Blockers: Preview deployment and OAuth reconnect verification remain.
+Next recommended TRACK: None.
 ## TRACK125 — MCP & Deployment Reliability (2026-11-14)
 
 TRACK: TRACK125
