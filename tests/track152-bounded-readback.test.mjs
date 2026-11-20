@@ -11,6 +11,8 @@ test('TRACK152 exposes bounded status and detail read-back tools',()=>{
   assert.match(api,/portal_mcp_get_operational_batch_status/);
   assert.match(api,/portal_mcp_get_operational_batch_page/);
   assert.match(api,/args\.limit>100/);
+  assert.match(api,/MAX_OPERATIONAL_BATCH_PAGE_RESPONSE_BYTES/);
+  assert.match(api,/reduce limit and retry with the same cursor/);
 });
 
 test('TRACK152 migration is additive, actor-scoped, bounded, deterministic, and read-only',()=>{

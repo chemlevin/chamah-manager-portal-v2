@@ -13,6 +13,7 @@ const AUTH_SERVER = ACTIVE_OAUTH_ISSUER;
 const PROTOCOL_VERSION = '2025-03-26';
 const SERVER_VERSION = '1.6.0';
 const CONTRACT_VERSION = '1.0.0';
+const MAX_OPERATIONAL_BATCH_PAGE_RESPONSE_BYTES = 300000;
 const BASE_TOOLS = [
   {name:'get_profile',description:'Return the authenticated Director profile represented by this connection',inputSchema:{type:'object',properties:{},additionalProperties:false},outputSchema:{type:'object',properties:{id:{type:'string'},name:{type:'string'},email:{type:'string'},nickname:{type:'string'}},required:['id'],additionalProperties:false},_meta:{'openai/profile':true}},
   {name:'propose_supplier_bank_detail',description:'Propose an idempotent supplier bank-account change',inputSchema:{type:'object',properties:{supplier_id:{type:'string'},bank_detail:{type:'object'},idempotency_key:{type:'string'}},required:['supplier_id','bank_detail','idempotency_key'],additionalProperties:false}},
@@ -407,6 +408,7 @@ module.exports=async function handler(req,res){
  try{
   const result=await api('/rest/v1/rpc/'+rpc,token,params);
   const structuredContent=toStructuredContent(result);
+  if(name==='get_operational_batch_page'&&Buffer.byteLength(JSON.stringify(structuredContent),'utf8')>MAX_OPERATIONAL_BATCH_PAGE_RESPONSE_BYTES)return send(res,200,error(id,-32001,'Operational batch page exceeds response-size limit; reduce limit and retry with the same cursor'));
   return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(structuredContent)}],structuredContent,isError:false}});
  }catch(e){
   console.error(JSON.stringify({event:'mcp_upstream_error',rpc,status:e.status||500,code:e.upstreamCode||'UNKNOWN',message:e.upstreamMessage||'Upstream request rejected'}));
