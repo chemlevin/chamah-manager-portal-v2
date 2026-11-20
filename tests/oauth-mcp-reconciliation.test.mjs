@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const CANONICAL_ORIGIN = 'https://chamah-portal.vercel.app';
+const PREVIEW_ORIGIN = 'https://chamah-director-preview.vercel.app';
 const LEGACY_ORIGIN = 'https://chamah-portal-chamah.vercel.app';
 const ACTIVE_SUPABASE_ORIGIN = 'https://iwsbjudahtjyigecymzd.supabase.co';
 const mcpSource = readFileSync(new URL('../api/mcp.js', import.meta.url), 'utf8');
@@ -21,11 +22,13 @@ test('OAuth consent and authorization use the active Supabase project only', () 
   assert.match(consentSource, /if\(error\|\|!data\)/);
 });
 
-test('OAuth protected-resource discovery and bearer challenge use the canonical production origin', () => {
-  for (const source of [mcpSource, metadataSource, appSource]) {
-    assert.match(source, new RegExp(CANONICAL_ORIGIN.replaceAll('.', '\\.')));
+test('OAuth protected-resource discovery and bearer challenge use the configured MCP origin', () => {
+  for (const source of [mcpSource, metadataSource]) {
+    assert.match(source, /configuredOrigin\(\)/);
+    assert.match(source, /authorization_servers/);
     assert.doesNotMatch(source, new RegExp(LEGACY_ORIGIN.replaceAll('.', '\\.')));
   }
+  assert.match(readFileSync(new URL('../api/runtime-consistency.js', import.meta.url), 'utf8'), new RegExp(CANONICAL_ORIGIN.replaceAll('.', '\\.')));
   assert.match(mcpSource, /requestOrigin/);
   assert.match(mcpSource, /resource_metadata=/);
   assert.match(mcpSource, /WWW-Authenticate/);
@@ -39,6 +42,13 @@ test('OAuth protected-resource discovery and bearer challenge use the canonical 
   assert.match(metadataSource, /bearer_methods_supported/);
   assert.doesNotMatch(metadataSource, /x-forwarded-host|req\.headers\.host/);
   assert.doesNotMatch(mcpSource, /x-forwarded-host|req\.headers\.host/);
+});
+
+test('Preview origin is selected from CHAMAH_MCP_ORIGIN while issuer stays fixed', async () => {
+  const runtime = await import('../api/runtime-consistency.js');
+  const env = { CHAMAH_MCP_ORIGIN: PREVIEW_ORIGIN, CHAMAH_SUPABASE_URL: 'https://iwsbjudahtjyigecymzd.supabase.co', CHAMAH_OAUTH_ISSUER: 'https://iwsbjudahtjyigecymzd.supabase.co/auth/v1', CHAMAH_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test' };
+  assert.equal(runtime.validateRuntimeConsistency(env).resource, `${PREVIEW_ORIGIN}/api/mcp`);
+  assert.equal(runtime.validateRuntimeConsistency(env).issuer, 'https://iwsbjudahtjyigecymzd.supabase.co/auth/v1');
 });
 
 test('Vercel exposes consent, protected-resource metadata, and MCP routes independently', () => {

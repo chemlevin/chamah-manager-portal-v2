@@ -1,14 +1,14 @@
 'use strict';
 
 const crypto=require('node:crypto');
-const {ACTIVE_SUPABASE_URL,ACTIVE_OAUTH_ISSUER,assertRuntimeConsistency}=require('./runtime-consistency');
+const {ACTIVE_SUPABASE_URL,ACTIVE_OAUTH_ISSUER,configuredOrigin,assertRuntimeConsistency}=require('./runtime-consistency');
 
 // Director-only MCP Streamable HTTP endpoint. Every operation uses the caller's
 // Supabase token; no privileged key, generic table access, or cross-user cache.
 const RUNTIME=assertRuntimeConsistency();
 const SUPABASE_URL = RUNTIME.supabaseUrl || ACTIVE_SUPABASE_URL;
 const API_KEY = process.env.CHAMAH_SUPABASE_PUBLISHABLE_KEY;
-const PRODUCTION_ORIGIN = 'https://chamah-portal.vercel.app';
+const MCP_ORIGIN = configuredOrigin();
 const AUTH_SERVER = ACTIVE_OAUTH_ISSUER;
 const PROTOCOL_VERSION = '2025-03-26';
 const SERVER_VERSION = '1.6.0';
@@ -104,7 +104,7 @@ const TOOLS = BASE_TOOLS.map(tool=>({
  _meta:{...(tool._meta||{}),securitySchemes:[{type:'oauth2',scopes:[]}]}
 }));
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-function requestOrigin(){return PRODUCTION_ORIGIN;}
+function requestOrigin(){return MCP_ORIGIN;}
 function safeHeader(req,name){const value=String(req.headers[name]||'').trim();return value&&value.length<=200?value:'Unknown';}
 function requestOriginMetadata(req,operation,toolName,endpoint){const requestId=UUID.test(safeHeader(req,'x-request-id'))?safeHeader(req,'x-request-id'):crypto.randomUUID();return {client_application:safeHeader(req,'x-client-application'),connector_id:safeHeader(req,'x-connector-id'),session_id:safeHeader(req,'x-session-id'),request_id:requestId,correlation_id:requestId,mcp_endpoint:endpoint||'Unknown',deployment_commit:String(process.env.VERCEL_GIT_COMMIT_SHA||'Unknown').slice(0,120),operation,tool_name:toolName};}
 async function recordRequestOrigin(req,token,operation,toolName,endpoint){return api('/rest/v1/rpc/portal_mcp_record_request_origin',token,{p_origin:requestOriginMetadata(req,operation,toolName,endpoint)});}
