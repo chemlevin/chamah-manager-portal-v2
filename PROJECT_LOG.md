@@ -6498,18 +6498,18 @@ Next recommended TRACK: Deploy the reviewed commit to the existing Preview proje
 ### TRACK151 — Fix isolated Preview OAuth resource metadata
 
 TRACK: TRACK151
-Status: IMPLEMENTED — local validation passed; Preview deployment pending
+Status: IMPLEMENTED — Preview deployed and verified
 Summary: Made the protected-resource URL derive from `CHAMAH_MCP_ORIGIN`, preserving the canonical Production URL as the fallback and allowing the isolated Preview project to advertise its own MCP resource.
 Root cause: `api/mcp-oauth-metadata.js` and `api/mcp.js` hardcoded `https://chamah-portal.vercel.app` for the resource and bearer challenge; the OAuth issuer was independently correct and was not the source of the mismatch.
 Files changed: api/runtime-consistency.js; api/mcp-oauth-metadata.js; api/mcp.js; api/runtime-health.js; tests/oauth-mcp-reconciliation.test.mjs; PROJECT_LOG.md
 Database changes: None.
 Migrations: None.
 Edge Functions: None.
-Tests: Focused OAuth/runtime tests 12/12; `npm run contract:check`; `npm run build` with verified Preview Supabase configuration and Preview MCP origin. Live deployment verification pending.
+Tests: Focused OAuth/runtime tests 12/12; `npm run contract:check`; `npm run build` with verified Preview Supabase configuration and Preview MCP origin; Preview deployment READY; protected-resource metadata and runtime-health verified; existing Preview MCP `get_profile` succeeded read-only.
 Production impact: None; no Production project, data, schema, permissions, or existing MCP connection changed.
-Commit SHA: Pending.
+Commit SHA: a8bc103fe3daa3279505d7d68027638f95917192.
 Branch: codex/oauth-canonical-host.
 Preview URL: https://chamah-director-preview.vercel.app/api/mcp
 Production URL (if deployed): None.
-Blockers: Preview deployment and post-deployment existing-connection `get_profile` verification remain.
+Blockers: None.
 Next recommended TRACK: None.
