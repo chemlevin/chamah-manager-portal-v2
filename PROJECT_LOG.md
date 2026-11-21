@@ -6572,6 +6572,26 @@ Preview deployment: dpl_3BgNs7PBEC3kgTv3jjJFMxciRypC; canonical alias aligned an
 Blockers: Authenticated Manager live verification remains unavailable; supplier/payment portal direct-write callers outside MCP require separate inventory evidence.
 Next recommended TRACK: Continue this same Track with authenticated Manager verification and portal supplier/payment caller tracing.
 
+### SYSTEM-MAPPING-AND-INGESTION-RECOVERY — Portal caller inventory and hardening
+
+TRACK: SYSTEM-MAPPING-AND-INGESTION-RECOVERY
+Status: PARTIALLY COMPLETED — legacy portal callers fail closed in Preview
+Summary: Inventory documented portal and Edge Function mutation callers; bank-transfer workbench and generic PostgREST administration writes now fail closed before database dispatch.
+Root cause: Legacy portal callers remained reachable independently of MCP safeguards.
+Files changed: supabase/functions/portal-bank-transfer-workbench/index.ts; chamah-manager-portal/new/admin-framework.js; tests/admin-framework.spec.mjs; tests/legacy-mutation-guards.test.mjs; docs/PORTAL_CALLER_INVENTORY_SYSTEM_MAPPING.md.
+Database changes: None.
+Migrations: None.
+Edge Functions: Preview portal-bank-transfer-workbench version 2, SHA-256 f146b58082b76fb5093da621330d0f4be08677ab9b05e5ae3cff93c92cf82026; existing bank/workforce versions remain 2.
+Tests: Focused caller/MCP/contract tests 21/21; syntax and diff checks; authenticated Preview Director read-only smoke tests passed.
+Production impact: None.
+Commit SHA: e47e2be22dd8e63eb8ca672a0f7d7f4a11c7de33.
+Branch: codex/tmp-system-mapping-ingestion-recovery.
+Preview URL: https://chamah-director-preview.vercel.app
+Production URL (if deployed): None.
+Preview deployment: dpl_E5ZJ54Y65KXWz6NQyBD3uSCr38ok; runtime commit verified; canonical alias aligned.
+Blockers: Unified timeout/retry/resume/read-back error contract remains incomplete; Manager live verification is unavailable; supplier/payment portal callers outside MCP require further tracing.
+Next recommended TRACK: Continue this same Track with the cross-surface error/recovery contract and authenticated Manager verification.
+
 ### TRACK151 — Fix isolated Preview OAuth resource metadata
 
 TRACK: TRACK151
