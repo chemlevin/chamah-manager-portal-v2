@@ -97,6 +97,13 @@ const UNSAFE_LEGACY_WRITE_TOOLS = new Set([
  'create_payment_request','update_payment_request','import_payment_requests','record_payment_execution',
  'confirm_bank_reconciliation','enqueue_bank_statement_import'
 ]);
+// These legacy tools remain discoverable for backward-compatible schema
+// visibility, but they must not dispatch direct writes. New mutations must use
+// the versioned operational preview -> approval -> commit workflow.
+const LEGACY_MUTATION_BLOCKED_TOOLS = new Set([
+ ...UNSAFE_LEGACY_WRITE_TOOLS,
+ 'propose_supplier_bank_detail'
+]);
 const DESTRUCTIVE_TOOLS = new Set(['archive_policy','bulk_archive_policies']);
 DESTRUCTIVE_TOOLS.add('archive_operational_record');
 const TOOLS = BASE_TOOLS.map(tool=>({
@@ -117,7 +124,8 @@ function safeHeader(req,name){const value=String(req.headers[name]||'').trim();r
 function requestOriginMetadata(req,operation,toolName,endpoint){const requestId=UUID.test(safeHeader(req,'x-request-id'))?safeHeader(req,'x-request-id'):crypto.randomUUID();return {client_application:safeHeader(req,'x-client-application'),connector_id:safeHeader(req,'x-connector-id'),session_id:safeHeader(req,'x-session-id'),request_id:requestId,correlation_id:requestId,mcp_endpoint:endpoint||'Unknown',deployment_commit:String(process.env.VERCEL_GIT_COMMIT_SHA||'Unknown').slice(0,120),operation,tool_name:toolName};}
 async function recordRequestOrigin(req,token,operation,toolName,endpoint){return api('/rest/v1/rpc/portal_mcp_record_request_origin',token,{p_origin:requestOriginMetadata(req,operation,toolName,endpoint)});}
 function send(res,status,body){res.status(status).setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');return res.end(JSON.stringify(body));}
-function error(id,code,message){return {jsonrpc:'2.0',id,error:{code,message}};}
+function error(id,code,message,data){return {jsonrpc:'2.0',id,error:{code,message,...(data?{data}: {})}};}
+function legacyMutationBlocked(id,toolName){return error(id,-32004,'LEGACY_MUTATION_BLOCKED',{status:'LEGACY_MUTATION_BLOCKED',technical_code:'LEGACY_MUTATION_BLOCKED',correlation_id:crypto.randomUUID(),current_stage:'DISPATCH_GUARD',processed_count:0,unprocessed_count:0,data_written:false,retry_safe:false,resume_available:false,next_action:'Use operational_catalog, preview_operational_changes, request_operational_approval, and commit_operational_changes.',tool_name:toolName});}
 function toStructuredContent(value){
  if(value!==null&&typeof value==='object'&&!Array.isArray(value))return value;
  if(Array.isArray(value))return {items:value,total:value.length};
@@ -199,7 +207,11 @@ module.exports=async function handler(req,res){
  // Role resolution is server-side and occurs before tools/list or dispatch.
  // Managers never receive a mutation-capable tool, even if they call its name
  // directly; the closed catalog check below rejects it before any RPC access.
- const availableTools=isDirector?TOOLS.filter(t=>!UNSAFE_LEGACY_WRITE_TOOLS.has(t.name)):TOOLS.filter(t=>MANAGER_READ_ONLY_TOOLS.has(t.name));
+ // Directors may see the backward-compatible legacy names so callers receive
+ // the stable LEGACY_MUTATION_BLOCKED envelope instead of an ambiguous tool
+ // disappearance. They cannot dispatch those tools; the guard below runs
+ // before any RPC selection or database access.
+ const availableTools=isDirector?TOOLS:TOOLS.filter(t=>MANAGER_READ_ONLY_TOOLS.has(t.name));
  let m=req.body;
  if(typeof m==='string'){try{m=JSON.parse(m)}catch{return send(res,400,error(null,-32700,'Parse error'));}}
  if(!m||Array.isArray(m)||typeof m!=='object'||m.jsonrpc!=='2.0'||typeof m.method!=='string')return send(res,400,error(m?.id??null,-32600,'Invalid request'));
@@ -215,6 +227,7 @@ module.exports=async function handler(req,res){
  if(m.method!=='tools/call')return send(res,200,error(id,-32601,'Method not found'));
  const name=m.params?.name,args=m.params?.arguments||{};
  if(!availableTools.some(t=>t.name===name)||!args||typeof args!=='object'||Array.isArray(args))return send(res,200,error(id,-32602,'Invalid or unauthorized tool'));
+ if(LEGACY_MUTATION_BLOCKED_TOOLS.has(name))return send(res,200,legacyMutationBlocked(id,name));
  if(name==='get_profile'){
   if(Object.keys(args).length)return send(res,200,error(id,-32602,'Unexpected arguments'));
   const profile={id:user.id,name:String(user.user_metadata?.full_name||user.email||'Director'),email:String(user.email||''),nickname:String(user.user_metadata?.full_name||user.email||'Director'),role_classification:isDirector?'DIRECTOR':'MANAGER'};

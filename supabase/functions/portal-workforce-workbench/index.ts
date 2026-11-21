@@ -9,6 +9,18 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   status,
   headers: { ...cors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
 });
+const legacyMutationBlocked = (path: string) => json({
+  status: "LEGACY_MUTATION_BLOCKED",
+  technical_code: "LEGACY_MUTATION_BLOCKED",
+  current_stage: "DISPATCH_GUARD",
+  processed_count: 0,
+  unprocessed_count: 0,
+  data_written: false,
+  retry_safe: false,
+  resume_available: false,
+  next_action: "Use the canonical approval-bound operational workflow.",
+  path,
+}, 409);
 const text = (value: unknown) => String(value ?? "").trim();
 const uuid = (value: unknown) => /^[0-9a-f-]{36}$/i.test(text(value)) ? text(value) : "";
 const monthDate = (value: unknown) => /^\d{4}-\d{2}$/.test(text(value))
@@ -279,6 +291,12 @@ Deno.serve(async (request) => {
     const requestUrl = new URL(request.url);
     const page = requestUrl.searchParams.get("page") === "payroll" ? "payroll" : "employees";
     const body = request.method === "POST" ? await request.json() : {};
+    const blockedEmployeeActions = ["import_employees", "save_employee", "deactivate_employee", "delete_employee", "version_pay_term", "close_pay_term", "save_employment", "save_assignment", "save_eligibility", "save_certificate", "save_leave"];
+    const blockedPayrollActions = ["open_month", "close_month", "reopen_month", "save_rows", "commit_import", "save_record", "save_allocations"];
+    const blockedActions = page === "employees" ? blockedEmployeeActions : blockedPayrollActions;
+    if (request.method === "POST" && blockedActions.includes(text(body.action))) {
+      return legacyMutationBlocked(`portal-workforce-workbench:${page}:${text(body.action)}`);
+    }
     const payrollView = ["module", "open", "working", "closed", "reports"].includes(text(requestUrl.searchParams.get("view")))
       ? text(requestUrl.searchParams.get("view")) : "working";
     const payrollActionScreen: Record<string, string> = {

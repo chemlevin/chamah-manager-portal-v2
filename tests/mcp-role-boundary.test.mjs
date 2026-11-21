@@ -43,6 +43,16 @@ test('manager mutation call is rejected before database access',async()=>{
   assert.equal(calls.some(url=>url.includes('portal_mcp_create_employee')),false);
 });
 
+test('director legacy mutation call fails closed before database dispatch',async()=>{
+  const {body,calls}=await invoke({jsonrpc:'2.0',id:6,method:'tools/call',params:{name:'import_employees',arguments:{rows:[{employee_code:'E-1',first_name:'A',last_name:'B'}]}}},['DIRECTOR']);
+  assert.equal(body.error.code,-32004);
+  assert.equal(body.error.message,'LEGACY_MUTATION_BLOCKED');
+  assert.equal(body.error.data.status,'LEGACY_MUTATION_BLOCKED');
+  assert.equal(body.error.data.data_written,false);
+  assert.equal(body.error.data.retry_safe,false);
+  assert.equal(calls.some(url=>url.includes('portal_mcp_import_employees')),false);
+});
+
 test('unauthenticated requests are rejected before authorization or data access',async()=>{
   const originalFetch=globalThis.fetch; let called=false;
   globalThis.fetch=async()=>{called=true;return upstream({});};

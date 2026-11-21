@@ -5806,6 +5806,25 @@ Production URL (if deployed): `https://chamah-portal.vercel.app`
 Blockers: None for the authorized acceptance scope.
 Next recommended TRACK: None.
 
+### SYSTEM-MAPPING-AND-INGESTION-RECOVERY — Legacy mutation hardening
+
+TRACK: SYSTEM-MAPPING-AND-INGESTION-RECOVERY
+Status: PARTIALLY COMPLETED — Preview-only fail-closed hardening implemented in isolated temporary branch
+Summary: Blocked legacy MCP, bank workbench, workforce workbench, and generic admin-delete paths before database dispatch; preserved canonical operational workflow and read-only manager catalog.
+Root cause: Legacy direct-write and physical-delete entry points remained reachable alongside the canonical approval-bound ingestion workflow.
+Files changed: api/mcp.js; supabase/functions/portal-bank-workbench/index.ts; supabase/functions/portal-workforce-workbench/index.ts; chamah-manager-portal/new/admin-framework.js; tests/mcp-role-boundary.test.mjs; tests/admin-framework.spec.mjs; tests/legacy-mutation-guards.test.mjs; docs/TRACK_SYSTEM_MAPPING_INGESTION_RECOVERY_HARDENING.md
+Database changes: None.
+Migrations: None.
+Edge Functions: Source-only changes; no Edge Function deployment performed.
+Tests: Focused Node tests 24/24; legacy guard tests; MCP contract check; JavaScript syntax and diff checks. Browser admin-framework test did not complete within the command window.
+Production impact: None.
+Commit SHA: None — not committed yet.
+Branch: codex/tmp-system-mapping-ingestion-recovery (remote temporary branch); isolated clone used because local worktree ref creation was permission-blocked.
+Preview URL: https://chamah-director-preview.vercel.app
+Production URL (if deployed): None.
+Blockers: Supplier/payment legacy adapters, authenticated live MCP surface verification, unified cross-surface error/recovery matrix, and Preview deployment of this new hardening commit remain.
+Next recommended TRACK: Continue this same Track with authenticated MCP/Preview verification and supplier/payment adapter classification; deploy this reviewed commit to Preview only after commit creation.
+
 ### TRACK153 — Fix Preview OAuth reconnect origin
 
 TRACK: TRACK153

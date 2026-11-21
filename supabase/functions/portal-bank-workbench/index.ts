@@ -9,6 +9,18 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   status,
   headers: { ...cors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
 });
+const legacyMutationBlocked = (path: string) => json({
+  status: "LEGACY_MUTATION_BLOCKED",
+  technical_code: "LEGACY_MUTATION_BLOCKED",
+  current_stage: "DISPATCH_GUARD",
+  processed_count: 0,
+  unprocessed_count: 0,
+  data_written: false,
+  retry_safe: false,
+  resume_available: false,
+  next_action: "Use the canonical approval-bound operational workflow.",
+  path,
+}, 409);
 const normalizeAccount = (value: unknown) => String(value ?? "").replace(/\D/g, "");
 const normalizeText = (value: unknown) => String(value ?? "").trim();
 const fingerprint = async (accountId: string, row: Record<string, unknown>) => {
@@ -232,6 +244,9 @@ Deno.serve(async (request) => {
     }
 
     const body = await request.json();
+    if (["confirm_import", "create_manual_transaction", "save_allocations", "delete_transactions"].includes(normalizeText(body.action))) {
+      return legacyMutationBlocked(`portal-bank-workbench:${normalizeText(body.action)}`);
+    }
     if (body.action === "preview") {
       const rows = Array.isArray(body.rows) ? body.rows : [];
       const accountNumber = normalizeAccount(body.account_number);

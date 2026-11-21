@@ -60,7 +60,7 @@ test.describe('metadata-driven administration framework', () => {
     await expect(page.locator('tbody tr').first()).toContainText('BETA');
   });
 
-  test('validates, saves, edits, cancels dirty changes and deletes', async ({ page }) => {
+  test('validates, saves, edits, cancels dirty changes and blocks direct deletes', async ({ page }) => {
     await mount(page, { rows: rows.slice(0, 1) });
     await page.getByRole('button', { name: 'הוספת הגדרה' }).click();
     await page.getByRole('button', { name: 'שמירה' }).click();
@@ -86,7 +86,7 @@ test.describe('metadata-driven administration framework', () => {
 
     page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: 'מחיקה' }).first().click();
-    await expect(page.getByText('הרשומה נמחקה בהצלחה')).toBeVisible();
+    await expect(page.getByText('פעולת מחיקה ישירה חסומה. יש להשתמש בתהליך ארכוב מאושר.')).toBeVisible();
   });
 
   test('duplicates and enables or disables records', async ({ page }) => {
