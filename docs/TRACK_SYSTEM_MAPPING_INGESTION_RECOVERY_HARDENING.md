@@ -13,7 +13,7 @@ Status: Partially completed in isolated Preview work.
 
 These are deliberate safety blocks for legacy paths. They do not delete data, archive data, create entities, or change database behavior. Canonical operational MCP preview/approval/commit tools remain the intended mutation route.
 
-Supplier/payment portal-specific mutation adapters and domain RPCs remain classified as legacy/direct-write until they are migrated or independently proven against the canonical batch contract. No Production Edge Function was deployed.
+Supplier/payment portal-specific mutation adapters and domain RPCs remain classified as legacy/direct-write until they are migrated or independently proven against the canonical batch contract. MCP supplier create/update/import and payment create/update/import paths now fail closed before RPC dispatch; payment lifecycle transition remains approval-bound. No Production Edge Function was deployed.
 
 ## Verification
 

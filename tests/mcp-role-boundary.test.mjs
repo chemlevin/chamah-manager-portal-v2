@@ -53,6 +53,32 @@ test('director legacy mutation call fails closed before database dispatch',async
   assert.equal(calls.some(url=>url.includes('portal_mcp_import_employees')),false);
 });
 
+test('supplier and payment direct-write paths fail closed before RPC dispatch',async()=>{
+  for (const [index, name] of ['create_supplier','update_supplier','import_suppliers','create_payment_request','update_payment_request','import_payment_requests'].entries()) {
+    const argumentsByTool = {
+      create_supplier:{supplier:{}},
+      update_supplier:{supplier_id:'00000000-0000-4000-8000-000000000001',expected_row_version:1,patch:{}},
+      import_suppliers:{rows:[{}]},
+      create_payment_request:{request:{}},
+      update_payment_request:{payment_request_id:'00000000-0000-4000-8000-000000000001',expected_row_version:1,patch:{}},
+      import_payment_requests:{rows:[{}]},
+    };
+    const {body,calls}=await invoke({jsonrpc:'2.0',id:20+index,method:'tools/call',params:{name,arguments:argumentsByTool[name]}},['DIRECTOR']);
+    assert.equal(body.error.code,-32004,name);
+    assert.equal(body.error.data.status,'LEGACY_MUTATION_BLOCKED',name);
+    assert.equal(body.error.data.data_written,false,name);
+    assert.equal(calls.some(url=>url.includes('/rpc/portal_mcp_')),false,name);
+  }
+});
+
+test('payment transition remains approval-bound and is not a direct-write bypass',async()=>{
+  const {body}=await invoke({jsonrpc:'2.0',id:30,method:'tools/list'},['DIRECTOR']);
+  const tool=body.result.tools.find(item=>item.name==='transition_payment_request');
+  assert.equal(tool.classification,'MUTATION');
+  assert.equal(tool.authorization,'DIRECTOR_EXPLICIT_PERMISSION');
+  assert.equal(tool.annotations.destructiveHint,false);
+});
+
 test('unauthenticated requests are rejected before authorization or data access',async()=>{
   const originalFetch=globalThis.fetch; let called=false;
   globalThis.fetch=async()=>{called=true;return upstream({});};

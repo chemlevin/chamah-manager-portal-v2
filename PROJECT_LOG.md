@@ -6552,6 +6552,25 @@ Production URL (if deployed): None.
 Blockers: Authenticated Manager MCP verification is unavailable in the current tool surface; supplier/payment legacy blockers remain.
 Next recommended TRACK: Continue this same Track with an authenticated Manager session and supplier/payment fail-closed hardening.
 
+### SYSTEM-MAPPING-AND-INGESTION-RECOVERY — Supplier/payment mutation guards
+
+TRACK: SYSTEM-MAPPING-AND-INGESTION-RECOVERY
+Status: PARTIALLY COMPLETED — supplier/payment MCP direct-write paths fail closed
+Summary: Confirmed supplier and payment create/update/import tools return LEGACY_MUTATION_BLOCKED before RPC dispatch; payment lifecycle transitions remain approval-bound.
+Root cause: Legacy supplier/payment tools were still discoverable alongside the canonical approval-bound workflow.
+Files changed: tests/mcp-role-boundary.test.mjs; docs/TRACK_SYSTEM_MAPPING_INGESTION_RECOVERY_HARDENING.md.
+Database changes: None.
+Migrations: None.
+Edge Functions: No supplier/payment-specific Edge Function exists; existing Preview bank/workforce functions remain active at version 2.
+Tests: Supplier/payment direct-write rejection, no-RPC-dispatch, authorization classification, payment transition approval-bound classification, MCP contract, and supplier/payment contract tests passed 19/19.
+Production impact: None.
+Commit SHA: Pending.
+Branch: codex/tmp-system-mapping-ingestion-recovery.
+Preview URL: https://chamah-director-preview.vercel.app
+Production URL (if deployed): None.
+Blockers: Authenticated Manager live verification remains unavailable; supplier/payment portal direct-write callers outside MCP require separate inventory evidence.
+Next recommended TRACK: Continue this same Track with authenticated Manager verification and portal supplier/payment caller tracing.
+
 ### TRACK151 — Fix isolated Preview OAuth resource metadata
 
 TRACK: TRACK151
