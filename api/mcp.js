@@ -15,7 +15,7 @@ const SERVER_VERSION = '1.6.0';
 const CONTRACT_VERSION = '1.0.0';
 const MAX_OPERATIONAL_BATCH_PAGE_RESPONSE_BYTES = 300000;
 const BASE_TOOLS = [
-  {name:'get_profile',description:'Return the authenticated Director profile represented by this connection',inputSchema:{type:'object',properties:{},additionalProperties:false},outputSchema:{type:'object',properties:{id:{type:'string'},name:{type:'string'},email:{type:'string'},nickname:{type:'string'}},required:['id'],additionalProperties:false},_meta:{'openai/profile':true}},
+  {name:'get_profile',description:'Return the authenticated profile and non-sensitive server-resolved role classification represented by this connection',inputSchema:{type:'object',properties:{},additionalProperties:false},outputSchema:{type:'object',properties:{id:{type:'string'},name:{type:'string'},email:{type:'string'},nickname:{type:'string'},role_classification:{type:'string',enum:['DIRECTOR','MANAGER']}},required:['id','role_classification'],additionalProperties:false},_meta:{'openai/profile':true}},
   {name:'propose_supplier_bank_detail',description:'Propose an idempotent supplier bank-account change',inputSchema:{type:'object',properties:{supplier_id:{type:'string'},bank_detail:{type:'object'},idempotency_key:{type:'string'}},required:['supplier_id','bank_detail','idempotency_key'],additionalProperties:false}},
   {name:'request_supplier_bank_verification_approval',description:'Approve an exact supplier bank verification decision',inputSchema:{type:'object',properties:{supplier_bank_detail_id:{type:'string'},decision:{type:'string',enum:['VERIFIED','REJECTED']},expected_row_version:{type:'integer'},note:{type:'string'},reason:{type:'string'}},required:['supplier_bank_detail_id','decision','expected_row_version','note','reason'],additionalProperties:false}},
   {name:'verify_supplier_bank_detail',description:'Execute an approved supplier bank verification decision',inputSchema:{type:'object',properties:{supplier_bank_detail_id:{type:'string'},decision:{type:'string',enum:['VERIFIED','REJECTED']},expected_row_version:{type:'integer'},approval_id:{type:'string'},note:{type:'string'}},required:['supplier_bank_detail_id','decision','expected_row_version','approval_id','note'],additionalProperties:false}},
@@ -217,7 +217,7 @@ module.exports=async function handler(req,res){
  if(!availableTools.some(t=>t.name===name)||!args||typeof args!=='object'||Array.isArray(args))return send(res,200,error(id,-32602,'Invalid or unauthorized tool'));
  if(name==='get_profile'){
   if(Object.keys(args).length)return send(res,200,error(id,-32602,'Unexpected arguments'));
-  const profile={id:user.id,name:String(user.user_metadata?.full_name||user.email||'Director'),email:String(user.email||''),nickname:String(user.user_metadata?.full_name||user.email||'Director')};
+  const profile={id:user.id,name:String(user.user_metadata?.full_name||user.email||'Director'),email:String(user.email||''),nickname:String(user.user_metadata?.full_name||user.email||'Director'),role_classification:isDirector?'DIRECTOR':'MANAGER'};
   return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(profile)}],structuredContent:profile,isError:false}});
  }
  let rpc,params;

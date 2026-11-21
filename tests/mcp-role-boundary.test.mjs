@@ -28,6 +28,13 @@ test('manager tools/list is explicitly read-only and closed',async()=>{
   assert.ok(tools.every(t=>t.classification==='READ_ONLY'&&t.authorization==='AUTHENTICATED_SCOPED_READ'));
 });
 
+test('get_profile exposes only the non-sensitive server-resolved role classification',async()=>{
+  const {body}=await invoke({jsonrpc:'2.0',id:5,method:'tools/call',params:{name:'get_profile',arguments:{}}},['MANAGER']);
+  assert.deepEqual(body.result.structuredContent.role_classification,'MANAGER');
+  assert.equal('permissions' in body.result.structuredContent,false);
+  assert.equal('access_token' in body.result.structuredContent,false);
+});
+
 test('manager mutation call is rejected before database access',async()=>{
   const {body,calls}=await invoke({jsonrpc:'2.0',id:2,method:'tools/call',params:{name:'create_employee',arguments:{employee:{}}}},['MANAGER']);
   assert.equal(body.error.code,-32602);
