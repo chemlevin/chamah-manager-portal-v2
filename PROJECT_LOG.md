@@ -6533,6 +6533,25 @@ Production URL (if deployed): None.
 Blockers: Deployment and non-business connector verification remain.
 Next recommended TRACK: Deploy the reviewed commit to the existing Preview project, verify all discovery metadata, then perform one non-business OAuth connection and read-only `get_profile` call.
 
+### SYSTEM-MAPPING-AND-INGESTION-RECOVERY — Preview Edge Function hardening deployment
+
+TRACK: SYSTEM-MAPPING-AND-INGESTION-RECOVERY
+Status: PARTIALLY COMPLETED — Preview Edge Functions deployed and read-only Director verification passed
+Summary: Deployed the reviewed bank and workforce dispatch guards to Preview only; no database or business-data operation was executed.
+Root cause: Legacy bank/workforce mutation and physical-delete actions remained reachable in the deployed Edge Function versions.
+Files changed: None after deployed source commit d55cdd22fbdb243844311f631c2bf0756c2af835.
+Database changes: None.
+Migrations: None.
+Edge Functions: Preview portal-bank-workbench version 2, SHA-256 dc85a7ee40df18246550b5e646f42f7f216f9a972038a1fc34d76e84139796b9; Preview portal-workforce-workbench version 2, SHA-256 1c5bd7893d09a6cbecb956143a5684b6131b401dbd6dee9ada54a37c39075064.
+Tests: Authenticated Preview Director get_profile, list_daycares, and operational_report passed; deployed source inspection confirmed guards; Manager live connector/session unavailable, so no mutation request was sent.
+Production impact: None.
+Commit SHA: d55cdd22fbdb243844311f631c2bf0756c2af835.
+Branch: codex/tmp-system-mapping-ingestion-recovery.
+Preview URL: https://chamah-director-preview.vercel.app
+Production URL (if deployed): None.
+Blockers: Authenticated Manager MCP verification is unavailable in the current tool surface; supplier/payment legacy blockers remain.
+Next recommended TRACK: Continue this same Track with an authenticated Manager session and supplier/payment fail-closed hardening.
+
 ### TRACK151 — Fix isolated Preview OAuth resource metadata
 
 TRACK: TRACK151
