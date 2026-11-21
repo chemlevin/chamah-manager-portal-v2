@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 const mcp = readFileSync(new URL('../api/mcp.js', import.meta.url), 'utf8');
 const bank = readFileSync(new URL('../supabase/functions/portal-bank-workbench/index.ts', import.meta.url), 'utf8');
 const workforce = readFileSync(new URL('../supabase/functions/portal-workforce-workbench/index.ts', import.meta.url), 'utf8');
+const transfers = readFileSync(new URL('../supabase/functions/portal-bank-transfer-workbench/index.ts', import.meta.url), 'utf8');
 const admin = readFileSync(new URL('../chamah-manager-portal/new/admin-framework.js', import.meta.url), 'utf8');
 
 test('MCP legacy mutations fail closed before RPC dispatch', () => {
@@ -30,4 +31,16 @@ test('workforce workbench blocks employee and payroll mutations', () => {
 test('generic admin delete hook is fail closed', () => {
   assert.match(admin, /LEGACY_MUTATION_BLOCKED/);
   assert.doesNotMatch(admin, /repository\.delete\(row\[metadata\.primaryKey\]/);
+});
+
+test('bank transfer workbench blocks all write, archive, import and attachment actions', () => {
+  assert.match(transfers, /LEGACY_MUTATION_BLOCKED/);
+  for (const action of ['save', 'mark_completed', 'approve_for_execution', 'delete', 'import', 'upload_attachment']) assert.match(transfers, new RegExp(`"${action}"`));
+  assert.ok(transfers.indexOf('legacyMutationBlocked') < transfers.indexOf('if (body.action === "save")'));
+});
+
+test('generic PostgREST admin repository writes fail closed before fetch', () => {
+  assert.match(admin, /async create\(\) \{ const error = new Error\('LEGACY_MUTATION_BLOCKED'\)/);
+  assert.match(admin, /async update\(\) \{ const error = new Error\('LEGACY_MUTATION_BLOCKED'\)/);
+  assert.match(admin, /async delete\(\) \{ const error = new Error\('LEGACY_MUTATION_BLOCKED'\)/);
 });

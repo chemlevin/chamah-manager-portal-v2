@@ -118,7 +118,7 @@ test.describe('metadata-driven administration framework', () => {
   });
 });
 
-test('PostgREST adapter writes audit_events after successful CRUD', async ({ page }, testInfo) => {
+test('PostgREST adapter blocks legacy CRUD before database dispatch', async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.startsWith('desktop'), 'Request contract is viewport-independent.');
   const requests = [];
   await page.route('https://example.supabase.co/rest/v1/**', async (route) => {
@@ -130,14 +130,15 @@ test('PostgREST adapter writes audit_events after successful CRUD', async ({ pag
     return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
   });
   await page.goto('/admin-framework.js');
-  await page.evaluate(async () => {
+  const result = await page.evaluate(async () => {
     const { createPostgrestRepository } = await import('/admin-framework.js');
     const repository = createPostgrestRepository({ baseUrl: 'https://example.supabase.co', apiKey: 'public-key', getAccessToken: async () => 'user-token', table: 'test_settings' });
-    await repository.create({ display_name: 'חדש' }, { primaryKey: 'setting_id' });
-    await repository.update('created-id', { display_name: 'מעודכן' }, { primaryKey: 'setting_id', previous: { setting_id: 'created-id', display_name: 'חדש' } });
+    const errors = [];
+    for (const operation of [() => repository.create({ display_name: 'חדש' }, { primaryKey: 'setting_id' }), () => repository.update('created-id', { display_name: 'מעודכן' }, { primaryKey: 'setting_id' }), () => repository.delete('created-id', { primaryKey: 'setting_id' })]) {
+      try { await operation(); } catch (error) { errors.push(error.code || error.message); }
+    }
+    return errors;
   });
-  const auditRequests = requests.filter((request) => request.url.includes('/audit_events'));
-  expect(auditRequests).toHaveLength(2);
-  expect(auditRequests[0].body).toMatchObject({ entity_type: 'test_settings', entity_id: 'created-id', operation: 'INSERT', source_type: 'PORTAL_ADMIN' });
-  expect(auditRequests[1].body).toMatchObject({ entity_type: 'test_settings', entity_id: 'created-id', operation: 'UPDATE', source_type: 'PORTAL_ADMIN' });
+  expect(result).toEqual(['LEGACY_MUTATION_BLOCKED', 'LEGACY_MUTATION_BLOCKED', 'LEGACY_MUTATION_BLOCKED']);
+  expect(requests).toHaveLength(0);
 });

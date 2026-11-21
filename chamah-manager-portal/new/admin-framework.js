@@ -82,9 +82,9 @@ export function createPostgrestRepository({ baseUrl, apiKey, getAccessToken, tab
   };
   return {
     async list() { return request(`${table}?select=${encodeURIComponent(select)}`); },
-    async create(record, context) { const [created] = await request(table, { method: 'POST', body: JSON.stringify(record) }); await writeAudit({ operation: audit.operations?.create || 'INSERT', id: created[context.primaryKey], previousValues: null, newValues: created }); return created; },
-    async update(id, record, context) { const [updated] = await request(`${table}?${context.primaryKey}=eq.${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(record) }); await writeAudit({ operation: audit.operations?.update || 'UPDATE', id, previousValues: context.previous, newValues: updated }); return updated; },
-    async delete(id, context) { const [deleted] = await request(`${table}?${context.primaryKey}=eq.${encodeURIComponent(id)}`, { method: 'DELETE' }); await writeAudit({ operation: audit.operations?.delete || 'MANUAL_CORRECTION', id, previousValues: context.previous, newValues: null }); return deleted; }
+    async create() { const error = new Error('LEGACY_MUTATION_BLOCKED'); error.code = 'LEGACY_MUTATION_BLOCKED'; throw error; },
+    async update() { const error = new Error('LEGACY_MUTATION_BLOCKED'); error.code = 'LEGACY_MUTATION_BLOCKED'; throw error; },
+    async delete() { const error = new Error('LEGACY_MUTATION_BLOCKED'); error.code = 'LEGACY_MUTATION_BLOCKED'; throw error; }
   };
 }
 

@@ -12,6 +12,18 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   status,
   headers: { ...cors, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" },
 });
+const legacyMutationBlocked = (path: string) => json({
+  status: "LEGACY_MUTATION_BLOCKED",
+  technical_code: "LEGACY_MUTATION_BLOCKED",
+  current_stage: "DISPATCH_GUARD",
+  processed_count: 0,
+  unprocessed_count: 0,
+  data_written: false,
+  retry_safe: false,
+  resume_available: false,
+  next_action: "Use the canonical approval-bound operational workflow.",
+  path,
+}, 409);
 const text = (value: unknown) => String(value ?? "").trim();
 const nullable = (value: unknown) => text(value) || null;
 const uuid = (value: unknown) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(text(value))
@@ -71,6 +83,9 @@ Deno.serve(async (request) => {
     }
     const profile = (await read(`portal_user_profiles?select=is_active,is_super_admin,bank_transfer_scope,bank_transfer_approve_for_execution,bank_transfer_set_execution_date,permission_configuration_id&user_id=eq.${actor.id}&limit=1`))[0];
     if (!profile?.is_active) return json({ error: "אין הרשאה מתאימה להעברות בנקאיות." }, 403);
+    if (request.method === "POST" && ["save", "mark_completed", "approve_for_execution", "delete", "import", "upload_attachment"].includes(text(body?.action))) {
+      return legacyMutationBlocked(`portal-bank-transfer-workbench:${text(body.action)}`);
+    }
     const scoped = !profile.is_super_admin && profile.bank_transfer_scope === "ASSIGNED_DAYCARES";
     const allowedDaycares = new Set<string>(scoped
       ? (await read(`portal_user_daycares?select=daycare_id&user_id=eq.${actor.id}&permission_configuration_id=eq.${profile.permission_configuration_id}`)).map((row: { daycare_id: string }) => row.daycare_id)
