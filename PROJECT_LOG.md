@@ -6292,7 +6292,7 @@ Migrations: `20261117100000_track132_commit_rpc_mapping_fix.sql` prepared, not a
 Edge Functions: None.
 Tests: `node --test tests/track132-operational-import-contract.test.mjs` passed 4/4; migration preflight passed; `git diff --check` passed. Live Production reproduction was attempted through Chamah Daycare 0.0.2 but the connector returned `Session terminated` before the RPC call reached the batch.
 Production impact: None; no child data, approvals, or canonical records changed.
-Commit SHA: Pending.
+Commit SHA: 97af2c63ea71e2ecb3b598340f8a6f77cf3a8b85.
 Branch: `codex/track121-oauth-login-resume`.
 Preview URL: None.
 Production URL (if deployed): `https://chamah-portal.vercel.app` — not changed.
@@ -6568,6 +6568,7 @@ Commit SHA: Pending.
 Branch: codex/tmp-system-mapping-ingestion-recovery.
 Preview URL: https://chamah-director-preview.vercel.app
 Production URL (if deployed): None.
+Preview deployment: dpl_3BgNs7PBEC3kgTv3jjJFMxciRypC; canonical alias aligned and runtime-health verified with commit 97af2c63ea71e2ecb3b598340f8a6f77cf3a8b85.
 Blockers: Authenticated Manager live verification remains unavailable; supplier/payment portal direct-write callers outside MCP require separate inventory evidence.
 Next recommended TRACK: Continue this same Track with authenticated Manager verification and portal supplier/payment caller tracing.
 
