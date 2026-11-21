@@ -31,6 +31,6 @@ test('TRACK119b uses stable identifiers, explicit skip and supported audit opera
 test('Supabase selection is canonical and legacy fallbacks are blocked', () => {
   assert.match(mcp, /runtime-consistency/);
   assert.doesNotMatch(mcp, /vyyfuaqmbxvfqgbfqooc/);
-  assert.match(build, /CHAMAH_SUPABASE_URL, CHAMAH_OAUTH_ISSUER, and CHAMAH_SUPABASE_PUBLISHABLE_KEY are required/);
-  assert.match(build, /non-canonical Supabase project/);
+  assert.match(build, /validateRuntimeConsistency/);
+  assert.match(build, /CHAMAH_ENVIRONMENT must be production or preview/);
 });
