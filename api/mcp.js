@@ -124,9 +124,16 @@ function toStructuredContent(value){
  return {value};
 }
 function redactUpstreamDiagnostic(value){
- const text=String(value||'').replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi,'[uuid]').replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,'[email]').slice(0,300);
+ const text=String(value||'').replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi,'[uuid]').replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,'[email]').replace(/\b[A-Za-z0-9._~-]{12,}\b/g,'[redacted]').slice(0,300);
  return text||'Upstream request rejected';
 }
+function mcpDiagnostic(req,method,toolName,rpc,role,e){
+ const diagnosticId=crypto.randomUUID();
+ const entry={event:'mcp_diagnostic',diagnostic_id:diagnosticId,environment:RUNTIME.environment,deployment_id:RUNTIME.deploymentId||'Unknown',tool_name:toolName||'Unknown',jsonrpc_method:method||'Unknown',role_classification:role||'Unknown',rpc_name:rpc||'Unknown',error_class:e?.constructor?.name||'Error',supabase_error_code:e?.upstreamCode||'UNKNOWN',sanitized_message:redactUpstreamDiagnostic(e?.upstreamMessage||e?.message)};
+ console.error(JSON.stringify(entry));
+ return diagnosticId;
+}
+function diagnosticErrorResponse(id,diagnosticId){return {jsonrpc:'2.0',id,error:{code:-32603,message:'Internal error',data:{diagnostic_id:diagnosticId}}};}
 async function api(path,token,body){
  const r=await fetch(SUPABASE_URL+path,{method:body===undefined?'GET':'POST',headers:{apikey:API_KEY,Authorization:'Bearer '+token,...(body===undefined?{}:{'Content-Type':'application/json'})},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(10000)});
  const data=await r.json().catch(()=>null);
@@ -182,13 +189,13 @@ module.exports=async function handler(req,res){
  try{
   const access=await api('/rest/v1/rpc/portal_my_access',token,{});
   if(!access?.profile?.is_active)return send(res,403,{error:'portal_access_denied'});
- }catch(e){return send(res,e.status===401?401:403,{error:e.status===401?'invalid_or_expired_token':'portal_access_denied'});}
+ }catch(e){const diagnosticId=mcpDiagnostic(req,'authorization',null,'portal_my_access','AUTHENTICATED',e);return send(res,e.status===401?401:403,{error:e.status===401?'invalid_or_expired_token':'portal_access_denied',diagnostic_id:diagnosticId});}
  let authorization,isDirector=false;
  try{
   authorization=await api('/rest/v1/rpc/portal_my_authorization',token,{});
   if(!authorization?.active)return send(res,403,{error:'portal_access_denied'});
   isDirector=authorization.roles?.includes('DIRECTOR')===true;
- }catch(e){return send(res,e.status===401?401:403,{error:e.status===401?'invalid_or_expired_token':'portal_access_denied'});}
+ }catch(e){const diagnosticId=mcpDiagnostic(req,'authorization',null,'portal_my_authorization','AUTHENTICATED',e);return send(res,e.status===401?401:403,{error:e.status===401?'invalid_or_expired_token':'portal_access_denied',diagnostic_id:diagnosticId});}
  // Role resolution is server-side and occurs before tools/list or dispatch.
  // Managers never receive a mutation-capable tool, even if they call its name
  // directly; the closed catalog check below rejects it before any RPC access.
@@ -419,8 +426,9 @@ module.exports=async function handler(req,res){
   if(name==='get_operational_batch_page'&&Buffer.byteLength(JSON.stringify(structuredContent),'utf8')>MAX_OPERATIONAL_BATCH_PAGE_RESPONSE_BYTES)return send(res,200,error(id,-32001,'Operational batch page exceeds response-size limit; reduce limit and retry with the same cursor'));
   return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(structuredContent)}],structuredContent,isError:false}});
  }catch(e){
-  console.error(JSON.stringify({event:'mcp_upstream_error',rpc,status:e.status||500,code:e.upstreamCode||'UNKNOWN',message:e.upstreamMessage||'Upstream request rejected'}));
-  const detail=e.status===401?'Session expired or invalid':e.status===403?'Permission denied':(e.upstreamCode||'UPSTREAM_ERROR')+': '+(e.upstreamMessage||'Upstream request rejected');
-  return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:detail}],structuredContent:{error_code:e.upstreamCode||'UPSTREAM_ERROR',message:e.upstreamMessage||'Upstream request rejected',rpc},isError:true}});
+  const diagnosticId=mcpDiagnostic(req,m.method,name,rpc,isDirector?'DIRECTOR':'MANAGER',e);
+  const safeMessage=redactUpstreamDiagnostic(e.upstreamMessage||'Upstream request rejected');
+  const detail=e.status===401?'Session expired or invalid':e.status===403?'Permission denied':(e.upstreamCode||'UPSTREAM_ERROR')+': '+safeMessage;
+  return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:detail}],structuredContent:{error_code:e.upstreamCode||'UPSTREAM_ERROR',message:safeMessage,rpc,diagnostic_id:diagnosticId},isError:true}});
  }
 };
