@@ -11,7 +11,7 @@ const approvalScopeFix=fs.readFileSync(new URL('../supabase/migrations/202611120
 
 test('institution users discover only scoped read tools',()=>{
   assert.match(api,/INSTITUTION_READ_TOOLS = new Set\(\['get_profile','list_daycares','staff_by_daycare','list_policies','read_policy'\]\)/);
-  assert.match(api,/availableTools=isDirector\?TOOLS\.filter\(t=>!UNSAFE_LEGACY_WRITE_TOOLS\.has\(t\.name\)\):TOOLS\.filter\(t=>INSTITUTION_READ_TOOLS\.has\(t\.name\)\)/);
+  assert.match(api,/availableTools=isDirector\?TOOLS\.filter\(t=>!UNSAFE_LEGACY_WRITE_TOOLS\.has\(t\.name\)\):TOOLS\.filter\(t=>MANAGER_READ_ONLY_TOOLS\.has\(t\.name\)\)/);
   assert.match(api,/Invalid or unauthorized tool/);
 });
 

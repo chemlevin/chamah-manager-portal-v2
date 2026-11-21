@@ -89,6 +89,9 @@ const READ_ONLY_TOOLS = new Set([
   'search_operational_records','get_operational_record','operational_report','list_operational_batches','child_reconciliation'
 ]);
 const INSTITUTION_READ_TOOLS = new Set(['get_profile','list_daycares','staff_by_daycare','list_policies','read_policy']);
+// Manager access is a closed, server-enforced catalog. Do not broaden this set
+// without an explicit authorization review and a corresponding test.
+const MANAGER_READ_ONLY_TOOLS = new Set(INSTITUTION_READ_TOOLS);
 const UNSAFE_LEGACY_WRITE_TOOLS = new Set([
  'create_employee','update_employee','import_employees','create_supplier','update_supplier','import_suppliers',
  'create_payment_request','update_payment_request','import_payment_requests','record_payment_execution',
@@ -98,6 +101,8 @@ const DESTRUCTIVE_TOOLS = new Set(['archive_policy','bulk_archive_policies']);
 DESTRUCTIVE_TOOLS.add('archive_operational_record');
 const TOOLS = BASE_TOOLS.map(tool=>({
  ...tool,
+ classification:READ_ONLY_TOOLS.has(tool.name)?'READ_ONLY':'MUTATION',
+ authorization:READ_ONLY_TOOLS.has(tool.name)?'AUTHENTICATED_SCOPED_READ':'DIRECTOR_EXPLICIT_PERMISSION',
  securitySchemes:[{type:'oauth2',scopes:[]}],
  annotations:{
   readOnlyHint:READ_ONLY_TOOLS.has(tool.name),
@@ -184,7 +189,10 @@ module.exports=async function handler(req,res){
   if(!authorization?.active)return send(res,403,{error:'portal_access_denied'});
   isDirector=authorization.roles?.includes('DIRECTOR')===true;
  }catch(e){return send(res,e.status===401?401:403,{error:e.status===401?'invalid_or_expired_token':'portal_access_denied'});}
- const availableTools=isDirector?TOOLS.filter(t=>!UNSAFE_LEGACY_WRITE_TOOLS.has(t.name)):TOOLS.filter(t=>INSTITUTION_READ_TOOLS.has(t.name));
+ // Role resolution is server-side and occurs before tools/list or dispatch.
+ // Managers never receive a mutation-capable tool, even if they call its name
+ // directly; the closed catalog check below rejects it before any RPC access.
+ const availableTools=isDirector?TOOLS.filter(t=>!UNSAFE_LEGACY_WRITE_TOOLS.has(t.name)):TOOLS.filter(t=>MANAGER_READ_ONLY_TOOLS.has(t.name));
  let m=req.body;
  if(typeof m==='string'){try{m=JSON.parse(m)}catch{return send(res,400,error(null,-32700,'Parse error'));}}
  if(!m||Array.isArray(m)||typeof m!=='object'||m.jsonrpc!=='2.0'||typeof m.method!=='string')return send(res,400,error(m?.id??null,-32600,'Invalid request'));
