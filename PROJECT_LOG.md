@@ -6592,6 +6592,26 @@ Preview deployment: dpl_E5ZJ54Y65KXWz6NQyBD3uSCr38ok; runtime commit verified; c
 Blockers: Unified timeout/retry/resume/read-back error contract remains incomplete; Manager live verification is unavailable; supplier/payment portal callers outside MCP require further tracing.
 Next recommended TRACK: Continue this same Track with the cross-surface error/recovery contract and authenticated Manager verification.
 
+### SYSTEM-MAPPING-AND-INGESTION-RECOVERY — Preview safety and recovery contract
+
+TRACK: SYSTEM-MAPPING-AND-INGESTION-RECOVERY
+Status: PARTIALLY COMPLETED — preview safety classified and MCP recovery envelope deployed to Preview
+Summary: Classified ephemeral versus durable preview paths, documented remaining portal callers, and added structured MCP error/recovery metadata without changing business data.
+Root cause: Preview behavior and error contracts were not uniformly documented or surfaced across ingestion paths.
+Files changed: api/mcp.js; tests/preview-safety-and-error-contract.test.mjs; docs/PORTAL_CALLER_INVENTORY_SYSTEM_MAPPING.md.
+Database changes: None.
+Migrations: None.
+Edge Functions: No changes; existing Preview portal-bank-workbench, portal-bank-transfer-workbench, and portal-workforce-workbench remain ACTIVE version 2.
+Tests: Focused safety/error/MCP/contract suite 24/24; syntax and diff checks. Playwright runner invoked correctly but blocked by isolated dependency/version resolution; local build also lacks the exceljs artifact required by scripts/build.mjs.
+Production impact: None.
+Commit SHA: d51d9321d3fdb747d9a8cb8a569088eb1a7f8db6.
+Branch: codex/tmp-system-mapping-ingestion-recovery.
+Preview URL: https://chamah-director-preview.vercel.app
+Production URL (if deployed): None.
+Preview deployment: dpl_BUi5CbfwseSNo1Ugb2Usjpa6A2fj; runtime commit and canonical alias verified.
+Blockers: Manager live verification remains unavailable; full portal/Edge Function parity for timeout, failed read-back, retry, resume, parser, and matching errors remains incomplete; browser suite requires dependency repair.
+Next recommended TRACK: Continue this same Track with dependency repair for Playwright/build, then complete cross-surface error parity and authenticated Manager verification.
+
 ### TRACK151 — Fix isolated Preview OAuth resource metadata
 
 TRACK: TRACK151
