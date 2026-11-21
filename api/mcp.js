@@ -124,7 +124,8 @@ function safeHeader(req,name){const value=String(req.headers[name]||'').trim();r
 function requestOriginMetadata(req,operation,toolName,endpoint){const requestId=UUID.test(safeHeader(req,'x-request-id'))?safeHeader(req,'x-request-id'):crypto.randomUUID();return {client_application:safeHeader(req,'x-client-application'),connector_id:safeHeader(req,'x-connector-id'),session_id:safeHeader(req,'x-session-id'),request_id:requestId,correlation_id:requestId,mcp_endpoint:endpoint||'Unknown',deployment_commit:String(process.env.VERCEL_GIT_COMMIT_SHA||'Unknown').slice(0,120),operation,tool_name:toolName};}
 async function recordRequestOrigin(req,token,operation,toolName,endpoint){return api('/rest/v1/rpc/portal_mcp_record_request_origin',token,{p_origin:requestOriginMetadata(req,operation,toolName,endpoint)});}
 function send(res,status,body){res.status(status).setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');return res.end(JSON.stringify(body));}
-function error(id,code,message,data){return {jsonrpc:'2.0',id,error:{code,message,...(data?{data}: {})}};}
+function statusEnvelope(technicalCode, overrides={}){return {status:overrides.status||'BLOCKED',technical_code:technicalCode,correlation_id:overrides.correlation_id||crypto.randomUUID(),batch_id:overrides.batch_id||null,current_stage:overrides.current_stage||'REQUEST',processed_count:overrides.processed_count||0,unprocessed_count:overrides.unprocessed_count||0,data_written:overrides.data_written===true,retry_safe:overrides.retry_safe===true,resume_available:overrides.resume_available===true,next_action:overrides.next_action||'Review the business-readable error and retry only when indicated.',...(overrides.source_filename?{source_filename:overrides.source_filename}:{}),...(overrides.source_row!==undefined?{source_row:overrides.source_row}: {})};}
+function error(id,code,message,data){const technicalCode=data?.technical_code||({'-32600':'INVALID_REQUEST','-32601':'TOOL_UNAVAILABLE','-32602':'INVALID_ARGUMENT','-32001':'TOO_LARGE','-32004':'LEGACY_MUTATION_BLOCKED'}[String(code)]||'REQUEST_FAILED');const envelope=statusEnvelope(technicalCode,{...data,status:data?.status||'BLOCKED',next_action:data?.next_action||message});return {jsonrpc:'2.0',id,error:{code,message,data:{...envelope,...(data||{})}}};}
 function legacyMutationBlocked(id,toolName){return error(id,-32004,'LEGACY_MUTATION_BLOCKED',{status:'LEGACY_MUTATION_BLOCKED',technical_code:'LEGACY_MUTATION_BLOCKED',correlation_id:crypto.randomUUID(),current_stage:'DISPATCH_GUARD',processed_count:0,unprocessed_count:0,data_written:false,retry_safe:false,resume_available:false,next_action:'Use operational_catalog, preview_operational_changes, request_operational_approval, and commit_operational_changes.',tool_name:toolName});}
 function toStructuredContent(value){
  if(value!==null&&typeof value==='object'&&!Array.isArray(value))return value;
@@ -141,7 +142,7 @@ function mcpDiagnostic(req,method,toolName,rpc,role,e){
  console.error(JSON.stringify(entry));
  return diagnosticId;
 }
-function diagnosticErrorResponse(id,diagnosticId){return {jsonrpc:'2.0',id,error:{code:-32603,message:'Internal error',data:{diagnostic_id:diagnosticId}}};}
+function diagnosticErrorResponse(id,diagnosticId){return {jsonrpc:'2.0',id,error:{code:-32603,message:'Request failed safely',data:statusEnvelope('INTERNAL_ERROR',{status:'RETRYABLE',correlation_id:diagnosticId,retry_safe:true,next_action:'Retry with the same idempotency key after checking status.'})}};}
 async function api(path,token,body){
  const r=await fetch(SUPABASE_URL+path,{method:body===undefined?'GET':'POST',headers:{apikey:API_KEY,Authorization:'Bearer '+token,...(body===undefined?{}:{'Content-Type':'application/json'})},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(10000)});
  const data=await r.json().catch(()=>null);
@@ -442,6 +443,8 @@ module.exports=async function handler(req,res){
   const diagnosticId=mcpDiagnostic(req,m.method,name,rpc,isDirector?'DIRECTOR':'MANAGER',e);
   const safeMessage=redactUpstreamDiagnostic(e.upstreamMessage||'Upstream request rejected');
   const detail=e.status===401?'Session expired or invalid':e.status===403?'Permission denied':(e.upstreamCode||'UPSTREAM_ERROR')+': '+safeMessage;
-  return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:detail}],structuredContent:{error_code:e.upstreamCode||'UPSTREAM_ERROR',message:safeMessage,rpc,diagnostic_id:diagnosticId},isError:true}});
+  const status=e.status===403?'BLOCKED':e.status===401?'NEEDS_INFORMATION':'RETRYABLE';
+  const envelope=statusEnvelope(e.upstreamCode||'UPSTREAM_ERROR',{status,correlation_id:diagnosticId,retry_safe:status==='RETRYABLE',next_action:status==='BLOCKED'?'Confirm the authenticated role and environment before retrying.':'Retry with the same idempotency key after checking batch status.'});
+  return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:detail}],structuredContent:{...envelope,error_code:e.upstreamCode||'UPSTREAM_ERROR',message:safeMessage,rpc},isError:true}});
  }
 };
