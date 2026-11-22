@@ -12,6 +12,8 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 const legacyMutationBlocked = (path: string) => json({
   status: "LEGACY_MUTATION_BLOCKED",
   technical_code: "LEGACY_MUTATION_BLOCKED",
+  correlation_id: crypto.randomUUID(),
+  batch_id: null,
   current_stage: "DISPATCH_GUARD",
   processed_count: 0,
   unprocessed_count: 0,
