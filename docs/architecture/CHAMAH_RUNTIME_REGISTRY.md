@@ -79,8 +79,8 @@ Verification date for entries below: `2026-11-21`.
 | Canonical endpoint | `https://chamah-director-preview.vercel.app/api/mcp` | VERIFIED | Preview routing and runtime contract |
 | Compatibility endpoint | `https://chamah-director-preview.vercel.app/api/mcp-operational-workspace` | COMPATIBILITY ONLY | Same handler; not a separate connector identity |
 | Vercel project | `prj_TLJVhQfA8oTkM5MCqfehqmBfVGwy` | VERIFIED | Preview deployment evidence |
-| Deployment | `dpl_5WczXcfEBcvrPD4S3L6fRxuk7DHG` | VERIFIED | Vercel deployment evidence |
-| Runtime commit | `cf05856a91f1db87aa0a39f53fa51c09cba3ff3c` | VERIFIED | Runtime health evidence |
+| Deployment | `dpl_6fWe7WNjXwpZk7v1XqGYdrJF5MiB` | VERIFIED | Vercel deployment evidence |
+| Runtime commit | `beb34140c46a491680f4bd102d28d70a4bf7fc49` | VERIFIED | Runtime health evidence |
 | Supabase project | `iwsbjudahtjyigecymzd` | VERIFIED CONFIGURATION | Preview environment evidence |
 | OAuth issuer | `https://iwsbjudahtjyigecymzd.supabase.co/auth/v1` | VERIFIED CONFIGURATION | Preview metadata evidence |
 | Allowed tools | `get_profile`, `prepare_operational_batch`, `get_operational_batch`, `list_operational_batches` | VERIFIED IN SOURCE | Closed Preview catalog |
