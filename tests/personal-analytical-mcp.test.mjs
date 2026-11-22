@@ -1,0 +1,26 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+process.env.CHAMAH_ENVIRONMENT='preview';
+process.env.CHAMAH_SUPABASE_URL='https://iwsbjudahtjyigecymzd.supabase.co';
+process.env.CHAMAH_SUPABASE_PROJECT_ID='iwsbjudahtjyigecymzd';
+process.env.CHAMAH_OAUTH_ISSUER='https://iwsbjudahtjyigecymzd.supabase.co/auth/v1';
+process.env.CHAMAH_PORTAL_ORIGIN='https://chamah-director-preview.vercel.app';
+process.env.CHAMAH_MCP_ORIGIN='https://chamah-director-preview.vercel.app';
+process.env.CHAMAH_SUPABASE_PUBLISHABLE_KEY='sb_publishable_test';
+process.env.CHAMAH_BUILD_COMMIT='test-commit';
+
+const {default:handler}=await import('../api/mcp-analytical.js');
+const source=readFileSync(new URL('../api/mcp-analytical.js',import.meta.url),'utf8');
+const vercel=JSON.parse(readFileSync(new URL('../vercel.json',import.meta.url),'utf8'));
+function response(){const headers={};return {headers,statusCode:200,body:'',setHeader(k,v){headers[k]=v;},status(c){this.statusCode=c;return this;},end(b=''){this.body=b;}};}
+async function call(message,fetchImpl,headers={}){const old=globalThis.fetch;globalThis.fetch=fetchImpl;try{const res=response();await handler({method:'POST',url:'/api/mcp-analytical',headers:{authorization:'Bearer token',...headers},body:message},res);const body=res.headers['Content-Type']==='text/event-stream'?JSON.parse(res.body.split('data: ')[1].trim()):res.body?JSON.parse(res.body):null;return {res,body};}finally{globalThis.fetch=old;}}
+function authFetch(calls,rpcResult={}){return async(url)=>{calls.push(String(url));if(String(url).includes('/auth/v1/user'))return new Response(JSON.stringify({id:'00000000-0000-4000-8000-000000000001',email:'test@example.org'}),{status:200});if(String(url).includes('/rpc/portal_my_access'))return new Response(JSON.stringify({profile:{is_active:true}}),{status:200});if(String(url).includes('/rpc/portal_my_authorization'))return new Response(JSON.stringify({active:true,roles:['MANAGER']}),{status:200});return new Response(JSON.stringify(rpcResult),{status:200});};}
+
+test('initialize and authenticated tools/list expose strict read-only analytical contract',async()=>{const calls=[];const r=await call({jsonrpc:'2.0',id:1,method:'initialize',params:{}},authFetch(calls));assert.equal(r.res.statusCode,200);assert.equal(r.body.result.protocolVersion,'2025-03-26');assert.match(r.body.result.serverInfo.instructions,/non-persistent/);const listed=await call({jsonrpc:'2.0',id:2,method:'tools/list',params:{}},authFetch(calls));const tools=listed.body.result.tools;assert.ok(tools.length>=10);assert.ok(tools.every(t=>t.annotations.readOnlyHint===true&&t.annotations.destructiveHint===false&&t.inputSchema.additionalProperties===false));for(const forbidden of ['preview_operational_changes','request_operational_approval','commit_operational_changes','upload_payment_document','create_employee','update_employee','delete_employee','archive_operational_record'])assert.ok(!tools.some(t=>t.name===forbidden));});
+test('prepare_analysis is structured and non-persistent',async()=>{const calls=[];const r=await call({jsonrpc:'2.0',id:3,method:'tools/call',params:{name:'prepare_analysis',arguments:{objective:'Find payroll anomalies',domain:'payroll',filters:{month:'2026-01-01'},requested_outputs:['summary']}}},authFetch(calls));assert.equal(r.body.result.structuredContent.persistent,false);assert.equal(r.body.result.structuredContent.dispatch,false);assert.equal(r.body.result.structuredContent.status,'PROPOSAL_ONLY');assert.equal(calls.filter(v=>v.includes('/rest/v1/rpc/')).length,2);});
+test('mutation requests are rejected before database RPC dispatch',async()=>{const calls=[];const r=await call({jsonrpc:'2.0',id:4,method:'tools/call',params:{name:'preview_operational_changes',arguments:{rows:[]}}},authFetch(calls));assert.equal(r.body.error.code,-32602);assert.equal(calls.filter(v=>v.includes('/rest/v1/rpc/')).length,2);});
+test('read call dispatches only to a canonical read RPC',async()=>{const calls=[];const r=await call({jsonrpc:'2.0',id:5,method:'tools/call',params:{name:'operational_report',arguments:{}}},authFetch(calls,{records:[],unsupported:[]}));assert.equal(r.body.result.isError,false);assert.ok(calls.some(v=>v.endsWith('/rpc/portal_mcp_operational_report')));assert.ok(!calls.some(v=>/preview|approval|commit|insert|update|delete|archive/i.test(v)));});
+test('Streamable HTTP accepts JSON and SSE response modes',async()=>{const calls=[];const r=await call({jsonrpc:'2.0',id:6,method:'ping',params:{}},authFetch(calls),{accept:'application/json, text/event-stream'});assert.equal(r.res.headers['Content-Type'],'text/event-stream');assert.match(r.res.body,/^event: message\ndata: /);});
+test('source and vercel wiring contain analytical route but preserve Business MCP route',()=>{assert.match(source,/mcp-analytical-metadata/);assert.doesNotMatch(source,/service_role|SUPABASE_SERVICE_ROLE_KEY/i);const routes=new Map(vercel.routes.filter(r=>r.src).map(r=>[r.src,r.dest]));assert.equal(routes.get('/api/mcp-analytical'),'/api/mcp-analytical.js');assert.equal(routes.get('/api/mcp-analytical-metadata'),'/api/mcp-analytical-metadata.js');assert.equal(routes.get('/api/mcp'),'/api/mcp.js');});

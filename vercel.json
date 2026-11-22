@@ -10,6 +10,14 @@
       "use": "@vercel/node"
     },
     {
+      "src": "api/mcp-analytical.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/mcp-analytical-metadata.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "api/oauth-diagnostics.js",
       "use": "@vercel/node"
     },
@@ -49,6 +57,14 @@
     {
       "src": "/api/mcp",
       "dest": "/api/mcp.js"
+    },
+    {
+      "src": "/api/mcp-analytical",
+      "dest": "/api/mcp-analytical.js"
+    },
+    {
+      "src": "/api/mcp-analytical-metadata",
+      "dest": "/api/mcp-analytical-metadata.js"
     },
     {
       "src": "/api/oauth-diagnostics",
