@@ -4,6 +4,11 @@ import test from 'node:test';
 import { CODES, normalizeError } from '../api/error-contract.js';
 
 const mcp = fs.readFileSync('api/mcp.js', 'utf8');
+const edgeReadonly = [
+  'supabase/functions/_shared/error-contract.ts',
+  'supabase/functions/portal-mcp-server/index.ts',
+  'supabase/functions/portal-mcp-readonly/index.ts',
+].map((file) => fs.readFileSync(file, 'utf8')).join('\n');
 const edgeLegacy = [
   'supabase/functions/portal-bank-workbench/index.ts',
   'supabase/functions/portal-bank-transfer-workbench/index.ts',
@@ -47,4 +52,10 @@ test('Preview Edge legacy mutation responses carry the blocked classification', 
   for (const field of ['correlation_id', 'batch_id', 'current_stage', 'processed_count', 'unprocessed_count', 'data_written', 'retry_safe', 'resume_available', 'next_action']) assert.match(edgeLegacy, new RegExp(field));
 });
 
-test('portal and non-legacy Edge failure parity remains explicitly unproven', { skip: 'Existing portal/Edge handlers still emit surface-specific raw errors; runtime unification requires a separate implementation change.' }, () => {});
+test('Portal MCP and non-legacy Edge errors use the shared contract', () => {
+  assert.match(mcp, /normalizeError/);
+  assert.match(edgeReadonly, /_shared\/error-contract\.ts/);
+  assert.match(edgeReadonly, /errorResponse/);
+  for (const field of ['status', 'technical_code', 'correlation_id', 'batch_id', 'current_stage', 'processed_count', 'unprocessed_count', 'data_written', 'retry_safe', 'resume_available', 'next_action']) assert.match(edgeReadonly, new RegExp(field));
+  assert.doesNotMatch(edgeReadonly, /Authorization.*JSON\.stringify|SUPABASE_SERVICE_ROLE_KEY.*structuredContent/);
+});

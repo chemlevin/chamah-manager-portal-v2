@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { errorResponse } from "../_shared/error-contract.ts";
 
 // Isolated stateless, read-only MCP Streamable HTTP endpoint.
 // No service-role credentials or unrestricted SQL are exposed to clients.
@@ -14,8 +15,8 @@ const JSON_HEADERS = {
 };
 const response = (status: number, body: unknown, extra: Record<string,string> = {}) =>
   new Response(body === null ? null : JSON.stringify(body), { status, headers: { ...JSON_HEADERS, ...extra } });
-const error = (id: unknown, code: number, message: string) =>
-  ({ jsonrpc: "2.0", id: id ?? null, error: { code, message } });
+const error = (id: unknown, code: number, message: string, technicalCode = "INVALID_FORMAT") =>
+  ({ jsonrpc: "2.0", id: id ?? null, error: { code, message, data: errorResponse(technicalCode, 400, message) } });
 const success = (id: unknown, result: unknown) => ({ jsonrpc: "2.0", id, result });
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -86,10 +87,10 @@ Deno.serve(async (req: Request) => {
       headers: { apikey: key, Authorization: auth, "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    if (!result.ok) return response(200, success(id, { isError: true, content: [{ type: "text", text: "Access denied or data unavailable" }] }));
+    if (!result.ok) return response(200, success(id, { isError: true, content: [{ type: "text", text: "Access denied or data unavailable" }], structuredContent: errorResponse(result.status === 401 ? "PERMISSION_DENIED" : "RETRY_REQUIRED", result.status === 401 ? 401 : 503, "Access denied or data unavailable", { current_stage: "RPC", retry_safe: result.status !== 401, next_action: result.status === 401 ? "Confirm authorization before retrying." : "Retry after checking the request status." }) }));
     const rows = await result.json();
     return response(200, success(id, { content: [{ type: "text", text: JSON.stringify(rows) }], structuredContent: { rows } }));
   } catch {
-    return response(400, error(null, -32700, "Invalid JSON or request"));
+    return response(400, error(null, -32700, "Invalid JSON or request", "PARSE_FAILED"));
   }
 });
