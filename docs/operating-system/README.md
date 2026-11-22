@@ -1,11 +1,17 @@
 # Chamah permanent operating system
 
+Governance authority is the permanent hierarchy in `AGENTS.md`,
+`../architecture/CHAMAH_SYSTEM_RULES.md`,
+`../architecture/CHANGE_CONTROL.md`, and
+`../architecture/CHAMAH_RUNTIME_REGISTRY.md`, in that order. This document is
+operating guidance and cannot override those files.
+
 This directory is the model-independent handoff for Chamah. It is derived from
 the repository and current implementation; chat history is context only.
 
 ## Canonical truth
 
-- **Repository:** code, migrations, tests, public contracts, and operating rules.
+- **Repository:** code, migrations, tests, public contracts, and subordinate operating rules.
 - **Preview/Production databases:** persisted data and applied migration state.
 - **MCP catalog and contract:** public tool names, arguments, envelopes, and authorization behavior.
 - **Business Project:** shared operating instructions, reports, and source documents.

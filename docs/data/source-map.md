@@ -8,6 +8,10 @@ Last updated: 2026-07-13
 
 This document maps known source surfaces to future database concepts.
 
+This is subordinate domain detail. The permanent governance hierarchy is
+defined in `AGENTS.md` and the four documents under `docs/architecture/` named
+by that hierarchy.
+
 ## Source Surfaces
 
 | Source | Current Role | Future Role |

@@ -1,11 +1,25 @@
 # Agent Instructions — CHAMAH Portal
 
+## Permanent governance hierarchy
+
+This file is the mandatory root authority for Codex behavior, safety, scope,
+authorization, and reporting. The permanent subordinate authorities are, in
+order: `docs/architecture/CHAMAH_SYSTEM_RULES.md` for system/data/security
+rules; `docs/architecture/CHANGE_CONTROL.md` for implementation, testing,
+approval, deployment, rollback, and closure; and
+`docs/architecture/CHAMAH_RUNTIME_REGISTRY.md` for current verified runtime
+identities. Other documents are subordinate domain detail, evidence, or
+history and may not override this hierarchy.
+
+The historical archive `docs/reference/AGENTS_2026-11-14_ARCHIVE.md` is absent
+from this checkout and is not current authority or a required dependency.
+
 ## Authority and scope
 - Follow the user's explicit task scope. Never treat a task as permission for unrelated changes.
 - Preserve existing behavior, business rules, calculations, APIs, database schemas, Google Sheets contracts, package/lock files, Hebrew RTL text, and responsive UI unless explicitly authorized to change the affected item.
 - Prefer small root-cause changes, existing components, deterministic logic, and backward compatibility. Inspect relevant implementation and tests before editing.
 - Current implementation and verified runtime evidence outrank stale descriptive documentation. Record conflicts; never invent a resolution.
-- This file is the universal safety and execution baseline. Domain-specific legacy facts and detailed historical rules are preserved verbatim in `docs/reference/AGENTS_2026-11-14_ARCHIVE.md`; consult its relevant sections when touching those domains. The archive is a reference, not an override of these safety controls.
+- This file is the universal safety and execution baseline. Domain-specific legacy facts are preserved only in files present in the current checkout; do not invent or recreate missing historical archives.
 
 ## Context discipline
 - Read this compact file once per task/session. Do not repeatedly reload unchanged instructions.

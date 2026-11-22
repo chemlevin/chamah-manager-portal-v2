@@ -8,6 +8,12 @@ Last updated: 2026-07-13
 
 This document defines the intended source-of-truth model.
 
+Governance precedence is defined by `AGENTS.md`,
+`docs/architecture/CHAMAH_SYSTEM_RULES.md`,
+`docs/architecture/CHANGE_CONTROL.md`, and
+`docs/architecture/CHAMAH_RUNTIME_REGISTRY.md`. This domain document cannot
+override that hierarchy.
+
 ## Business Truth
 
 The Handbook under `docs/handbook/` is the only source of business truth.
