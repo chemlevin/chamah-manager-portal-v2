@@ -2,6 +2,11 @@
 
 Status: foundation map; completeness is explicitly classified.
 
+The complete domain-by-domain pipeline is maintained in
+`docs/architecture/CHAMAH_DOMAIN_PIPELINE_MATRIX.md`. This document remains
+the source-of-truth contract summary; the matrix is the authoritative path and
+readiness detail and must not be contradicted by older planning maps.
+
 | Domain | Source formats | Identity / duplicate rule | Canonical path | Status / gap |
 |---|---|---|---|---|
 | Children | Sheets, XLSX, CSV, PDF review | national ID + source record; conflict quarantine | operational batch RPCs | Business MCP implemented; live fixture read-back not run |
