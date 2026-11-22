@@ -45,6 +45,7 @@ from this checkout and is not current authority or a required dependency.
 - Initial rollout is Director-only. Do not grant access to managers, secretaries, or other roles without explicit authorization.
 - Enforce authentication, authorization, RLS, audit, provenance, approval, version/concurrency, and idempotency controls where applicable. Never bypass or weaken them to pass tests.
 - For operational data imports, preserve source provenance, validate identity and duplicates, preview/reconcile, require the applicable Director approval before commit, and verify persisted results. Synthetic/test data must not be promoted into real Production data.
+- Flexible source formats may be accepted by adapters, but technical intake, raw evidence, unmatched/unmapped review, proposed mappings, and canonical business data remain separate; new entities, fields, schema, and business logic require proposal, reconciliation, and change control.
 - For long-running MCP operations, preserve authorization at submission and retrieval, persistent status, and reliable result access.
 - An MCP schema, mocked test, or successful build is not proof of authenticated live MCP acceptance. Report missing live verification as a blocker when required.
 

@@ -27,6 +27,18 @@ Scoped recovery work continues on the approved temporary branch `codex/tmp-syste
 
 ## Source truth, identity, and matching
 
+### Flexible ingestion, stable safety core
+
+Source formats and layouts may vary. The safety core may not. Technical receipt or successful parsing never makes information canonical. Every source is classified through these boundaries:
+
+1. **Technical intake** — receipt and parser output only; no business write.
+2. **RAW/source evidence** — the original file or payload and its provenance.
+3. **UNMATCHED/UNMAPPED/NEEDS_REVIEW** — safely read information whose canonical destination, identity, or meaning is not verified.
+4. **PROPOSED** — a candidate mapping, correction, or new-entity proposal awaiting reconciliation and any required approval.
+5. **CANONICAL** — verified information accepted into the approved business model.
+
+Adapters may support new CSV, XLS/XLSX, PDF, HTML, RTL, structured, or changing source variants, including changed headers and columns. They must preserve partial understanding and warnings, never silently discard unknown fields, and use the same identity, provenance, reconciliation, approval, commit, read-back, audit, authorization, and idempotency controls. New entities require an explicit proposal, reconciliation, and appropriate approval; new schema or business logic requires change control. No adapter may create an uncontrolled route, branch, MCP surface, or database path. If the existing safe storage fields are insufficient, the gap is documented as an additive proposal and no migration is applied.
+
 The Handbook defines business rules; current code defines current implementation behavior; validated database records define accepted system data after the canonical workflow. Google Sheets and source files are input/editing surfaces, not permission to bypass validation.
 
 - Children match by normalized national ID plus stable source-system/source-record identity where available.
@@ -71,6 +83,8 @@ Future surfaces are documented only in this phase and are not implemented, deplo
 ## Common errors and recovery
 
 MCP, portal APIs, and Edge Functions must use one safe envelope containing: `status`, `technical_code`, `correlation_id`, `batch_id` when available, `current_stage`, `processed_count`, `unprocessed_count`, `data_written`, `retry_safe`, `resume_available`, and an exact `next_action`. The contract applies to oversized files/responses, unsupported formats, parser/header/RTL/PDF failures, missing or ambiguous identifiers, duplicates, unknown entities, timeouts before/after RPC, unknown commits, failed read-back, duplicate retries, resume, permission failures, wrong environments, and partial processing. Errors must be plain-language enough for the user while excluding secrets, tokens, full payloads, and unnecessary personal data.
+
+The controlled code vocabulary includes `FILE_TOO_LARGE`, `INVALID_FORMAT`, `PARSE_FAILED`, `RTL_OR_PDF_PARSE_FAILED`, `MISSING_IDENTIFIER`, `AMBIGUOUS_MATCH`, `DUPLICATE_ROW`, `UNKNOWN_ENTITY`, `UNMAPPED_FIELD`, `NEW_ENTITY_PROPOSAL`, `NEEDS_REVIEW`, `PERMISSION_DENIED`, `WRONG_ENVIRONMENT`, `UNKNOWN_COMMIT_STATE`, `READBACK_FAILED`, `RETRY_REQUIRED`, `RESUME_AVAILABLE`, and `LEGACY_MUTATION_BLOCKED`. Implementations may add a more specific code only when it preserves the envelope and plain-language next action.
 
 ## Change classification
 

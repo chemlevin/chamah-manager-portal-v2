@@ -36,6 +36,8 @@ Schema Freeze v1 keeps the database structure ready for future import/sync and A
 
 ## Source Separation
 
+Flexible ingestion does not change authority. Technical intake and RAW/source evidence preserve what was received; UNMATCHED/UNMAPPED/NEEDS_REVIEW preserves information without a verified destination; PROPOSED records a candidate interpretation; only CANONICAL data affects official calculations. See `docs/architecture/FLEXIBLE_INTAKE_ADAPTER_CONTRACT.md`.
+
 - Imported Source Data:
   - original data from bank, payroll, attendance, employee, or configuration files/sheets
   - read-only after import unless explicitly updated through import process

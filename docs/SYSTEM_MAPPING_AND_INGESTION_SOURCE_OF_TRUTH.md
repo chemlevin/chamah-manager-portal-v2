@@ -1,5 +1,7 @@
 # System Mapping and Ingestion Source of Truth
 
+The domain matrix is subordinate to the permanent hierarchy and uses the flexible-ingestion contract: receipt is not canonicalization; unknown fields and unresolved identities remain preserved outside official business data.
+
 Status: foundation map; completeness is explicitly classified.
 
 The complete domain-by-domain pipeline is maintained in

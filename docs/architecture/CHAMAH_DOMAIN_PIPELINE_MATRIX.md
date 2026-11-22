@@ -1,5 +1,7 @@
 # CHAMAH Domain Pipeline Matrix
 
+All rows use the flexible-ingestion safety boundary: technical intake → RAW/source evidence → UNMATCHED/UNMAPPED/NEEDS_REVIEW → PROPOSED → CANONICAL. A readable source is not synchronized until the canonical lifecycle and read-back succeed. Adapter details are defined in `FLEXIBLE_INTAKE_ADAPTER_CONTRACT.md`.
+
 Status: authoritative Phase C map. This document describes verified repository/live contracts and explicitly marks missing paths. It does not authorize a write, migration, deployment, real-file upload, or future MCP implementation. Governance precedence remains `AGENTS.md` → `CHAMAH_SYSTEM_RULES.md` → `CHANGE_CONTROL.md` → `CHAMAH_RUNTIME_REGISTRY.md`.
 
 ## Common contract

@@ -36,6 +36,8 @@ by that hierarchy.
 
 ## Source Authority Rules
 
+Changing formats are handled through the adapter contract. Parsed information without a verified canonical destination remains RAW, UNMAPPED, or PROPOSED with provenance and does not affect business calculations or create entities.
+
 - Handbook defines business rules.
 - Google Sheets provides editable operational/configuration data.
 - Database stores accepted validated data.

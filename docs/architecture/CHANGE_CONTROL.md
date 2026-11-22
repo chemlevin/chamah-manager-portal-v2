@@ -19,6 +19,8 @@ No Production deployment or mutation is implied by Preview work. No migration, s
 
 Canonical lifecycle: `PROPOSED → PREVIEWED → RECONCILED → APPROVED → COMMITTED → VERIFIED`.
 
+Flexible source formats are handled by adapters under the same safety core. Technical intake, raw evidence, unmatched/unmapped review, proposed mappings, and canonical data are distinct states. An adapter may preserve partial understanding, warnings, and unknown fields, but may not create entities, approvals, commits, or alternative database/MCP routes. Any missing storage field, parser variant, schema, or business rule is an additive proposal requiring this change-control process; no migration is implied.
+
 Approval binds batch ID, content digest, contract version, row versions, actor, scope, reason, and idempotency key. Unknown commit results require status inspection first. Failed read-back cannot trigger blind recommit. Rollback is forward-only, exact-scope, recoverable, audited, and evidence-led; reset, truncate, broad delete, or history destruction is prohibited without a separately authorized recovery plan.
 
 ## Closure fields
