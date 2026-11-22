@@ -3,6 +3,11 @@
 const {assertRuntimeConsistency,configuredOrigin}=require('./runtime-consistency');
 const RUNTIME=assertRuntimeConsistency();
 const API_KEY=process.env.CHAMAH_SUPABASE_PUBLISHABLE_KEY;
+// Keep the existing handler body stable while forcing this connector's
+// staging dispatch through the uniquely named Preview RPC.
+const PREVIEW_STAGING_RPC='/rest/v1/rpc/portal_mcp_preview_operational_changes_v1';
+const nativeFetch=global.fetch;
+global.fetch=(url,options)=>nativeFetch(String(url).endsWith('/rest/v1/rpc/portal_mcp_preview_operational_changes')?String(url).replace('/rest/v1/rpc/portal_mcp_preview_operational_changes',PREVIEW_STAGING_RPC):url,options);
 const ORIGIN=configuredOrigin();
 const PROTOCOL_VERSION='2025-03-26';
 const CONTRACT_VERSION=undefined;
