@@ -1,5 +1,12 @@
 # Chamah permanent operating system
 
+## Authority references
+
+Current runtime identities: `docs/architecture/CHAMAH_RUNTIME_REGISTRY.md`.
+Permanent system rules: `docs/architecture/CHAMAH_SYSTEM_RULES.md`.
+Change and release procedures: `docs/architecture/CHANGE_CONTROL.md`.
+Runtime statements here must not override the registry.
+
 This directory is the model-independent handoff for Chamah. It is derived from
 the repository and current implementation; chat history is context only.
 

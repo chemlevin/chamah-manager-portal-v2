@@ -1,5 +1,9 @@
 # Import Rules
 
+## Governance reference
+
+Import rules must be applied with `docs/architecture/CHAMAH_SYSTEM_RULES.md`. Current runtime and environment identities are defined only in `docs/architecture/CHAMAH_RUNTIME_REGISTRY.md`.
+
 ## Purpose
 
 ## Business Rules

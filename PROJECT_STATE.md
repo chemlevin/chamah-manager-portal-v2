@@ -1,5 +1,9 @@
 # Project State
 
+## Authority notice
+
+This file is a historical operational snapshot. Current runtime identities are maintained only in `docs/architecture/CHAMAH_RUNTIME_REGISTRY.md`. Historical values here must not override that registry.
+
 Last reviewed: 2026-11-10 (TRACK101)
 
 This file contains current operational state only. Durable rules belong in

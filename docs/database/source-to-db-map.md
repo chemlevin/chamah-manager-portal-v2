@@ -1,5 +1,9 @@
 # Source To Database Map
 
+## Scope clarification
+
+This document maps data sources to database concepts and does not define current deployment or environment identity. Use `docs/architecture/CHAMAH_RUNTIME_REGISTRY.md` for those identities.
+
 Status: planning document only. It maps current repository data flows to candidate future tables.
 
 ## Current Source Map

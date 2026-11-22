@@ -1,5 +1,9 @@
 # Business Rules Foundation
 
+## Scope of authority
+
+This document governs business rules only. Current runtime identities are governed exclusively by `docs/architecture/CHAMAH_RUNTIME_REGISTRY.md`; Codex permissions and change procedures are governed by `AGENTS.md` and `docs/architecture/CHANGE_CONTROL.md`.
+
 This project treats spreadsheet values as dynamic data and business rules as explicit code contracts.
 
 ## Central module

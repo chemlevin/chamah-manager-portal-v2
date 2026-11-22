@@ -1,5 +1,9 @@
 # TRACK104 — Unified Ingestion Contract and Bank Pilot Design
 
+## Document status
+
+This is a TRACK-specific design and historical implementation record. Permanent ingestion governance is defined in `CHAMAH_SYSTEM_RULES.md`, change control in `CHANGE_CONTROL.md`, and current runtime identities only in `CHAMAH_RUNTIME_REGISTRY.md`.
+
 Status: proposed, read-only design completed 2026-11-10
 
 Scope: shared permission-scoped ingestion control plane, piloted against Bank imports

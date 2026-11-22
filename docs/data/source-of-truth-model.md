@@ -1,5 +1,9 @@
 # Source Of Truth Model
 
+## Scope clarification
+
+This document defines data-domain source-of-truth concepts. Runtime identity is governed exclusively by `docs/architecture/CHAMAH_RUNTIME_REGISTRY.md`.
+
 Status: Schema Freeze v1.
 
 Last updated: 2026-07-13

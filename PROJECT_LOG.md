@@ -6532,3 +6532,7 @@ Preview URL: https://chamah-director-preview.vercel.app/api/mcp
 Production URL (if deployed): None.
 Blockers: None.
 Next recommended TRACK: None.
+# Runtime identity reference
+
+Current runtime identities are maintained only in `docs/architecture/CHAMAH_RUNTIME_REGISTRY.md`. TRACK entries remain historical evidence and must not override the registry.
+

@@ -1,5 +1,9 @@
 # Source Map
 
+## Scope clarification
+
+This source map may include historical or legacy paths. Permanent ingestion rules are defined in `docs/architecture/CHAMAH_SYSTEM_RULES.md`; current runtime identities are defined only in `docs/architecture/CHAMAH_RUNTIME_REGISTRY.md`.
+
 Status: Schema Freeze v1.
 
 Last updated: 2026-07-13
