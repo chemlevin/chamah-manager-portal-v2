@@ -71,6 +71,23 @@ Verification date for entries below: `2026-11-21`.
 | `portal-settings` | 4 | enabled | VERIFIED | Supabase read-only evidence |
 | `portal-bank-transfer-workbench` | 6 | enabled | VERIFIED | Supabase read-only evidence |
 
+## Canonical Preview Operational Workspace
+
+| Field | Value | Status | Evidence |
+|---|---|---|---|
+| Connector classification | Current Operational Workspace | VERIFIED IN SOURCE / PREVIEW DEPLOYMENT | `api/mcp.js`, `api/mcp-operational-workspace.js` |
+| Canonical endpoint | `https://chamah-director-preview.vercel.app/api/mcp` | VERIFIED | Preview routing and runtime contract |
+| Compatibility endpoint | `https://chamah-director-preview.vercel.app/api/mcp-operational-workspace` | COMPATIBILITY ONLY | Same handler; not a separate connector identity |
+| Vercel project | `prj_TLJVhQfA8oTkM5MCqfehqmBfVGwy` | VERIFIED | Preview deployment evidence |
+| Deployment | `dpl_5WczXcfEBcvrPD4S3L6fRxuk7DHG` | VERIFIED | Vercel deployment evidence |
+| Runtime commit | `cf05856a91f1db87aa0a39f53fa51c09cba3ff3c` | VERIFIED | Runtime health evidence |
+| Supabase project | `iwsbjudahtjyigecymzd` | VERIFIED CONFIGURATION | Preview environment evidence |
+| OAuth issuer | `https://iwsbjudahtjyigecymzd.supabase.co/auth/v1` | VERIFIED CONFIGURATION | Preview metadata evidence |
+| Allowed tools | `get_profile`, `prepare_operational_batch`, `get_operational_batch`, `list_operational_batches` | VERIFIED IN SOURCE | Closed Preview catalog |
+| Approval/commit/canonical writes | Absent and blocked | VERIFIED IN SOURCE | Preview handler boundary |
+
+The Preview `/api/mcp` route delegates to the Preview-only Operational Workspace handler. Production `/api/mcp` retains the Business MCP implementation under the Production runtime contract.
+
 ## MCP
 
 | Field | Value | Status | Evidence |

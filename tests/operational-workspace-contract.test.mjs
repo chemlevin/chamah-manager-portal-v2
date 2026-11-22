@@ -29,3 +29,9 @@ test('operational workspace routes are registered',()=>{
   const v=fs.readFileSync('vercel.json','utf8');
   assert.match(v,/mcp-operational-workspace/);
 });
+test('Preview canonical route delegates to the closed Operational Workspace catalog',()=>{
+  const mcp=fs.readFileSync('api/mcp.js','utf8');
+  assert.match(mcp,/RUNTIME\.environment==='preview'.*mcp-operational-workspace/s);
+  assert.match(source,/filter\(t=>\['get_profile','prepare_operational_batch','get_operational_batch','list_operational_batches'\]/);
+  assert.match(source,/RUNTIME\.supabaseProjectId!=='iwsbjudahtjyigecymzd'/);
+});

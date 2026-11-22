@@ -169,6 +169,7 @@ async function download(path,token){
  return {base64:bytes.toString('base64'),content_type:r.headers.get('content-type')||'application/octet-stream',size:bytes.length};
 }
 module.exports=async function handler(req,res){
+ if(RUNTIME.environment==='preview') return require('./mcp-operational-workspace')(req,res);
  const origin=requestOrigin();
  const resource=`${origin}/api/mcp`;
  const resourceMetadata=`${origin}/.well-known/oauth-protected-resource`;
