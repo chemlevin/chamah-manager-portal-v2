@@ -100,6 +100,8 @@ const UNSAFE_LEGACY_WRITE_TOOLS = new Set([
 // These legacy tools remain discoverable for backward-compatible schema
 // visibility, but they must not dispatch direct writes. New mutations must use
 // the versioned operational preview -> approval -> commit workflow.
+const { normalizeError } = require('./error-contract.js');
+
 const LEGACY_MUTATION_BLOCKED_TOOLS = new Set([
  ...UNSAFE_LEGACY_WRITE_TOOLS,
  'propose_supplier_bank_detail'
@@ -124,7 +126,7 @@ function safeHeader(req,name){const value=String(req.headers[name]||'').trim();r
 function requestOriginMetadata(req,operation,toolName,endpoint){const requestId=UUID.test(safeHeader(req,'x-request-id'))?safeHeader(req,'x-request-id'):crypto.randomUUID();return {client_application:safeHeader(req,'x-client-application'),connector_id:safeHeader(req,'x-connector-id'),session_id:safeHeader(req,'x-session-id'),request_id:requestId,correlation_id:requestId,mcp_endpoint:endpoint||'Unknown',deployment_commit:String(process.env.VERCEL_GIT_COMMIT_SHA||'Unknown').slice(0,120),operation,tool_name:toolName};}
 async function recordRequestOrigin(req,token,operation,toolName,endpoint){return api('/rest/v1/rpc/portal_mcp_record_request_origin',token,{p_origin:requestOriginMetadata(req,operation,toolName,endpoint)});}
 function send(res,status,body){res.status(status).setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');return res.end(JSON.stringify(body));}
-function statusEnvelope(technicalCode, overrides={}){return {status:overrides.status||'BLOCKED',technical_code:technicalCode,correlation_id:overrides.correlation_id||crypto.randomUUID(),batch_id:overrides.batch_id||null,current_stage:overrides.current_stage||'REQUEST',processed_count:overrides.processed_count||0,unprocessed_count:overrides.unprocessed_count||0,data_written:overrides.data_written===true,retry_safe:overrides.retry_safe===true,resume_available:overrides.resume_available===true,next_action:overrides.next_action||'Review the business-readable error and retry only when indicated.',...(overrides.source_filename?{source_filename:overrides.source_filename}:{}),...(overrides.source_row!==undefined?{source_row:overrides.source_row}: {})};}
+function statusEnvelope(technicalCode, overrides={}){return {...normalizeError(technicalCode,overrides),...(overrides.source_filename?{source_filename:overrides.source_filename}:{}),...(overrides.source_row!==undefined?{source_row:overrides.source_row}: {})};}
 function error(id,code,message,data){const technicalCode=data?.technical_code||({'-32600':'INVALID_REQUEST','-32601':'TOOL_UNAVAILABLE','-32602':'INVALID_ARGUMENT','-32001':'TOO_LARGE','-32004':'LEGACY_MUTATION_BLOCKED'}[String(code)]||'REQUEST_FAILED');const envelope=statusEnvelope(technicalCode,{...data,status:data?.status||'BLOCKED',next_action:data?.next_action||message});return {jsonrpc:'2.0',id,error:{code,message,data:{...envelope,...(data||{})}}};}
 function legacyMutationBlocked(id,toolName){return error(id,-32004,'LEGACY_MUTATION_BLOCKED',{status:'LEGACY_MUTATION_BLOCKED',technical_code:'LEGACY_MUTATION_BLOCKED',correlation_id:crypto.randomUUID(),current_stage:'DISPATCH_GUARD',processed_count:0,unprocessed_count:0,data_written:false,retry_safe:false,resume_available:false,next_action:'Use operational_catalog, preview_operational_changes, request_operational_approval, and commit_operational_changes.',tool_name:toolName});}
 function toStructuredContent(value){

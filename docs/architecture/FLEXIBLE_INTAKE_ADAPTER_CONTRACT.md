@@ -1,6 +1,6 @@
 # Flexible Intake Adapter Contract
 
-Status: permanent subordinate contract under `CHAMAH_SYSTEM_RULES.md`; no schema or runtime route is implied.
+Status: permanent subordinate contract under `CHAMAH_SYSTEM_RULES.md`; additive staging extension implemented locally and applied to Preview only; no Production promotion is implied.
 
 ## Adapter result
 
