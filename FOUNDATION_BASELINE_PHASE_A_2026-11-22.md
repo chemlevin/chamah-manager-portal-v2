@@ -48,7 +48,7 @@ No application code, migration, database schema, business row, batch, approval, 
 
 ## Phase A gate
 
-Result: **PARTIAL**, not PASS. Fresh live evidence is recorded below, but Vercel domain ownership cannot be reconciled with the available Vercel scope, the Production Business connector returns connector-side internal errors for all requested read-only calls, and live RPC differences remain. Phase B must not start automatically.
+Result: **PASS for Codex-accessible Phase A evidence; EXTERNAL VERIFICATION PENDING for authenticated Business MCP**. Vercel alias ownership/routing is reconciled by project-scoped alias inventory. Live RPC differences are documented and do not by themselves prevent the current read-only/runtime contract. Phase B must not start automatically.
 
 ## Fresh live evidence — 2026-11-22
 
@@ -145,3 +145,25 @@ Both environments expose the core read/preview/approval/commit families, but the
 ### No-change confirmation
 
 This continuation changed no code, database, migration, deployment, alias, domain, environment variable, user, permission, connector, or business data. Only this baseline document was updated.
+
+## Phase A continuation 2 — Vercel scope reconciliation
+
+Fresh authenticated Vercel evidence using team `chamah` / `team_GtrgFqWYRLiDNvejT6bLX3jf`:
+
+- `get_project(prj_6IND7ee2E9s3KispBh6iBDWwQo6X)` identifies Production project `chamah-portal`; its project-scoped alias inventory contains `chamah-portal.vercel.app` attached to `dpl_AJRcm7soRUiqmU8FDrV3xCW4dTSy`.
+- The same alias record identifies project `prj_6IND7ee2E9s3KispBh6iBDWwQo6X` and the serving deployment URL `chamah-portal-5zhmd68eg-chamah.vercel.app`.
+- `get_project` reports the project-domain list as only `chamah-manager-portal-v2-preview.vercel.app`, and `list_project_domains` omits the canonical Production alias. `get_deployment` also reports a stale/incomplete Preview-named alias field.
+- Project-scoped alias inventory is the strongest ownership evidence available and directly binds the canonical Production alias to the expected Production project/deployment. Domain-scoped alias queries returned empty and direct `get_domain` calls returned HTTP 403, demonstrating incomplete domain/API scope rather than disproving the project-scoped binding.
+- Preview project `prj_TLJVhQfA8oTkM5MCqfehqmBfVGwy` has `chamah-director-preview.vercel.app` attached to `dpl_BUi5CbfwseSNo1Ugb2Usjpa6A2fj`; its project-scoped alias and domain inventories agree.
+
+Conclusion: **no actual routing or ownership risk is evidenced by the strongest available catalog**. The discrepancy is an incomplete/stale view in deployment-detail, project-domain, and domain-scoped API responses. No domain or alias was changed.
+
+## Phase A continuation 2 — MCP boundary
+
+Authenticated Business MCP connector verification is intentionally deferred to the Director’s Chamah Business Chat. Codex did not treat the connector’s prior internal error as a foundation blocker and did not change connector configuration, OAuth, application code, or runtime state. The deferred read-only checks are exactly: `get_profile`, `list_daycares`, `list_policies`, and one bounded staff/daycare read if supported. No preview, approval, commit, upload, import, update, delete, archive, payment, or mutation call is authorized for that verification.
+
+## Phase A final classification
+
+Codex-accessible Phase A facts: **PASS**. Production/Preview identities, serving deployments, canonical alias binding, runtime markers, Supabase separation, migration heads, table/RLS/policy inventories, workflow counts, Edge Functions, MCP health/rejection, and RPC release-matrix differences are recorded from fresh read-only evidence.
+
+External verification pending: authenticated Business MCP read-only calls in Chamah Business Chat. This is outside Codex’s direct capability boundary and is not a code or infrastructure blocker.
