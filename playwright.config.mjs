@@ -1,5 +1,16 @@
 import { defineConfig, devices } from '@playwright/test';
 
+Object.assign(process.env, {
+  CHAMAH_ENVIRONMENT: 'preview',
+  CHAMAH_SUPABASE_URL: 'https://iwsbjudahtjyigecymzd.supabase.co',
+  CHAMAH_SUPABASE_PROJECT_ID: 'iwsbjudahtjyigecymzd',
+  CHAMAH_OAUTH_ISSUER: 'https://iwsbjudahtjyigecymzd.supabase.co/auth/v1',
+  CHAMAH_PORTAL_ORIGIN: 'https://chamah-director-preview.vercel.app',
+  CHAMAH_MCP_ORIGIN: 'https://chamah-director-preview.vercel.app',
+  CHAMAH_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test',
+  CHAMAH_BUILD_COMMIT: 'fbacdf6a51436870c31ebc399026140d71c78952'
+});
+
 export default defineConfig({
   testDir: './tests',
   timeout: 45_000,
@@ -25,7 +36,18 @@ export default defineConfig({
     command: 'npm run start',
     url: 'http://127.0.0.1:4176',
     reuseExistingServer: !process.env.CI,
-    timeout: 30_000
+    timeout: 30_000,
+    env: {
+      ...process.env,
+      CHAMAH_ENVIRONMENT: 'preview',
+      CHAMAH_SUPABASE_URL: 'https://iwsbjudahtjyigecymzd.supabase.co',
+      CHAMAH_SUPABASE_PROJECT_ID: 'iwsbjudahtjyigecymzd',
+      CHAMAH_OAUTH_ISSUER: 'https://iwsbjudahtjyigecymzd.supabase.co/auth/v1',
+      CHAMAH_PORTAL_ORIGIN: 'https://chamah-director-preview.vercel.app',
+      CHAMAH_MCP_ORIGIN: 'https://chamah-director-preview.vercel.app',
+      CHAMAH_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test',
+      CHAMAH_BUILD_COMMIT: 'fbacdf6a51436870c31ebc399026140d71c78952'
+    }
   },
   projects: [
     { name: 'desktop-1440', use: { viewport: { width: 1440, height: 900 } } },

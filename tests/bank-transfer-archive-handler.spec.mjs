@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
+import { webcrypto } from 'node:crypto';
 import vm from 'node:vm';
 import { test } from '@playwright/test';
 
-test('archive uses an allowed audit operation and remains archived on reload', async () => {
+test('legacy archive mutation is blocked before database dispatch', async () => {
   const source = readFileSync(new URL('../supabase/functions/portal-bank-transfer-workbench/index.ts', import.meta.url), 'utf8');
   const migration = readFileSync(new URL('../supabase/migrations/20260713140119_import_audit_and_data_quality.sql', import.meta.url), 'utf8');
   const allowed = new Set(migration.match(/operation varchar\(20\) not null check \(operation in \(([^)]+)\)\)/)[1].match(/'[^']+'/g).map((value) => value.slice(1, -1)));
@@ -15,9 +16,11 @@ test('archive uses an allowed audit operation and remains archived on reload', a
     { bank_transfer_id: childId, parent_transfer_id: parentId, row_number: 2, lifecycle_status: 'ACTIVE' },
   ];
   const audits = [];
+  const dispatched = [];
   let handler;
   const fetch = async (input, options = {}) => {
     const url = new URL(input);
+    if (options.method && url.pathname.includes('/rest/v1/') && !url.pathname.endsWith('/rpc/portal_has_permission')) dispatched.push({ url: url.pathname, method: options.method });
     if (url.pathname === '/auth/v1/user') return Response.json({ id: parentId });
     if (url.pathname.endsWith('/rpc/portal_has_permission')) return Response.json(true);
     if (url.pathname.endsWith('/portal_user_profiles')) return Response.json([{
@@ -47,19 +50,19 @@ test('archive uses an allowed audit operation and remains archived on reload', a
     return Response.json([]);
   };
   const javascript = stripTypeScriptTypes(source.replace(/^import .*\r?\n/, ''));
-  vm.runInNewContext(javascript, { Deno: { env: { get: (name) => name === 'SUPABASE_URL' ? 'https://example.test' : 'test' }, serve: (callback) => { handler = callback; } }, fetch, Response, URL, console });
+  vm.runInNewContext(javascript, { Deno: { env: { get: (name) => name === 'SUPABASE_URL' ? 'https://example.test' : 'test' }, serve: (callback) => { handler = callback; } }, fetch, Response, URL, console, crypto: webcrypto });
   const request = (method, body) => handler(new Request('https://example.test/functions/v1/portal-bank-transfer-workbench', {
     method, headers: { Authorization: 'Bearer test' }, ...(body ? { body: JSON.stringify(body) } : {}),
   }));
   const archived = await request('POST', { action: 'delete', bank_transfer_id: parentId });
-  assert.equal(archived.status, 200);
-  assert.deepEqual((await archived.json()).archived, [parentId, childId]);
-  assert.equal(audits.length, 1);
-  assert.equal(audits[0].operation, 'UPDATE');
-  assert.equal(audits[0].previous_values.parent.bank_transfer_id, parentId);
-  assert.equal(audits[0].previous_values.children[0].bank_transfer_id, childId);
-  assert.equal(audits[0].new_values.lifecycle_status, 'ARCHIVED');
-  assert.deepEqual(rows.map((row) => row.lifecycle_status), ['ARCHIVED', 'ARCHIVED']);
-  const reloaded = await request('GET');
-  assert.deepEqual((await reloaded.json()).transfers, []);
+  assert.equal(archived.status, 409);
+  const body = await archived.json();
+  assert.equal(body.status, 'LEGACY_MUTATION_BLOCKED');
+  assert.equal(body.technical_code, 'LEGACY_MUTATION_BLOCKED');
+  assert.match(body.correlation_id, /^[0-9a-f-]{36}$/i);
+  assert.equal(body.data_written, false);
+  assert.equal(body.current_stage, 'DISPATCH_GUARD');
+  assert.equal(audits.length, 0);
+  assert.deepEqual(dispatched, []);
+  assert.deepEqual(rows.map((row) => row.lifecycle_status), ['ACTIVE', 'ACTIVE']);
 });
