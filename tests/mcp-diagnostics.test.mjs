@@ -19,11 +19,11 @@ test('internal errors receive opaque diagnostic IDs and redact sensitive values'
  const {body}=await invoke({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'list_daycares',arguments:{}}},async url=>{
   if(String(url).endsWith('/auth/v1/user'))return upstream({id:'00000000-0000-4000-8000-000000000001',email:'person@example.test'});
   if(String(url).includes('/rpc/portal_my_access'))return upstream({profile:{is_active:true}});
-  if(String(url).includes('/rpc/portal_my_authorization'))return upstream({active:true,roles:[]});
+  if(String(url).includes('/rpc/portal_my_authorization'))return upstream({active:true,roles:['DIRECTOR']});
   return upstream({code:'PGRST202',message:'secret-token person@example.test 00000000-0000-4000-8000-000000000002'},500);
  });
- const diagnosticId=body.result.structuredContent.diagnostic_id;
- assert.match(diagnosticId,/^[0-9a-f-]{36}$/);
+ const correlationId=body.result.structuredContent.correlation_id;
+ assert.match(correlationId,/^[0-9a-f-]{36}$/);
  assert.equal(body.result.structuredContent.error_code,'PGRST202');
  assert.doesNotMatch(JSON.stringify(body),/secret-token|person@example\.test|00000000-0000-4000-8000-000000000002/);
 });
