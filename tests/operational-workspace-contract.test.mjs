@@ -22,6 +22,8 @@ test('staging contract uses structured rows and preserves unresolved source evid
   assert.match(source,/stable_identifiers/);
   assert.match(source,/data_written:false/);
   assert.match(source,/canonical_writes:false/);
+  assert.match(source,/function parseTransportRow/);
+  assert.match(source,/JSON\.parse\(row\)/);
 });
 test('operational workspace routes are registered',()=>{
   const v=fs.readFileSync('vercel.json','utf8');
