@@ -7,7 +7,12 @@ const API_KEY=process.env.CHAMAH_SUPABASE_PUBLISHABLE_KEY;
 // staging dispatch through the uniquely named Preview RPC.
 const PREVIEW_STAGING_RPC='/rest/v1/rpc/portal_mcp_preview_operational_changes_v1';
 const nativeFetch=global.fetch;
-global.fetch=(url,options)=>nativeFetch(String(url).endsWith('/rest/v1/rpc/portal_mcp_preview_operational_changes')?String(url).replace('/rest/v1/rpc/portal_mcp_preview_operational_changes',PREVIEW_STAGING_RPC):url,options);
+global.fetch=async(url,options)=>{
+  const target=String(url).endsWith('/rest/v1/rpc/portal_mcp_preview_operational_changes')?String(url).replace('/rest/v1/rpc/portal_mcp_preview_operational_changes',PREVIEW_STAGING_RPC):String(url);
+  const response=await nativeFetch(target,options);
+  if(target.endsWith(PREVIEW_STAGING_RPC)&&!response.ok){let payload=null;try{payload=await response.clone().json();}catch{}global.__chamahLastPostgrestError={status:response.status,code:typeof payload?.code==='string'?payload.code:null,message:typeof payload?.message==='string'?payload.message.slice(0,300):null,details:typeof payload?.details==='string'?payload.details.slice(0,500):null,hint:typeof payload?.hint==='string'?payload.hint.slice(0,300):null};}
+  return response;
+};
 const ORIGIN=configuredOrigin();
 const PROTOCOL_VERSION='2025-03-26';
 const CONTRACT_VERSION=undefined;
@@ -43,7 +48,7 @@ const TOOLS=[
 ].filter(t=>['get_profile','prepare_operational_batch','get_operational_batch','list_operational_batches'].includes(t.name)).map(t=>({...t,outputSchema:{type:'object',additionalProperties:true},annotations:{readOnlyHint:!['prepare_operational_batch'].includes(t.name),destructiveHint:false,idempotentHint:true,openWorldHint:false},_meta:{classification:t.name==='prepare_operational_batch'?'STAGING_ONLY':'READ_ONLY',authorization:'AUTHENTICATED_SCOPED'}}));
 const TOOL_MAP=new Map(TOOLS.map(t=>[t.name,t]));
 function envelope(status,code,message,extra={}){return {status,technical_code:code,message,correlation_id:extra.correlation_id||crypto.randomUUID(),batch_id:extra.batch_id||null,current_stage:extra.current_stage||(code==='STAGING_FAILED'?'STAGING_RPC':'REQUEST'),processed_count:extra.processed_count||0,unprocessed_count:extra.unprocessed_count||0,data_written:false,retry_safe:extra.retry_safe??true,resume_available:extra.resume_available??false,next_action:extra.next_action||null};}
-function send(res,status,body,headers={}){res.status(status).setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');for(const [k,v] of Object.entries(headers))if(v)res.setHeader(k,v);return res.end(JSON.stringify(body));}
+function send(res,status,body,headers={}){if(body?.result?.isError&&global.__chamahLastPostgrestError){try{const item=body.result.content?.find(x=>x.type==='text');const parsed=item&&JSON.parse(item.text);if(parsed?.technical_code==='STAGING_FAILED'){Object.assign(parsed,{postgrest_code:global.__chamahLastPostgrestError.code,postgrest_message:global.__chamahLastPostgrestError.message,postgrest_details:global.__chamahLastPostgrestError.details,postgrest_hint:global.__chamahLastPostgrestError.hint});item.text=JSON.stringify(parsed);body.result.structuredContent=parsed;}}catch{}global.__chamahLastPostgrestError=null;}res.status(status).setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');for(const [k,v] of Object.entries(headers))if(v)res.setHeader(k,v);return res.end(JSON.stringify(body));}
 function structured(v){return Array.isArray(v)?{items:v,total:v.length}:v===null||typeof v!=='object'?{value:v}:v;}
 async function api(path,token,body){const r=await fetch(RUNTIME.supabaseUrl+path,{method:body===undefined?'GET':'POST',headers:{apikey:API_KEY,Authorization:'Bearer '+token,...(body===undefined?{}:{'Content-Type':'application/json'})},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(10000)});let d;try{d=await r.json();}catch{d=null;}if(!r.ok){const e=new Error('upstream');e.status=r.status;e.data=d;throw e;}return d;}
 function sourceRows(source){if(!source||typeof source!=='object'||Array.isArray(source))return [];return Array.isArray(source.rows)?source.rows:Array.isArray(source.data)?source.data:Array.isArray(source.records)?source.records:[];}
