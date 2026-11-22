@@ -48,7 +48,7 @@ No application code, migration, database schema, business row, batch, approval, 
 
 ## Phase A gate
 
-Result: **PARTIAL**, not PASS. Fresh live evidence is now recorded below, but the Vercel alias/catalog mismatch and unavailable authenticated Director read-back prevent PASS. Phase B must not start automatically.
+Result: **PARTIAL**, not PASS. Fresh live evidence is recorded below, but Vercel domain ownership cannot be reconciled with the available Vercel scope, the Production Business connector returns connector-side internal errors for all requested read-only calls, and live RPC differences remain. Phase B must not start automatically.
 
 ## Fresh live evidence — 2026-11-22
 
@@ -97,3 +97,51 @@ Preview: 9 functions, all ACTIVE: `portal-workforce-workbench` v2, `portal-setti
 Fresh runtime health, protected-resource metadata, OAuth issuer, and Supabase project identities are correctly separated: Production points to `vyyfuaqmbxvfqgbfqooc`; Preview points to `iwsbjudahtjyigecymzd`. No cross-environment leakage was observed in these checks. The Vercel alias/catalog inconsistency remains unexplained.
 
 Smallest next action: obtain a read-only Vercel domain/alias reconciliation for `chamah-portal.vercel.app` and a supported authenticated Director MCP read-only call on Preview and Production, then update this baseline without changing runtime state.
+
+## Phase A continuation — fresh reconciliation
+
+### Vercel Production domain conclusion
+
+Read-only Vercel evidence:
+
+- Canonical Production runtime-health returned HTTP 200 and identified serving deployment `dpl_AJRcm7soRUiqmU8FDrV3xCW4dTSy` with build marker `4833ad5d1725e1442d9f69304cf51744885a46b2`.
+- `get_deployment` confirmed that deployment is READY, target `production`, and owned by project `prj_6IND7ee2E9s3KispBh6iBDWwQo6X`.
+- `list_project_domains` for the Production project returned only `chamah-manager-portal-v2-preview.vercel.app`, not `chamah-portal.vercel.app`.
+- `get_deployment` reported alias `chamah-manager-portal-v2-preview.vercel.app` for the serving Production deployment.
+- `get_domain` for both requested domains returned HTTP 403 from the connected Vercel scope, so authoritative domain-owner lookup was unavailable.
+
+Conclusion: the canonical Production URL demonstrably serves the Production project/deployment, so real HTTP misrouting is not proven. Ownership and alias attachment cannot be reconciled from the available Vercel API scope. The Preview-named alias and missing Production project-domain entry remain an unexplained catalog/ownership mismatch; no alias change was made.
+
+### Authenticated Production Business MCP
+
+Using only the existing `Chamah Daycare Production` connector:
+
+| Call | Result |
+|---|---|
+| `get_profile` | BLOCKED: connector error `-32603 Internal error` |
+| `list_daycares` | BLOCKED: connector error `-32603 Internal error` |
+| `list_policies` | BLOCKED: connector error `-32603 Internal error` |
+| bounded staff/daycare read | Not attempted because no daycare ID could be obtained |
+
+No authenticated identity, role classification, or connector-level endpoint confirmation was returned. No initialize/tools/list protocol calls were fabricated. No mutation-capable tool was called.
+
+### Live RPC reconciliation
+
+Evidence source: read-only `pg_proc`, `pg_get_function_identity_arguments`, `pg_get_function_result`, `prosecdef`, and `has_function_privilege` queries against both Supabase projects; repository definitions in `api/mcp.js`, `supabase/functions/portal-mcp-server/index.ts`, and `supabase/migrations/`.
+
+| Capability | Production | Preview | Impact |
+|---|---|---|---|
+| Authorization/profile | `portal_my_authorization()` → `jsonb`; authenticated EXECUTE; SECURITY DEFINER | Same | Aligned |
+| Daycare/policy/staff reads | `portal_mcp_list_daycares()`, `portal_mcp_list_policies(text)`, `portal_mcp_staff_by_daycare(uuid)`; table returns; authenticated EXECUTE; SECURITY DEFINER | Same | Aligned |
+| Operational preview/approval | Contract-versioned and legacy overloads; authenticated EXECUTE; SECURITY DEFINER | Same | Compatibility overlap |
+| Operational commit | Legacy overloads plus `portal_mcp_commit_operational_changes_v1(uuid,uuid,text)` | Legacy overloads; no v1 wrapper returned | Preview lacks the Production versioned wrapper |
+| Daycare commit | Present; SECURITY DEFINER | Present; SECURITY DEFINER | Aligned |
+| Batch read-back | `get_operational_batch(uuid)` plus offset/limit page function | Same plus cursor/detail-type page function and `get_operational_batch_status(uuid)` | Preview has newer bounded recovery/read-back contract |
+| Request-origin audit | `portal_mcp_record_request_origin(jsonb)` present | Not returned by live routine inventory | Production has an audit adapter absent from Preview |
+| Anonymous access | `anon` EXECUTE false for inspected routines | `anon` EXECUTE false for inspected routines | Aligned |
+
+Both environments expose the core read/preview/approval/commit families, but their live signatures and grants are not identical. Production has the versioned commit wrapper and request-origin audit routine; Preview has the newer bounded status/cursor read-back functions. This release-matrix mismatch blocks Phase A PASS until explicitly reconciled through an authorized future change. No migration was applied.
+
+### No-change confirmation
+
+This continuation changed no code, database, migration, deployment, alias, domain, environment variable, user, permission, connector, or business data. Only this baseline document was updated.
