@@ -32,6 +32,18 @@ test('operational workspace routes are registered',()=>{
 test('Preview canonical route delegates to the closed Operational Workspace catalog',()=>{
   const mcp=fs.readFileSync('api/mcp.js','utf8');
   assert.match(mcp,/RUNTIME\.environment==='preview'.*mcp-operational-workspace/s);
-  assert.match(source,/filter\(t=>\['get_profile','prepare_operational_batch','get_operational_batch','list_operational_batches'\]/);
+  assert.match(source,/filter\(t=>READ_TOOLS\.includes\(t\.name\)\|\|t\.name==='prepare_operational_batch'/);
   assert.match(source,/RUNTIME\.supabaseProjectId!=='iwsbjudahtjyigecymzd'/);
+});
+
+test('read and analysis tools are cataloged and never use staging dispatch',()=>{
+  for(const tool of ['operational_catalog','operational_report','analyze_operational_data','search_operational_records']) assert.match(source,new RegExp(`name:'${tool}'`));
+  assert.match(source,/operational_catalog:\['portal_mcp_operational_contract_catalog'/);
+  assert.match(source,/operational_report:\['portal_mcp_operational_report'/);
+  assert.match(source,/analyze_operational_data:\['portal_mcp_analyze_operational_data'/);
+  assert.match(source,/search_operational_records:\['portal_mcp_search_records'/);
+  assert.match(source,/if\(name==='prepare_operational_batch'\)/);
+  assert.doesNotMatch(source,/if\(name==='operational_catalog'\).*portal_mcp_preview_operational_changes/s);
+  assert.doesNotMatch(source,/if\(name==='operational_report'\).*portal_mcp_preview_operational_changes/s);
+  assert.doesNotMatch(source,/if\(name==='analyze_operational_data'\).*portal_mcp_preview_operational_changes/s);
 });
