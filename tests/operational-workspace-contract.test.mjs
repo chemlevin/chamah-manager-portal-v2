@@ -37,13 +37,17 @@ test('Preview canonical route delegates to the closed Operational Workspace cata
 });
 
 test('read and analysis tools are cataloged and never use staging dispatch',()=>{
-  for(const tool of ['operational_catalog','operational_report','analyze_operational_data','search_operational_records']) assert.match(source,new RegExp(`name:'${tool}'`));
+  for(const tool of ['operational_catalog','operational_report','inspect_source','reconcile_source','analyze_operational_data','search_operational_records']) assert.match(source,new RegExp(`name:'${tool}'`));
   assert.match(source,/operational_catalog:\['portal_mcp_operational_contract_catalog'/);
   assert.match(source,/operational_report:\['portal_mcp_operational_report'/);
   assert.match(source,/analyze_operational_data:\['portal_mcp_analyze_operational_data'/);
   assert.match(source,/search_operational_records:\['portal_mcp_search_records'/);
+  assert.match(source,/if\(name==='inspect_source'\|\|name==='reconcile_source'\)/);
+  assert.match(source,/const READ_TOOLS=\[[^\]]*'inspect_source'[^\]]*'reconcile_source'/);
   assert.match(source,/if\(name==='prepare_operational_batch'\)/);
   assert.doesNotMatch(source,/if\(name==='operational_catalog'\).*portal_mcp_preview_operational_changes/s);
   assert.doesNotMatch(source,/if\(name==='operational_report'\).*portal_mcp_preview_operational_changes/s);
+  const readHandler=source.match(/if\(name==='inspect_source'\|\|name==='reconcile_source'\)[\s\S]*?(?=if\(name==='prepare_operational_batch'\))/)?.[0]||'';
+  assert.doesNotMatch(readHandler,/portal_mcp_preview_operational_changes/);
   assert.doesNotMatch(source,/if\(name==='analyze_operational_data'\).*portal_mcp_preview_operational_changes/s);
 });

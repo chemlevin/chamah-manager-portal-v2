@@ -22,7 +22,7 @@ const ROW_ITEM_SCHEMA={type:'object',properties:{row_number:{type:'integer',mini
 const FORBIDDEN_CODE='COMMIT_FORBIDDEN';
 if(RUNTIME.environment!=='preview'||RUNTIME.supabaseProjectId!=='iwsbjudahtjyigecymzd'||RUNTIME.issuer!=='https://iwsbjudahtjyigecymzd.supabase.co/auth/v1')throw new Error('Operational Workspace is Preview-only');
 const ALIASES={entity:['entity','domain','type','סוג'],values:['values','data','record','fields','ערכים']};
-const READ_TOOLS=['get_profile','operational_catalog','operational_report','search_operational_records','get_operational_record','search_daycares','list_daycares','staff_by_daycare','employee_profile','find_employee_duplicates','child_reconciliation','analyze_operational_data','analyze_suppliers_payments','get_operational_batch','get_operational_batch_status','get_operational_batch_page','list_operational_batches','list_batch_discrepancies'];
+const READ_TOOLS=['get_profile','operational_catalog','operational_report','inspect_source','reconcile_source','search_operational_records','get_operational_record','search_daycares','list_daycares','staff_by_daycare','employee_profile','find_employee_duplicates','child_reconciliation','analyze_operational_data','analyze_suppliers_payments','get_operational_batch','get_operational_batch_status','get_operational_batch_page','list_operational_batches','list_batch_discrepancies'];
 const TOOLS=[
  {name:'get_profile',description:'Read authenticated profile and server-resolved role',inputSchema:{type:'object',properties:{},additionalProperties:false}},
  {name:'operational_catalog',description:'Read the explicit canonical operational contract and supported fields',inputSchema:{type:'object',properties:{},additionalProperties:false}},
