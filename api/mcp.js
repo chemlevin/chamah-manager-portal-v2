@@ -477,6 +477,6 @@ module.exports=async function handler(req,res){
   const diagnosticId=mcpDiagnostic(req,m.method,name,rpc,isDirector?'DIRECTOR':'MANAGER',e);
   const safeMessage=redactUpstreamDiagnostic(e.upstreamMessage||'Upstream request rejected');
   const detail=e.status===401?'Session expired or invalid':e.status===403?'Permission denied':(e.upstreamCode||'UPSTREAM_ERROR')+': '+safeMessage;
-  return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:detail}],structuredContent:{error_code:e.upstreamCode||'UPSTREAM_ERROR',message:safeMessage,rpc,diagnostic_id:diagnosticId},isError:true}});
+  const stagePrefix='COMMIT_STAGE_DIAGNOSTIC:';\n  const stageText=String(e.upstreamMessage||'');\n  let stageDiagnostic;\n  const stageStart=stageText.indexOf(stagePrefix);\n  if(stageStart>=0){try{stageDiagnostic=JSON.parse(stageText.slice(stageStart+stagePrefix.length).split('\\n')[0]);}catch{stageDiagnostic=undefined;}}\n  const structured={error_code:e.upstreamCode||'UPSTREAM_ERROR',message:safeMessage,rpc,diagnostic_id:diagnosticId};\n  if(stageDiagnostic&&typeof stageDiagnostic==='object')structured.stage_diagnostic=stageDiagnostic;\n  return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:detail}],structuredContent:structured,isError:true}});
  }
 };
