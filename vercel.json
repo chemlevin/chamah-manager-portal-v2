@@ -76,7 +76,7 @@
     },
     {
       "src": "/api/mcp-operational-workspace",
-      "dest": "/api/mcp-operational-workspace.js"
+      "dest": "/api/mcp-operational-workspace-runtime.js"
     },
     {
       "src": "/api/mcp-operational-workspace-metadata",
