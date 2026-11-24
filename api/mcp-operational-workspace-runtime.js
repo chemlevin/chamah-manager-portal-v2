@@ -10,6 +10,13 @@ const EXPECTED={
 const ENV=EXPECTED[RUNTIME.environment];
 if(!ENV||RUNTIME.supabaseProjectId!==ENV.project||RUNTIME.issuer!==ENV.issuer||configuredOrigin()!==ENV.origin)throw new Error('Operational Workspace runtime mismatch');
 const PRODUCTION=RUNTIME.environment==='production';
+if(RUNTIME.environment==='preview'&&RUNTIME.supabaseProjectId!=='iwsbjudahtjyigecymzd')throw new Error('Preview Supabase project mismatch');
+// Production has one canonical MCP resource: /api/mcp.  Keep the
+// Operational Workspace URL as a compatibility alias for the connector, but
+// delegate it to the full Production handler so tools/list and tools/call do
+// not expose a narrower contract than the canonical endpoint. Preview remains
+// on this isolated Operational Workspace handler below.
+const CANONICAL_PRODUCTION_HANDLER=PRODUCTION?require('./mcp.js'):null;
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SCAN={name:'production_inventory_scan',description:'Director-only read-only Production inventory scan; no canonical business-data writes',inputSchema:{type:'object',properties:{project_id:{type:'string',const:'vyyfuaqmbxvfqgbfqooc'}},required:['project_id'],additionalProperties:false},annotations:{readOnlyHint:true,destructiveHint:false},_meta:{classification:'READ_ONLY',authorization:'DIRECTOR_ONLY'}};
 const CATALOG={name:'operational_catalog',description:'Read the environment-pinned operational catalog',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,destructiveHint:false}};
@@ -23,7 +30,7 @@ async function api(path,token,body){const r=await fetch(RUNTIME.supabaseUrl+path
 function authorizedTools(auth){return PRODUCTION&&auth.roles?.includes('DIRECTOR')?PRODUCTION_TOOLS:PREVIEW_TOOLS;}
 function validate(name,args,auth){if(name==='production_inventory_scan'){if(!PRODUCTION||!auth.roles?.includes('DIRECTOR'))return {status:403,message:'Director authorization required'};if(Object.keys(args).length!==1||args.project_id!==EXPECTED.production.project)return {status:400,message:'Production project mismatch'};}if(name==='child_reconciliation'&&(typeof args.month!=='string'||Number.isNaN(Date.parse(args.month))))return {status:400,message:'Invalid reconciliation month'};return null;}
 function dispatch(name,args){if(name==='operational_catalog')return ['portal_mcp_operational_contract_catalog',{}];if(name==='child_reconciliation')return ['portal_mcp_child_reconciliation',{p_month:args.month,p_daycare_id:args.daycare_id||null,p_child_id:args.child_id||null}];if(name==='production_inventory_scan')return ['portal_director_production_inventory_scan',{p_project_id:EXPECTED.production.project}];return null;}
-module.exports=async function handler(req,res){
+async function operationalHandler(req,res){
   const metadata=`${configuredOrigin()}/api/mcp-operational-workspace-metadata`; const challenge=`Bearer resource_metadata="${metadata}", error="invalid_token"`;
   if(req.method==='OPTIONS')return res.status(204).end(); if(req.method!=='POST')return send(res,405,{error:'method_not_allowed'});
   const raw=String(req.headers.authorization||''); if(!/^Bearer [A-Za-z0-9._~-]+$/.test(raw))return send(res,401,{error:'authentication_required'},{'WWW-Authenticate':challenge});
@@ -36,3 +43,4 @@ module.exports=async function handler(req,res){
   const invalid=validate(name,args,auth); if(invalid)return send(res,invalid.status,error(id,invalid.status===403?-32003:-32602,invalid.message)); if(name==='get_profile'){const out={id:user.id,email:String(user.email||''),role_classification:auth.roles?.includes('DIRECTOR')?'DIRECTOR':'MANAGER'};return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(out)}],structuredContent:out,isError:false}});}
   const call=dispatch(name,args); if(!call)return send(res,200,error(id,-32602,'Unsupported tool')); try{const out=await api('/rest/v1/rpc/'+call[0],token,call[1]);return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(out)}],structuredContent:out,isError:false}});}catch(e){return send(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify({status:e.status||500,error:'READ_FAILED'})}],isError:true}});}
 };
+module.exports=CANONICAL_PRODUCTION_HANDLER||operationalHandler;
