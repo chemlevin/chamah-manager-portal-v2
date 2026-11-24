@@ -16,7 +16,7 @@ test('institution users discover only scoped read tools',()=>{
 });
 
 test('MCP schema advertises tool-list changes and a new version',()=>{
-  assert.match(api,/listChanged:false/);
+  assert.match(api,/listChanged:true/);
   assert.match(api,/version:SERVER_VERSION,contractVersion:CONTRACT_VERSION/);
 });
 

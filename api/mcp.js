@@ -11,7 +11,7 @@ const API_KEY = process.env.CHAMAH_SUPABASE_PUBLISHABLE_KEY;
 const MCP_ORIGIN = configuredOrigin();
 const AUTH_SERVER = RUNTIME.issuer;
 const PROTOCOL_VERSION = '2025-03-26';
-const SERVER_VERSION = '1.6.0';
+const SERVER_VERSION = '1.7.0';
 const CONTRACT_VERSION = '1.0.0';
 const MAX_OPERATIONAL_BATCH_PAGE_RESPONSE_BYTES = 300000;
 const BASE_TOOLS = [
@@ -219,7 +219,7 @@ module.exports=async function handler(req,res){
  const id=m.id;
  // Streamable HTTP has no reliable notification channel to connected clients.
  // Breaking callable-schema changes require an explicit manifest/version bump.
- if(m.method==='initialize')return send(res,200,{jsonrpc:'2.0',id,result:{protocolVersion:PROTOCOL_VERSION,capabilities:{tools:{listChanged:false}},serverInfo:{name:isDirector?'chamah-portal-director':'chamah-portal-institution-readonly',version:SERVER_VERSION,contractVersion:CONTRACT_VERSION}}});
+ if(m.method==='initialize')return send(res,200,{jsonrpc:'2.0',id,result:{protocolVersion:PROTOCOL_VERSION,capabilities:{tools:{listChanged:true}},serverInfo:{name:isDirector?'chamah-portal-director':'chamah-portal-institution-readonly',version:SERVER_VERSION,contractVersion:CONTRACT_VERSION}}});
  if(m.method==='ping')return send(res,200,{jsonrpc:'2.0',id,result:{}});
  if(m.method==='tools/list')return send(res,200,{jsonrpc:'2.0',id,result:{tools:availableTools}});
  if(m.method!=='tools/call')return send(res,200,error(id,-32601,'Method not found'));

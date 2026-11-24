@@ -5806,6 +5806,23 @@ Production URL (if deployed): `https://chamah-portal.vercel.app`
 Blockers: None for the authorized acceptance scope.
 Next recommended TRACK: None.
 
+TRACK: CHAMAH-LINEAGE-CONNECTOR-CATALOG-REGISTRATION-2026-11-24-001
+Status: IMPLEMENTED LOCALLY; Production deployment and connector refresh blocked
+Summary: Preserved the existing lineage tool names and schemas and enabled MCP tool-list change signaling with a server-version bump so an existing Production connector can refresh its cached callable catalog.
+Root cause: `api/mcp.js` already contained the authoritative `BASE_TOOLS` entries and dispatch handlers for both lineage tools, but `initialize` advertised `tools.listChanged:false`, while no repository-side external connector manifest or refresh API is available.
+Files changed: api/mcp.js; tests/track120-operational-mcp.test.mjs; PROJECT_LOG.md
+Database changes: None.
+Migrations: None.
+Edge Functions: None.
+Tests: Focused lineage contract, role-boundary, Production tools/list, and MCP discovery-refresh tests PASS (13 tests).
+Production impact: None; no deployment, connector refresh, tool invocation, approval, commit, SQL, or business-data operation performed.
+Commit SHA: Working tree uncommitted.
+Branch: `codex/oauth-canonical-host`.
+Preview URL: None.
+Production URL (if deployed): `https://chamah-portal.vercel.app/api/mcp` (not redeployed).
+Blockers: Safe Production deployment cannot be performed from this dirty checkout without bundling unrelated user changes; the installed connector-management surface exposes no existing-connector catalog refresh/reconnect action. Therefore fresh Production `get_profile`/callability verification after this fix remains pending.
+Next recommended TRACK: Deploy only the reviewed registration-refresh diff through the approved Production release path, reconnect the existing Production connector, verify DIRECTOR and both tools/list entries, then run the separately authorized Preview-only lineage operation.
+
 ### TRACK153 — Fix Preview OAuth reconnect origin
 
 TRACK: TRACK153
