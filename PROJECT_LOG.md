@@ -6873,3 +6873,34 @@ Preview URL: None.
 Production URL (if deployed): `https://chamah-portal.vercel.app` (unchanged; database migration only).
 Blockers: None.
 Next recommended TRACK: Director review of READY batch `8a5761b8-d2d8-49dd-89b6-fac1a5dc900c`; Approval and Commit remain separately governed and were not requested or run.
+
+## 2026-11-25 - TRACK: CHAMAH-CALCULATION-RULES-FOUNDATION-GIT-001
+
+Objective: Recover the verified Production calculation-rule foundation into Git without changing Production data, schema, calculations, or deployments.
+
+Verified and implemented:
+
+- Runtime registry and live Supabase project listing both identify `vyyfuaqmbxvfqgbfqooc` (`chamah-manager`) as Production.
+- Production migration history contains `20261125161302_canonical_calculation_rules_and_contexts` and `20261125161358_enforce_calculation_rule_immutability`; their stored migration statements were recovered into matching repository files.
+- Read-only catalog inspection verified the live tables, columns, constraints, foreign keys, indexes, RLS policies, triggers, functions, comments, function ACLs, and security-invoker readable view. Both new tables contained zero rows.
+- Commit `00ead0b` was not present after fetching all origin refs, so recovery used the Production migration ledger and live catalog instead.
+- Added static contract tests and a rollback-only isolated SQL behavior test. No synthetic or business rows were written to Production.
+- Documented that approval JSON is stored but not verified, overlaps/conflicts are not prevented, version/concurrency enforcement is incomplete, existing calculations do not consume this registry, and the governed operational Preview/Approval/Commit workflow does not support these entities.
+- Found owner-only ACLs on the two tables and readable view. This prevents intended authenticated and service-role reads despite RLS/view design. Added a SELECT-only, explicitly unapplied repair proposal for separate review.
+
+TRACK: CHAMAH-CALCULATION-RULES-FOUNDATION-GIT-001
+Status: COMPLETE
+Summary: Recovered and reviewed the exact deployed calculation-rule foundation; added tests, documentation, and an unapplied minimal access-fix proposal.
+Root cause: The Production migrations were missing from Git, and their object ACLs did not grant the intended readers access.
+Files changed: `supabase/migrations/20261125161302_canonical_calculation_rules_and_contexts.sql`; `supabase/migrations/20261125161358_enforce_calculation_rule_immutability.sql`; `supabase/proposals/calculation_rule_read_grants.sql`; `supabase/tests/calculation_rules_foundation.sql`; `tests/calculation-rules-foundation.test.mjs`; `docs/architecture/CALCULATION_RULES_FOUNDATION.md`; `PROJECT_LOG.md`.
+Database changes: None.
+Migrations: Recovered two already-applied Production migration files; no migration was applied in this task.
+Edge Functions: None.
+Tests: Node contract test; migration preflight; SQL behavior test supplied for isolated full-schema execution only.
+Production impact: None; zero Production writes, migrations, functions, deployments, rules, or contexts.
+Commit SHA: `72fa31e8c9298992aeb8bbb9e7ef298052c9ec4d` before rebase onto the verified deployed source branch.
+Branch: `codex/chamah-calculation-rules-foundation-git-001`.
+Preview URL: None.
+Production URL (if deployed): None.
+Blockers: The rollback-only SQL behavior test requires an isolated database with the complete repository migration chain; no local container runtime was available in this session. Production access grants remain defective and the proposed repair is intentionally unapplied.
+Next recommended TRACK: Approve and validate read grants in isolated Preview, then design the governed rule-specific approval/conflict/version workflow before entering the first rule.
