@@ -47,4 +47,10 @@ test.describe('new portal approved budget calculations', () => {
     expect(model.issues).toContainEqual(expect.objectContaining({ code: 'MISSING_HOURLY_BUDGET_COST' }));
     expect(summarizeBudget(model).payrollBudget).toBeNull();
   });
+
+  test('uses a calculated daycare operating result when available', () => {
+    const model = calculateBudgetModel({ ...baseData, daycareOperatingResults: [{ daycare_id: 'dc', school_year_month_id: 'm9', operating_days: 20, regular_minutes: 10200, short_day_minutes: 1080, calculation_status: 'CALCULATED' }] }, { schoolYearId: 'sy', months: new Set(['2026-09']), unitIds: ['unit'] });
+    expect(summarizeBudget(model).requiredHours).toBe(564);
+    expect(summarizeBudget(model).expenseBudget).toBe(3360);
+  });
 });

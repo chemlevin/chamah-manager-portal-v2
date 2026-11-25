@@ -48,13 +48,16 @@ export function calculateBudgetModel(data, options) {
     const monthRow = monthByKey.get(key);
     if (!monthRow) { addIssue('MISSING_MONTH', 'חודש הדיווח אינו מוגדר בשנת הלימודים.', { month: key }); continue; }
     const calendar = data.workCalendars.find((item) => item.school_year_month_id === monthRow.school_year_month_id);
-    const workdays = calendar ? numberValue(calendar.sun_thu_workdays) + numberValue(calendar.friday_workdays) : null;
-    const operatingHours = calendar ? numberValue(calendar.sun_thu_hours_per_day) * numberValue(calendar.sun_thu_workdays) + numberValue(calendar.friday_hours_per_day) * numberValue(calendar.friday_workdays) : null;
+    const legacyWorkdays = calendar ? numberValue(calendar.sun_thu_workdays) + numberValue(calendar.friday_workdays) : null;
+    const legacyOperatingHours = calendar ? numberValue(calendar.sun_thu_hours_per_day) * numberValue(calendar.sun_thu_workdays) + numberValue(calendar.friday_hours_per_day) * numberValue(calendar.friday_workdays) : null;
     if (!calendar) addIssue('MISSING_WORK_CALENDAR', 'חסרים ימי עבודה ושעות פעילות לחודש.', { month: key });
     const staffingParameter = data.staffingParameters.find((item) => item.school_year_id === options.schoolYearId && item.lifecycle_status === 'ACTIVE' && inMonthIdRange(monthRow.school_year_month_id, item.effective_from_month_id, item.effective_to_month_id, monthOrder));
     if (!staffingParameter?.hourly_budget_cost) addIssue('MISSING_HOURLY_BUDGET_COST', 'עלות שעת תקציב לצוות לא יובאה מ-Google Sheets v2.', { month: key });
 
     for (const daycare of relevantDaycares) {
+      const operatingResult = (data.daycareOperatingResults || []).find((item) => item.daycare_id === daycare.daycare_id && item.school_year_month_id === monthRow.school_year_month_id && item.calculation_status === 'CALCULATED');
+      const workdays = operatingResult ? numberValue(operatingResult.operating_days) : legacyWorkdays;
+      const operatingHours = operatingResult ? (numberValue(operatingResult.regular_minutes) + numberValue(operatingResult.short_day_minutes)) / 60 : legacyOperatingHours;
       const dsy = data.dsy.find((item) => item.daycare_id === daycare.daycare_id && item.school_year_id === options.schoolYearId && item.is_operating);
       if (!dsy) { addIssue('MISSING_DAYCARE_YEAR', 'חסרה הגדרת מעון לשנת הלימודים.', { month: key, daycare: daycare.display_name }); continue; }
       const activeClassrooms = data.classrooms.filter((item) => item.daycare_school_year_id === dsy.daycare_school_year_id && item.lifecycle_status === 'ACTIVE' && inDateRange(key, item.effective_from, item.effective_to));
