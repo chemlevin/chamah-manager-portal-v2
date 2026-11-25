@@ -46,5 +46,6 @@ The Director must define and review the instruction, source evidence, applicabil
 - `supabase/migrations/20261125161302_canonical_calculation_rules_and_contexts.sql` — original canonical tables/view.
 - `supabase/migrations/20261125161358_enforce_calculation_rule_immutability.sql` — original active-version immutability.
 - `supabase/migrations/20261125200346_rules_contexts_governed_workflow.sql` — stable versions, applicability groups, handlers/results, least privilege, resolver, workflow, approval, audit, and MCP RPCs.
+- `supabase/migrations/20261125201106_calculation_rule_fk_indexes.sql` — covering indexes for the new history, approval, applicability and result foreign keys.
 - `supabase/tests/calculation_rules_foundation.sql` — rollback-only isolated workflow/execution/security test.
 - `tests/calculation-rules-foundation.test.mjs` and `tests/rules-contexts-governed-workflow.test.mjs` — repository contract tests.

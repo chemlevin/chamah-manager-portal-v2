@@ -6,15 +6,15 @@ This is the only authoritative current-runtime identity registry. All other docu
 
 Status values: `VERIFIED`, `UNKNOWN`, `BLOCKED`, `STALE`.
 
-Verification date for entries below: `2026-11-21`.
+Verification date for current entries below: `2026-11-25`.
 
 ## Repository
 
 | Field | Value | Status | Evidence |
 |---|---|---|---|
-| Active branch | `codex/oauth-canonical-host` | VERIFIED | Git inspection, 2026-11-21 |
-| Active commit | `6a5325d2a283f49b4e627ab50446132557232dea` | VERIFIED | Git inspection, 2026-11-21 |
-| Working tree | Dirty | VERIFIED | Git inspection, 2026-11-21 |
+| Active branch | `codex/chamah-calculation-rules-foundation-git-001` | VERIFIED | Git inspection and GitHub push, 2026-11-25 |
+| Active commit | `85043bf5ca65f7a8a63e8ecbdcfcd941abe8b0cf` | VERIFIED | Git inspection and Vercel runtime read-back, 2026-11-25 |
+| Working tree | Completion documentation pending | VERIFIED | Git inspection, 2026-11-25 |
 
 ## Production
 
@@ -23,12 +23,12 @@ Verification date for entries below: `2026-11-21`.
 | Vercel project | `chamah-portal` | VERIFIED | Vercel read-only evidence, 2026-11-21 |
 | Vercel project ID | `prj_6IND7ee2E9s3KispBh6iBDWwQo6X` | VERIFIED | Vercel read-only evidence, 2026-11-21 |
 | Canonical alias | `https://chamah-portal.vercel.app` | VERIFIED | Vercel read-only evidence, 2026-11-21 |
-| READY deployment | `dpl_AJRcm7soRUiqmU8FDrV3xCW4dTSy` | VERIFIED | Vercel read-only evidence, 2026-11-21 |
-| Serving deployment SHA | Not established in this registry | UNKNOWN | Requires deployment read-back |
-| Supabase project | Not established in this registry | UNKNOWN | Requires environment-specific verification |
+| READY deployment | `dpl_27vjWyy3HwmT8KyuAV7vCez5vH1j` | VERIFIED | Canonical runtime health read-back, 2026-11-25 |
+| Serving deployment SHA | `85043bf5ca65f7a8a63e8ecbdcfcd941abe8b0cf` | VERIFIED | Canonical runtime health read-back, 2026-11-25 |
+| Supabase project | `vyyfuaqmbxvfqgbfqooc` (`chamah-manager`) | VERIFIED | Vercel environment, Supabase project and live schema read-back, 2026-11-25 |
 | Edge Function versions | Not established in this registry | UNKNOWN | Requires Production inspection |
-| MCP origin/catalog | Not established in this registry | UNKNOWN | Requires Production inspection |
-| OAuth issuer | Not established in this registry | UNKNOWN | Requires Production inspection |
+| MCP origin/catalog | `https://chamah-portal.vercel.app/api/mcp`; server source `1.8.0` | VERIFIED DEPLOYED / NEW TOOL MANIFEST CACHE PENDING | Runtime health, deployed source, authenticated Director profile, 2026-11-25 |
+| OAuth issuer | `https://vyyfuaqmbxvfqgbfqooc.supabase.co/auth/v1` | VERIFIED | Canonical runtime health and authenticated profile, 2026-11-25 |
 
 ## Code Preview
 
@@ -37,17 +37,17 @@ Verification date for entries below: `2026-11-21`.
 | Vercel project | `chamah-manager-portal-v2-preview` | VERIFIED | Vercel and `.vercel/project.json`, 2026-11-21 |
 | Vercel project ID | `prj_TLJVhQfA8oTkM5MCqfehqmBfVGwy` | VERIFIED | Vercel and `.vercel/project.json`, 2026-11-21 |
 | Preview origin | `https://chamah-director-preview.vercel.app` | VERIFIED AS CONFIGURED | Vercel environment evidence, 2026-11-21 |
-| Supabase project | `iwsbjudahtjyigecymzd` | BLOCKED | Configured value; isolation/deployed state not independently verified |
-| Business-data use | Prohibited until isolation is proven | BLOCKED | Governance rule |
+| Supabase project | `iwsbjudahtjyigecymzd` (`chamah-manager-preview`) | VERIFIED ISOLATED | Distinct project, organization, host and region; no foreign servers/dblink, 2026-11-25 |
+| Business-data use | Synthetic rollback-only workflow tests | VERIFIED | Transaction rollback and zero rule/context/result/batch read-back, 2026-11-25 |
 
 ## Business-data Preview
 
 | Field | Value | Status | Evidence |
 |---|---|---|---|
 | Vercel project | Not approved | BLOCKED | No independently verified isolated mapping |
-| Supabase project | `iwsbjudahtjyigecymzd` is a candidate only | BLOCKED | Isolation boundary unproven |
-| MCP/OAuth identity | Not approved | BLOCKED | Requires Director-approved isolated mapping |
-| Business-data ingestion | Prohibited | BLOCKED | Governance rule |
+| Supabase project | `iwsbjudahtjyigecymzd` | VERIFIED ISOLATED FOR SYNTHETIC RULE TESTS | Distinct project/organization/host/region and no database links, 2026-11-25 |
+| MCP/OAuth identity | Preview staging connector remains separately constrained | VERIFIED | Preview route/source and deployment health, 2026-11-25 |
+| Business-data ingestion | No Production data; synthetic transaction tests must roll back | VERIFIED CONSTRAINT | Zero post-test registry counts, 2026-11-25 |
 
 ## Accessible Supabase project
 
@@ -55,7 +55,7 @@ Verification date for entries below: `2026-11-21`.
 |---|---|---|---|
 | Project | `chamah-manager` / `vyyfuaqmbxvfqgbfqooc` | VERIFIED | Supabase read-only evidence, 2026-11-21 |
 | Status | `ACTIVE_HEALTHY` | VERIFIED | Supabase read-only evidence, 2026-11-21 |
-| Environment relationship | Not established | UNKNOWN | Requires environment-specific verification |
+| Environment relationship | Production | VERIFIED | Vercel Production configuration and canonical runtime health, 2026-11-25 |
 
 ## Edge Functions observed
 
