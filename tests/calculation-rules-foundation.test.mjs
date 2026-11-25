@@ -7,7 +7,7 @@ const root = process.cwd();
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 const foundation = read("supabase/migrations/20261125161302_canonical_calculation_rules_and_contexts.sql");
 const immutability = read("supabase/migrations/20261125161358_enforce_calculation_rule_immutability.sql");
-const proposedAccessFix = read("supabase/proposals/calculation_rule_read_grants.sql");
+const workflow = read("supabase/migrations/20261125200346_rules_contexts_governed_workflow.sql");
 
 test("foundation preserves canonical IDs, typed contexts, RLS, and an invoker view", () => {
   assert.match(foundation, /calculation_rule_id uuid primary key default gen_random_uuid\(\)/);
@@ -37,14 +37,9 @@ test("deployed migration does not misrepresent stored JSON as verified approval"
   assert.doesNotMatch(foundation, /exclude using gist|no overlap|conflict/i);
 });
 
-test("unapplied access repair is minimal and read-only", () => {
-  const statements = proposedAccessFix
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("--"));
-  assert.deepEqual(statements, [
-    "grant select on table public.calculation_rules to authenticated, service_role;",
-    "grant select on table public.calculation_rule_contexts to authenticated, service_role;",
-    "grant select on table public.calculation_rule_context_readable to authenticated, service_role;",
-  ]);
+test("governed workflow repairs read access without granting direct writes", () => {
+  assert.match(workflow, /grant select on public\.calculation_rules,public\.calculation_rule_contexts/);
+  assert.match(workflow, /grant select on public\.calculation_rule_context_readable to authenticated,service_role/);
+  assert.match(workflow, /revoke all on public\.calculation_rules,public\.calculation_rule_contexts/);
+  assert.doesNotMatch(workflow, /grant (insert|update|delete).*calculation_rules/i);
 });

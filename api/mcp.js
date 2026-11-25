@@ -12,7 +12,7 @@ const API_KEY = process.env.CHAMAH_SUPABASE_PUBLISHABLE_KEY;
 const MCP_ORIGIN = configuredOrigin();
 const AUTH_SERVER = RUNTIME.issuer;
 const PROTOCOL_VERSION = '2025-03-26';
-const SERVER_VERSION = '1.7.0';
+const SERVER_VERSION = '1.8.0';
 const CONTRACT_VERSION = '1.0.0';
 const MAX_OPERATIONAL_BATCH_PAGE_RESPONSE_BYTES = 300000;
 const BASE_TOOLS = [
@@ -41,6 +41,14 @@ const BASE_TOOLS = [
   {name:'analyze_suppliers_payments',description:'Analyze supplier and payment quality',inputSchema:{type:'object',properties:{},additionalProperties:false}},
   {name:'list_policies',description:'List published organizational policies visible to the authenticated user',inputSchema:{type:'object',properties:{search:{type:'string',maxLength:120}},additionalProperties:false}},
   {name:'read_policy',description:'Read the published version of an authorized policy (never drafts)',inputSchema:{type:'object',properties:{document_id:{type:'string',format:'uuid'}},required:['document_id'],additionalProperties:false}},
+  {name:'list_calculation_rules',description:'List governed rule versions with truthful stored, applicable, implemented and enforced status',inputSchema:{type:'object',properties:{rule_type:{type:'string'},lifecycle_status:{type:'string'}},additionalProperties:false}},
+  {name:'read_calculation_rule',description:'Read one stable rule identity, an exact or latest version, applicability links and handler status',inputSchema:{type:'object',properties:{rule_key:{type:'string',format:'uuid'},version:{type:'integer',minimum:1}},required:['rule_key'],additionalProperties:false}},
+  {name:'preview_calculation_rule',description:'Validate and preview an exact rule definition and canonical applicability payload without committing it',inputSchema:{type:'object',properties:{payload:{type:'object'},idempotency_key:{type:'string',minLength:8,maxLength:160}},required:['payload','idempotency_key'],additionalProperties:false}},
+  {name:'request_calculation_rule_approval',description:'Create Director approval bound to the exact unchanged rule Preview digest and expected version',inputSchema:{type:'object',properties:{batch_id:{type:'string',format:'uuid'},reason:{type:'string',minLength:3,maxLength:500}},required:['batch_id','reason'],additionalProperties:false}},
+  {name:'commit_calculation_rule',description:'Atomically commit one approved rule version and all applicability links with optimistic concurrency',inputSchema:{type:'object',properties:{batch_id:{type:'string',format:'uuid'},approval_id:{type:'string',format:'uuid'},expected_batch_version:{type:'integer',minimum:1}},required:['batch_id','approval_id','expected_batch_version'],additionalProperties:false}},
+  {name:'get_calculation_rule_batch',description:'Read the exact rule Preview, approval, commit, applicability and read-back evidence',inputSchema:{type:'object',properties:{batch_id:{type:'string',format:'uuid'}},required:['batch_id'],additionalProperties:false}},
+  {name:'resolve_calculation_rule',description:'Resolve one approved rule for an effective date and canonical runtime context; fail closed on missing, ambiguous or unsupported rules',inputSchema:{type:'object',properties:{rule_type:{type:'string'},effective_date:{type:'string',format:'date'},runtime_context:{type:'object'}},required:['rule_type','effective_date','runtime_context'],additionalProperties:false}},
+  {name:'execute_calculation_rule',description:'Resolve and execute an implemented governed staffing or budget handler and retain traceable input/result evidence',inputSchema:{type:'object',properties:{rule_type:{type:'string'},effective_date:{type:'string',format:'date'},runtime_context:{type:'object'},inputs:{type:'object'},input_source_evidence:{type:'object'},result_mode:{type:'string',enum:['CURRENT_RECALCULATION','HISTORICAL_LOCKED']}},required:['rule_type','effective_date','runtime_context','inputs','input_source_evidence'],additionalProperties:false}},
   {name:'list_daycares',description:'List daycares visible to the authenticated user',inputSchema:{type:'object',properties:{},additionalProperties:false}},
   {name:'staff_by_daycare',description:'List employees assigned to an authorized daycare',inputSchema:{type:'object',properties:{daycare_id:{type:'string',format:'uuid'}},required:['daycare_id'],additionalProperties:false}},
   {name:'search_daycares',description:'Search canonical daycare records with versions for conflict-safe updates',inputSchema:{type:'object',properties:{search:{type:'string',maxLength:120},limit:{type:'integer',minimum:1,maximum:100},offset:{type:'integer',minimum:0}},additionalProperties:false}},
@@ -301,6 +309,30 @@ module.exports=async function handler(req,res){
  case 'read_policy':
   if(Object.keys(args).length!==1||!UUID.test(args.document_id||''))return send(res,200,error(id,-32602,'Invalid document ID'));
   rpc='portal_mcp_read_policy';params={p_document_id:args.document_id};break;
+ case 'list_calculation_rules':
+  if(Object.keys(args).some(k=>!['rule_type','lifecycle_status'].includes(k))||(args.rule_type!==undefined&&(typeof args.rule_type!=='string'||args.rule_type.length>80))||(args.lifecycle_status!==undefined&&!['DRAFT','ACTIVE','REPLACED','RETIRED'].includes(args.lifecycle_status)))return send(res,200,error(id,-32602,'Invalid rule filters'));
+  rpc='portal_mcp_list_calculation_rules';params={p_rule_type:args.rule_type||null,p_lifecycle_status:args.lifecycle_status||null};break;
+ case 'read_calculation_rule':
+  if(Object.keys(args).some(k=>!['rule_key','version'].includes(k))||!UUID.test(args.rule_key||'')||(args.version!==undefined&&(!Number.isInteger(args.version)||args.version<1)))return send(res,200,error(id,-32602,'Invalid rule identity'));
+  rpc='portal_mcp_read_calculation_rule';params={p_rule_key:args.rule_key,p_version:args.version||null};break;
+ case 'preview_calculation_rule':
+  if(Object.keys(args).length!==2||!args.payload||typeof args.payload!=='object'||Array.isArray(args.payload)||typeof args.idempotency_key!=='string'||args.idempotency_key.trim().length<8||args.idempotency_key.length>160)return send(res,200,error(id,-32602,'Rule Preview requires one payload and an idempotency key'));
+  rpc='portal_mcp_preview_calculation_rule';params={p_payload:args.payload,p_idempotency_key:args.idempotency_key.trim()};break;
+ case 'request_calculation_rule_approval':
+  if(Object.keys(args).length!==2||!UUID.test(args.batch_id||'')||typeof args.reason!=='string'||args.reason.trim().length<3||args.reason.length>500)return send(res,200,error(id,-32602,'Invalid rule approval request'));
+  rpc='portal_mcp_request_calculation_rule_approval';params={p_batch_id:args.batch_id,p_reason:args.reason.trim()};break;
+ case 'commit_calculation_rule':
+  if(Object.keys(args).length!==3||!UUID.test(args.batch_id||'')||!UUID.test(args.approval_id||'')||!Number.isInteger(args.expected_batch_version)||args.expected_batch_version<1)return send(res,200,error(id,-32602,'Invalid rule commit'));
+  rpc='portal_mcp_commit_calculation_rule';params={p_batch_id:args.batch_id,p_approval_id:args.approval_id,p_expected_batch_version:args.expected_batch_version};break;
+ case 'get_calculation_rule_batch':
+  if(Object.keys(args).length!==1||!UUID.test(args.batch_id||''))return send(res,200,error(id,-32602,'Invalid rule batch'));
+  rpc='portal_mcp_get_calculation_rule_batch';params={p_batch_id:args.batch_id};break;
+ case 'resolve_calculation_rule':
+  if(Object.keys(args).length!==3||typeof args.rule_type!=='string'||args.rule_type.length>80||typeof args.effective_date!=='string'||Number.isNaN(Date.parse(args.effective_date))||!args.runtime_context||typeof args.runtime_context!=='object'||Array.isArray(args.runtime_context))return send(res,200,error(id,-32602,'Invalid rule resolution request'));
+  rpc='portal_mcp_resolve_calculation_rule';params={p_rule_type:args.rule_type,p_effective_date:args.effective_date,p_runtime_context:args.runtime_context};break;
+ case 'execute_calculation_rule':
+  if(Object.keys(args).some(k=>!['rule_type','effective_date','runtime_context','inputs','input_source_evidence','result_mode'].includes(k))||typeof args.rule_type!=='string'||typeof args.effective_date!=='string'||Number.isNaN(Date.parse(args.effective_date))||!args.runtime_context||typeof args.runtime_context!=='object'||Array.isArray(args.runtime_context)||!args.inputs||typeof args.inputs!=='object'||Array.isArray(args.inputs)||!args.input_source_evidence||typeof args.input_source_evidence!=='object'||Array.isArray(args.input_source_evidence)||(args.result_mode!==undefined&&!['CURRENT_RECALCULATION','HISTORICAL_LOCKED'].includes(args.result_mode)))return send(res,200,error(id,-32602,'Invalid governed calculation request'));
+  rpc='portal_mcp_execute_calculation_rule';params={p_rule_type:args.rule_type,p_effective_date:args.effective_date,p_runtime_context:args.runtime_context,p_inputs:args.inputs,p_input_source_evidence:args.input_source_evidence,p_result_mode:args.result_mode||'CURRENT_RECALCULATION'};break;
  case 'list_daycares':
   if(Object.keys(args).length)return send(res,200,error(id,-32602,'Unexpected arguments'));
   rpc='portal_mcp_list_daycares';params={};break;
