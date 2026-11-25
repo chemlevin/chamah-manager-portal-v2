@@ -6553,3 +6553,323 @@ Next recommended TRACK: None.
 
 Current runtime identities are maintained only in `docs/architecture/CHAMAH_RUNTIME_REGISTRY.md`. TRACK entries remain historical evidence and must not override the registry.
 
+### TRACK: INTERNAL — bank report preparation policy
+
+TRACK: INTERNAL
+Status: Implemented locally; deployment and live database read-back blocked by runtime registry isolation gate
+Summary: Added a versioned database policy and preparation-only bank report staging workflow for the secretary, with deterministic source fingerprints, provenance preservation, explicit review statuses, audited policy reads, API/edge access, and an MCP policy-read tool.
+Root cause: No dedicated database-backed policy and preparation boundary existed separate from the canonical bank upload/import workflow.
+Files changed: `AGENTS.md`; `PROJECT_LOG.md`; `api/mcp-operational-workspace.js`; `supabase/migrations/20261123100000_bank_report_preparation_policy.sql`; `supabase/functions/portal-bank-report-preparation/index.ts`; `chamah-manager-portal/new/bank-report-preparation.js`; `tests/bank-report-preparation-policy.test.mjs`.
+Database changes: Additive policy, preparation batch, and preparation row tables; active seeded policy version 1 effective 2026-11-23; read/create authorization actions; policy and preparation RPCs. No canonical bank rows written.
+Migrations: `20261123100000_bank_report_preparation_policy.sql`.
+Edge Functions: Added `portal-bank-report-preparation`.
+Tests: Focused policy test 3/3; MCP contract check passed; migration preflight passed 123 ordered migrations; Node syntax check passed. Build attempted with Preview mode but requires runtime environment variables and was not completed.
+Production impact: None. No Preview or Production migration, deployment, approval, commit, bank account, or bank transaction write performed.
+Commit SHA: Pending.
+Branch: `codex/oauth-canonical-host`.
+Preview URL: None.
+Production URL (if deployed): None.
+Blockers: Runtime registry marks the configured Preview Supabase project as isolation-unverified/blocked for business-data use; live migration/read-back and deployment require verified isolated environment and approval.
+Next recommended TRACK: Verify an approved isolated Business-data Preview identity, apply the additive migration there, and perform authenticated policy/preparation read-back without enabling upload or commit.
+
+### TRACK: INTERNAL — canonical lineage and business-question resolver
+
+TRACK: INTERNAL
+Status: Implemented locally; database application and deployment blocked by runtime registry isolation gate
+Summary: Added the permanent additive lineage model for source batches/rows, canonical entity links, and unresolved review items, plus a read-only natural-language canonical query resolver. Extended operational fan-out evidence to preserve source batch, file, sheet, row, record ID, original payload, reporting month, and fingerprint.
+Root cause: Existing staged ingestion and child reconciliation were domain-specific and did not provide one durable lineage/review contract or one general business-question read surface.
+Files changed: `api/mcp-operational-workspace.js`; `api/operational-fanout.js`; `supabase/migrations/20261123120000_canonical_lineage_and_query_resolver.sql`; `tests/operational-fanout.test.mjs`; `PROJECT_LOG.md`.
+Database changes: Additive `canonical_source_batches`, `canonical_source_rows`, `canonical_entity_links`, and `review_items` tables with RLS/default deny; read-only `portal_mcp_query_business_question` RPC. No business data written.
+Migrations: `20261123120000_canonical_lineage_and_query_resolver.sql`.
+Edge Functions: None.
+Tests: Node syntax checks passed; operational fan-out tests 5/5 passed; migration preflight passed 124 ordered migrations. Live SQL apply/read-back not run.
+Production impact: None. No Preview or Production migration, deployment, approval, commit, permission, RLS, or business-data write performed.
+Commit SHA: `9f71cdb6e669ecb3b12e9b5dedea7181a60d45af` (working tree changes uncommitted).
+Branch: `codex/oauth-canonical-host`.
+Preview URL: None.
+Production URL (if deployed): None.
+Blockers: Runtime registry marks the configured Preview Supabase project as isolation-unverified/blocked for business-data use; live migration/read-back and future historical backfill require a verified isolated Business-data Preview and Director-approved operational backfill scope.
+Next recommended TRACK: Verify isolated Business-data Preview, apply migration, run authenticated read-back and idempotent backfill previews for existing source batches, then approve controlled commit.
+
+### TRACK: INTERNAL — Production inventory MCP catalog registration
+
+TRACK: INTERNAL
+Status: Implemented locally; Production deployment and live catalog verification pending
+Summary: Registered the Director-only, read-only Production inventory scan contract in the operational catalog migration and added contract coverage for schema, bearer forwarding, project pinning, and catalog outputs.
+Root cause: The API handler wiring existed locally, but the database-backed operational MCP catalog did not advertise `production_inventory_scan`.
+Files changed: `supabase/migrations/20261124090000_production_inventory_mcp_catalog.sql`; `tests/production-inventory-catalog-contract.test.mjs`.
+Database changes: Additive catalog function replacement only; not applied to Production. No canonical data writes.
+Migrations: `20261124090000_production_inventory_mcp_catalog.sql` (not deployed).
+Edge Functions: None.
+Tests: Focused contract and bearer-boundary tests passed 9/9; `git diff --check` passed.
+Production impact: None. No scan, allowlist, backfill, approval, commit, permission, RLS, or canonical business-data change performed.
+Commit SHA: `9f71cdb6e669ecb3b12e9b5dedea7181a60d45af` (working tree changes uncommitted).
+Branch: `codex/oauth-canonical-host`.
+Preview URL: None.
+Production URL (if deployed): None.
+Blockers: Live Production catalog remains unverified until the migration is reviewed/deployed through approved change control and the authenticated catalog is read back.
+Next recommended TRACK: Deploy only the reviewed catalog registration, refresh the authenticated Production MCP catalog, verify the tool contract live, then separately authorize any scan.
+
+### TRACK: INTERNAL — Permanent period/context/provenance relationship model
+
+TRACK: INTERNAL
+Status: Implemented and applied to Production; current TAMA correction Preview remains unapproved and uncommitted
+Summary: Established the permanent period/context/provenance contract for operational facts, including child_id + reporting_month uniqueness semantics, conflict preservation, separate fact domains, lineage explainability, and versioned model governance.
+Root cause: Existing interval-based relationship tables and source lineage did not expose one durable contract for monthly uniqueness, business context, and reusable semantic relationships.
+Files changed: `supabase/migrations/20261124110000_canonical_period_context_relationship_model.sql`; `docs/architecture/CHAMAH_SYSTEM_RULES.md`; `docs/data/semantic-relationship-contract.md`; `docs/data/relationship-matrix.md`; `docs/data/audit-and-history-model.md`; `docs/SYSTEM_MAPPING_AND_INGESTION_SOURCE_OF_TRUTH.md`; `PROJECT_LOG.md`.
+Database changes: Additive `operational_model_registry` and RLS-protected `operational_period_relationship_facts`, versioned model record, child-month and source-fact uniqueness indexes. No business rows, canonical facts, Preview rows, approvals, or commits were created.
+Migrations: `20261124110000_canonical_period_context_relationship_model.sql` applied to Production project `vyyfuaqmbxvfqgbfqooc`.
+Edge Functions: None.
+Tests: Production migration returned success; live schema/read-back verification pending in this turn; documentation diff check pending.
+Production impact: Schema-only governance capability. Existing canonical business counts and existing Preview batches were not changed.
+Commit SHA: `9f71cdb6e669ecb3b12e9b5dedea7181a60d45af` (working tree changes uncommitted).
+Branch: `codex/oauth-canonical-host`.
+Preview URL: None.
+Production URL (if deployed): `https://chamah-portal.vercel.app/api/mcp` unchanged.
+Blockers: The original TAMA batch still requires a new correction Preview generated against this model; existing test Preview `ad35646c-3086-4d38-a62a-7daafe822702` must not be approved or committed.
+Next recommended TRACK: Reconcile all 473 source rows against child_id + month, merge duplicate evidence rows, classify conflicting daycare assignments, keep six no-billing children and two NATIONAL_ID_NOT_FOUND rows unresolved, then create one deterministic correction Preview.
+
+### TRACK: INTERNAL — Separate billing and enrollment relationships
+
+TRACK: INTERNAL
+Status: Model updated in Production; correction Preview pending
+Summary: Added `BILLED_AT_DAYCARE` as a distinct period relationship so canonical billing evidence can support financial attribution without being misclassified as enrollment or occupancy.
+Root cause: The initial relationship model treated child/daycare evidence too narrowly and did not distinguish billing evidence from administrative enrollment evidence.
+Files changed: `supabase/migrations/20261124123000_billed_at_daycare_relationship_type.sql`; `docs/data/semantic-relationship-contract.md`; `docs/architecture/CHAMAH_SYSTEM_RULES.md`; `PROJECT_LOG.md`.
+Database changes: Expanded the relationship-type check constraint and updated model registry v1.0.0. No canonical business rows or government-funding records changed.
+Migrations: `20261124123000_billed_at_daycare_relationship_type.sql` applied to Production.
+Edge Functions: None.
+Tests: Production read-only join verified 467 same-child/same-month billing matches and zero daycare conflicts; bounded lineage readback returned rows after retry.
+Production impact: Governance/schema only; no approval or commit.
+Commit SHA: `9f71cdb6e669ecb3b12e9b5dedea7181a60d45af` (working tree changes uncommitted).
+Branch: `codex/oauth-canonical-host`.
+Preview URL: None.
+Production URL (if deployed): `https://chamah-portal.vercel.app/api/mcp` unchanged.
+Blockers: Preview rows must be constructed from the 467 canonical billing matches and fully read back before approval/commit.
+Next recommended TRACK: Create and reconcile one deterministic BILLED_AT_DAYCARE Preview; keep enrollment unresolved and exclude the two unmatched identities.
+
+### TRACK: INTERNAL — Billing-backed relationship Preview and lineage readback repair
+
+TRACK: INTERNAL
+Status: PREVIEWED; approval and commit intentionally not performed
+Summary: Verified 467 canonical billing matches, created one deterministic `BILLED_AT_DAYCARE` Preview under model v1.0.0, and repaired the bounded status lineage counter to equal readable lineage rows.
+Root cause: The generic Preview RPC retained a 100-row limit/expensive matcher, and status lineage was reported as a boolean provenance flag rather than row count.
+Files changed: `supabase/migrations/20261124130000_preview_period_relationship_fact_contract.sql`; `supabase/migrations/20261124131500_relationship_fact_preview_match_fast_path.sql`; `supabase/migrations/20261124133000_relationship_fact_preview_batch_limit.sql`; `supabase/migrations/20261124134500_bounded_batch_status_lineage_count_fix.sql`; `PROJECT_LOG.md`.
+Database changes: Preview contract exposure for `operational_period_relationship_facts`, 1,000-row deterministic Preview path, and corrected lineage count. No canonical relationship facts or government-funding records were committed.
+Migrations: Applied to Production project `vyyfuaqmbxvfqgbfqooc`.
+Edge Functions: None.
+Tests: 467 billing matches; 467 unique child/month keys; zero daycare conflicts; Preview readback 467 staged and 467 lineage rows; no approval or commit.
+Production impact: Existing canonical business counts unchanged; Preview batch `d0a5af1f-7e7d-4ed9-b39a-3b66b3afacd7` is READY and unapproved.
+Commit SHA: `9f71cdb6e669ecb3b12e9b5dedea7181a60d45af` (working tree changes uncommitted).
+Branch: `codex/oauth-canonical-host`.
+Preview URL: None.
+Production URL (if deployed): `https://chamah-portal.vercel.app/api/mcp` unchanged.
+Blockers: Approval/commit remain out of scope until Director reviews the exact 467-row Preview and confirms the relationship-fact persistence contract.
+Next recommended TRACK: Re-read status after the lineage-count migration, reconcile the exact digest and protected counts, then obtain separate explicit approval before any commit.
+
+### TRACK: INTERNAL — Cross-batch operational exception registry
+
+TRACK: INTERNAL
+Status: Implemented and verified in Production; no canonical business mutation
+Summary: Added an additive cross-domain exception registry, immutable exception history, idempotent batch registration, real-data classification, resolution contract, and readback RPCs. Registered the current batch’s two unresolved identities and six missing-billing relationship exceptions.
+Root cause: Unresolved rows were visible only inside individual batch evidence and lacked a durable cross-batch management and resolution surface.
+Files changed: `supabase/migrations/20261124150000_operational_exception_registry.sql`; `supabase/migrations/20261124153000_operational_exception_resolution_and_classification.sql`; `supabase/migrations/20261124154500_operational_exception_model_registry.sql`; `docs/data/exception-management-contract.md`; `docs/architecture/CHAMAH_SYSTEM_RULES.md`; `PROJECT_LOG.md`.
+Database changes: Additive `operational_exceptions`, `operational_exception_history`, constraints, indexes, RLS default-deny, read/list/get/register/resolve RPCs, and model registry metadata. Eight real exceptions registered; no existing canonical fact changed.
+Migrations: Applied to Production project `vyyfuaqmbxvfqgbfqooc`.
+Edge Functions: None.
+Tests: Eight exceptions registered; idempotent replay returned zero new rows; counts verified by type/status/month; 467 `BILLED_AT_DAYCARE` facts, 476 funding records, 425 children, and 830 billing records unchanged.
+Production impact: Exception infrastructure and exception-registry rows only. Routing, URLs, branch, deployment, permissions, RLS policy intent, committed batches, approvals, and relationship facts unchanged.
+Commit SHA: `9f71cdb6e669ecb3b12e9b5dedea7181a60d45af` (working tree changes uncommitted).
+Branch: `codex/oauth-canonical-host`.
+Preview URL: None.
+Production URL (if deployed): `https://chamah-portal.vercel.app/api/mcp` unchanged.
+Blockers: MCP tool catalog exposure for the new exception RPCs was not redeployed; equivalent authenticated Supabase RPC readback is available and verified.
+Next recommended TRACK: Expose the exception read RPCs in the fixed Production MCP catalog, then test authenticated list/get/filter/history through that same route.
+
+### TRACK: INTERNAL — Forensic batch lifecycle reconciliation
+
+TRACK: INTERNAL
+Status: COMMITTED metadata corrected and verified; exception MCP catalog exposure deferred
+Summary: Proved the historical batch commit from approval consumption, authorization SUCCESS, committed-record readback, commit timestamp/digest, and record audit. Corrected only lifecycle metadata from READY to COMMITTED and preserved the correction in append-only history.
+Root cause: A legacy TAMA conflict-resolution trigger forced status back to READY, and the status counter treated 473 eligible rows versus 475 committed result rows as an unconditional mismatch despite two preserved unresolved rows.
+Files changed: `supabase/migrations/20261124160000_operational_batch_lifecycle_reconciliation.sql`; `supabase/migrations/20261124161500_allow_proven_committed_batch_lifecycle.sql`; `supabase/migrations/20261124163000_tama_committed_count_reconciliation_flag_fix.sql`; `PROJECT_LOG.md`.
+Database changes: Additive lifecycle history and security-definer metadata reconciliation; trigger/status calculation compatibility fixes. No canonical business records, relationship facts, funding records, approvals, or source rows changed.
+Migrations: Applied to Production project `vyyfuaqmbxvfqgbfqooc`.
+Edge Functions: None.
+Tests: Historical evidence reconciled; status now COMMITTED; 473 staged/lineage, 2 unresolved, 475 committed, 473 record audit, 5 authorization audit; all integrity flags false.
+Production impact: Batch metadata only; 467 `BILLED_AT_DAYCARE` facts and protected counts unchanged.
+Commit SHA: `9f71cdb6e669ecb3b12e9b5dedea7181a60d45af` (working tree changes uncommitted).
+Branch: `codex/oauth-canonical-host`.
+Preview URL: None.
+Production URL (if deployed): `https://chamah-portal.vercel.app/api/mcp` unchanged.
+Blockers: The live Production MCP catalog does not expose the four exception RPC tools, and no deployment was authorized/created in this step; Supabase RPC equivalents remain available and verified.
+Next recommended TRACK: Add the four read/registry RPCs to the existing Production MCP handler and deploy only through the fixed Production release process.
+
+TRACK: INTERNAL
+Status: PREVIEWED
+Summary: Added the additive EMPLOYEE_PAYROLL period-fact contract, persisted the fact-first/relationship-later registry rule, reconciled payroll, billing, and collections, registered unresolved secondary-relationship exceptions, and created a deterministic payroll relationship Preview.
+Root cause: Canonical payroll facts existed without evidenced daycare/role relationships; billing lacked enrollment links and collections lacked exact payment dates. The live Production MCP catalog also does not expose the existing exception RPCs.
+Files changed: supabase/migrations/20261124173000_employee_payroll_relationship_contract.sql; docs/data/exception-management-contract.md; docs/architecture/CHAMAH_SYSTEM_RULES.md; PROJECT_LOG.md
+Database changes: Additive EMPLOYEE_PAYROLL relationship type and employee/month uniqueness; fact-first registry rule; 264 payroll, 830 billing, and 766 collection exceptions registered.
+Migrations: 20261124173000_employee_payroll_relationship_contract.sql applied to Production.
+Edge Functions: None.
+Tests: Production payroll readback 264 rows; 255 linked and 9 unresolved; Preview readback 255/255 with unique employee/month keys; protected counts unchanged in readback.
+Production impact: No canonical business facts changed; exception infrastructure rows and one non-committal Preview batch were created.
+Commit SHA: 9f71cdb6e669ecb3b12e9b5dedea7181a60d45af
+Branch: codex/oauth-canonical-host
+Preview URL: None
+Production URL (if deployed): https://chamah-portal.vercel.app/api/mcp (no deployment)
+Blockers: Live Production MCP tools/list still omits portal_mcp_list_operational_exceptions, portal_mcp_get_operational_exception, portal_mcp_register_batch_exceptions, and portal_mcp_resolve_operational_exception; exposing them requires the prohibited deployment step. No approval or commit performed.
+Next recommended TRACK: Add the exception tools to the fixed Production handler and redeploy only after explicit deployment authorization; then verify tools/list and readback.
+
+TRACK: EMPLOYEE-PAYROLL-RELATIONSHIPS-2026-11-24-001
+Status: COMMITTED and Production-verified
+Summary: Corrected relationship-fact provenance typing and retried the unchanged approved payroll batch through canonical Production.
+Root cause: `source_row_id` and `applied_rule_id` were declared UUID while staged payroll values are textual provenance/rule keys; generic commit mapping therefore attempted invalid UUID casts.
+Files changed: `supabase/migrations/20261124183000_relationship_fact_text_provenance.sql`; `supabase/migrations/20261124183100_relationship_fact_rule_key_text.sql`; `tests/employee-payroll-relationship-commit-contract.test.mjs`; `PROJECT_LOG.md`.
+Database changes: Production relationship-fact `source_row_id` and `applied_rule_id` are TEXT; the source-row UUID foreign key was removed because filename/row tokens are not canonical source-row UUIDs. `relationship_fact_id`, `subject_id`, and other actual UUID fields remain UUID.
+Migrations: Applied to Production project `vyyfuaqmbxvfqgbfqooc` as `relationship_fact_text_provenance` and `relationship_fact_rule_key_text`.
+Edge Functions: None.
+Tests: Focused regression PASS. Production batch readback: 255 staged, 255 eligible, 255 committed, 255 record-audit events, 255 lineage rows; exact digest preserved; sample `חמה 09.26 שכר.xlsx:50` preserved; daycare_id and role_id NULL; 9 OPEN unresolved employee-identity exceptions remain; no duplicate employee/master writes observed; protected operational counts read back unchanged.
+Production impact: Canonical Production only. Existing BILLED_AT_DAYCARE facts were not modified; payroll Preview batch remained unchanged until the authorized commit retry.
+Commit SHA: Working tree uncommitted; production database migrations applied directly under approved change. Source baseline `51dc306`.
+Branch: `codex/oauth-canonical-host`.
+Preview URL: None.
+Production URL (if deployed): `https://chamah-portal.vercel.app/api/mcp` (canonical Production endpoint; no frontend redeploy required because the fix is database-side).
+Blockers: None for this batch. Initial retry exposed and the same fix scope corrected the adjacent textual `applied_rule_id` field.
+Next recommended TRACK: None.
+## CHAMAH-LINEAGE-PRODUCTION-MIGRATION-RELEASE-2026-11-24-001
+
+Status: COMPLETE
+Summary: Reconciled the duplicate local migration version `20261124170000`; Production history contains neither duplicate, so the unapplied `fact_first_relationship_later_rule` migration was assigned unique version `20261124170500` without changing SQL or deleting history. Added the metadata-only lineage Preview audit contract fix.
+Root cause: The governed lineage Preview audit insert used `PREVIEW` and `MCP`, which were excluded by the legacy `audit_events` CHECK constraints.
+Files changed: `supabase/migrations/20261124170500_fact_first_relationship_later_rule.sql`; `supabase/migrations/20261124223000_lineage_preview_audit_contract.sql`; `tests/lineage-reconciliation-contract.test.mjs`; `PROJECT_LOG.md`.
+Database changes: Targeted audit-contract DDL only; no business-data writes.
+Migrations: `20261124223000_lineage_preview_audit_contract.sql` applied to Production as `20261124135122_lineage_preview_audit_contract`.
+Edge Functions: None.
+Tests: Focused lineage contract tests; migration preflight and syntax checks pending final staging.
+Production impact: Metadata/audit contract only; no business-data writes.
+Commit SHA: Not created in this workspace because `.git/index` is read-only.
+Branch: `codex/oauth-canonical-host`.
+Preview URL: None.
+Production URL (if deployed): `https://chamah-portal.vercel.app` — existing canonical Production deployment verified READY.
+Blockers: Repository staging/commit is blocked by read-only `.git/index`; no Vercel source deployment was required because the targeted fix is the already-exposed RPC's database audit contract.
+Next recommended TRACK: Commit the exact local migration/test/log changes when repository write access is restored.
+# CHAMAH-CALENDAR-COMPLETE-2026-11-25-001 — calculation validation
+
+The local, not-yet-integrated calendar calculation now reports an exception without a source day and a partial day exceeding scheduled hours as unresolved. Focused Node tests pass. No database, deployment, or business data was changed. Runtime identities remain governed by `docs/architecture/CHAMAH_RUNTIME_REGISTRY.md`.
+
+### TRACK: CHAMAH-MONTHLY-BANK-FEES-RULE
+
+Status: BLOCKED — corrected Production Preview and approval remain READY/UNCONSUMED; no rule committed
+Summary: Diagnosed the failed CAT-FEES Production commit, preserved the original invalid batch, created a schema-valid replacement Preview and fresh approval, and added a pure monthly six-unit proportional fee allocator with hold, rounding, lineage, date, and de-duplication behavior. No bank transactions were imported or committed.
+Root cause: The original staged rule omitted the required school-year/calendar scope and used `BANKS_AND_MONTHLY_ENROLLMENT`, which is outside the live `budget_rules_sources_check` allowlist. After correction, the live `portal_mcp_commit_operational_changes_v1` path still deterministically aborted upstream due to timeout; both batches remain READY with unconsumed approvals.
+Files changed: `chamah-manager-portal/new/actuals-calculations.js`; `tests/monthly-bank-fees-calculation.test.mjs`; `PROJECT_LOG.md`.
+Database changes: Two staging Previews and two Director approvals; zero committed `budget_rules`; zero bank-transaction writes.
+Migrations: None.
+Edge Functions: None.
+Tests: `node --test tests/monthly-bank-fees-calculation.test.mjs` — 3 passed, 0 failed.
+Production impact: No canonical business rule stored. Protected readback at 2026-11-25 09:19 UTC: `budget_rules=46`, `bank_transactions=0`, `bank_accounts=5`; unchanged by this task.
+Commit SHA: `6b8eb10682eee0731e54da33f1e062cf5cdfea6e` workspace HEAD; task changes uncommitted.
+Branch: `codex/oauth-canonical-host`.
+Preview URL: None.
+Production URL (if deployed): `https://chamah-portal.vercel.app` unchanged.
+Blockers: Production commit RPC `portal_mcp_commit_operational_changes_v1` timed out on both the original and corrected one-row batches; diagnostics `715c6b80-7cfe-4b28-b287-9c9fc2c45c16`, `e231ae0c-c97c-4917-b985-c85ef0327738`, and `31fe3677-c6f1-42e7-aaac-40c6fcd5a122`. Corrected batch `a5f6ee32-831b-44d1-b8e5-15f1edb87c0c`, digest `b232c9a140535073cfe9b7bac2f1f242295b575777ad010c7384bcd94c3d022e`, approval `731f1b4f-eba2-4661-9fef-fa4a700b9b76` remains READY/UNCONSUMED. Live RPC/log investigation or a governed Production RPC repair is required before retry.
+Next recommended TRACK: Inspect the live Supabase RPC execution/logs and deployment timeout boundary, apply a reviewed backward-compatible commit-path repair if required, then commit only the corrected batch and perform full read-back.
+
+### TRACK: CHAMAH-MONTHLY-BANK-FEES-RULE — completion
+
+Status: COMMITTED and Production-verified
+Summary: Repaired the live generic operational commit CREATE path, committed the corrected CAT-FEES rule through the exact approved Production workflow, and verified rule, batch, digest, approval, lineage, audit, and protected counts.
+Root cause: Production `private.portal_mcp_apply_generic_row(jsonb)` supported generic UPDATE but had no generic CREATE branch, so new `budget_rules` rows could not be persisted and the MCP wrapper timed out before returning a useful diagnostic.
+Files changed: `supabase/migrations/20261125100000_generic_commit_create_path.sql`; `tests/generic-commit-create-path.test.mjs`; `PROJECT_LOG.md`.
+Database changes: Applied Production migration `generic_commit_create_path`; committed exactly one authorized `budget_rules` row. No bank transactions or bank allocations changed.
+Migrations: `generic_commit_create_path` applied to Production at migration version `20261125092347`.
+Edge Functions: None.
+Tests: Focused allocator and CREATE-path tests passed 4/4; `node --check api/mcp.js` passed. Production read-back: batch COMMITTED, 1 staged, 1 committed, 1 record audit, 2 authorization-audit events, all integrity flags false.
+Production impact: CAT-FEES rule stored as budget rule `5de235ac-40e8-4ab6-95e5-929f4221171f`, effective 2026-09-01, six units, verified-occupancy HOLD behavior. Protected counts: budget_rules 47, bank_transactions 0, bank_accounts 5, bank_allocations 0.
+Commit SHA: `6b8eb10682eee0731e54da33f1e062cf5cdfea6e` workspace HEAD; local source changes remain uncommitted.
+Branch: `codex/oauth-canonical-host`.
+Preview URL: None.
+Production URL (if deployed): `https://chamah-portal.vercel.app` unchanged; database-only repair, no frontend deployment required.
+Blockers: Automatic live allocation was not run because the task prohibited importing/changing bank transactions. The six-unit allocator is implemented and unit-tested; end-to-end automatic allocation against real Production transactions remains unverified.
+Next recommended TRACK: Run a separately authorized, source-backed bank-fee calculation/preview using verified monthly occupancy, without importing or mutating bank transactions unless explicitly authorized.
+
+# CHAMAH-CALENDAR-COMPLETE-2026-11-25-001 — draft schema
+
+Added an unapplied draft migration for versioned holiday calendars, source-backed calendar days, and effective-dated daycare assignments. It preserves the existing monthly calendar table and has no grants to client roles. The governed catalog, remaining model, and ingestion integration are incomplete; this migration is not release-ready. Local migration preflight and four calculator tests passed. Runtime identity is governed by `docs/architecture/CHAMAH_RUNTIME_REGISTRY.md`.
+
+### TRACK: CHAMAH-CALENDAR-GOVERNED-PREVIEW-COMPLETION-2026-11-25-001
+
+Status: COMPLETE — Preview connector exposure verified; calendar regression not run
+Summary: Added the missing tracked Operational Workspace fan-out dependency, added a subprocess dependency-graph regression test, deployed the exact clean commit to isolated Preview, repointed only the canonical Preview alias after health verification, refreshed the Preview plugin, and verified a fresh connector inventory.
+Root cause: `api/mcp-operational-workspace.js` required `./operational-fanout`, but `api/operational-fanout.js` existed only as an untracked local file. It was not ignored or excluded by Vercel configuration, so the Git-integrated deployment artifact could not resolve the module.
+Files changed: `api/operational-fanout.js`; `tests/operational-workspace-dependencies.test.mjs`; `PROJECT_LOG.md`.
+Database changes: None.
+Migrations: None.
+Edge Functions: None.
+Tests: 16 focused Operational Workspace/fan-out/routing tests passed; syntax checks passed; deployment-specific anonymous initialization reached the expected authenticated boundary instead of a function crash; authenticated live Preview `get_profile` succeeded; plugin refresh succeeded; fresh connector session exposed 25 tools including `preview_operational_changes`.
+Production impact: None. Production project, alias, deployment, connector, data, approvals, commits, and calendar batches were untouched.
+Commit SHA: `fa8bd76d6b1a8353df6d6ff4cc6f1079d72e92b5`.
+Branch: `codex/oauth-canonical-host`.
+Preview URL: `https://chamah-manager-portal-v2-preview-h8dup42qt-chamah.vercel.app`; canonical connector endpoint `https://chamah-director-preview.vercel.app/api/mcp`.
+Production URL (if deployed): None.
+Blockers: None for connector exposure. The 859-row regression remains intentionally not run.
+Next recommended TRACK: Run the separately authorized governed 859-row Preview regression and read-back.
+
+### TRACK: CHAMAH-PRODUCTION-BANK-PREPARATION-POLICY-RECOVERY-001
+
+TRACK: CHAMAH-PRODUCTION-BANK-PREPARATION-POLICY-RECOVERY-001
+Status: PREVIEWED and Production-verified; Approval and Commit intentionally not performed
+Summary: Recovered the missing Production BANK_REPORT/PREPARATION policy gate, exposed its Director-only MCP tool, repaired compressed source-registration request sizing and bank-only set-based Preview routing, registered and read back all 247 September 2026 source rows, reconciled all 247 rows, and created/read back a corrected governed Preview.
+Root cause: Production lacked the policy migration/RPC and handler exposure. The compressed source tool was omitted from the large-request allowlist, and the generic Preview wrapper did not route bank-only batches through a set-based path. A first Preview also preserved PowerShell-mangled Hebrew source IDs and was superseded by a UTF-8-safe corrected Preview.
+Files changed: `api/mcp.js`; `supabase/migrations/20261125131439_production_bank_preparation_policy_recovery.sql`; `supabase/migrations/20261125132802_bank_preview_set_based_route_repair.sql`; `supabase/migrations/20261125140324_bank_transaction_set_based_preview.sql`; `tests/production-bank-preparation-policy-recovery.test.mjs`; `tests/bank-preview-set-based-route-repair.test.mjs`; `tests/bank-transaction-set-based-preview.test.mjs`; `tests/mcp-role-boundary.test.mjs`; `tmp/build_september_bank_preparation.py`; `PROJECT_LOG.md`. The isolated deployment package `.prod-deploy-clean/api/mcp.js` was updated for the Production release.
+Database changes: Added `operational_ingestion_rules`, active BANK_REPORT/PREPARATION policy v2, four Director-only preparation actions, protected `portal_bank_report_preparation_policy()`, optimized bank Preview functions, five canonical source-batch metadata records, 247 canonical source-row evidence records, 247 lineage-resolution metadata records, and one corrected READY Preview batch. Canonical `bank_transactions` remained 0.
+Migrations: Production history: `20261125131724 production_bank_preparation_policy_recovery`; `20261125132828 bank_preview_set_based_route_repair`; `20261125140418 bank_transaction_set_based_preview`.
+Edge Functions: None.
+Tests: Focused Node policy/role/source-envelope and bank Preview tests passed. Production policy/schema/role/grant read-back passed. Source registration read-back: 247/247 across five batches. Corrected Preview `bfdf6338-d32a-4e5e-9789-eac3cd7614d8`: READY, 247 staged/eligible/lineage, 0 unresolved/conflict/duplicate/invalid, 0 committed, 0 record audit, 0 authorization audit, approval NONE. Reconciliation digest `7b15fc0073a1331328d8e53b0a09f9813decc9f66d671d96e1fb09d1f5187368`.
+Production impact: Production MCP deployment `dpl_CqkJf8XqcLdcCHojkBUSDb9CoC6X` is READY and aliased to `https://chamah-portal.vercel.app`. Metadata/Preview only; no bank transaction, approval, or commit mutation occurred. Superseded Preview `af458e9c-6587-49db-a1f0-684a8d5e876a` remains READY and unapproved as preserved evidence of the UTF-8 transport defect.
+Commit SHA: `fa8bd76d6b1a8353df6d6ff4cc6f1079d72e92b5` workspace HEAD; task changes uncommitted in the existing dirty worktree.
+Branch: `codex/oauth-canonical-host`.
+Preview URL: None.
+Production URL (if deployed): `https://chamah-portal.vercel.app`.
+Blockers: The current connector session cached the pre-deployment tool manifest, so direct invocation of the new policy tool name could not be repeated in-session; the Director profile, deployed handler, Production RPC, active policy row, and Director-only mappings were independently verified. Workbook row `BANK-מרכזי-9-26-104` remains `NEEDS_REVIEW` because the supplied workbook has no allocation unit or budget category for that row; no value was guessed.
+Next recommended TRACK: Refresh/reconnect the Production connector to perform one live `get_bank_report_preparation_policy` call against the new manifest, and provide/confirm the missing classification for row 104 if it should be removed from review. Keep Approval and Commit separate.
+
+### TRACK: CHAMAH-PRODUCTION-BANK-PREPARATION-POLICY-RECOVERY-001 — authoritative row 104 replacement Preview
+
+TRACK: CHAMAH-PRODUCTION-BANK-PREPARATION-POLICY-RECOVERY-001
+Status: PREVIEWED and Production-verified; Approval and Commit intentionally not performed
+Summary: Reused the existing 247 registered September 2026 source movements, applied the Director-supplied authoritative corrections for rows 065, 076, 092, and the complete 15-allocation split for row 104, created a replacement governed Preview, reconciled it, and read it back through the Production MCP boundary.
+Root cause: The preceding Preview retained row 104 as `NEEDS_REVIEW` because the full allocation had not been applied to that batch. The Director then supplied the authoritative complete split and instructed replacement without re-registration.
+Files changed: `tmp/apply_authoritative_bank_corrections.py`; `tmp/september-bank-preparation-corrected-v3.json`; `PROJECT_LOG.md`.
+Database changes: Added replacement Preview batch `50806e88-b601-40a9-a9f4-691413c31b05` and metadata-only reconciliation operation `13b68245-37e6-5037-b398-c783dbe1996e`. Existing 247 source rows and five source batches were reused without re-registration. No canonical bank transaction was written.
+Migrations: None.
+Edge Functions: None.
+Tests: Production read-back returned READY, 247 staged, 247 lineage, 247 eligible, 0 unresolved, 0 committed, approval NONE, and no discrepancies. Local deterministic allocation validation found 0 imbalances across all 14 rows with explicit numeric splits; row 104 has 15 allocations totaling exactly 49,360.34 ILS against source reference 195545 and status CLASSIFIED. Reconciliation returned PREVIEWED with 247 resolved and 0 unresolved/conflict/duplicate/invalid rows.
+Production impact: Preview/reconciliation metadata only. Replacement Preview digest `f330a8064350c04182d512b911b8208f5b04080bc44b2b080c71b7c258029d7f`; reconciliation digest `69126633bb7cd89067ab488ba7b2fdb552d38d92acdaf813cb22fc85e3965812`. No Approval was requested, no Commit occurred, and canonical `bank_transactions` remained untouched.
+Commit SHA: `fa8bd76d6b1a8353df6d6ff4cc6f1079d72e92b5` workspace HEAD; task artifacts and log update remain uncommitted in the existing dirty worktree.
+Branch: `codex/oauth-canonical-host`.
+Preview URL: None.
+Production URL (if deployed): `https://chamah-portal.vercel.app` (unchanged).
+Blockers: None.
+Next recommended TRACK: None until the Director separately authorizes Approval or Commit.
+
+### TRACK: CHAMAH-CALENDAR-GOVERNED-PREVIEW-COMPLETION-2026-11-25-001
+
+TRACK: CHAMAH-CALENDAR-GOVERNED-PREVIEW-COMPLETION-2026-11-25-001
+Status: Production Preview READY; Approval and Commit intentionally not performed
+Summary: Reconciled the environment-specific 859-row calendar payloads, established the source-backed Production payload, removed the quadratic calendar conflict-classification path, deployed the database migration to Production, and completed the exact Production Preview, full paginated read-back, lineage read-back, and idempotency retry.
+Root cause: `portal_mcp_preview_operational_changes_base` precomputed stable-token counts once, but `private.portal_mcp_row_conflicts_fast` used that map only for `government_funding_records`. Calendar rows fell through to `private.portal_mcp_row_conflicts`, which rescanned the full JSON row array once per row/token. A 200-row live probe took 25.356 seconds; the set-based replacement took 342 ms.
+Files changed: `supabase/migrations/20261125141754_calendar_preview_bulk_conflict_classification.sql`; `tests/calendar-preview-bulk-conflict-classification.test.mjs`; `tmp/calendar-859/generate-calendar-payload.mjs`; `tmp/calendar-859/preview-calendar-859.json`; `tmp/calendar-859/production-calendar-859.json`; `tmp/calendar-859/summary.json`; `tmp/calendar-859/diff-calendar-payloads.mjs`; `tmp/calendar-859/preview-production-row-diff.json`; `PROJECT_LOG.md`.
+Database changes: Replaced only `private.portal_mcp_row_conflicts_fast(jsonb,jsonb,jsonb)` in Production so every entity uses the already-precomputed token-count map. Added one READY staging batch `8a5761b8-d2d8-49dd-89b6-fac1a5dc900c`; no canonical calendar records were written.
+Migrations: Production `calendar_preview_bulk_conflict_classification` applied successfully from `20261125141754_calendar_preview_bulk_conflict_classification.sql`.
+Edge Functions: None.
+Tests: Focused Node tests 2/2 passed; `git diff --check` passed. Production Preview returned 859/859 READY, 0 conflicts, 859 CREATE classifications, digest `b807eecce398985464a97ee55ff370ed9d127997fb352e53145d7ea9ad41390b`. Nine staged-row pages and nine source-lineage pages accounted for indexes 0..858. Identical retry returned the same batch ID, digest, row version 1, and the database contained exactly one matching idempotency batch.
+Production impact: Production database function performance fix and Preview staging evidence only. Canonical payload record count remained 0; `approval_id`, `committed_at`, and `commit_result` remained null. Production frontend/deployment/alias was unchanged.
+Commit SHA: `a3d7782` (implementation, tests, payload and diff evidence); completion-log commit follows this entry.
+Branch: `codex/oauth-canonical-host`.
+Preview URL: None.
+Production URL (if deployed): `https://chamah-portal.vercel.app` (unchanged; database migration only).
+Blockers: None.
+Next recommended TRACK: Director review of READY batch `8a5761b8-d2d8-49dd-89b6-fac1a5dc900c`; Approval and Commit remain separately governed and were not requested or run.
