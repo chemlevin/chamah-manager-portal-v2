@@ -4,7 +4,8 @@ import path from "node:path";
 import test from "node:test";
 
 const root = process.cwd();
-const migration = fs.readFileSync(path.join(root, "supabase/migrations/20261125200346_rules_contexts_governed_workflow.sql"), "utf8");
+const migration = fs.readFileSync(path.join(root, "supabase/migrations/20261125200346_rules_contexts_governed_workflow.sql"), "utf8")
+  + fs.readFileSync(path.join(root, "supabase/migrations/20261125203251_separate_applicability_and_director_overrides.sql"), "utf8");
 const mcp = fs.readFileSync(path.join(root, "api/mcp.js"), "utf8");
 
 test("rule identity, immutable versions, applicability and results remain separate", () => {
@@ -38,9 +39,20 @@ test("MCP exposes read, governed write, resolution and execution operations", ()
     "list_calculation_rules", "read_calculation_rule", "preview_calculation_rule",
     "request_calculation_rule_approval", "commit_calculation_rule",
     "get_calculation_rule_batch", "resolve_calculation_rule", "execute_calculation_rule",
+    "preview_rule_applicability", "request_rule_applicability_approval", "commit_rule_applicability",
+    "preview_rule_override", "request_rule_override_approval", "commit_rule_override", "read_calculation_result",
   ]) {
     assert.ok(mcp.includes(`name:'${tool}'`), `${tool} schema`);
     assert.ok(mcp.includes(`case '${tool}'`), `${tool} route`);
   }
-  assert.match(mcp, /const SERVER_VERSION = '1\.8\.0'/);
+  assert.match(mcp, /const SERVER_VERSION = '1\.9\.0'/);
+});
+
+test("approved instructions, applicability and overrides have independent identities", () => {
+  for (const contract of [
+    "calculation_rule_applicability_sets", "calculation_rule_applicability_batches",
+    "calculation_rule_overrides", "calculation_rule_override_batches",
+    "original_output", "adjusted_output", "final_output", "RULES.OVERRIDE",
+    "RULES.APPLICABILITY_WRITE", "lifecycle_status='APPROVED'",
+  ]) assert.ok(migration.includes(contract), contract);
 });

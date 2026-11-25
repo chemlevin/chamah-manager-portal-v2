@@ -10,7 +10,7 @@ assert.match(source, /if\(m\.method==='tools\/list'\)/);
 assert.match(source, /if\(m\.method==='initialize'\)/);
 assert.equal(policy.classification, 'BACKWARD_COMPATIBLE');
 assert.equal(policy.connectorRefreshRequired, false);
-assert.match(source, /const SERVER_VERSION = '1\.8\.0'/);
+assert.match(source, /const SERVER_VERSION = '1\.9\.0'/);
 assert.match(source, /portal_mcp_record_request_origin/);
 
 const requiredTools = ['get_profile', 'operational_catalog', 'preview_operational_changes',

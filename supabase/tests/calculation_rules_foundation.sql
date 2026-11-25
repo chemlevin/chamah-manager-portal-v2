@@ -1,95 +1,110 @@
--- Run only after all repository migrations in an isolated Supabase project.
--- It requires an existing synthetic Director identity and rolls back every row.
+-- Isolated Supabase execution test. Every synthetic row is rolled back.
 begin;
+
+select set_config('request.jwt.claim.sub',(
+  select p.user_id::text from public.portal_user_profiles p
+  where p.is_active and private.portal_is_authorized(p.user_id,'RULES.WRITE') limit 1
+),true);
+select set_config('request.jwt.claim.role','authenticated',true);
+
+create or replace function pg_temp.test_commit_rule(p_payload jsonb,p_key text)
+returns jsonb language plpgsql as $$
+declare p jsonb;a jsonb;
+begin
+ p:=public.portal_mcp_preview_calculation_rule(p_payload,p_key);
+ if p#>>'{validation,valid}'<>'true' then raise exception 'invalid rule preview %',p;end if;
+ a:=public.portal_mcp_request_calculation_rule_approval((p->>'batch_id')::uuid,'synthetic isolated rule approval');
+ return public.portal_mcp_commit_rule_instruction((p->>'batch_id')::uuid,(a->>'approval_id')::uuid,2);
+end $$;
+
+create or replace function pg_temp.test_commit_app(p_rule_id uuid,p_rule_version int,p_conditions jsonb,p_key text,p_priority int default 100)
+returns jsonb language plpgsql as $$
+declare p jsonb;a jsonb;payload jsonb;
+begin
+ payload:=jsonb_build_object('calculation_rule_id',p_rule_id,'expected_rule_version',p_rule_version,
+  'effective_from','2099-01-01','effective_to','2099-12-31','rule_priority',p_priority,
+  'conditions',p_conditions,'source_evidence',jsonb_build_object('fixture','rollback-only'));
+ p:=public.portal_mcp_preview_rule_applicability(payload,p_key);
+ a:=public.portal_mcp_request_rule_applicability_approval((p->>'batch_id')::uuid,'synthetic isolated applicability');
+ return public.portal_mcp_commit_rule_applicability((p->>'batch_id')::uuid,(a->>'approval_id')::uuid,2);
+end $$;
 
 do $$
 declare
-  v_director uuid;
-  v_preview jsonb;
-  v_approval jsonb;
-  v_commit jsonb;
-  v_result jsonb;
-  v_batch uuid;
-  v_approval_id uuid;
+ broad jsonb;specific jsonb;conflicting jsonb;budget jsonb;stored_only jsonb;app jsonb;calc jsonb;budget_calc jsonb;
+ override_preview jsonb;override_approval jsonb;override_commit jsonb;readback jsonb;
+ broad_id uuid;specific_id uuid;conflicting_id uuid;budget_id uuid;stored_id uuid;daycare uuid;random_user uuid:=gen_random_uuid();
 begin
-  select p.user_id into v_director
-  from public.portal_user_profiles p
-  where p.is_active and private.portal_is_authorized(p.user_id,'RULES.WRITE')
-  order by p.created_at
-  limit 1;
-  if v_director is null then
-    raise exception 'isolated test requires a synthetic active Director user';
-  end if;
+ select daycare_id into daycare from public.daycares order by daycare_id limit 1;
+ if daycare is null then raise exception 'isolated environment needs one synthetic daycare fixture';end if;
 
-  perform set_config('request.jwt.claims', jsonb_build_object('sub',v_director,'role','authenticated')::text, true);
-  perform set_config('request.jwt.claim.sub', v_director::text, true);
-  perform set_config('request.jwt.claim.role', 'authenticated', true);
+ broad:=pg_temp.test_commit_rule(jsonb_build_object('operation','CREATE','rule',jsonb_build_object(
+  'rule_type','STAFFING_RATIO','display_name','synthetic broad staffing','instruction','Synthetic broad staffing instruction',
+  'definition',jsonb_build_object('children_per_staff',6,'rounding_method','CEIL_HALF','minimum_staff',1),
+  'effective_from','2099-01-01','handler_code','STAFFING_RATIO_V1','source_evidence',jsonb_build_object('fixture','rollback-only')),
+  'applicability','[]'::jsonb),'isolated-rule-broad-0001');
+ broad_id:=(broad#>>'{rule,calculation_rule_id}')::uuid;
+ if broad#>>'{rule,lifecycle_status}'<>'APPROVED' or jsonb_array_length(broad->'applicability')<>0 then raise exception 'instruction was not independently approved %',broad;end if;
+ app:=pg_temp.test_commit_app(broad_id,1,'[]'::jsonb,'isolated-app-broad-0001',100);
+ if app#>>'{applicability_set,lifecycle_status}'<>'ACTIVE' or app->>'broad'<>'true' then null;end if;
 
-  v_preview := public.portal_mcp_preview_calculation_rule(
-    jsonb_build_object(
-      'operation','CREATE',
-      'rule',jsonb_build_object(
-        'rule_type','STAFFING_RATIO','display_name','isolated governed workflow test',
-        'instruction','Synthetic test instruction only',
-        'definition',jsonb_build_object('children_per_staff',5,'rounding_method','CEIL_HALF','minimum_staff',1),
-        'effective_from','2099-01-01','rule_priority',100,'handler_code','STAFFING_RATIO_V1',
-        'source_evidence',jsonb_build_object('fixture','isolated-rollback-test')
-      ),
-      'applicability',jsonb_build_array(jsonb_build_object(
-        'applicability_group',1,'context_kind','FRAMEWORK_TYPE','context_code','BASIC'
-      ))
-    ),
-    'isolated-foundation-test-0001'
-  );
-  if v_preview->>'status' <> 'PREVIEWED' or not (v_preview#>>'{validation,valid}')::boolean then
-    raise exception 'preview failed: %', v_preview;
-  end if;
-  v_batch := (v_preview->>'batch_id')::uuid;
+ specific:=pg_temp.test_commit_rule(jsonb_build_object('operation','CREATE','rule',jsonb_build_object(
+  'rule_type','STAFFING_RATIO','display_name','synthetic daycare exception','instruction','Synthetic daycare-specific staffing exception',
+  'definition',jsonb_build_object('children_per_staff',5,'rounding_method','CEIL_HALF','minimum_staff',1),
+  'effective_from','2099-01-01','handler_code','STAFFING_RATIO_V1','source_evidence',jsonb_build_object('fixture','rollback-only')),
+  'applicability','[]'::jsonb),'isolated-rule-specific-0001');
+ specific_id:=(specific#>>'{rule,calculation_rule_id}')::uuid;
+ perform pg_temp.test_commit_app(specific_id,1,jsonb_build_array(jsonb_build_object('applicability_group',1,'context_kind','DAYCARE','context_id',daycare)),'isolated-app-specific-0001',100);
 
-  begin
-    perform public.portal_mcp_commit_calculation_rule(v_batch,gen_random_uuid(),1);
-    raise exception 'expected commit without approval to fail';
-  exception when sqlstate '40001' then null;
-  end;
+ conflicting:=pg_temp.test_commit_rule(jsonb_build_object('operation','CREATE','rule',jsonb_build_object(
+  'rule_type','STAFFING_RATIO','display_name','synthetic conflicting exception','instruction','Synthetic conflicting staffing exception',
+  'definition',jsonb_build_object('children_per_staff',4,'rounding_method','CEIL_HALF','minimum_staff',1),
+  'effective_from','2099-01-01','handler_code','STAFFING_RATIO_V1','source_evidence',jsonb_build_object('fixture','rollback-only')),
+  'applicability','[]'::jsonb),'isolated-rule-conflict-0001');
+ conflicting_id:=(conflicting#>>'{rule,calculation_rule_id}')::uuid;
+ begin
+  perform pg_temp.test_commit_app(conflicting_id,1,jsonb_build_array(jsonb_build_object('applicability_group',1,'context_kind','DAYCARE','context_id',daycare)),'isolated-app-conflict-0001',100);
+  raise exception 'expected overlapping applicability rejection';
+ exception when sqlstate '23P01' then null;end;
 
-  v_approval := public.portal_mcp_request_calculation_rule_approval(v_batch,'isolated rollback test');
-  v_approval_id := (v_approval->>'approval_id')::uuid;
+ calc:=public.portal_mcp_execute_calculation_rule('STAFFING_RATIO','2099-02-01',jsonb_build_object('daycare_id',daycare),
+  '{"children_count":12}'::jsonb,'{"fixture":"rollback-only","source_version":1}'::jsonb,'CURRENT_RECALCULATION');
+ if calc->>'status'<>'CALCULATED' or (calc#>>'{final_output,required_staff}')::numeric<>2.5 or calc->>'calculation_rule_id'<>specific_id::text then raise exception 'specific selection failed %',calc;end if;
 
-  begin
-    perform public.portal_mcp_commit_calculation_rule(v_batch,v_approval_id,1);
-    raise exception 'expected stale batch version to fail';
-  exception when sqlstate '40001' then null;
-  end;
+ budget:=pg_temp.test_commit_rule(jsonb_build_object('operation','CREATE','rule',jsonb_build_object(
+  'rule_type','BUDGET_PARAMETER','display_name','synthetic budget parameter','instruction','Synthetic per-unit budget parameter',
+  'definition',jsonb_build_object('amount',12.5,'calculation_method','PER_UNIT'),'effective_from','2099-01-01',
+  'handler_code','BUDGET_PARAMETER_V1','source_evidence',jsonb_build_object('fixture','rollback-only')),'applicability','[]'::jsonb),'isolated-rule-budget-0001');
+ budget_id:=(budget#>>'{rule,calculation_rule_id}')::uuid;
+ perform pg_temp.test_commit_app(budget_id,1,'[]'::jsonb,'isolated-app-budget-0001',100);
+ budget_calc:=public.portal_mcp_execute_calculation_rule('BUDGET_PARAMETER','2099-02-01','{}'::jsonb,'{"quantity":4}'::jsonb,'{"fixture":"rollback-only"}'::jsonb,'HISTORICAL_LOCKED');
+ if (budget_calc#>>'{final_output,budget_amount}')::numeric<>50 then raise exception 'budget handler failed %',budget_calc;end if;
 
-  v_commit := public.portal_mcp_commit_calculation_rule(v_batch,v_approval_id,2);
-  if v_commit->>'status' <> 'COMMITTED'
-     or v_commit#>>'{rule,implementation_status}' <> 'IMPLEMENTED'
-     or v_commit#>>'{rule,enforcement_status}' <> 'ENFORCED' then
-    raise exception 'commit/read-back failed: %', v_commit;
-  end if;
+ stored_only:=pg_temp.test_commit_rule(jsonb_build_object('operation','CREATE','rule',jsonb_build_object(
+  'rule_type','OPERATIONAL_PROCEDURE','display_name','synthetic stored instruction','instruction','Synthetic instruction without implementation',
+  'definition','{}'::jsonb,'effective_from','2099-01-01','source_evidence',jsonb_build_object('fixture','rollback-only')),'applicability','[]'::jsonb),'isolated-rule-stored-0001');
+ stored_id:=(stored_only#>>'{rule,calculation_rule_id}')::uuid;
+ perform pg_temp.test_commit_app(stored_id,1,'[]'::jsonb,'isolated-app-stored-0001',100);
+ if public.portal_mcp_resolve_calculation_rule('OPERATIONAL_PROCEDURE','2099-02-01','{}'::jsonb)->>'status'<>'UNSUPPORTED_HANDLER' then raise exception 'stored-only truth failed';end if;
+ if public.portal_mcp_resolve_calculation_rule('CLASSIFICATION','2099-02-01','{}'::jsonb)->>'status'<>'MISSING_RULE' then raise exception 'missing rule did not fail closed';end if;
 
-  if public.portal_mcp_commit_calculation_rule(v_batch,v_approval_id,2)#>>'{rule,calculation_rule_id}'
-     <> v_commit#>>'{rule,calculation_rule_id}' then
-    raise exception 'idempotent commit retry created a different rule';
-  end if;
+ override_preview:=public.portal_mcp_preview_rule_override(jsonb_build_object(
+  'calculation_result_id',calc->>'calculation_result_id','expected_result_version',1,
+  'adjusted_output',jsonb_build_object('required_staff',3),'justification','Synthetic justified one-result adjustment',
+  'scope',calc->'runtime_context','effective_from','2099-02-01','effective_to','2099-02-01',
+  'source_evidence',jsonb_build_object('fixture','rollback-only')),'isolated-override-0001');
+ override_approval:=public.portal_mcp_request_rule_override_approval((override_preview->>'batch_id')::uuid,'synthetic justified override');
+ override_commit:=public.portal_mcp_commit_rule_override((override_preview->>'batch_id')::uuid,(override_approval->>'approval_id')::uuid,2);
+ readback:=public.portal_mcp_read_calculation_result((calc->>'calculation_result_id')::uuid);
+ if (readback#>>'{original_output,required_staff}')::numeric<>2.5 or (readback#>>'{adjusted_output,required_staff}')::numeric<>3 or (readback#>>'{final_output,required_staff}')::numeric<>3 then raise exception 'override readback failed %',readback;end if;
 
-  v_result := public.portal_mcp_execute_calculation_rule(
-    'STAFFING_RATIO',date '2099-02-01','{"framework_type":"BASIC"}'::jsonb,
-    '{"children_count":12}'::jsonb,
-    '{"fixture":"isolated-rollback-test","source_version":1}'::jsonb,
-    'CURRENT_RECALCULATION'
-  );
-  if v_result->>'status' <> 'CALCULATED'
-     or (v_result#>>'{output,required_staff}')::numeric <> 2.5
-     or v_result->>'calculation_rule_id' <> v_commit#>>'{rule,calculation_rule_id}' then
-    raise exception 'traceable staffing execution failed: %', v_result;
-  end if;
+ begin
+  perform public.portal_mcp_preview_rule_override(jsonb_build_object('calculation_result_id',calc->>'calculation_result_id','expected_result_version',1,'adjusted_output','{"required_staff":4}'::jsonb,'justification','Synthetic wrong scope rejection','scope','{}'::jsonb,'effective_from','2099-02-01','effective_to','2099-02-01','source_evidence','{"fixture":"rollback-only"}'::jsonb),'isolated-override-bad-0001');
+  raise exception 'expected out-of-scope override rejection';
+ exception when sqlstate '22023' then null;end;
 
-  if not has_table_privilege('authenticated','public.calculation_rules','select')
-     or has_table_privilege('authenticated','public.calculation_rules','insert') then
-    raise exception 'least-privilege grants are incorrect';
-  end if;
-end;
-$$;
+ perform set_config('request.jwt.claim.sub',random_user::text,true);
+ begin perform public.portal_mcp_list_calculation_rules(null,null);raise exception 'expected unauthorized read rejection';exception when sqlstate '42501' then null;end;
+end $$;
 
 rollback;

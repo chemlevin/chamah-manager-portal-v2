@@ -358,25 +358,35 @@ function rowMatchesRule(row, rule) {
   return true;
 }
 
-function calculateClassroomStaffing(occupancyRows = [], staffingRows = []) {
+function governedResultFor(results, handlerCode, context = {}) {
+  return (results || []).find((item) => item?.status === 'CALCULATED' && item.handler_code === handlerCode
+    && Object.entries(context).every(([key, value]) => value == null || item.runtime_context?.[key] === value));
+}
+
+function calculateClassroomStaffing(occupancyRows = [], staffingRows = [], options = {}) {
   const staffingRules = normalizeStaffingRows(staffingRows);
   const classroomMap = new Map();
   for (const rawRow of expandOccupancyRows(occupancyRows)) {
     const row = normalizeOccupancyRow(rawRow);
     if (!row.daycare || !row.month || !row.classroom || !row.ageGroup || row.children <= 0) continue;
     const rule = staffingRules.get(row.ageGroup);
+    const governed = options.useGovernedRules === true ? governedResultFor(options.governedResults, 'STAFFING_RATIO_V1', {
+      daycare: row.daycare, month: row.month, classroom: row.classroom, age_group: row.ageGroup,
+    }) : null;
     const ratio = row.ratio || rule?.ratio || 0;
-    if (ratio <= 0) throw new Error('Missing staffing ratio for age group: ' + row.ageGroup);
+    if (ratio <= 0 && !governed) throw new Error('Missing staffing ratio for age group: ' + row.ageGroup);
     const tuition = row.tuition || rule?.tuition || 0;
-    const rawStaff = row.children / ratio;
-    const roundedStaff = Math.max(roundStaff(rawStaff), rule?.minimumStaff || 0);
+    const rawStaff = governed ? null : row.children / ratio;
+    const roundedStaff = governed ? Number(governed.final_output?.required_staff) : Math.max(roundStaff(rawStaff), rule?.minimumStaff || 0);
+    if (governed && !Number.isFinite(roundedStaff)) throw new Error('Invalid governed staffing result');
     const expectedRevenue = row.children * tuition;
     const key = groupKey([row.daycare, row.month, row.classroom]);
     if (!classroomMap.has(key)) {
       classroomMap.set(key, { daycare: row.daycare, month: row.month, classroom: row.classroom, ageGroups: [], requiredStaff: 0, children: 0, expectedRevenue: 0 });
     }
     const classroom = classroomMap.get(key);
-    classroom.ageGroups.push({ ageGroup: row.ageGroup, children: row.children, ratio, tuition, rawStaff, roundedStaff, expectedRevenue });
+    classroom.ageGroups.push({ ageGroup: row.ageGroup, children: row.children, ratio, tuition, rawStaff, roundedStaff, expectedRevenue,
+      calculationTrace: governed ? { calculationResultId: governed.calculation_result_id, ruleKey: governed.rule_key, ruleVersion: governed.version, applicabilitySetId: governed.applicability_set_id, originalOutput: governed.original_output, adjustedOutput: governed.adjusted_output || null, finalOutput: governed.final_output } : null });
     classroom.requiredStaff += roundedStaff;
     classroom.children += row.children;
     classroom.expectedRevenue += expectedRevenue;
@@ -666,11 +676,20 @@ function calculateBudgetModel(tables, options = {}) {
   const fixedStaffRows = tables.FIXED_STAFF || [];
   const costRuleRows = tables.COST_RULES || [];
   const actualExpenseRows = optionalActualExpenseRows(tables);
-  const classroomStaffing = calculateClassroomStaffing(occupancyRows, staffingRows);
+  const classroomStaffing = calculateClassroomStaffing(occupancyRows, staffingRows, options);
   const monthlyRequiredHours = calculateMonthlyRequiredHours(classroomStaffing, monthHoursRows);
   const fixedStaff = fixedStaffWithHours(fixedStaffRows, monthHoursRows);
   const daycareMonthContexts = buildDaycareMonthContexts(classroomStaffing, fixedStaff, monthHoursRows, options);
-  const costs = calculateCostRulesForDaycareMonth(costRuleRows, daycareMonthContexts);
+  let costs = calculateCostRulesForDaycareMonth(costRuleRows, daycareMonthContexts);
+  if (options.useGovernedRules === true) {
+    costs = costs.map((cost) => {
+      const governed = governedResultFor(options.governedResults, 'BUDGET_PARAMETER_V1', { daycare: cost.daycare, month: cost.month });
+      if (!governed) return cost;
+      const total = Number(governed.final_output?.budget_amount);
+      if (!Number.isFinite(total)) throw new Error('Invalid governed budget result');
+      return { ...cost, total, calculationTrace: { calculationResultId: governed.calculation_result_id, ruleKey: governed.rule_key, ruleVersion: governed.version, applicabilitySetId: governed.applicability_set_id, originalOutput: governed.original_output, adjustedOutput: governed.adjusted_output || null, finalOutput: governed.final_output } };
+    });
+  }
   const byDaycareMonth = attachCostsToDaycareMonth(daycareMonthContexts, costs);
   const budgetCoverage = calculateBudgetCoverage(actualExpenseRows, costRuleRows);
   return {

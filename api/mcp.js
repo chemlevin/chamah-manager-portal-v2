@@ -12,7 +12,7 @@ const API_KEY = process.env.CHAMAH_SUPABASE_PUBLISHABLE_KEY;
 const MCP_ORIGIN = configuredOrigin();
 const AUTH_SERVER = RUNTIME.issuer;
 const PROTOCOL_VERSION = '2025-03-26';
-const SERVER_VERSION = '1.8.0';
+const SERVER_VERSION = '1.9.0';
 const CONTRACT_VERSION = '1.0.0';
 const MAX_OPERATIONAL_BATCH_PAGE_RESPONSE_BYTES = 300000;
 const BASE_TOOLS = [
@@ -45,8 +45,15 @@ const BASE_TOOLS = [
   {name:'read_calculation_rule',description:'Read one stable rule identity, an exact or latest version, applicability links and handler status',inputSchema:{type:'object',properties:{rule_key:{type:'string',format:'uuid'},version:{type:'integer',minimum:1}},required:['rule_key'],additionalProperties:false}},
   {name:'preview_calculation_rule',description:'Validate and preview an exact rule definition and canonical applicability payload without committing it',inputSchema:{type:'object',properties:{payload:{type:'object'},idempotency_key:{type:'string',minLength:8,maxLength:160}},required:['payload','idempotency_key'],additionalProperties:false}},
   {name:'request_calculation_rule_approval',description:'Create Director approval bound to the exact unchanged rule Preview digest and expected version',inputSchema:{type:'object',properties:{batch_id:{type:'string',format:'uuid'},reason:{type:'string',minLength:3,maxLength:500}},required:['batch_id','reason'],additionalProperties:false}},
-  {name:'commit_calculation_rule',description:'Atomically commit one approved rule version and all applicability links with optimistic concurrency',inputSchema:{type:'object',properties:{batch_id:{type:'string',format:'uuid'},approval_id:{type:'string',format:'uuid'},expected_batch_version:{type:'integer',minimum:1}},required:['batch_id','approval_id','expected_batch_version'],additionalProperties:false}},
+  {name:'commit_calculation_rule',description:'Atomically commit an approved immutable rule instruction; applicability is governed separately',inputSchema:{type:'object',properties:{batch_id:{type:'string',format:'uuid'},approval_id:{type:'string',format:'uuid'},expected_batch_version:{type:'integer',minimum:1}},required:['batch_id','approval_id','expected_batch_version'],additionalProperties:false}},
   {name:'get_calculation_rule_batch',description:'Read the exact rule Preview, approval, commit, applicability and read-back evidence',inputSchema:{type:'object',properties:{batch_id:{type:'string',format:'uuid'}},required:['batch_id'],additionalProperties:false}},
+  {name:'preview_rule_applicability',description:'Preview a separately versioned applicability scope, including a zero-condition network-wide scope',inputSchema:{type:'object',properties:{payload:{type:'object'},idempotency_key:{type:'string',minLength:8,maxLength:160}},required:['payload','idempotency_key'],additionalProperties:false}},
+  {name:'request_rule_applicability_approval',description:'Approve the exact applicability Preview digest and expected versions',inputSchema:{type:'object',properties:{batch_id:{type:'string',format:'uuid'},reason:{type:'string',minLength:3,maxLength:500}},required:['batch_id','reason'],additionalProperties:false}},
+  {name:'commit_rule_applicability',description:'Atomically activate the separately approved applicability version',inputSchema:{type:'object',properties:{batch_id:{type:'string',format:'uuid'},approval_id:{type:'string',format:'uuid'},expected_batch_version:{type:'integer',minimum:1}},required:['batch_id','approval_id','expected_batch_version'],additionalProperties:false}},
+  {name:'preview_rule_override',description:'Preview a one-result Director adjustment preserving original output and exact runtime scope',inputSchema:{type:'object',properties:{payload:{type:'object'},idempotency_key:{type:'string',minLength:8,maxLength:160}},required:['payload','idempotency_key'],additionalProperties:false}},
+  {name:'request_rule_override_approval',description:'Approve an exact justified override digest',inputSchema:{type:'object',properties:{batch_id:{type:'string',format:'uuid'},reason:{type:'string',minLength:3,maxLength:500}},required:['batch_id','reason'],additionalProperties:false}},
+  {name:'commit_rule_override',description:'Commit an approved override for exactly one unchanged calculation result',inputSchema:{type:'object',properties:{batch_id:{type:'string',format:'uuid'},approval_id:{type:'string',format:'uuid'},expected_batch_version:{type:'integer',minimum:1}},required:['batch_id','approval_id','expected_batch_version'],additionalProperties:false}},
+  {name:'read_calculation_result',description:'Read original, adjusted and final output with rule, context and Director override evidence',inputSchema:{type:'object',properties:{calculation_result_id:{type:'string',format:'uuid'}},required:['calculation_result_id'],additionalProperties:false}},
   {name:'resolve_calculation_rule',description:'Resolve one approved rule for an effective date and canonical runtime context; fail closed on missing, ambiguous or unsupported rules',inputSchema:{type:'object',properties:{rule_type:{type:'string'},effective_date:{type:'string',format:'date'},runtime_context:{type:'object'}},required:['rule_type','effective_date','runtime_context'],additionalProperties:false}},
   {name:'execute_calculation_rule',description:'Resolve and execute an implemented governed staffing or budget handler and retain traceable input/result evidence',inputSchema:{type:'object',properties:{rule_type:{type:'string'},effective_date:{type:'string',format:'date'},runtime_context:{type:'object'},inputs:{type:'object'},input_source_evidence:{type:'object'},result_mode:{type:'string',enum:['CURRENT_RECALCULATION','HISTORICAL_LOCKED']}},required:['rule_type','effective_date','runtime_context','inputs','input_source_evidence'],additionalProperties:false}},
   {name:'list_daycares',description:'List daycares visible to the authenticated user',inputSchema:{type:'object',properties:{},additionalProperties:false}},
@@ -310,7 +317,7 @@ module.exports=async function handler(req,res){
   if(Object.keys(args).length!==1||!UUID.test(args.document_id||''))return send(res,200,error(id,-32602,'Invalid document ID'));
   rpc='portal_mcp_read_policy';params={p_document_id:args.document_id};break;
  case 'list_calculation_rules':
-  if(Object.keys(args).some(k=>!['rule_type','lifecycle_status'].includes(k))||(args.rule_type!==undefined&&(typeof args.rule_type!=='string'||args.rule_type.length>80))||(args.lifecycle_status!==undefined&&!['DRAFT','ACTIVE','REPLACED','RETIRED'].includes(args.lifecycle_status)))return send(res,200,error(id,-32602,'Invalid rule filters'));
+  if(Object.keys(args).some(k=>!['rule_type','lifecycle_status'].includes(k))||(args.rule_type!==undefined&&(typeof args.rule_type!=='string'||args.rule_type.length>80))||(args.lifecycle_status!==undefined&&!['DRAFT','APPROVED','ACTIVE','REPLACED','RETIRED'].includes(args.lifecycle_status)))return send(res,200,error(id,-32602,'Invalid rule filters'));
   rpc='portal_mcp_list_calculation_rules';params={p_rule_type:args.rule_type||null,p_lifecycle_status:args.lifecycle_status||null};break;
  case 'read_calculation_rule':
   if(Object.keys(args).some(k=>!['rule_key','version'].includes(k))||!UUID.test(args.rule_key||'')||(args.version!==undefined&&(!Number.isInteger(args.version)||args.version<1)))return send(res,200,error(id,-32602,'Invalid rule identity'));
@@ -323,10 +330,31 @@ module.exports=async function handler(req,res){
   rpc='portal_mcp_request_calculation_rule_approval';params={p_batch_id:args.batch_id,p_reason:args.reason.trim()};break;
  case 'commit_calculation_rule':
   if(Object.keys(args).length!==3||!UUID.test(args.batch_id||'')||!UUID.test(args.approval_id||'')||!Number.isInteger(args.expected_batch_version)||args.expected_batch_version<1)return send(res,200,error(id,-32602,'Invalid rule commit'));
-  rpc='portal_mcp_commit_calculation_rule';params={p_batch_id:args.batch_id,p_approval_id:args.approval_id,p_expected_batch_version:args.expected_batch_version};break;
+  rpc='portal_mcp_commit_rule_instruction';params={p_batch_id:args.batch_id,p_approval_id:args.approval_id,p_expected_batch_version:args.expected_batch_version};break;
  case 'get_calculation_rule_batch':
   if(Object.keys(args).length!==1||!UUID.test(args.batch_id||''))return send(res,200,error(id,-32602,'Invalid rule batch'));
   rpc='portal_mcp_get_calculation_rule_batch';params={p_batch_id:args.batch_id};break;
+ case 'preview_rule_applicability':
+  if(Object.keys(args).length!==2||!args.payload||typeof args.payload!=='object'||Array.isArray(args.payload)||typeof args.idempotency_key!=='string'||args.idempotency_key.trim().length<8)return send(res,200,error(id,-32602,'Invalid applicability Preview'));
+  rpc='portal_mcp_preview_rule_applicability';params={p_payload:args.payload,p_idempotency_key:args.idempotency_key.trim()};break;
+ case 'request_rule_applicability_approval':
+  if(Object.keys(args).length!==2||!UUID.test(args.batch_id||'')||typeof args.reason!=='string'||args.reason.trim().length<3)return send(res,200,error(id,-32602,'Invalid applicability approval'));
+  rpc='portal_mcp_request_rule_applicability_approval';params={p_batch_id:args.batch_id,p_reason:args.reason.trim()};break;
+ case 'commit_rule_applicability':
+  if(Object.keys(args).length!==3||!UUID.test(args.batch_id||'')||!UUID.test(args.approval_id||'')||!Number.isInteger(args.expected_batch_version))return send(res,200,error(id,-32602,'Invalid applicability commit'));
+  rpc='portal_mcp_commit_rule_applicability';params={p_batch_id:args.batch_id,p_approval_id:args.approval_id,p_expected_batch_version:args.expected_batch_version};break;
+ case 'preview_rule_override':
+  if(Object.keys(args).length!==2||!args.payload||typeof args.payload!=='object'||Array.isArray(args.payload)||typeof args.idempotency_key!=='string'||args.idempotency_key.trim().length<8)return send(res,200,error(id,-32602,'Invalid override Preview'));
+  rpc='portal_mcp_preview_rule_override';params={p_payload:args.payload,p_idempotency_key:args.idempotency_key.trim()};break;
+ case 'request_rule_override_approval':
+  if(Object.keys(args).length!==2||!UUID.test(args.batch_id||'')||typeof args.reason!=='string'||args.reason.trim().length<3)return send(res,200,error(id,-32602,'Invalid override approval'));
+  rpc='portal_mcp_request_rule_override_approval';params={p_batch_id:args.batch_id,p_reason:args.reason.trim()};break;
+ case 'commit_rule_override':
+  if(Object.keys(args).length!==3||!UUID.test(args.batch_id||'')||!UUID.test(args.approval_id||'')||!Number.isInteger(args.expected_batch_version))return send(res,200,error(id,-32602,'Invalid override commit'));
+  rpc='portal_mcp_commit_rule_override';params={p_batch_id:args.batch_id,p_approval_id:args.approval_id,p_expected_batch_version:args.expected_batch_version};break;
+ case 'read_calculation_result':
+  if(Object.keys(args).length!==1||!UUID.test(args.calculation_result_id||''))return send(res,200,error(id,-32602,'Invalid calculation result'));
+  rpc='portal_mcp_read_calculation_result';params={p_result_id:args.calculation_result_id};break;
  case 'resolve_calculation_rule':
   if(Object.keys(args).length!==3||typeof args.rule_type!=='string'||args.rule_type.length>80||typeof args.effective_date!=='string'||Number.isNaN(Date.parse(args.effective_date))||!args.runtime_context||typeof args.runtime_context!=='object'||Array.isArray(args.runtime_context))return send(res,200,error(id,-32602,'Invalid rule resolution request'));
   rpc='portal_mcp_resolve_calculation_rule';params={p_rule_type:args.rule_type,p_effective_date:args.effective_date,p_runtime_context:args.runtime_context};break;
