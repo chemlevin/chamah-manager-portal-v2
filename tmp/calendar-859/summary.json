@@ -1,0 +1,50 @@
+{
+  "sources": {
+    "JEWISH": {
+      "path": "C:/Users/User/Downloads/jewish.pdf",
+      "expected": "0ff3cf2173411ce296747b8b4ba9e92d238b354b9a29faef5532ac5185b064d9",
+      "filename": "jewish.pdf",
+      "sha256": "0ff3cf2173411ce296747b8b4ba9e92d238b354b9a29faef5532ac5185b064d9"
+    },
+    "HAREDI": {
+      "path": "C:/Users/User/Downloads/haredi (1).pdf",
+      "expected": "680e743ccebeebb9f60da64580ae47f7a229e823637c02a227a114356a0796a6",
+      "filename": "haredi (1).pdf",
+      "sha256": "680e743ccebeebb9f60da64580ae47f7a229e823637c02a227a114356a0796a6"
+    }
+  },
+  "summary": [
+    {
+      "environment": "preview",
+      "project_id": "iwsbjudahtjyigecymzd",
+      "row_count": 859,
+      "entity_counts": {
+        "holiday_calendars": 2,
+        "holiday_calendar_days": 730,
+        "daycare_calendar_assignments": 5,
+        "daycare_operating_hours": 30,
+        "daycare_calendar_exceptions": 32,
+        "daycare_monthly_operating_results": 60
+      },
+      "rows_sha256": "bbbbedc8226a8dc3abc488865cd0e1437d2ab7dad9f532ad9e06bf2af68a3a5f",
+      "payload_sha256": "ad0469f9909691973d7f20968f8ecf845811b803361ea530dba46126d9ec6aec",
+      "idempotency_key": "calendar-sy-2026-2027-bbbbedc8226a8dc3abc488865cd0e143"
+    },
+    {
+      "environment": "production",
+      "project_id": "vyyfuaqmbxvfqgbfqooc",
+      "row_count": 859,
+      "entity_counts": {
+        "holiday_calendars": 2,
+        "holiday_calendar_days": 730,
+        "daycare_calendar_assignments": 5,
+        "daycare_operating_hours": 30,
+        "daycare_calendar_exceptions": 32,
+        "daycare_monthly_operating_results": 60
+      },
+      "rows_sha256": "fe1500559bae2f4f3aa3509b133e8b5352258ca9544675de92945819aadd1c04",
+      "payload_sha256": "72f7c99974e94f6fc06e66bde163102b0cd124f312775ba0bee3e23a8a11b7e5",
+      "idempotency_key": "calendar-sy-2026-2027-fe1500559bae2f4f3aa3509b133e8b53"
+    }
+  ]
+}
