@@ -31,12 +31,16 @@ end $$;
 
 do $$
 declare
- broad jsonb;specific jsonb;conflicting jsonb;budget jsonb;stored_only jsonb;app jsonb;calc jsonb;budget_calc jsonb;
+ broad jsonb;specific jsonb;replacement jsonb;conflicting jsonb;budget jsonb;budget_specific jsonb;stored_only jsonb;app jsonb;calc jsonb;replacement_calc jsonb;budget_calc jsonb;budget_specific_calc jsonb;
  override_preview jsonb;override_approval jsonb;override_commit jsonb;readback jsonb;
- broad_id uuid;specific_id uuid;conflicting_id uuid;budget_id uuid;stored_id uuid;daycare uuid;random_user uuid:=gen_random_uuid();
+ broad_id uuid;specific_id uuid;replacement_id uuid;conflicting_id uuid;budget_id uuid;budget_specific_id uuid;stored_id uuid;daycare uuid;age_group uuid:=gen_random_uuid();budget_category uuid:=gen_random_uuid();random_user uuid:=gen_random_uuid();
 begin
  select daycare_id into daycare from public.daycares order by daycare_id limit 1;
  if daycare is null then raise exception 'isolated environment needs one synthetic daycare fixture';end if;
+ insert into public.age_groups(age_group_id,age_group_code,display_name,display_order,lifecycle_status)
+ values(age_group,'SYNTHETIC_RULE_TEST','Synthetic rule test age group',999,'ACTIVE');
+ insert into public.budget_categories(budget_category_id,budget_category_code,display_name,category_type,lifecycle_status,display_order,requires_budget,notes)
+ values(budget_category,'SYNTHETIC_RULE_TEST','Synthetic rule test budget category','EXPENSE','ACTIVE',999,true,'Rollback-only canonical fixture');
 
  broad:=pg_temp.test_commit_rule(jsonb_build_object('operation','CREATE','rule',jsonb_build_object(
   'rule_type','STAFFING_RATIO','display_name','synthetic broad staffing','instruction','Synthetic broad staffing instruction',
@@ -71,6 +75,21 @@ begin
   '{"children_count":12}'::jsonb,'{"fixture":"rollback-only","source_version":1}'::jsonb,'CURRENT_RECALCULATION');
  if calc->>'status'<>'CALCULATED' or (calc#>>'{final_output,required_staff}')::numeric<>2.5 or calc->>'calculation_rule_id'<>specific_id::text then raise exception 'specific selection failed %',calc;end if;
 
+ replacement:=pg_temp.test_commit_rule(jsonb_build_object('operation','REPLACE','expected_version',1,'rule',jsonb_build_object(
+  'rule_key',specific#>>'{rule,rule_key}','rule_type','STAFFING_RATIO','display_name','synthetic daycare exception v2','instruction','Synthetic replacement staffing instruction',
+  'definition',jsonb_build_object('children_per_staff',4,'rounding_method','CEIL_HALF','minimum_staff',1),
+  'effective_from','2099-03-01','handler_code','STAFFING_RATIO_V1','source_evidence',jsonb_build_object('fixture','rollback-only','revision',2)),
+  'applicability','[]'::jsonb),'isolated-rule-specific-replace-0001');
+ replacement_id:=(replacement#>>'{rule,calculation_rule_id}')::uuid;
+ if (replacement#>>'{rule,version}')::int<>2 or replacement#>>'{rule,previous_version_id}'<>specific_id::text then raise exception 'replacement history missing %',replacement;end if;
+ if (select lifecycle_status from public.calculation_rules where calculation_rule_id=specific_id)<>'REPLACED' then raise exception 'old version was not preserved as replaced';end if;
+ perform pg_temp.test_commit_app(replacement_id,2,jsonb_build_array(jsonb_build_object('applicability_group',1,'context_kind','DAYCARE','context_id',daycare)),'isolated-app-specific-replace-0001',100);
+ replacement_calc:=public.portal_mcp_execute_calculation_rule('STAFFING_RATIO','2099-03-01',jsonb_build_object('daycare_id',daycare),
+  '{"children_count":12}'::jsonb,'{"fixture":"rollback-only","source_version":2}'::jsonb,'CURRENT_RECALCULATION');
+ if (replacement_calc#>>'{final_output,required_staff}')::numeric<>3 or replacement_calc->>'calculation_rule_id'<>replacement_id::text then raise exception 'replacement selection failed %',replacement_calc;end if;
+ readback:=public.portal_mcp_read_calculation_result((calc->>'calculation_result_id')::uuid);
+ if readback->>'calculation_rule_id'<>specific_id::text or (readback#>>'{original_output,required_staff}')::numeric<>2.5 then raise exception 'historical calculation was not reproducible %',readback;end if;
+
  budget:=pg_temp.test_commit_rule(jsonb_build_object('operation','CREATE','rule',jsonb_build_object(
   'rule_type','BUDGET_PARAMETER','display_name','synthetic budget parameter','instruction','Synthetic per-unit budget parameter',
   'definition',jsonb_build_object('amount',12.5,'calculation_method','PER_UNIT'),'effective_from','2099-01-01',
@@ -79,6 +98,19 @@ begin
  perform pg_temp.test_commit_app(budget_id,1,'[]'::jsonb,'isolated-app-budget-0001',100);
  budget_calc:=public.portal_mcp_execute_calculation_rule('BUDGET_PARAMETER','2099-02-01','{}'::jsonb,'{"quantity":4}'::jsonb,'{"fixture":"rollback-only"}'::jsonb,'HISTORICAL_LOCKED');
  if (budget_calc#>>'{final_output,budget_amount}')::numeric<>50 then raise exception 'budget handler failed %',budget_calc;end if;
+ budget_specific:=pg_temp.test_commit_rule(jsonb_build_object('operation','CREATE','rule',jsonb_build_object(
+  'rule_type','BUDGET_PARAMETER','display_name','synthetic age/category budget exception','instruction','Synthetic age and category specific budget parameter',
+  'definition',jsonb_build_object('amount',20,'calculation_method','PER_UNIT'),'effective_from','2099-01-01',
+  'handler_code','BUDGET_PARAMETER_V1','source_evidence',jsonb_build_object('fixture','rollback-only')),'applicability','[]'::jsonb),'isolated-rule-budget-specific-0001');
+ budget_specific_id:=(budget_specific#>>'{rule,calculation_rule_id}')::uuid;
+ perform pg_temp.test_commit_app(budget_specific_id,1,jsonb_build_array(
+  jsonb_build_object('applicability_group',1,'context_kind','AGE_GROUP','context_id',age_group),
+  jsonb_build_object('applicability_group',1,'context_kind','BUDGET_CATEGORY','context_id',budget_category)
+ ),'isolated-app-budget-specific-0001',100);
+ budget_specific_calc:=public.portal_mcp_execute_calculation_rule('BUDGET_PARAMETER','2099-02-01',jsonb_build_object('age_group_id',age_group,'budget_category_id',budget_category),'{"quantity":4}'::jsonb,'{"fixture":"rollback-only"}'::jsonb,'CURRENT_RECALCULATION');
+ if (budget_specific_calc#>>'{final_output,budget_amount}')::numeric<>80 or budget_specific_calc->>'calculation_rule_id'<>budget_specific_id::text then raise exception 'age/category specific precedence failed %',budget_specific_calc;end if;
+ budget_calc:=public.portal_mcp_execute_calculation_rule('BUDGET_PARAMETER','2099-02-01',jsonb_build_object('age_group_id',age_group),'{"quantity":4}'::jsonb,'{"fixture":"rollback-only"}'::jsonb,'CURRENT_RECALCULATION');
+ if (budget_calc#>>'{final_output,budget_amount}')::numeric<>50 or budget_calc->>'calculation_rule_id'<>budget_id::text then raise exception 'broad fallback after partial context failed %',budget_calc;end if;
 
  stored_only:=pg_temp.test_commit_rule(jsonb_build_object('operation','CREATE','rule',jsonb_build_object(
   'rule_type','OPERATIONAL_PROCEDURE','display_name','synthetic stored instruction','instruction','Synthetic instruction without implementation',

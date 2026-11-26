@@ -5,7 +5,8 @@ import test from "node:test";
 
 const root = process.cwd();
 const migration = fs.readFileSync(path.join(root, "supabase/migrations/20261125200346_rules_contexts_governed_workflow.sql"), "utf8")
-  + fs.readFileSync(path.join(root, "supabase/migrations/20261125203251_separate_applicability_and_director_overrides.sql"), "utf8");
+  + fs.readFileSync(path.join(root, "supabase/migrations/20261125203251_separate_applicability_and_director_overrides.sql"), "utf8")
+  + fs.readFileSync(path.join(root, "supabase/migrations/20261125205854_replace_rule_applicability_history.sql"), "utf8");
 const mcp = fs.readFileSync(path.join(root, "api/mcp.js"), "utf8");
 
 test("rule identity, immutable versions, applicability and results remain separate", () => {
@@ -24,6 +25,15 @@ test("approval is bound to exact preview digest and commit is atomic and concurr
     "pg_advisory_xact_lock", "Rule version changed", "Applicable rule conflict detected",
     "Idempotency key reused with different payload",
   ]) assert.ok(migration.includes(contract), contract);
+  assert.match(migration, /applicability-type:' \|\| rule_type_value/);
+  assert.match(migration, /Recheck after acquiring the shared rule-type lock/);
+});
+
+test("replacement preserves history while retiring only the old active applicability", () => {
+  assert.match(migration, /sync_replaced_rule_applicability/);
+  assert.match(migration, /new\.lifecycle_status = 'REPLACED'/);
+  assert.match(migration, /set lifecycle_status = 'REPLACED'/);
+  assert.match(migration, /where calculation_rule_id = new\.calculation_rule_id/);
 });
 
 test("resolver fails closed and handler truth is explicit", () => {

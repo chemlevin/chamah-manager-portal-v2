@@ -1,6 +1,6 @@
 # Governed Rules, Applicability, Context, Results, and Overrides
 
-Status: infrastructure deployed 2026-11-25. Production contains zero rule, applicability, result, and override records.
+Status: infrastructure deployed and acceptance-tested through 2026-11-26. Production contains zero rule, applicability, result, and override records.
 
 ## Separate identities and lifecycles
 
@@ -26,7 +26,7 @@ Director override:
 
 `preview_rule_override` → `request_rule_override_approval` → `commit_rule_override` → `read_calculation_result`.
 
-Each workflow binds a real `portal_action_approvals` row to the exact SHA-256 payload digest, action, batch, expected version and preview row version. Changed payloads, expired/consumed approvals, stale versions, reused idempotency keys with different payloads, unauthorized callers and mismatched scope fail. Commits lock the governing identity, write atomically, audit and read back. The legacy combined commit RPC is explicitly revoked.
+Each workflow binds a real `portal_action_approvals` row to the exact SHA-256 payload digest, action, batch, expected version and preview row version. Changed payloads, expired/consumed approvals, stale versions, reused idempotency keys with different payloads, unauthorized callers and mismatched scope fail. Commits write atomically, audit and read back. Applicability activation serializes by rule type, so conflicting activations for different rule IDs cannot both pass concurrently. The legacy combined commit RPC is explicitly revoked.
 
 Authenticated clients receive no direct writes. Director authorization is checked inside every SECURITY DEFINER entry point; RLS and explicit grants remain defense in depth. Batch tables are intentionally RPC-only and have no SELECT policy.
 
@@ -65,7 +65,10 @@ The browser budget model remains legacy until its caller supplies server-resolve
 - `20261125201106_calculation_rule_fk_indexes.sql`
 - `20261125203251_separate_applicability_and_director_overrides.sql`
 - `20261125203351_close_legacy_rule_commit_and_index.sql`
-- `supabase/tests/calculation_rules_foundation.sql` — isolated rollback workflow/execution/override test.
+- `20261125205854_replace_rule_applicability_history.sql`
+- `supabase/tests/calculation_rules_foundation.sql` — isolated rollback workflow/execution/override test, including replacement history and canonical age-group/budget-category precedence.
 - `tests/rules-contexts-governed-workflow.test.mjs`, `tests/governed-budget-adapter.test.mjs`, and existing budget-engine regression tests.
+
+The isolated concurrency acceptance test used two simultaneous database sessions against two approved synthetic rule IDs with the same type, period, priority and daycare. Exactly one activation committed; the other failed with SQLSTATE `23P01`. Read-back found one active applicability set, and exact cleanup returned every rule/applicability/result/override/batch and synthetic master-fixture count to zero.
 
 Before the first real rule, review its instruction/source, approve it, separately define and approve exact applicability, confirm handler support, and activate the governed adapter only for that scope.
