@@ -6961,3 +6961,7 @@ Preview URL: `https://chamah-director-preview.vercel.app` with isolated Supabase
 Production URL (if deployed): `https://chamah-portal.vercel.app`; database migration `20261126035121` applied and independently read back.
 Blockers: None.
 Next recommended TRACK: Define the first real staffing or budget rule with the Director through the governed instruction-approval workflow, then separately approve its exact applicability before activation.
+
+## 2026-11-26 — TRACK: CHAMAH-STAFFING-RULES-COMPLETION
+
+Implementation checkpoint: recovered the exact Preview-only daycare operating-hours grant and `portal-runtime-config` v2 source, preserved `tuition_payment_count`, connected scoped per-daycare calendar results and governed calculation-rule metadata to the finance runtime, and made the budget calculation prefer enforced ratio/rounding/hour instructions while retaining the legacy path until governed activation. Added a bounded JSON numeric-expression evaluator shared by staffing and budget rule types; it supports constants, named numeric inputs, addition, multiplication, division, step-ceiling, numeric comparisons and conditions, with a depth limit and no dynamic SQL/code execution. Isolated Preview rollback verification executed two separately governed synthetic rules through Preview, approval, atomic commit, applicability, execution and result lineage, then returned all rule/result/workflow counts to zero. Production was not changed at this checkpoint.

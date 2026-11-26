@@ -38,12 +38,14 @@ const screens: Record<string, Dataset[]> = {
     { key: "years", path: "school_years?select=school_year_id,display_name,start_date,end_date,is_default,is_selectable&is_selectable=eq.true&order=start_date.desc", required: true },
     { key: "months", path: "school_year_months?select=school_year_month_id,school_year_id,month_label,start_date,school_year_sequence&order=school_year_sequence", required: true },
     { key: "daycares", path: "daycares?select=daycare_id,daycare_code,allocation_unit_id,display_name,lifecycle_status,display_order&order=display_order", scoped: "daycare" },
-    { key: "dsy", path: "daycare_school_years?select=daycare_school_year_id,daycare_id,school_year_id,is_operating,tuition_calculation_mode,tuition_standard_type,staffing_calculation_mode,staffing_standard_type" },
+    { key: "dsy", path: "daycare_school_years?select=daycare_school_year_id,daycare_id,school_year_id,is_operating,tuition_payment_count,tuition_calculation_mode,tuition_standard_type,staffing_calculation_mode,staffing_standard_type" },
     { key: "classrooms", path: "classrooms?select=classroom_id,daycare_school_year_id,display_name,lifecycle_status,effective_from,effective_to" },
     { key: "units", path: "allocation_units?select=allocation_unit_id,display_name,allocation_unit_type,lifecycle_status,display_order&lifecycle_status=eq.ACTIVE&order=display_order.asc,display_name.asc", scoped: "unit" },
     { key: "budgetCategories", path: "budget_categories?select=budget_category_id,budget_category_code,display_name,category_type,lifecycle_status,requires_budget,budget_source&lifecycle_status=eq.ACTIVE", required: true },
     { key: "budgetRules", path: "budget_rules?select=budget_rule_id,budget_category_id,school_year_id,daycare_id,allocation_unit_id,age_group_id,effective_from,effective_to,rule_type,numeric_value,text_value,lifecycle_status,sheet_rule_id,calculation_method,parameter_1,parameter_2,show_budget,display_scope,effective_from_month_id,effective_to_month_id,standard_type,minimum_staff,rounding_method", required: true },
     { key: "workCalendars", path: "monthly_work_calendars?select=monthly_work_calendar_id,school_year_month_id,sun_thu_hours_per_day,friday_hours_per_day,sun_thu_workdays,friday_workdays", required: true },
+    { key: "daycareOperatingResults", path: "daycare_monthly_operating_results?select=daycare_id,school_year_month_id,operating_days,regular_minutes,short_day_minutes,calculation_status", scoped: "daycare" },
+    { key: "calculationRules", path: "calculation_rules?select=calculation_rule_id,rule_key,rule_number,version,rule_type,display_name,definition,effective_from,effective_to,lifecycle_status,handler_code,implementation_status,enforcement_status,approval_id&lifecycle_status=eq.APPROVED&enforcement_status=eq.ENFORCED" },
     { key: "staffingParameters", path: "staffing_budget_parameters?select=staffing_budget_parameter_id,school_year_id,monthly_hours_per_fte,hourly_budget_cost,budget_formula,effective_from_month_id,effective_to_month_id,lifecycle_status", required: true },
     { key: "ageGroups", path: "age_groups?select=age_group_id,age_group_code,display_name,lifecycle_status", required: true },
     { key: "roles", path: "roles?select=role_id,role_code,display_name,role_group" },
@@ -85,6 +87,13 @@ Deno.serve(async (request) => {
     const selectedScope = access.profile?.scope_mode === "SELECTED" && !access.profile?.is_super_admin;
     const unitIds = new Set(access.allocation_unit_ids || []);
     const daycareIds = new Set(access.daycare_ids || []);
+    if (selectedScope && unitIds.size) {
+      const allowedDaycaresResponse = await fetch(`${url}/rest/v1/daycares?select=daycare_id,allocation_unit_id`, { headers });
+      if (!allowedDaycaresResponse.ok) throw new Error("daycare_scope");
+      for (const daycare of await allowedDaycaresResponse.json()) {
+        if (unitIds.has(daycare.allocation_unit_id)) daycareIds.add(daycare.daycare_id);
+      }
+    }
     const entries = await Promise.all(datasets.map(async (dataset) => {
       const response = await fetch(`${url}/rest/v1/${dataset.path}`, { headers });
       const rows = await response.json().catch(() => []);

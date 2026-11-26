@@ -1210,8 +1210,8 @@ async function loadGeneralDashboard() {
       rest('employees', 'select=employee_id,first_name,last_name,lifecycle_status'),
       rest('employee_assignments', 'select=assignment_id,employment_id,allocation_unit_id,daycare_id,classroom_id,role_id,effective_from,effective_to,is_primary')
     ]);
-    const { years = [], months = [], daycares = [], dsy = [], classrooms = [], units = [], budgetCategories = [], budgetRules = [], workCalendars = [], staffingParameters = [], ageGroups = [], roles = [] } = config;
-    generalModel = { years, months, daycares, dsy, classrooms, enrollment, payroll, bank, ba, units: activeUnits(units), issues, budgetSnapshots, budgetCategories, budgetRules, workCalendars, staffingParameters, ageGroups, roles, employments, employees, assignments };
+    const { years = [], months = [], daycares = [], dsy = [], classrooms = [], units = [], budgetCategories = [], budgetRules = [], workCalendars = [], daycareOperatingResults = [], calculationRules = [], staffingParameters = [], ageGroups = [], roles = [] } = config;
+    generalModel = { years, months, daycares, dsy, classrooms, enrollment, payroll, bank, ba, units: activeUnits(units), issues, budgetSnapshots, budgetCategories, budgetRules, workCalendars, daycareOperatingResults, calculationRules, staffingParameters, ageGroups, roles, employments, employees, assignments };
     generalStatus = 'ready';
     generalLastUpdated = new Date();
   } catch (error) {

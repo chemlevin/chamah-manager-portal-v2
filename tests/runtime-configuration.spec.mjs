@@ -20,6 +20,14 @@ test.describe('TRACK027 runtime configuration contract', () => {
     expect(app).toContain('/functions/v1/portal-runtime-config?screen=');
   });
 
+test('finance runtime uses scoped daycare calendar results and preserves tuition configuration', () => {
+  expect(runtime).toContain('tuition_payment_count');
+  expect(runtime).toContain('daycare_monthly_operating_results?select=daycare_id,school_year_month_id,operating_days,regular_minutes,short_day_minutes,calculation_status');
+  expect(runtime).toContain('calculation_rules?select=calculation_rule_id,rule_key,rule_number,version');
+  expect(runtime).toContain('if (selectedScope && unitIds.size)');
+  expect(runtime).toContain('unitIds.has(daycare.allocation_unit_id)');
+});
+
   test('server validates VIEW permission and returns only a screen whitelist', () => {
     expect(runtime).toContain('target_screen_code: screenCode');
     expect(runtime).toContain('required_level: "VIEW"');

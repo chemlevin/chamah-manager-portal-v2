@@ -40,6 +40,8 @@ export function calculateBudgetModel(data, options) {
   const dsyById = new Map(data.dsy.map((item) => [item.daycare_school_year_id, item]));
   const classroomsById = new Map(data.classrooms.map((item) => [item.classroom_id, item]));
   const relevantDaycares = data.daycares.filter((item) => item.lifecycle_status === 'ACTIVE' && (includeAllUnits || selectedUnitIds.has(item.allocation_unit_id)));
+  const governedRules = data.calculationRules || [];
+  const governedRule = (number, key) => governedRules.find((rule) => numberValue(rule.rule_number) === number && rule.enforcement_status === 'ENFORCED' && inDateRange(key, rule.effective_from, rule.effective_to));
 
   const addIssue = (code, message, context = {}) => issues.push({ code, message, ...context });
   const ruleActive = (rule, key) => rule.lifecycle_status === 'ACTIVE' && inDateRange(key, rule.effective_from, rule.effective_to);
@@ -67,6 +69,9 @@ export function calculateBudgetModel(data, options) {
       let requiredStaff = 0;
       let requiredHours = 0;
       let tuitionBudget = 0;
+      const ratioInstruction = governedRule(4, key);
+      const roundingInstruction = governedRule(5, key);
+      const hoursInstruction = governedRule(7, key);
 
       for (const classroom of activeClassrooms) {
         const enrollmentRows = daycareEnrollment.filter((item) => item.classroom_id === classroom.classroom_id);
@@ -79,14 +84,18 @@ export function calculateBudgetModel(data, options) {
           children += childCount;
           const staffingRule = data.budgetRules.find((rule) => rule.budget_category_id === categoryByCode.get('CAT-PAYROLL-STAFF')?.budget_category_id && rule.school_year_id === options.schoolYearId && rule.standard_type === dsy.staffing_standard_type && rule.age_group_id === enrollment.age_group_id && ruleActive(rule, key));
           if (!staffingRule?.parameter_1) addIssue('MISSING_STAFFING_RULE', 'חסר כלל תקינה לקבוצת הגיל ולסוג התקינה.', { month: key, daycare: daycare.display_name, classroom: classroom.display_name, ageGroup: age.display_name });
-          const ageStaff = staffingRule?.parameter_1 ? Math.max(numberValue(staffingRule.minimum_staff), roundRequiredStaff(childCount / numberValue(staffingRule.parameter_1))) : 0;
+          const governedRatio = ratioInstruction?.definition?.[String(dsy.staffing_standard_type || '').toLowerCase()]?.[String(age.age_group_code || '').toLowerCase()];
+          if (ratioInstruction && !governedRatio) addIssue('GOVERNED_RATIO_MISSING', 'כלל התקינה המאושר אינו מכסה את סוג התקינה וקבוצת הגיל.', { month: key, daycare: daycare.display_name, classroom: classroom.display_name, ageGroup: age.display_name, calculationRuleId: ratioInstruction.calculation_rule_id });
+          const ratio = ratioInstruction ? numberValue(governedRatio) : numberValue(staffingRule?.parameter_1);
+          const roundingStep = roundingInstruction ? numberValue(roundingInstruction.definition?.rounding_step) : 0.5;
+          const ageStaff = ratio > 0 && roundingStep > 0 ? Math.max(numberValue(staffingRule?.minimum_staff), Math.ceil((childCount / ratio) / roundingStep - Number.EPSILON) * roundingStep) : 0;
           classroomStaff += ageStaff;
 
           const tuitionRules = data.budgetRules.filter((rule) => rule.budget_category_id === categoryByCode.get('CAT-TUITION')?.budget_category_id && rule.school_year_id === options.schoolYearId && ruleActive(rule, key));
           const tuitionRule = tuitionRules.find((rule) => rule.daycare_id === daycare.daycare_id) || tuitionRules.find((rule) => !rule.daycare_id && rule.standard_type === dsy.tuition_standard_type && rule.age_group_id === enrollment.age_group_id);
           if (!tuitionRule?.numeric_value) addIssue('MISSING_TUITION_RULE', 'חסר כלל שכר לימוד לקבוצת הגיל ולסוג המעון.', { month: key, daycare: daycare.display_name, classroom: classroom.display_name, ageGroup: age.display_name });
           classroomTuition += childCount * numberValue(tuitionRule?.numeric_value);
-          classroomRows.push({ type: 'classroom', month: key, allocationUnitId: daycare.allocation_unit_id, daycareId: daycare.daycare_id, daycare: daycare.display_name, classroomId: classroom.classroom_id, classroom: classroom.display_name, ageGroup: age.display_name, children: childCount, requiredCaregivers: ageStaff, operatingHours, requiredHours: operatingHours == null ? null : ageStaff * operatingHours, tuitionBudget: childCount * numberValue(tuitionRule?.numeric_value) });
+          classroomRows.push({ type: 'classroom', month: key, allocationUnitId: daycare.allocation_unit_id, daycareId: daycare.daycare_id, daycare: daycare.display_name, classroomId: classroom.classroom_id, classroom: classroom.display_name, ageGroup: age.display_name, children: childCount, requiredCaregivers: ageStaff, operatingHours, requiredHours: operatingHours == null ? null : ageStaff * operatingHours, tuitionBudget: childCount * numberValue(tuitionRule?.numeric_value), calculationTrace: ratioInstruction && roundingInstruction ? { ratioRule: { calculationRuleId: ratioInstruction.calculation_rule_id, ruleKey: ratioInstruction.rule_key, version: ratioInstruction.version, approvalId: ratioInstruction.approval_id }, roundingRule: { calculationRuleId: roundingInstruction.calculation_rule_id, ruleKey: roundingInstruction.rule_key, version: roundingInstruction.version, approvalId: roundingInstruction.approval_id }, hoursRule: hoursInstruction ? { calculationRuleId: hoursInstruction.calculation_rule_id, ruleKey: hoursInstruction.rule_key, version: hoursInstruction.version, approvalId: hoursInstruction.approval_id } : null, source: { enrollmentId: enrollment.monthly_enrollment_id, classroomId: classroom.classroom_id, operatingResult: operatingResult ? { daycareId: operatingResult.daycare_id, schoolYearMonthId: operatingResult.school_year_month_id } : null } } : null });
         }
         requiredStaff += classroomStaff;
         requiredHours += operatingHours == null ? 0 : classroomStaff * operatingHours;

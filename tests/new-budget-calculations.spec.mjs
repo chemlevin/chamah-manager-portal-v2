@@ -7,7 +7,7 @@ const baseData = {
   dsy: [{ daycare_school_year_id: 'dsy', daycare_id: 'dc', school_year_id: 'sy', is_operating: true, staffing_standard_type: 'EXTENDED', tuition_standard_type: 'EXTENDED' }],
   classrooms: [{ classroom_id: 'room', daycare_school_year_id: 'dsy', display_name: 'כיתה', lifecycle_status: 'ACTIVE', effective_from: '2026-09-01' }],
   enrollment: [{ classroom_id: 'room', reporting_month: '2026-09-01', age_group_id: 'age', children_count: 21 }],
-  ageGroups: [{ age_group_id: 'age', display_name: 'פעוטות' }],
+  ageGroups: [{ age_group_id: 'age', age_group_code: 'TODDLER', display_name: 'פעוטות' }],
   budgetCategories: [
     { budget_category_id: 'staff', budget_category_code: 'CAT-PAYROLL-STAFF', category_type: 'EXPENSE' },
     { budget_category_id: 'fixed', budget_category_code: 'CAT-PAYROLL-NONSTAFF', category_type: 'EXPENSE' },
@@ -52,5 +52,20 @@ test.describe('new portal approved budget calculations', () => {
     const model = calculateBudgetModel({ ...baseData, daycareOperatingResults: [{ daycare_id: 'dc', school_year_month_id: 'm9', operating_days: 20, regular_minutes: 10200, short_day_minutes: 1080, calculation_status: 'CALCULATED' }] }, { schoolYearId: 'sy', months: new Set(['2026-09']), unitIds: ['unit'] });
     expect(summarizeBudget(model).requiredHours).toBe(564);
     expect(summarizeBudget(model).expenseBudget).toBe(3360);
+  });
+
+  test('enforces approved registry ratios and rounding with rule and source lineage', () => {
+    const calculationRules = [
+      { calculation_rule_id: 'ratio-id', rule_key: 'ratio-key', rule_number: 4, version: 2, approval_id: 'ratio-approval', enforcement_status: 'ENFORCED', effective_from: '2026-09-01', definition: { extended: { toddler: 10 }, basic: { toddler: 11 } } },
+      { calculation_rule_id: 'round-id', rule_key: 'round-key', rule_number: 5, version: 2, approval_id: 'round-approval', enforcement_status: 'ENFORCED', effective_from: '2026-09-01', definition: { rounding_step: 0.5 } },
+      { calculation_rule_id: 'hours-id', rule_key: 'hours-key', rule_number: 7, version: 2, approval_id: 'hours-approval', enforcement_status: 'ENFORCED', effective_from: '2026-09-01', definition: { operation: 'multiply_staff_by_operating_hours' } },
+    ];
+    const daycareOperatingResults = [{ daycare_id: 'dc', school_year_month_id: 'm9', operating_days: 20, regular_minutes: 10200, short_day_minutes: 1080, calculation_status: 'CALCULATED' }];
+    const model = calculateBudgetModel({ ...baseData, calculationRules, daycareOperatingResults, enrollment: [{ monthly_enrollment_id: 'enrollment-id', classroom_id: 'room', reporting_month: '2026-09-01', age_group_id: 'age', children_count: 21 }] }, { schoolYearId: 'sy', months: new Set(['2026-09']), unitIds: ['unit'] });
+    const classroom = model.rows.find((row) => row.type === 'classroom');
+    expect(classroom.requiredCaregivers).toBe(2.5);
+    expect(classroom.requiredHours).toBe(470);
+    expect(classroom.calculationTrace.ratioRule).toEqual(expect.objectContaining({ calculationRuleId: 'ratio-id', version: 2, approvalId: 'ratio-approval' }));
+    expect(classroom.calculationTrace.source).toEqual(expect.objectContaining({ enrollmentId: 'enrollment-id', classroomId: 'room', operatingResult: { daycareId: 'dc', schoolYearMonthId: 'm9' } }));
   });
 });
