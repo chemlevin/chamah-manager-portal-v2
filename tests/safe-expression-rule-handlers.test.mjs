@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import test from 'node:test';
 
 const sql = fs.readFileSync(new URL('../supabase/migrations/20261126063000_safe_expression_rule_handlers.sql', import.meta.url), 'utf8');
+const instructionSql = fs.readFileSync(new URL('../supabase/migrations/20261126070000_safe_expression_instruction_handlers.sql', import.meta.url), 'utf8');
 
 test('safe expression handler is bounded and has no dynamic SQL execution', () => {
   assert.match(sql, /p_depth > 16/);
@@ -15,6 +16,12 @@ test('safe expression handler is bounded and has no dynamic SQL execution', () =
   assert.match(sql, /when 'if'/);
   assert.doesNotMatch(sql, /\bexecute\s+format\b/i);
   assert.doesNotMatch(sql, /\beval\b/i);
+});
+
+test('the remaining approved instruction types use the same bounded evaluator', () => {
+  for (const type of ['DEPENDENCY', 'VALIDATION', 'CLASSIFICATION', 'OPERATIONAL_PROCEDURE']) {
+    assert.match(instructionSql, new RegExp(`'${type}'.*'SAFE_EXPRESSION'`));
+  }
 });
 
 test('staffing and budget rule types share the same safe evaluator operation', () => {
