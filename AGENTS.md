@@ -96,6 +96,7 @@ Next recommended TRACK:
 
 
 ## Append-only context log
-- After completing a meaningful business decision, data relationship, source interpretation, new context, or idea, append one compact JSON object to `docs/CONTEXT_LOG.jsonl`.
+- After completing or learning a meaningful business decision, data relationship, source interpretation, new context, or idea, append one compact JSON object to `docs/CONTEXT_LOG.jsonl`.
+- Every entry must state its information source and `verification` status. Record unverified information as `UNVERIFIED`; a source is useful even before it is verified.
 - This is an append-only AI context journal: do not validate, deduplicate, reorganize, or treat it as a runtime rule. Consult it only when prior business context is useful.
 - It may be periodically summarized into a structured reference; continue appending new entries afterward.
