@@ -56,9 +56,9 @@ test.describe('new portal approved budget calculations', () => {
 
   test('enforces approved registry ratios and rounding with rule and source lineage', () => {
     const calculationRules = [
-      { calculation_rule_id: 'ratio-id', rule_key: 'ratio-key', rule_number: 4, version: 2, approval_id: 'ratio-approval', enforcement_status: 'ENFORCED', effective_from: '2026-09-01', definition: { extended: { toddler: 10 }, basic: { toddler: 11 } } },
-      { calculation_rule_id: 'round-id', rule_key: 'round-key', rule_number: 5, version: 2, approval_id: 'round-approval', enforcement_status: 'ENFORCED', effective_from: '2026-09-01', definition: { rounding_step: 0.5 } },
-      { calculation_rule_id: 'hours-id', rule_key: 'hours-key', rule_number: 7, version: 2, approval_id: 'hours-approval', enforcement_status: 'ENFORCED', effective_from: '2026-09-01', definition: { operation: 'multiply_staff_by_operating_hours' } },
+      { calculation_rule_id: 'ratio-id', rule_key: 'e3f98483-6328-4cba-8529-5b16db7addb4', version: 2, approval_id: 'ratio-approval', enforcement_status: 'ENFORCED', effective_from: '2026-09-01', definition: { extended: { toddler: 10 }, basic: { toddler: 11 } } },
+      { calculation_rule_id: 'round-id', rule_key: '0d1da6d4-fd05-4238-becc-099ff44ce98e', version: 2, approval_id: 'round-approval', enforcement_status: 'ENFORCED', effective_from: '2026-09-01', definition: { rounding_step: 0.5 } },
+      { calculation_rule_id: 'hours-id', rule_key: '1f1d1171-c33f-48be-9a60-2b400e5cf66e', version: 2, approval_id: 'hours-approval', enforcement_status: 'ENFORCED', effective_from: '2026-09-01', definition: { operation: 'multiply_staff_by_operating_hours' } },
     ];
     const daycareOperatingResults = [{ daycare_id: 'dc', school_year_month_id: 'm9', operating_days: 20, regular_minutes: 10200, short_day_minutes: 1080, calculation_status: 'CALCULATED' }];
     const model = calculateBudgetModel({ ...baseData, calculationRules, daycareOperatingResults, enrollment: [{ monthly_enrollment_id: 'enrollment-id', classroom_id: 'room', reporting_month: '2026-09-01', age_group_id: 'age', children_count: 21 }] }, { schoolYearId: 'sy', months: new Set(['2026-09']), unitIds: ['unit'] });
