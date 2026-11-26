@@ -5806,6 +5806,25 @@ Production URL (if deployed): `https://chamah-portal.vercel.app`
 Blockers: None for the authorized acceptance scope.
 Next recommended TRACK: None.
 
+## 2026-11-26 — TRACK: CHAMAH-STAFFING-RULES-COMPLETION final release evidence
+
+TRACK: CHAMAH-STAFFING-RULES-COMPLETION
+Status: COMPLETE
+Summary: Promoted the final stable-rule-key implementation to isolated Preview and canonical Production, then verified the exact source SHA, environment identity, authenticated Director rule catalog, protected counts, migration ledger, Edge Function digest, results and override read-back.
+Root cause: The prior release evidence preceded the stable-key follow-up and therefore did not prove that the final commit was serving from the canonical aliases.
+Files changed: `tests/new-budget-calculations.spec.mjs`; `PROJECT_LOG.md`.
+Database changes: None in this final release step. The previously approved seven version-2 rule instructions/applicability sets, two traceable acceptance results and one Director override were read back unchanged.
+Migrations: Production ledger confirms `20261126085012 allow_runtime_config_calendar_results_read`, `20261126085014 safe_expression_rule_handlers`, `20261126085016 safe_expression_staffing_ratio_handler`, `20261126085308 safe_expression_instruction_handlers`, and `20261126085924 rule_override_effective_date_default` (Supabase assigned canonical ledger timestamps to the five forward-only source migrations).
+Edge Functions: Production `portal-runtime-config` v4 is ACTIVE, JWT-protected, SHA-256 `a89c2178ee39c40229e69987ee43e678cb68f0e1372636574739710082065663`.
+Tests: Focused safe-expression/override Node suite 4/4 in the final release turn; earlier committed finance/runtime 11/11 and rule/adapter/security 11/11 remain the implementation gates. Production connector authenticated as DIRECTOR and returned seven APPROVED/implemented/enforced/applicable rule versions. Supabase security advisor was rerun; findings are pre-existing platform/RPC advisories and no new rule-migration finding was identified.
+Production impact: Canonical alias now serves READY deployment `dpl_6g3bjPohwgJassZUoXRxrm1ApceX` with exact application SHA `35e029e59156e41ec8e1c38a65718ddc9c84dab7`, Production Supabase `vyyfuaqmbxvfqgbfqooc`, and canonical MCP URL. Protected read-back: legacy budget rules 47, staffing rules 6, children 425, enrollment rows 63, calendar days 730, bank transactions 247, payroll records 264, collection receipts 766; new registry 7 enforced version-2 rules, 7 preserved REPLACED version-1 rules, 7 active applicability sets, 2 results, 1 override. `tuition_payment_count` remains 11 for all six previously populated operating daycares (including Ashkelon); the private daycare remains null.
+Commit SHA: Application/test release `35e029e59156e41ec8e1c38a65718ddc9c84dab7`; this log-only evidence commit follows.
+Branch: `codex/chamah-calculation-rules-foundation-git-001`.
+Preview URL: `https://chamah-director-preview.vercel.app` (`dpl_GWp45M5UbueXWpTgySAUwd9frNtx`, exact release SHA, isolated Supabase `iwsbjudahtjyigecymzd`).
+Production URL (if deployed): `https://chamah-portal.vercel.app` (`dpl_6g3bjPohwgJassZUoXRxrm1ApceX`, exact release SHA).
+Blockers: None.
+Next recommended TRACK: None.
+
 TRACK: CHAMAH-LINEAGE-CONNECTOR-CATALOG-REGISTRATION-2026-11-24-001
 Status: IMPLEMENTED LOCALLY; Production deployment and connector refresh blocked
 Summary: Preserved the existing lineage tool names and schemas and enabled MCP tool-list change signaling with a server-version bump so an existing Production connector can refresh its cached callable catalog.
