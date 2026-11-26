@@ -65,7 +65,7 @@ The browser budget model remains legacy until its caller supplies server-resolve
 - `20261125201106_calculation_rule_fk_indexes.sql`
 - `20261125203251_separate_applicability_and_director_overrides.sql`
 - `20261125203351_close_legacy_rule_commit_and_index.sql`
-- `20261125205854_replace_rule_applicability_history.sql`
+- `20261126035121_replace_rule_applicability_history.sql`
 - `supabase/tests/calculation_rules_foundation.sql` — isolated rollback workflow/execution/override test, including replacement history and canonical age-group/budget-category precedence.
 - `tests/rules-contexts-governed-workflow.test.mjs`, `tests/governed-budget-adapter.test.mjs`, and existing budget-engine regression tests.
 

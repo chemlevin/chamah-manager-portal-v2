@@ -13,8 +13,8 @@ Verification date for current entries below: `2026-11-25`.
 | Field | Value | Status | Evidence |
 |---|---|---|---|
 | Active branch | `codex/chamah-calculation-rules-foundation-git-001` | VERIFIED | Git inspection and GitHub push, 2026-11-25 |
-| Active commit | `e2ea57e91822ca907444929e00b0877b9d1902e5` | VERIFIED | Git inspection, GitHub push and Vercel runtime read-back, 2026-11-25 |
-| Working tree | Completion evidence update pending commit | VERIFIED | Git inspection, 2026-11-25 |
+| Active implementation commit | `c5816d1` plus exact Production migration filename reconciliation pending completion commit | VERIFIED | Git inspection, GitHub push and Production schema read-back, 2026-11-26 |
+| Working tree | Completion evidence and migration filename reconciliation pending commit | VERIFIED | Git inspection, 2026-11-26 |
 
 ## Production
 
@@ -27,7 +27,7 @@ Verification date for current entries below: `2026-11-25`.
 | Serving deployment SHA | `e2ea57e91822ca907444929e00b0877b9d1902e5` | VERIFIED | Canonical runtime health read-back, 2026-11-25 |
 | Supabase project | `vyyfuaqmbxvfqgbfqooc` (`chamah-manager`) | VERIFIED | Vercel environment, Supabase project and live schema read-back, 2026-11-25 |
 | Edge Function versions | Not established in this registry | UNKNOWN | Requires Production inspection |
-| MCP origin/catalog | `https://chamah-portal.vercel.app/api/mcp`; server source `1.9.0` | VERIFIED DEPLOYED / CURRENT CODEX SESSION MANIFEST STALE | Runtime health, deployed source, authenticated Director profile, and connected-app Refresh tools action; the current Codex session still exposes the pre-refresh catalog, 2026-11-25 |
+| MCP origin/catalog | `https://chamah-portal.vercel.app/api/mcp`; server source `1.9.0` | VERIFIED | Fresh-session authenticated `get_profile` returned `DIRECTOR`; `list_calculation_rules` returned `{"items":[],"total":0}`; authenticated Director profile rechecked after final migration, 2026-11-26 |
 | OAuth issuer | `https://vyyfuaqmbxvfqgbfqooc.supabase.co/auth/v1` | VERIFIED | Canonical runtime health and authenticated profile, 2026-11-25 |
 
 ## Code Preview

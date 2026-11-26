@@ -6,7 +6,7 @@ import test from "node:test";
 const root = process.cwd();
 const migration = fs.readFileSync(path.join(root, "supabase/migrations/20261125200346_rules_contexts_governed_workflow.sql"), "utf8")
   + fs.readFileSync(path.join(root, "supabase/migrations/20261125203251_separate_applicability_and_director_overrides.sql"), "utf8")
-  + fs.readFileSync(path.join(root, "supabase/migrations/20261125205854_replace_rule_applicability_history.sql"), "utf8");
+  + fs.readFileSync(path.join(root, "supabase/migrations/20261126035121_replace_rule_applicability_history.sql"), "utf8");
 const mcp = fs.readFileSync(path.join(root, "api/mcp.js"), "utf8");
 
 test("rule identity, immutable versions, applicability and results remain separate", () => {
