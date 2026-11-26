@@ -7001,3 +7001,28 @@ Preview URL: `https://chamah-director-preview.vercel.app` (`dpl_FE6uyWVR7vJyChdB
 Production URL (if deployed): `https://chamah-portal.vercel.app`; staged/promoted deployment before follow-up `dpl_BYAyTspURCjY5CRtJxu1PHAo68ps`.
 Blockers: None. Final source-SHA redeploy/read-back and protected-count snapshot follow after committing this evidence/fix.
 Next recommended TRACK: None.
+## 2026-11-26 — CHAMAH-RULE-VERSIONING-2026-11-26-001
+
+- Implemented immutable governed amendments for calculation rules. Replacement commits retain the stable `rule_key` and `rule_number`, increment `version`, preserve the prior row and applicability history, carry unchanged approved applicability forward, and resolve the latest version effective on the calculation date.
+- Added required amendment reason, summary, server-computed structured diff, actor/approver/timestamps, and Preview/Approval/Commit references. Validation responses now identify stage, field, received value, expected value, and code.
+- Applied `governed_calculation_rule_versioning` and `calculation_rule_versioning_contract_marker` to isolated Preview `iwsbjudahtjyigecymzd` and Production `vyyfuaqmbxvfqgbfqooc`. The contract marker preserves pre-existing immutable versions as legacy contract v1 while enforcing full metadata on new contract-v2 versions.
+- Governed Rule 29 Preview succeeded (`94e33411-65ef-4502-b80f-74b450c87c3b`), Director approval succeeded (`46f72b6f-5678-4a6c-b6d4-8ab2ef718e23`), and atomic commit created version 2 (`24e03149-e3f8-4805-bd3b-2222f5fcad79`). Version 1 remains readable as `REPLACED` and is linked by `previous_version_id`/`supersedes_rule_id`.
+- Rule 29's only structured change is the instruction clarification effective 2026-09-01. Formula (`active_classrooms × 750`), annual amount (9,000 ILS), bi-monthly reconciliation, and Ganon-to-Snif allocation fields are unchanged. Live resolver read-back returned version 2 as `READY`, `implemented=true`, and `enforced=true`.
+- Protected-domain verification from the Rule 29 Preview timestamp found zero changed child, collection, bank, payroll, and `budget_snapshots` records.
+
+TRACK: CHAMAH-RULE-VERSIONING-2026-11-26-001
+Status: COMPLETE
+Summary: Governed immutable calculation-rule versioning implemented; Rule 29 amended through Preview, Director approval, Commit, read-back, and resolver enforcement.
+Root cause: The prior replacement workflow generated a new rule number for each version, retired prior applicability from date resolution, and lacked required amendment diff/provenance metadata.
+Files changed: `api/mcp.js`; `supabase/migrations/20261126110439_governed_calculation_rule_versioning.sql`; `supabase/migrations/20261126111044_calculation_rule_versioning_contract_marker.sql`; `tests/governed-rule-versioning.test.mjs`; `PROJECT_LOG.md`.
+Database changes: Added governed amendment metadata/reference columns and contract marker; changed rule-number uniqueness to `(rule_number, version)`; replaced Preview/Commit/read/resolver functions; Rule 29 version 2 committed with inherited unchanged applicability.
+Migrations: `governed_calculation_rule_versioning` and `calculation_rule_versioning_contract_marker` applied to Preview and Production.
+Edge Functions: None.
+Tests: Node syntax check and focused calculation-rule suites passed; live Rule 29 Preview/Approval/Commit/read-back/resolver checks passed; protected-domain timestamp checks returned zero changes.
+Production impact: Production calculation-rule schema upgraded; Rule 29 version 2 is current, implemented, and enforced. No child, collection, bank, payroll, or actual budget record changed.
+Commit SHA: None (governance forbids automatic commits without explicit authorization; working tree remains uncommitted).
+Branch: `codex/chamah-calculation-rules-foundation-git-001`.
+Preview URL: None (no frontend deployment required or performed).
+Production URL (if deployed): Database-only governed change; canonical frontend was not redeployed.
+Blockers: None.
+Next recommended TRACK: None.
