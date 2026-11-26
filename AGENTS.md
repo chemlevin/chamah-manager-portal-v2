@@ -93,3 +93,9 @@ Blockers:
 Next recommended TRACK:
 ```
 - State exactly what was verified, what was not, whether Preview/Production changed, and the exact commit SHA. Do not label a documentation-only change as an application release.
+
+
+## Append-only context log
+- After completing a meaningful business decision, data relationship, source interpretation, new context, or idea, append one compact JSON object to `docs/CONTEXT_LOG.jsonl`.
+- This is an append-only AI context journal: do not validate, deduplicate, reorganize, or treat it as a runtime rule. Consult it only when prior business context is useful.
+- It may be periodically summarized into a structured reference; continue appending new entries afterward.
