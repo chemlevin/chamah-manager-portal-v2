@@ -20,3 +20,4 @@
 {"at":"2026-11-26","kind":"rule","key":"office_recruitment_budget_2026_2027","text":"גיוס תשפ״ז: 1,000 ש״ח לשנה לכל כיתה פעילה בפועל; ההוצאה מוקצית למשרד ולא למעון.","source":"Director decision; Production rule 33 read-back","verification":"VERIFIED"}
 {"at":"2026-11-26","kind":"relationship","key":"office_recruitment_scope","text":"כלל הגיוס חל רק על תשפ״ז, CAT-RECRUITMENT ו-UNIT-OFFICE.","source":"Production applicability read-back","verification":"VERIFIED"}
 {"at":"2026-11-26","kind":"verification","key":"office_recruitment_rule_protected_counts","text":"לאחר כלל הגיוס: ילדים 425, גבייה 766, בנק 247 ושכר 264; כלל גיוס אחד נשמר.","source":"Production protected-count read-back","verification":"VERIFIED"}
+{"at":"2026-11-26","kind":"legacy_rule_candidate","key":"training_budget_2026_2027","text":"השתלמויות: כלל ישן מציע 300 ש״ח לשנה לכל תקן שכר תקציבי; טרם אושר ככלל חדש.","source":"Production legacy budget_rules BCS-012","verification":"UNVERIFIED"}
