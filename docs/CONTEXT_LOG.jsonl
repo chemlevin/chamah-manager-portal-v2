@@ -7,3 +7,4 @@
 {"at":"2026-11-26","kind":"rule","key":"budget_systems","text":"מערכות: 15 ש״ח לילד בפועל לחודש; אינו מצטבר.","source":"Director working-session decision","verification":"UNVERIFIED"}
 {"at":"2026-11-26","kind":"idea","key":"insurance_budget","text":"ביטוח חל על כל ילד שהיה במהלך השנה, כולל ילד מחליף; תשלום יכול להיות יחיד או עד חמישה תשלומים; סכום לילד עדיין חסר.","source":"Director working-session decision","verification":"UNVERIFIED"}
 {"at":"2026-11-26","kind":"operating_rule","key":"context_log_entry","text":"כל הקשר, כלל, קשר מידע או רעיון חדש נרשם מיד ביומן עם מקור המידע ומצב האימות; גם מקור לא מאומת נרשם כ-UNVERIFIED.","source":"Director working-session decision","verification":"UNVERIFIED"}
+{"at":"2026-11-26","kind":"operating_rule","key":"context_log_all_business_information","text":"כל מידע עסקי שמוצג ל-Director או נשלף ממערכת נרשם מיד כשורת JSON קצרה ביומן.","source":"Director working-session decision","verification":"UNVERIFIED"}
